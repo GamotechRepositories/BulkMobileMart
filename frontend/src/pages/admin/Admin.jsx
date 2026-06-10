@@ -8,6 +8,9 @@ import ShowCategorySection from "../../components/admin/sections/ShowCategorySec
 import AddProductSection from "../../components/admin/sections/AddProductSection";
 import ShowProductSection from "../../components/admin/sections/ShowProductSection";
 import UserSection from "../../components/admin/sections/UserSection";
+import OrderSection from "../../components/admin/sections/OrderSection";
+import AdminOrderDetailSection from "../../components/admin/sections/AdminOrderDetailSection";
+import PaymentSection from "../../components/admin/sections/PaymentSection";
 import AdminLogin from "./AdminLogin";
 
 function Admin() {
@@ -25,6 +28,9 @@ function Admin() {
           <Route path="products/show" element={<ShowProductSection />} />
           <Route path="products" element={<Navigate to="show" replace />} />
           <Route path="users" element={<UserSection />} />
+          <Route path="orders/:id" element={<AdminOrderDetailSection />} />
+          <Route path="orders" element={<OrderSection />} />
+          <Route path="payments" element={<PaymentSection />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Route>

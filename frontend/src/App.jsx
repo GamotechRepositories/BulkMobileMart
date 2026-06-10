@@ -7,12 +7,15 @@ import ScrollToTop from "./components/layout/ScrollToTop";
 import MobileLayout from "./layouts/MobileLayout";
 import Home from "./pages/Home";
 import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
+import OrderInvoice from "./pages/OrderInvoice";
 import Profile from "./pages/Profile";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Product from "./pages/Product";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
 import Blog from "./pages/Blog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
@@ -57,6 +60,15 @@ function App() {
             }
           />
           <Route
+            path="/orders/:id"
+            element={
+              <MobileLayout>
+                <OrderDetail />
+              </MobileLayout>
+            }
+          />
+          <Route path="/orders/:id/invoice" element={<OrderInvoice />} />
+          <Route
             path="/profile"
             element={
               <MobileLayout>
@@ -69,6 +81,14 @@ function App() {
             element={
               <MobileLayout>
                 <Cart />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <MobileLayout>
+                <Checkout />
               </MobileLayout>
             }
           />

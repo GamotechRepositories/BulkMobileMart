@@ -6,6 +6,8 @@ import {
   IconBanner,
   IconCategory,
   IconDashboard,
+  IconOrder,
+  IconPayment,
   IconProduct,
   IconUser,
   IconUsers,
@@ -19,6 +21,8 @@ const PAGE_TITLES = {
   "/admin/products/add": "Add Product",
   "/admin/products/show": "Show Product",
   "/admin/users": "Users",
+  "/admin/orders": "Orders",
+  "/admin/payments": "Payments",
 };
 
 const NAV_ITEMS = [
@@ -44,6 +48,8 @@ const NAV_ITEMS = [
       { to: "/admin/products/show", label: "Show Product" },
     ],
   },
+  { type: "link", to: "/admin/orders", label: "Orders", icon: IconOrder },
+  { type: "link", to: "/admin/payments", label: "Payments", icon: IconPayment },
   { type: "link", to: "/admin/users", label: "Users", icon: IconUsers },
 ];
 
@@ -255,14 +261,19 @@ function SidebarContent({
 function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { adminUser, adminLogout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const pageTitle = PAGE_TITLES[location.pathname] || "Dashboard";
+  const pageTitle = /^\/admin\/orders\/[^/]+$/.test(location.pathname)
+    ? "Order Details"
+    : PAGE_TITLES[location.pathname] || "Dashboard";
+
+  const isDashboard =
+    location.pathname === "/admin" || location.pathname === "/admin/";
 
   const handleLogout = () => {
-    logout();
+    adminLogout();
     navigate("/admin/login");
   };
 
@@ -289,7 +300,7 @@ function AdminLayout() {
           location={location}
           onNavigate={() => setSidebarOpen(false)}
           onLogout={handleLogout}
-          user={user}
+          user={adminUser}
           collapsed={sidebarCollapsed && !sidebarOpen}
           onCollapse={collapseSidebar}
           onExpand={expandSidebar}
@@ -297,7 +308,7 @@ function AdminLayout() {
       </aside>
 
       <div
-        className={`transition-all duration-300 ${
+        className={`min-w-0 transition-all duration-300 ${
           sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-64"
         }`}
       >
@@ -308,37 +319,39 @@ function AdminLayout() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link
-              to="/"
-              className="rounded-lg border border-neutral-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-neutral-700 transition hover:border-accent hover:text-accent"
-            >
-              ← Back to Site
-            </Link>
-            {user ? (
-              <>
-                <span className="hidden md:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700 max-w-[140px] truncate">
-                  <IconUser className="w-4 h-4 shrink-0" />
-                  {user.name.split(" ")[0]}
+          {isDashboard && (
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <Link
+                to="/"
+                className="rounded-lg border border-neutral-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-neutral-700 transition hover:border-accent hover:text-accent"
+              >
+                ← Back to Site
+              </Link>
+              {adminUser ? (
+                <>
+                  <span className="hidden md:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700 max-w-[140px] truncate">
+                    <IconUser className="w-4 h-4 shrink-0" />
+                    {adminUser.name.split(" ")[0]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700">
+                  <IconUser className="w-4 h-4" />
+                  Admin
                 </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-red-600 transition hover:bg-red-100"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700">
-                <IconUser className="w-4 h-4" />
-                Admin
-              </span>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </header>
 
-        <main className="p-4 sm:p-6">
+        <main className="min-w-0 overflow-x-hidden p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

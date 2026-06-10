@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { deleteUser, getUsers, updateUser } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import UserEditModal from "../UserEditModal";
-import { btnDanger, btnSecondary, tableClass } from "../adminStyles";
+import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
 
 function UserSection() {
   const [users, setUsers] = useState([]);
@@ -63,7 +63,7 @@ function UserSection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert
         error={error}
         success={success}
@@ -87,14 +87,21 @@ function UserSection() {
         </p>
       ) : (
         <div className={tableClass}>
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className={compactTableClass}>
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[28%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+              <col className="w-[26%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border-light bg-mobile-surface">
-                <th className="px-4 py-3 font-semibold">Name</th>
-                <th className="px-4 py-3 font-semibold">Email</th>
-                <th className="px-4 py-3 font-semibold">Phone</th>
-                <th className="px-4 py-3 font-semibold">Joined</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                <th className={thClass}>Name</th>
+                <th className={thClass}>Email</th>
+                <th className={thClass}>Phone</th>
+                <th className={thClass}>Joined</th>
+                <th className={`${thClass} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -103,16 +110,24 @@ function UserSection() {
                   key={user._id}
                   className="border-b border-border-light last:border-0"
                 >
-                  <td className="px-4 py-3 font-medium">{user.name}</td>
-                  <td className="px-4 py-3 text-text-secondary">{user.email}</td>
-                  <td className="px-4 py-3 text-text-secondary">{user.phone}</td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {user.createdAt
-                      ? new Date(user.createdAt).toLocaleDateString("en-IN")
-                      : "—"}
+                  <td className={`${tdClass} font-medium`}>
+                    <span className="block truncate">{user.name}</span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">{user.email}</span>
+                  </td>
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">{user.phone}</span>
+                  </td>
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">
+                      {user.createdAt
+                        ? new Date(user.createdAt).toLocaleDateString("en-IN")
+                        : "—"}
+                    </span>
+                  </td>
+                  <td className={tdClass}>
+                    <div className="flex flex-wrap justify-end gap-1.5">
                       <button
                         type="button"
                         onClick={() => setEditingUser(user)}

@@ -16,7 +16,36 @@ export const btnSecondary =
   "rounded-lg border border-border-light px-4 py-2 text-sm font-medium text-text-primary transition hover:border-primary hover:text-primary";
 
 export const tableClass =
-  "overflow-x-auto rounded-xl border border-border-light bg-white";
+  "overflow-hidden rounded-xl border border-border-light bg-white";
+
+export const compactTableClass = "w-full table-fixed text-left text-xs sm:text-sm";
+
+export const thClass = "px-2 py-2.5 font-semibold sm:px-3 sm:py-3";
+
+export const tdClass = "px-2 py-2 align-top sm:px-3 sm:py-2.5";
+
+export const adminFilterCardClass =
+  "rounded-xl border border-neutral-200 bg-white p-4 shadow-sm";
+
+export const adminFilterLabelClass =
+  "mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500";
+
+export const adminFilterInputClass =
+  "w-full min-w-0 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none";
+
+export const adminTableWrapperClass =
+  "mt-4 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
+
+export const adminTableClass = "w-full table-fixed text-left text-sm";
+
+export const adminTableHeaderClass = "bg-neutral-900 text-white";
+
+export const adminThClass = "px-3 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wide sm:px-4";
+
+export const adminActionBtnClass =
+  "rounded border border-neutral-300 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 transition hover:bg-neutral-50 disabled:opacity-60";
+
+export const adminTdClass = "px-3 py-4 align-middle sm:px-4";
 
 export const parseList = (value) =>
   value

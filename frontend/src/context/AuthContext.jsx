@@ -1,17 +1,25 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { getMe, loginUser, signupUser } from "../api/api";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import api, { loginUser, signupUser } from "../api/api";
+import { ADMIN_STORAGE_KEY, STORAGE_KEY } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
 
-const STORAGE_KEY = "bmm_auth";
+async function fetchMeWithToken(token) {
+  const res = await api.get("/api/users/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data.data;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
+  const [adminToken, setAdminToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authModal, setAuthModal] = useState(null);
 
-  const persistAuth = (authUser, authToken) => {
+  const persistCustomerAuth = (authUser, authToken) => {
     setUser(authUser);
     setToken(authToken);
     localStorage.setItem(
@@ -20,10 +28,25 @@ export function AuthProvider({ children }) {
     );
   };
 
-  const clearAuth = () => {
+  const persistAdminAuth = (authUser, authToken) => {
+    setAdminUser(authUser);
+    setAdminToken(authToken);
+    localStorage.setItem(
+      ADMIN_STORAGE_KEY,
+      JSON.stringify({ user: authUser, token: authToken })
+    );
+  };
+
+  const clearCustomerAuth = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const clearAdminAuth = () => {
+    setAdminUser(null);
+    setAdminToken(null);
+    localStorage.removeItem(ADMIN_STORAGE_KEY);
   };
 
   const openAuthModal = useCallback((mode = "login") => {
@@ -36,28 +59,77 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
-        setLoading(false);
-        return;
-      }
+      const storedCustomer = localStorage.getItem(STORAGE_KEY);
+      const storedAdmin = localStorage.getItem(ADMIN_STORAGE_KEY);
 
-      try {
-        const { token: savedToken } = JSON.parse(stored);
-        if (!savedToken) {
-          clearAuth();
-          setLoading(false);
-          return;
+      // Migrate legacy sessions where admin was saved in customer storage
+      if (storedCustomer) {
+        try {
+          const parsed = JSON.parse(storedCustomer);
+          if (parsed.user?.role === "admin" && parsed.token) {
+            if (!storedAdmin) {
+              localStorage.setItem(ADMIN_STORAGE_KEY, storedCustomer);
+            }
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } catch {
+          localStorage.removeItem(STORAGE_KEY);
         }
-
-        setToken(savedToken);
-        const res = await getMe();
-        persistAuth(res.data.data, savedToken);
-      } catch {
-        clearAuth();
-      } finally {
-        setLoading(false);
       }
+
+      const customerRaw = localStorage.getItem(STORAGE_KEY);
+      const adminRaw = localStorage.getItem(ADMIN_STORAGE_KEY);
+
+      const tasks = [];
+
+      if (customerRaw) {
+        tasks.push(
+          (async () => {
+            try {
+              const { token: savedToken } = JSON.parse(customerRaw);
+              if (!savedToken) {
+                clearCustomerAuth();
+                return;
+              }
+              setToken(savedToken);
+              const authUser = await fetchMeWithToken(savedToken);
+              if (authUser.role === "admin") {
+                clearCustomerAuth();
+                return;
+              }
+              persistCustomerAuth(authUser, savedToken);
+            } catch {
+              clearCustomerAuth();
+            }
+          })()
+        );
+      }
+
+      if (adminRaw) {
+        tasks.push(
+          (async () => {
+            try {
+              const { token: savedToken } = JSON.parse(adminRaw);
+              if (!savedToken) {
+                clearAdminAuth();
+                return;
+              }
+              setAdminToken(savedToken);
+              const authUser = await fetchMeWithToken(savedToken);
+              if (authUser.role !== "admin") {
+                clearAdminAuth();
+                return;
+              }
+              persistAdminAuth(authUser, savedToken);
+            } catch {
+              clearAdminAuth();
+            }
+          })()
+        );
+      }
+
+      await Promise.all(tasks);
+      setLoading(false);
     };
 
     initAuth();
@@ -65,14 +137,26 @@ export function AuthProvider({ children }) {
 
   const signup = async (data) => {
     const res = await signupUser(data);
-    persistAuth(res.data.data.user, res.data.data.token);
+    const { user: authUser, token: authToken } = res.data.data;
+
+    if (authUser.role === "admin") {
+      throw new Error("Please use the admin login page.");
+    }
+
+    persistCustomerAuth(authUser, authToken);
     closeAuthModal();
     return res.data;
   };
 
   const login = async (data) => {
     const res = await loginUser(data);
-    persistAuth(res.data.data.user, res.data.data.token);
+    const { user: authUser, token: authToken } = res.data.data;
+
+    if (authUser.role === "admin") {
+      throw new Error("Please use the admin login page at /admin/login.");
+    }
+
+    persistCustomerAuth(authUser, authToken);
     closeAuthModal();
     return res.data;
   };
@@ -85,12 +169,16 @@ export function AuthProvider({ children }) {
       throw new Error("Access denied. Admin credentials required.");
     }
 
-    persistAuth(authUser, authToken);
+    persistAdminAuth(authUser, authToken);
     return res.data;
   };
 
   const logout = () => {
-    clearAuth();
+    clearCustomerAuth();
+  };
+
+  const adminLogout = () => {
+    clearAdminAuth();
   };
 
   return (
@@ -98,11 +186,14 @@ export function AuthProvider({ children }) {
       value={{
         user,
         token,
+        adminUser,
+        adminToken,
         loading,
         signup,
         login,
         adminLogin,
         logout,
+        adminLogout,
         authModal,
         openAuthModal,
         closeAuthModal,

@@ -282,12 +282,12 @@ function ProductDetail() {
 
   const handleBuyNow = async () => {
     if (!product) return;
-    const result = await addToCart(product, quantity);
+    const result = await addToCart(product, quantity, { buyNow: true });
     if (result?.requiresLogin) {
       openAuthModal("login");
       return;
     }
-    if (result?.success) navigate("/cart");
+    if (result?.success) navigate("/checkout");
   };
 
   if (loading) {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { deleteProduct, getAllProducts } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import ProductDetailModal from "../ProductDetailModal";
-import { btnDanger, btnSecondary, tableClass } from "../adminStyles";
+import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
 
 function ShowProductSection() {
   const navigate = useNavigate();
@@ -78,17 +78,27 @@ function ShowProductSection() {
         <p className="text-text-secondary">No products yet.</p>
       ) : (
         <div className={tableClass}>
-          <table className="w-full min-w-[900px] text-left text-sm">
+          <table className={compactTableClass}>
+            <colgroup>
+              <col className="w-[8%]" />
+              <col className="w-[22%]" />
+              <col className="w-[12%]" />
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[14%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border-light bg-mobile-surface">
-                <th className="px-4 py-3 font-semibold">Image</th>
-                <th className="px-4 py-3 font-semibold">Product Name</th>
-                <th className="px-4 py-3 font-semibold">Brand</th>
-                <th className="px-4 py-3 font-semibold">Categories</th>
-                <th className="px-4 py-3 font-semibold">Price</th>
-                <th className="px-4 py-3 font-semibold">Stock</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                <th className={thClass}>Image</th>
+                <th className={thClass}>Product Name</th>
+                <th className={thClass}>Brand</th>
+                <th className={thClass}>Categories</th>
+                <th className={thClass}>Price</th>
+                <th className={thClass}>Stock</th>
+                <th className={thClass}>Status</th>
+                <th className={`${thClass} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -98,8 +108,8 @@ function ShowProductSection() {
                   onClick={() => setSelectedProduct(product)}
                   className="border-b border-border-light last:border-0 cursor-pointer transition hover:bg-mobile-surface/80"
                 >
-                  <td className="px-4 py-3">
-                    <div className="h-12 w-12 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
+                  <td className={tdClass}>
+                    <div className="h-10 w-10 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
                       {product.productImages?.[0] ? (
                         <img
                           src={product.productImages[0]}
@@ -109,16 +119,16 @@ function ShowProductSection() {
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium max-w-[180px]">
-                    <span className="line-clamp-2">{product.name}</span>
+                  <td className={`${tdClass} font-medium`}>
+                    <span className="line-clamp-2 break-words">{product.name}</span>
                   </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {product.brandName}
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">{product.brandName}</span>
                   </td>
-                  <td className="px-4 py-3 text-text-secondary max-w-[140px] truncate">
-                    {product.categories?.join(", ") || "—"}
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">{product.categories?.join(", ") || "—"}</span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={tdClass}>
                     <span className="font-semibold text-primary">
                       ₹{product.discountedPrice}
                     </span>
@@ -126,10 +136,8 @@ function ShowProductSection() {
                       ₹{product.price}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {product.stock}
-                  </td>
-                  <td className="px-4 py-3">
+                  <td className={`${tdClass} text-text-secondary`}>{product.stock}</td>
+                  <td className={tdClass}>
                     <span
                       className={
                         product.isActive ? "text-green-600" : "text-red-500"
@@ -138,8 +146,8 @@ function ShowProductSection() {
                       {product.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end gap-2">
+                  <td className={tdClass} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-wrap justify-end gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleEdit(product)}

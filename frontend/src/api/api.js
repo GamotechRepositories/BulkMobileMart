@@ -1,22 +1,36 @@
 import axios from "axios";
+import { ADMIN_STORAGE_KEY, STORAGE_KEY } from "../utils/authStorage";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-const STORAGE_KEY = "bmm_auth";
 
 const api = axios.create({
   baseURL: API_URL,
 });
 
-api.interceptors.request.use((config) => {
-  const stored = localStorage.getItem(STORAGE_KEY);
+function getRequestToken() {
+  if (typeof window === "undefined") return null;
+
+  const isAdminPath = window.location.pathname.startsWith("/admin");
+  const storageKey = isAdminPath ? ADMIN_STORAGE_KEY : STORAGE_KEY;
+  const stored = localStorage.getItem(storageKey);
+
   if (stored) {
     try {
       const { token } = JSON.parse(stored);
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+      if (token) return token;
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey);
+    }
+  }
+
+  return null;
+}
+
+api.interceptors.request.use((config) => {
+  if (!config.headers.Authorization) {
+    const token = getRequestToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
@@ -62,5 +76,40 @@ export const getMe = () => api.get("/api/users/me");
 export const getUsers = () => api.get("/api/users");
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
+
+function buildAddressPayload(data) {
+  const name = data.name?.trim() || "";
+  const number = data.number?.trim() || "";
+  const landmark = data.landmark?.trim() || "";
+  const city = data.city?.trim() || "";
+  const state = data.state?.trim() || "";
+  const pincode = data.pincode?.trim() || "";
+
+  return {
+    name,
+    number,
+    landmark,
+    city,
+    state,
+    pincode,
+    isDefault: data.isDefault,
+    // legacy aliases — keeps old backend instances working until restarted
+    fullName: name,
+    phone: number,
+    streetArea: landmark,
+  };
+}
+
+export const getAddresses = () => api.get("/api/addresses");
+export const addAddress = (data) => api.post("/api/addresses", buildAddressPayload(data));
+export const updateAddress = (id, data) =>
+  api.put(`/api/addresses/${id}`, buildAddressPayload(data));
+export const deleteAddress = (id) => api.delete(`/api/addresses/${id}`);
+
+export const placeOrder = (data) => api.post("/api/orders", data);
+export const getMyOrders = () => api.get("/api/orders");
+export const getOrderById = (id) => api.get(`/api/orders/${id}`);
+export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });
+export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 
 export default api;

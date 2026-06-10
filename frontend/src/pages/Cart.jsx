@@ -84,10 +84,10 @@ function OrderSummary({ items, total, cartCount }) {
       </p>
 
       <Link
-        to="/contact"
+        to="/checkout"
         className="flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm font-bold tracking-wide text-white transition hover:brightness-110"
       >
-        Proceed to Enquiry
+        Buy Now
       </Link>
 
       <Link

@@ -9,7 +9,7 @@ import {
 } from "../../components/admin/adminStyles";
 
 function AdminLogin() {
-  const { user, loading, adminLogin } = useAuth();
+  const { user, adminUser, loading, adminLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +24,7 @@ function AdminLogin() {
     );
   }
 
-  if (user?.role === "admin") {
+  if (adminUser?.role === "admin") {
     return <Navigate to="/admin" replace />;
   }
 

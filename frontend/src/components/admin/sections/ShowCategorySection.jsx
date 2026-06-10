@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteCategory, getAllCategories } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
-import { btnDanger, btnSecondary, tableClass } from "../adminStyles";
+import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
 
 function ShowCategorySection() {
   const navigate = useNavigate();
@@ -61,14 +61,21 @@ function ShowCategorySection() {
         <p className="text-text-secondary">No categories yet.</p>
       ) : (
         <div className={tableClass}>
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className={compactTableClass}>
+            <colgroup>
+              <col className="w-[10%]" />
+              <col className="w-[22%]" />
+              <col className="w-[38%]" />
+              <col className="w-[12%]" />
+              <col className="w-[18%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border-light bg-mobile-surface">
-                <th className="px-4 py-3 font-semibold">Image</th>
-                <th className="px-4 py-3 font-semibold">Category Name</th>
-                <th className="px-4 py-3 font-semibold">Subcategories</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                <th className={thClass}>Image</th>
+                <th className={thClass}>Category Name</th>
+                <th className={thClass}>Subcategories</th>
+                <th className={thClass}>Status</th>
+                <th className={`${thClass} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -77,8 +84,8 @@ function ShowCategorySection() {
                   key={cat._id}
                   className="border-b border-border-light last:border-0"
                 >
-                  <td className="px-4 py-3">
-                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border-light bg-white">
+                  <td className={tdClass}>
+                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border-light bg-white">
                       <img
                         src={cat.categoryImage}
                         alt={cat.categoryName}
@@ -86,11 +93,15 @@ function ShowCategorySection() {
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium">{cat.categoryName}</td>
-                  <td className="px-4 py-3 text-text-secondary max-w-xs truncate">
-                    {(cat.subcategories || []).join(", ") || "—"}
+                  <td className={`${tdClass} font-medium`}>
+                    <span className="block truncate">{cat.categoryName}</span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={`${tdClass} text-text-secondary`}>
+                    <span className="block truncate">
+                      {(cat.subcategories || []).join(", ") || "—"}
+                    </span>
+                  </td>
+                  <td className={tdClass}>
                     <span
                       className={
                         cat.isActive ? "text-green-600" : "text-red-500"
@@ -99,8 +110,8 @@ function ShowCategorySection() {
                       {cat.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
+                  <td className={tdClass}>
+                    <div className="flex flex-wrap justify-end gap-1.5">
                       <button
                         type="button"
                         onClick={() => handleEdit(cat)}

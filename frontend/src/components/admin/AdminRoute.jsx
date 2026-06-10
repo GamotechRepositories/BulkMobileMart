@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 function AdminRoute() {
-  const { user, loading } = useAuth();
+  const { adminUser, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -13,7 +13,7 @@ function AdminRoute() {
     );
   }
 
-  if (!user || user.role !== "admin") {
+  if (!adminUser || adminUser.role !== "admin") {
     return (
       <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
     );

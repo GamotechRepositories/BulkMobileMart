@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { useAuth } from "./AuthContext";
 
@@ -27,6 +28,7 @@ const mapCartItems = (cart) => {
 };
 
 export function CartProvider({ children }) {
+  const navigate = useNavigate();
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -60,14 +62,18 @@ export function CartProvider({ children }) {
   }, [user, authLoading, loadCart]);
 
   const addToCart = useCallback(
-    async (product, quantity) => {
+    async (product, quantity, options = {}) => {
       const qty = Number(quantity);
       if (!Number.isFinite(qty) || qty < 1) {
         return { success: false };
       }
 
       if (!user) {
-        pendingAddRef.current = { product, quantity: qty };
+        pendingAddRef.current = {
+          product,
+          quantity: qty,
+          buyNow: Boolean(options.buyNow),
+        };
         openAuthModal("login");
         return { requiresLogin: true };
       }
@@ -92,8 +98,12 @@ export function CartProvider({ children }) {
     const pending = pendingAddRef.current;
     pendingAddRef.current = null;
 
-    addToCart(pending.product, pending.quantity);
-  }, [user, addToCart]);
+    addToCart(pending.product, pending.quantity).then((result) => {
+      if (result?.success && pending.buyNow) {
+        navigate("/checkout");
+      }
+    });
+  }, [user, addToCart, navigate]);
 
   const removeFromCart = useCallback(
     async (productId) => {
