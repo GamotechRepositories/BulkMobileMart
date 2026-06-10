@@ -1,0 +1,163 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { getProducts } from "../../api/api";
+
+const MAX_DISPLAY = 15;
+const GRID_COLS = 5;
+
+const formatPrice = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+function ProductCard({ product }) {
+  const feature =
+    product.features?.[0] ||
+    product.description?.slice(0, 28) ||
+    product.subcategory;
+
+  const image = product.productImages?.[0];
+
+  return (
+    <Link
+      to={`/product/${product._id}`}
+      className="group flex flex-col rounded-2xl border border-neutral-700 bg-neutral-900 overflow-hidden hover:border-accent/50 hover:shadow-lg transition-all h-full"
+    >
+      <div className="relative bg-neutral-800 h-[140px] sm:h-[160px] md:h-[180px] overflow-hidden">
+        {product.ratings >= 4.5 && (
+          <span className="absolute top-2 left-2 z-10 rounded bg-black text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5">
+            Bestseller
+          </span>
+        )}
+        {image ? (
+          <img
+            src={image}
+            alt={product.name}
+            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className="h-full w-full bg-neutral-700" />
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 bg-[#facc15] px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-black">
+        <span className="truncate">{feature}</span>
+        <span className="shrink-0 flex items-center gap-0.5">
+          <span className="text-black">★</span>
+          {product.ratings?.toFixed(1) ?? "0.0"}
+        </span>
+      </div>
+
+      <div className="px-3 py-3 sm:px-4 sm:py-4 flex-1 flex flex-col">
+        <h3 className="text-sm sm:text-base font-bold text-white leading-snug line-clamp-2 mb-3 min-h-[2.5rem]">
+          {product.name}
+        </h3>
+
+        <div className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="text-base sm:text-lg font-bold text-white">
+            {formatPrice(product.discountedPrice)}
+          </span>
+          <span className="text-xs text-neutral-500 line-through">
+            {formatPrice(product.price)}
+          </span>
+          <span className="text-xs font-semibold text-green-400">
+            {product.discountedPercent}% off
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function MostLikedProducts() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { data } = await getProducts({
+          mostPurchase: true,
+          limit: MAX_DISPLAY,
+        });
+        const list = (data.data || [])
+          .filter((product) =>
+            product.categories?.some(
+              (cat) => cat.trim().toLowerCase() === "most purchase"
+            )
+          )
+          .sort((a, b) => (b.ratings ?? 0) - (a.ratings ?? 0))
+          .slice(0, MAX_DISPLAY);
+        setProducts(list);
+      } catch {
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  return (
+    <section className="bg-black px-5 sm:px-6 md:px-8 lg:px-12 py-10 md:py-12 border-t border-neutral-900">
+      <div className="max-w-[1600px] mx-auto">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 md:mb-8">
+          <div>
+            <h2 className="text-xl sm:text-2xl md:text-[1.75rem] font-bold text-white">
+              Most Purchase
+            </h2>
+            {!loading && products.length > 0 && (
+              <p className="mt-2 text-sm sm:text-base text-neutral-400">
+                Top picks tagged with Most Purchase
+              </p>
+            )}
+          </div>
+          {!loading && products.length > 0 && (
+            <Link
+              to="/product"
+              className="inline-flex items-center justify-center gap-2 self-start rounded-md border border-accent px-5 py-2.5 text-xs sm:text-sm font-bold uppercase tracking-wide text-accent hover:bg-accent/10 transition"
+            >
+              View All
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[...Array(GRID_COLS)].map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-neutral-700 bg-neutral-900 animate-pulse"
+              >
+                <div className="h-[140px] sm:h-[160px] bg-neutral-800" />
+                <div className="h-8 bg-yellow-500/30" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-neutral-800 rounded w-3/4" />
+                  <div className="h-6 bg-neutral-800 rounded w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <p className="text-center text-neutral-400 py-10">
+            No products tagged with Most Purchase yet. Add &quot;Most Purchase&quot;
+            as a second category on your products.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {products.map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default MostLikedProducts;
