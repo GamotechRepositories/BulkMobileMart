@@ -69,6 +69,12 @@ const orderSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
+    message: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: "",
+    },
   },
   { timestamps: true }
 );

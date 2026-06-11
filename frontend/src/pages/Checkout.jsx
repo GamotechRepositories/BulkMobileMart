@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -14,7 +14,6 @@ import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressF
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
-
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -38,6 +37,12 @@ function Checkout() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [message, setMessage] = useState("");
+  const messageRef = useRef("");
+
+  useEffect(() => {
+    messageRef.current = message;
+  }, [message]);
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
@@ -103,6 +108,7 @@ function Checkout() {
         try {
           await verifyRazorpayPayment({
             addressId: selectedAddressId,
+            customerMessage: messageRef.current.trim(),
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -146,6 +152,7 @@ function Checkout() {
         placeOrder({
           addressId: selectedAddressId,
           paymentMethod: "cod",
+          customerMessage: messageRef.current.trim(),
         }),
         minDelay,
       ]);
@@ -381,7 +388,7 @@ function Checkout() {
               <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm lg:sticky lg:top-24">
                 <h2 className="mb-5 text-base font-bold sm:text-lg">Order Summary</h2>
 
-                <ul className="mb-5 max-h-[220px] space-y-4 overflow-y-auto hide-scrollbar">
+                <ul className="mb-4 max-h-[180px] space-y-4 overflow-y-auto hide-scrollbar">
                   {items.map((item) => (
                     <li key={item._id} className="flex items-center gap-3">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
@@ -406,8 +413,23 @@ function Checkout() {
                   ))}
                 </ul>
 
-                {/* Price breakdown */}
-                <div className="space-y-2.5 border-t border-border-light pt-4 text-sm">
+                <div className="mb-4">
+                  <label htmlFor="orderMessage" className="mb-1.5 block text-sm font-semibold text-text-primary">
+                    Your message (optional)
+                  </label>
+                  <textarea
+                    id="orderMessage"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="Add delivery instructions or any note for your order..."
+                    className="w-full resize-none rounded-lg border border-border-light px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
+                  />
+                  <p className="mt-1 text-right text-xs text-text-muted">{message.length}/500</p>
+                </div>
+
+                <div className="space-y-2.5 text-sm">
                   <div className="flex justify-between text-text-secondary">
                     <span>Subtotal</span>
                     <span>{formatPrice(subtotal)}</span>
@@ -421,7 +443,7 @@ function Checkout() {
                       Add {formatPrice(freeDeliveryGap)} more for free delivery!
                     </p>
                   )}
-                  <div className="flex justify-between border-t border-border-light pt-3 text-base font-bold">
+                  <div className="flex justify-between pt-1 text-base font-bold">
                     <span>Total</span>
                     <span className="text-lg text-primary">{formatPrice(orderTotal)}</span>
                   </div>

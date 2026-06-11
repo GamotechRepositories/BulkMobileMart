@@ -259,11 +259,8 @@ function OrderDetail() {
   if (loading) {
     return (
       <div className="min-h-screen bg-mobile-bg px-4 py-8">
-        <div className="mx-auto max-w-6xl animate-pulse space-y-4">
-          <div className="h-16 rounded-xl bg-white" />
-          <div className="h-24 rounded-xl bg-white" />
-          <div className="h-32 rounded-xl bg-white" />
-          <div className="h-48 rounded-xl bg-white" />
+        <div className="mx-auto max-w-6xl animate-pulse">
+          <div className="h-[520px] rounded-xl border border-border-light bg-white" />
         </div>
       </div>
     );
@@ -285,6 +282,12 @@ function OrderDetail() {
     .filter(Boolean)
     .join(", ")
     .replace(/, (\d{6})$/, " - $1");
+  const orderMessage = (
+    order.message ||
+    order.customerNote ||
+    order.customerMessage ||
+    ""
+  ).trim();
 
   return (
     <div className="min-h-screen bg-mobile-bg px-4 pb-24 pt-4 sm:px-6 lg:px-10 lg:pb-10 lg:pt-6">
@@ -305,9 +308,9 @@ function OrderDetail() {
           </div>
         </div>
 
-        <div className="space-y-4 lg:space-y-5">
-          {/* Status card */}
-          <div className="w-full rounded-xl border border-border-light bg-white px-4 py-4 shadow-sm sm:px-6 lg:px-8 lg:py-6">
+        <div className="overflow-hidden rounded-xl border border-border-light bg-white shadow-sm">
+          {/* Status */}
+          <div className="px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -342,56 +345,37 @@ function OrderDetail() {
             </div>
           </div>
 
+          <hr className="border-border-light" />
+
           {/* Progress stepper */}
-          <div className="w-full rounded-xl border border-border-light bg-white px-4 py-5 shadow-sm sm:px-6 lg:px-10 lg:py-10">
+          <div className="px-4 py-5 sm:px-6 lg:px-10 lg:py-10">
             <ProgressStepperVertical order={order} />
             <ProgressStepperHorizontal order={order} />
           </div>
 
-          {/* Address — mobile stacked */}
-          <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-6 lg:hidden">
-            <h2 className="mb-2 text-sm font-bold tracking-wide text-text-primary">ADDRESS</h2>
-            <p className="text-sm leading-relaxed text-text-secondary">{addressLine}</p>
-            <p className="mt-2 text-sm text-text-secondary">Phone: {addr?.number}</p>
-          </div>
+          <hr className="border-border-light" />
 
-          {/* Billing — mobile */}
-          <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-6 lg:hidden">
-            <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">BILLING SUMMARY</h2>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-text-secondary">
-                <span>Subtotal</span>
-                <span>{formatPrice(order.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-text-secondary">
-                <span>GST</span>
-                <span>Included</span>
-              </div>
-              <div className="flex justify-between text-text-secondary">
-                <span>Delivery</span>
-                <span>{order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}</span>
-              </div>
-              <div className="flex justify-between border-t border-border-light pt-2 font-bold text-text-primary">
-                <span>Total:</span>
-                <span>{formatPrice(order.total)}</span>
-              </div>
+          {/* Message, address, billing */}
+          <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-3 lg:gap-8 lg:px-8 lg:py-6">
+            <div>
+              <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">YOUR MESSAGE</h2>
+              <p className="break-words text-sm leading-relaxed text-text-secondary">
+                {orderMessage || "—"}
+              </p>
             </div>
-          </div>
 
-          {/* Address + Billing — desktop */}
-          <div className="hidden w-full gap-5 lg:grid lg:grid-cols-2">
-            <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm sm:p-8">
+            <div>
               <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">ADDRESS</h2>
               <p className="text-sm leading-relaxed text-text-secondary">
                 {addr?.name}
                 <br />
-                {addr?.landmark ? `${addr.landmark}, ` : ""}
-                {addr?.city}, {addr?.state} — {addr?.pincode}
+                {addressLine}
                 <br />
                 +91 {addr?.number}
               </p>
             </div>
-            <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm sm:p-8">
+
+            <div>
               <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">BILLING SUMMARY</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-text-secondary">
@@ -402,7 +386,7 @@ function OrderDetail() {
                   <span>Delivery</span>
                   <span>{order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}</span>
                 </div>
-                <div className="flex justify-between border-t border-border-light pt-2 font-bold text-text-primary">
+                <div className="flex justify-between pt-1 font-bold text-text-primary">
                   <span>Total</span>
                   <span>{formatPrice(order.total)}</span>
                 </div>
@@ -410,88 +394,86 @@ function OrderDetail() {
             </div>
           </div>
 
+          <hr className="border-border-light" />
+
           {/* Order items */}
-          <div className="w-full rounded-xl border border-border-light bg-white shadow-sm">
-            <div className="hidden border-b border-border-light px-6 py-5 sm:px-8 lg:block">
-              <h2 className="text-sm font-bold tracking-wide text-text-primary">ORDER ITEMS</h2>
-            </div>
+          <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
+            <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">ORDER ITEMS</h2>
 
-            <h2 className="border-b border-border-light px-4 py-3 text-sm font-bold tracking-wide text-text-primary lg:hidden">
-              ORDER ITEMS
-            </h2>
-
-            {/* Mobile table */}
-            <div className="lg:hidden">
-              <div className="grid grid-cols-[1fr_40px_56px_56px] gap-1 border-b border-border-light px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-text-secondary">
-                <span>Itm</span>
-                <span className="text-center">Qty</span>
-                <span className="text-right">Rate</span>
-                <span className="text-right">Amt</span>
-              </div>
-              {order.items.map((item) => (
-                <div
-                  key={item._id}
-                  className="grid grid-cols-[1fr_40px_56px_56px] items-center gap-1 border-b border-border-light px-3 py-3 last:border-b-0"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded border border-border-light bg-mobile-surface">
-                      {item.image ? (
-                        <img src={item.image} alt={item.name} className="h-full w-full object-contain p-0.5" />
-                      ) : (
-                        <div className="h-full w-full bg-mobile-surface" />
-                      )}
-                    </div>
-                    <span className="line-clamp-2 text-xs font-medium leading-snug text-text-primary">
-                      {item.name}
-                    </span>
-                  </div>
-                  <span className="text-center text-xs text-text-secondary">{item.quantity}</span>
-                  <span className="text-right text-xs text-text-secondary">{formatPrice(item.price)}</span>
-                  <span className="text-right text-xs font-semibold text-text-primary">
-                    {formatPrice(item.price * item.quantity)}
-                  </span>
+            <div className="overflow-hidden rounded-lg border border-border-light bg-mobile-surface/30">
+              {/* Mobile table */}
+              <div className="lg:hidden">
+                <div className="grid grid-cols-[1fr_40px_56px_56px] gap-1 border-b border-border-light bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-text-secondary">
+                  <span>Itm</span>
+                  <span className="text-center">Qty</span>
+                  <span className="text-right">Rate</span>
+                  <span className="text-right">Amt</span>
                 </div>
-              ))}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden lg:block">
-              <div className="grid border-b border-border-light px-6 py-4 text-xs font-semibold uppercase tracking-wide text-text-secondary sm:grid-cols-[1fr_120px_140px_140px] sm:px-8">
-                <span>Item</span>
-                <span className="text-center">Qty</span>
-                <span className="text-right">Unit Price</span>
-                <span className="text-right">Total</span>
-              </div>
-              <ul className="divide-y divide-border-light">
                 {order.items.map((item) => (
-                  <li
+                  <div
                     key={item._id}
-                    className="grid items-center px-6 py-5 sm:grid-cols-[1fr_120px_140px_140px] sm:px-8"
+                    className="grid grid-cols-[1fr_40px_56px_56px] items-center gap-1 border-b border-border-light bg-white px-3 py-3 last:border-b-0"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border-light bg-mobile-surface">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded border border-border-light bg-mobile-surface">
                         {item.image ? (
-                          <img src={item.image} alt={item.name} className="h-full w-full object-contain p-1" />
+                          <img src={item.image} alt={item.name} className="h-full w-full object-contain p-0.5" />
                         ) : (
                           <div className="h-full w-full bg-mobile-surface" />
                         )}
                       </div>
-                      <span className="text-sm font-medium text-text-primary">{item.name}</span>
+                      <span className="line-clamp-2 text-xs font-medium leading-snug text-text-primary">
+                        {item.name}
+                      </span>
                     </div>
-                    <p className="text-center text-sm text-text-secondary">{item.quantity}</p>
-                    <p className="text-right text-sm text-text-secondary">{formatPrice(item.price)}</p>
-                    <p className="text-right text-sm font-semibold text-text-primary">
+                    <span className="text-center text-xs text-text-secondary">{item.quantity}</span>
+                    <span className="text-right text-xs text-text-secondary">{formatPrice(item.price)}</span>
+                    <span className="text-right text-xs font-semibold text-text-primary">
                       {formatPrice(item.price * item.quantity)}
-                    </p>
-                  </li>
+                    </span>
+                  </div>
                 ))}
-              </ul>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block">
+                <div className="grid border-b border-border-light bg-white px-5 py-3 text-xs font-semibold uppercase tracking-wide text-text-secondary lg:grid-cols-[1fr_120px_140px_140px]">
+                  <span>Item</span>
+                  <span className="text-center">Qty</span>
+                  <span className="text-right">Unit Price</span>
+                  <span className="text-right">Total</span>
+                </div>
+                <ul className="divide-y divide-border-light bg-white">
+                  {order.items.map((item) => (
+                    <li
+                      key={item._id}
+                      className="grid items-center px-5 py-4 lg:grid-cols-[1fr_120px_140px_140px]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border-light bg-mobile-surface">
+                          {item.image ? (
+                            <img src={item.image} alt={item.name} className="h-full w-full object-contain p-1" />
+                          ) : (
+                            <div className="h-full w-full bg-mobile-surface" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-text-primary">{item.name}</span>
+                      </div>
+                      <p className="text-center text-sm text-text-secondary">{item.quantity}</p>
+                      <p className="text-right text-sm text-text-secondary">{formatPrice(item.price)}</p>
+                      <p className="text-right text-sm font-semibold text-text-primary">
+                        {formatPrice(item.price * item.quantity)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            <div className="flex justify-center border-t border-border-light px-4 py-4 lg:justify-end lg:px-8 lg:py-5">
+            <div className="mt-4 flex justify-center lg:justify-end">
               <Link
                 to={`/orders/${id}/invoice`}
-                className="w-full max-w-xs rounded-lg border border-border-light py-2.5 text-center text-sm font-medium text-text-primary transition hover:border-primary hover:text-primary sm:w-auto sm:px-8 lg:max-w-none"
+                className="w-full max-w-xs rounded-lg border border-border-light bg-white py-2.5 text-center text-sm font-medium text-text-primary transition hover:border-primary hover:text-primary sm:w-auto sm:px-8 lg:max-w-none"
               >
                 Bill Invoice
               </Link>

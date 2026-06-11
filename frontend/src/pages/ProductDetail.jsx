@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getProductById } from "../api/api";
 import { LOGO_URL } from "../components/layout/Header";
@@ -21,6 +21,209 @@ function productSku(product) {
     .replace(/\s+/g, "-")
     .toUpperCase();
   return `BMM-${code}`;
+}
+
+function getImageExtension(url) {
+  const match = url?.match(/\.(jpe?g|png|webp|gif)(?:\?|$)/i);
+  return match ? match[1].toLowerCase() : "jpg";
+}
+
+function buildDownloadUrl(imageUrl, filename) {
+  if (imageUrl.includes("cloudinary.com") && imageUrl.includes("/upload/")) {
+    return imageUrl.replace("/upload/", `/upload/fl_attachment:${filename}/`);
+  }
+  return imageUrl;
+}
+
+async function downloadProductImage(imageUrl, productName, imageIndex) {
+  if (!imageUrl) return;
+
+  const safeName = (productName || "product")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+  const filename = `${safeName || "product"}-${imageIndex + 1}.${getImageExtension(imageUrl)}`;
+  const downloadUrl = buildDownloadUrl(imageUrl, filename);
+
+  try {
+    const response = await fetch(downloadUrl);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch {
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+}
+
+function DownloadIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
+      />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+      />
+    </svg>
+  );
+}
+
+function ProductShareMenu({ productName, shareUrl }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const shareText = `Check out ${productName} on Bulk Mobile Mart`;
+
+  const shareOptions = [
+    {
+      id: "whatsapp",
+      label: "WhatsApp",
+      icon: "WA",
+      iconClass: "bg-green-500 text-white",
+      href: `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`,
+    },
+    {
+      id: "facebook",
+      label: "Facebook",
+      icon: "f",
+      iconClass: "bg-blue-600 text-white",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+    },
+    {
+      id: "twitter",
+      label: "X",
+      icon: "X",
+      iconClass: "bg-black text-white",
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+    },
+    {
+      id: "email",
+      label: "Email",
+      icon: "@",
+      iconClass: "bg-mobile-surface text-text-primary",
+      href: `mailto:?subject=${encodeURIComponent(productName)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
+    },
+  ];
+
+  const handleNativeShare = async () => {
+    if (!navigator.share) return false;
+
+    try {
+      await navigator.share({
+        title: productName,
+        text: shareText,
+        url: shareUrl,
+      });
+      setOpen(false);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const handleShareClick = async () => {
+    const shared = await handleNativeShare();
+    if (!shared) {
+      setOpen((prev) => !prev);
+    }
+  };
+
+  return (
+    <div className="relative shrink-0" ref={menuRef}>
+      <button
+        type="button"
+        onClick={handleShareClick}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light text-text-secondary transition hover:border-primary hover:text-primary"
+        aria-label="Share product"
+        aria-expanded={open}
+      >
+        <ShareIcon />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-border-light bg-white p-3 shadow-lg">
+          <p className="mb-3 text-sm font-semibold text-text-primary">Share this product</p>
+
+          <div className="grid grid-cols-4 gap-2">
+            {shareOptions.map((option) => (
+              <a
+                key={option.id}
+                href={option.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex flex-col items-center gap-1 rounded-md px-1 py-2 text-center transition hover:bg-mobile-surface"
+              >
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${option.iconClass}`}
+                >
+                  {option.icon}
+                </span>
+                <span className="text-[10px] font-medium text-text-secondary">{option.label}</span>
+              </a>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-mobile-surface"
+          >
+            {copied ? "Link copied!" : "Copy link"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function getBulkTiers(basePrice) {
@@ -351,7 +554,19 @@ function ProductDetail() {
 
         <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-2 lg:items-stretch lg:gap-8 xl:gap-10">
           <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
-            <div className="overflow-hidden rounded-lg border border-border-light bg-white">
+            <div className="relative overflow-hidden rounded-lg border border-border-light bg-white">
+              {images[activeImage] && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadProductImage(images[activeImage], product.name, activeImage)
+                  }
+                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary shadow-sm transition hover:border-primary hover:text-primary"
+                  aria-label="Download image"
+                >
+                  <DownloadIcon />
+                </button>
+              )}
               <div className="flex h-[260px] w-full items-center justify-center sm:h-[290px] lg:h-[360px] xl:h-[380px]">
                 <ProductImage src={images[activeImage]} alt={product.name} />
               </div>
@@ -370,14 +585,10 @@ function ProductDetail() {
               <h1 className="min-w-0 flex-1 truncate text-2xl font-bold leading-tight lg:text-[1.75rem] xl:text-3xl">
                 {product.name}
               </h1>
-              <p className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
-                <span
-                  className={`h-2 w-2 rounded-full ${inStock ? "bg-green-500" : "bg-red-500"}`}
-                />
-                <span className={inStock ? "text-green-600" : "text-red-500"}>
-                  {inStock ? "In Stock" : "Out of Stock"}
-                </span>
-              </p>
+              <ProductShareMenu
+                productName={product.name}
+                shareUrl={typeof window !== "undefined" ? window.location.href : ""}
+              />
             </div>
             <p className="mt-1 text-sm text-text-secondary">{productSku(product)}</p>
 

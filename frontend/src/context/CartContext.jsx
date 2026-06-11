@@ -21,8 +21,10 @@ const mapCartItems = (cart) => {
       _id: item.product._id,
       name: item.product.name,
       brandName: item.product.brandName,
+      price: item.product.price,
       discountedPrice: item.product.discountedPrice,
       productImages: item.product.productImages,
+      stock: item.product.stock ?? 0,
       quantity: item.quantity,
     }));
 };

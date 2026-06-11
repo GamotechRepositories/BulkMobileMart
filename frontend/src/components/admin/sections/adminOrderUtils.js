@@ -72,6 +72,10 @@ export function getOrderStatusLabel(status) {
   return STATUS_LABELS[status] || status;
 }
 
+export function getOrderMessage(order) {
+  return (order?.message || order?.customerNote || order?.customerMessage || "").trim();
+}
+
 export const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -180,6 +184,7 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     "Status",
     "Payment",
     "Transaction ID",
+    "Message",
     "Date",
   ];
 
@@ -193,6 +198,7 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     getOrderStatusLabel(order.status),
     getPaymentStatus(order),
     getTransactionId(order),
+    getOrderMessage(order),
     formatDate(order.createdAt),
   ]);
 

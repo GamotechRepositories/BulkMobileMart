@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import razorpay, { isRazorpayConfigured } from "../config/razorpay.js";
-import { finalizeOrder, prepareOrderData } from "../utils/orderHelpers.js";
+import {
+  finalizeOrder,
+  normalizeOrderMessage,
+  prepareOrderData,
+} from "../utils/orderHelpers.js";
 
 export const createRazorpayOrder = async (req, res) => {
   try {
@@ -71,6 +75,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpay_payment_id,
       razorpay_signature,
     } = req.body;
+    const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({
@@ -122,6 +127,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
       paidAt: new Date(),
+      message: orderMessage,
     });
 
     res.status(201).json({

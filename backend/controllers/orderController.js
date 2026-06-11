@@ -1,7 +1,11 @@
 import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
-import { finalizeOrder, prepareOrderData } from "../utils/orderHelpers.js";
+import {
+  finalizeOrder,
+  normalizeOrderMessage,
+  prepareOrderData,
+} from "../utils/orderHelpers.js";
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -9,6 +13,7 @@ const INDIA_TZ = "Asia/Kolkata";
 export const placeOrder = async (req, res) => {
   try {
     const { addressId, paymentMethod } = req.body;
+    const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
       return res.status(400).json({
@@ -49,6 +54,7 @@ export const placeOrder = async (req, res) => {
       cart: result.cart,
       paymentMethod: "cod",
       paymentStatus: "unpaid",
+      message: orderMessage,
     });
 
     res.status(201).json({

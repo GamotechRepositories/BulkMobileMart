@@ -6,6 +6,11 @@ import User from "../models/user.js";
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
 
+export function normalizeOrderMessage(body = {}) {
+  const raw = body.customerMessage ?? body.message ?? body.customerNote ?? "";
+  return typeof raw === "string" ? raw.trim().slice(0, 500) : "";
+}
+
 const populateCart = (query) =>
   query.populate({
     path: "items.product",
@@ -101,7 +106,11 @@ export async function finalizeOrder({
   razorpayOrderId,
   razorpayPaymentId,
   paidAt,
+  message = "",
 }) {
+  const orderMessage =
+    typeof message === "string" ? message.trim().slice(0, 500) : "";
+
   const order = await Order.create({
     user: userId,
     items: orderItems,
@@ -111,6 +120,7 @@ export async function finalizeOrder({
     deliveryCharges,
     total,
     paymentStatus,
+    message: orderMessage,
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),
     ...(paidAt && { paidAt }),

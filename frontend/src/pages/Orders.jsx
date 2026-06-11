@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getMyOrders } from "../api/api";
 import MobileHeader from "../components/mobile/MobileHeader";
@@ -48,12 +48,22 @@ const PAYMENT_LABELS = {
 
 const getPaymentStatus = (order) => order.paymentStatus || "unpaid";
 
+function getProductId(item) {
+  if (!item?.product) return null;
+  if (typeof item.product === "object") return item.product._id;
+  return item.product;
+}
+
 function OrderCard({ order }) {
+  const navigate = useNavigate();
+  const primaryProductId = getProductId(order.items?.[0]);
+
   return (
-    <Link
-      to={`/orders/${order._id}`}
-      className="block rounded-lg border border-border-light bg-white px-4 py-3 shadow-sm transition hover:border-primary/50 sm:px-5 sm:py-3.5"
-    >
+    <div className="rounded-lg border border-border-light bg-white shadow-sm transition hover:border-primary/50">
+      <Link
+        to={`/orders/${order._id}`}
+        className="block px-4 py-3 sm:px-5 sm:py-3.5"
+      >
       {/* Top row — ID left, date + price + status right */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-text-primary">
@@ -105,7 +115,20 @@ function OrderCard({ order }) {
           </div>
         ))}
       </div>
-    </Link>
+      </Link>
+
+      {primaryProductId && (
+        <div className="flex justify-end px-4 pb-3 sm:px-5">
+          <button
+            type="button"
+            onClick={() => navigate(`/product/${primaryProductId}`)}
+            className="rounded border border-primary px-2.5 py-1 text-xs font-semibold text-primary transition duration-200 hover:bg-primary hover:text-white hover:shadow-sm"
+          >
+            Buy Again
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

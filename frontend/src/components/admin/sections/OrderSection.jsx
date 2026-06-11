@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
@@ -18,6 +18,7 @@ import {
   getCustomerName,
   getCustomerPhone,
   getOrderDisplayId,
+  getOrderMessage,
   getOrderStatusLabel,
   getPaymentStatus,
   getPaymentStatusBadgeClass,
@@ -113,14 +114,14 @@ function OrderSection() {
           <table className={adminCompactTableClass}>
             <colgroup>
               <col className="w-[7%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
               <col className="w-[4%]" />
               <col className="w-[7%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[16%]" />
-              <col className="w-[8%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
               <col className="w-[8%]" />
             </colgroup>
             <thead>
@@ -133,8 +134,8 @@ function OrderSection() {
                 <th className={adminCompactThClass}>Status</th>
                 <th className={adminCompactThClass}>Payment</th>
                 <th className={adminCompactThClass}>Transaction ID</th>
+                <th className={adminCompactThClass}>Message</th>
                 <th className={adminCompactThClass}>Date</th>
-                <th className={adminCompactThClass}>Invoice</th>
               </tr>
             </thead>
             <tbody>
@@ -188,29 +189,12 @@ function OrderSection() {
                       </span>
                     </td>
                     <td className={`${adminCompactTdClass} text-neutral-600`}>
-                      <span className="block truncate">{formatDate(order.createdAt)}</span>
+                      <span className="line-clamp-2 break-words">
+                        {getOrderMessage(order) || "—"}
+                      </span>
                     </td>
-                    <td className={adminCompactTdClass}>
-                      <div className="flex flex-col gap-0.5 text-[10px] font-medium text-neutral-700">
-                        <Link
-                          to={`/orders/${order._id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="hover:text-primary hover:underline"
-                        >
-                          Bill
-                        </Link>
-                        <Link
-                          to={`/orders/${order._id}/invoice`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="hover:text-primary hover:underline"
-                        >
-                          Invoice
-                        </Link>
-                      </div>
+                    <td className={`${adminCompactTdClass} text-neutral-600`}>
+                      <span className="block truncate">{formatDate(order.createdAt)}</span>
                     </td>
                   </tr>
                 );

@@ -257,6 +257,17 @@ function AdminOrderDetailSection() {
         </div>
       </div>
 
+      {(order.message || order.customerNote || order.customerMessage)?.trim() && (
+        <div className={cardClass}>
+          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+            Customer Message
+          </h3>
+          <p className="text-sm leading-relaxed text-neutral-700">
+            {order.message || order.customerNote || order.customerMessage}
+          </p>
+        </div>
+      )}
+
       {/* Progress stepper */}
       <div className={cardClass}>
         <OrderProgressStepper order={order} />
