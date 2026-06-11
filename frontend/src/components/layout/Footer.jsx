@@ -1,84 +1,89 @@
 import { Link } from "react-router-dom";
+import { LOGO_URL } from "./Header";
+
+const essentialLinks = [
+  { to: "/", label: "Home" },
+  { to: "/product", label: "Products" },
+  { to: "/about", label: "About Us" },
+  { to: "/contact", label: "Contact" },
+];
+
+const legalLinks = [
+  { to: "/privacy-policy", label: "Privacy Policy" },
+  { to: "/terms-and-conditions", label: "Terms & Conditions" },
+  { to: "/shipping-details", label: "Shipping Details" },
+];
 
 function Footer() {
   return (
-    <footer className="bg-black border-t border-neutral-800 text-neutral-400">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-8 sm:py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 sm:gap-10">
-        <div>
-          <h3 className="text-white font-bold text-lg mb-3">BulkMobileMart</h3>
-          <p className="text-sm leading-relaxed">
-            Your trusted partner for wholesale smartphones, tablets, and
-            accessories. Serving retailers, distributors, and resellers across
-            India.
+    <footer className="bg-black text-neutral-400 border-t border-neutral-800">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-10 lg:py-12">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <Link to="/" className="inline-flex items-center gap-2">
+            <img
+              src={LOGO_URL}
+              alt="BulkMobileMart"
+              className="h-10 w-auto object-contain brightness-0 invert"
+            />
+          </Link>
+          <p className="mt-4 text-sm leading-relaxed">
+            Your trusted partner for wholesale smartphones, tablets, and accessories.
+            Serving retailers and distributors across India.
           </p>
         </div>
 
         <div>
-          <h4 className="text-white font-semibold mb-3">Quick Links</h4>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <Link to="/" className="hover:text-accent transition">
-                Home
-              </Link>
-            </li>
-            <li>
-              <Link to="/about" className="hover:text-accent transition">
-                About Us
-              </Link>
-            </li>
-            <li>
-              <Link to="/product" className="hover:text-accent transition">
-                Products
-              </Link>
-            </li>
-            <li>
-              <Link to="/blog" className="hover:text-accent transition">
-                Blog
-              </Link>
-            </li>
-            <li>
-              <Link to="/contact" className="hover:text-accent transition">
-                Contact
-              </Link>
-            </li>
-            <li>
-              <Link to="/privacy-policy" className="hover:text-accent transition">
-                Privacy Policy
-              </Link>
-            </li>
-            <li>
-              <Link to="/terms-and-conditions" className="hover:text-accent transition">
-                Terms & Conditions
-              </Link>
-            </li>
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
+            Essential Links
+          </h4>
+          <ul className="space-y-2.5 text-sm">
+            {essentialLinks.map(({ to, label }) => (
+              <li key={to}>
+                <Link to={to} className="transition hover:text-primary">
+                  {label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 
         <div>
-          <h4 className="text-white font-semibold mb-3">Contact</h4>
-          <ul className="space-y-2 text-sm">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
+            Legal
+          </h4>
+          <ul className="space-y-2.5 text-sm">
+            {legalLinks.map(({ to, label }) => (
+              <li key={to}>
+                <Link to={to} className="transition hover:text-primary">
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
+            Contact
+          </h4>
+          <ul className="space-y-2.5 text-sm">
             <li>Mumbai · Delhi · Bangalore</li>
             <li>
-              <a
-                href="mailto:sales@bulkmobilemart.com"
-                className="hover:text-accent transition"
-              >
+              <a href="mailto:sales@bulkmobilemart.com" className="transition hover:text-primary">
                 sales@bulkmobilemart.com
               </a>
             </li>
             <li>
-              <a
-                href="tel:+919876543210"
-                className="hover:text-accent transition"
-              >
+              <a href="tel:+919876543210" className="transition hover:text-primary">
                 +91 98765 43210
               </a>
             </li>
+            <li className="text-neutral-500">Mon – Sat: 10:00 AM – 7:00 PM</li>
           </ul>
         </div>
       </div>
 
-      <div className="border-t border-neutral-800 py-4 text-center text-sm">
+      <div className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500 sm:text-sm">
         © {new Date().getFullYear()} BulkMobileMart. All rights reserved.
       </div>
     </footer>

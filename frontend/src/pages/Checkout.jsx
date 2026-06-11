@@ -2,7 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import { getAddresses, addAddress, placeOrder } from "../api/api";
+import {
+  getAddresses,
+  addAddress,
+  placeOrder,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+} from "../api/api";
+import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 
 const FREE_DELIVERY_THRESHOLD = 999;
@@ -68,25 +75,81 @@ function Checkout() {
     }
   }, [user, cartLoading, items.length, navigate, orderPlaced]);
 
+  const completeOrderSuccess = async () => {
+    setOrderPlaced(true);
+    await loadCart();
+    setShowSuccessModal(true);
+  };
+
+  const handleOnlinePayment = async () => {
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      throw new Error("Failed to load payment gateway");
+    }
+
+    const { data } = await createRazorpayOrder({ addressId: selectedAddressId });
+    const paymentData = data.data;
+
+    setPlacingOrder(false);
+
+    openRazorpayCheckout({
+      keyId: paymentData.keyId,
+      amount: paymentData.amount,
+      razorpayOrderId: paymentData.razorpayOrderId,
+      user,
+      onSuccess: async (response) => {
+        setPlacingOrder(true);
+        setOrderError("");
+        try {
+          await verifyRazorpayPayment({
+            addressId: selectedAddressId,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+          await completeOrderSuccess();
+        } catch (err) {
+          setOrderError(
+            err.response?.data?.message || "Payment verified but order failed. Contact support."
+          );
+        } finally {
+          setPlacingOrder(false);
+        }
+      },
+      onDismiss: () => {
+        setPlacingOrder(false);
+        setOrderError("Payment cancelled. Your order was not placed.");
+      },
+    });
+  };
+
   const handlePlaceOrder = async () => {
     if (!selectedAddressId || placingOrder) return;
 
-    setPlacingOrder(true);
     setOrderError("");
 
-    const minDelay = new Promise((resolve) => setTimeout(resolve, 3000));
+    if (paymentMethod === "online") {
+      setPlacingOrder(true);
+      try {
+        await handleOnlinePayment();
+      } catch (err) {
+        setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
+        setPlacingOrder(false);
+      }
+      return;
+    }
 
+    setPlacingOrder(true);
     try {
+      const minDelay = new Promise((resolve) => setTimeout(resolve, 3000));
       await Promise.all([
         placeOrder({
           addressId: selectedAddressId,
-          paymentMethod,
+          paymentMethod: "cod",
         }),
         minDelay,
       ]);
-      setOrderPlaced(true);
-      await loadCart();
-      setShowSuccessModal(true);
+      await completeOrderSuccess();
     } catch (err) {
       setOrderError(err.response?.data?.message || "Failed to place order. Please try again.");
     } finally {
@@ -135,7 +198,9 @@ function Checkout() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-10 py-8 shadow-lg">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-border-light border-t-primary" />
-            <p className="text-sm font-semibold text-text-primary">Placing your order...</p>
+            <p className="text-sm font-semibold text-text-primary">
+              {paymentMethod === "online" ? "Processing payment..." : "Placing your order..."}
+            </p>
           </div>
         </div>
       )}
@@ -374,7 +439,13 @@ function Checkout() {
                   onClick={handlePlaceOrder}
                   className="mt-6 flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3.5 text-sm font-bold tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {placingOrder ? "Placing Order..." : "Place Order"}
+                  {placingOrder
+                    ? paymentMethod === "online"
+                      ? "Opening Payment..."
+                      : "Placing Order..."
+                    : paymentMethod === "online"
+                      ? "Pay & Place Order"
+                      : "Place Order"}
                 </button>
 
                 <Link

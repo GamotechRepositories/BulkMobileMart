@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
 import {
-  adminTableClass,
+  adminCompactTableClass,
+  adminCompactTdClass,
+  adminCompactThClass,
   adminTableHeaderClass,
   adminTableWrapperClass,
-  adminTdClass,
-  adminThClass,
 } from "../adminStyles";
 import AdminOrderFilters from "./AdminOrderFilters";
 import {
@@ -20,8 +20,10 @@ import {
   getOrderDisplayId,
   getOrderStatusLabel,
   getPaymentStatus,
+  getPaymentStatusBadgeClass,
   getProductSummary,
   getTotalQty,
+  getTransactionId,
 } from "./adminOrderUtils";
 
 
@@ -67,6 +69,14 @@ function OrderSection() {
     fetchOrders();
   }, [fetchOrders]);
 
+  const sortedOrders = useMemo(
+    () =>
+      [...orders].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [orders]
+  );
+
   return (
     <div className="min-w-0">
       <AdminAlert
@@ -79,7 +89,7 @@ function OrderSection() {
       />
 
       <p className="mb-4 text-sm font-medium text-neutral-700">
-        {orders.length} order{orders.length === 1 ? "" : "s"}
+        {sortedOrders.length} order{sortedOrders.length === 1 ? "" : "s"}
       </p>
 
       <AdminOrderFilters
@@ -91,43 +101,46 @@ function OrderSection() {
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}
         onPaymentStatusChange={setPaymentStatus}
-        onDownload={() => downloadOrdersCsv(orders, "orders.csv")}
+        onDownload={() => downloadOrdersCsv(sortedOrders, "orders.csv")}
       />
 
       {loading ? (
         <p className="mt-4 text-text-secondary">Loading orders...</p>
-      ) : orders.length === 0 ? (
+      ) : sortedOrders.length === 0 ? (
         <p className="mt-4 text-text-secondary">No orders found.</p>
       ) : (
         <div className={adminTableWrapperClass}>
-          <table className={adminTableClass}>
+          <table className={adminCompactTableClass}>
             <colgroup>
+              <col className="w-[7%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[4%]" />
+              <col className="w-[7%]" />
               <col className="w-[8%]" />
-              <col className="w-[14%]" />
-              <col className="w-[20%]" />
-              <col className="w-[5%]" />
-              <col className="w-[9%]" />
-              <col className="w-[10%]" />
-              <col className="w-[9%]" />
-              <col className="w-[11%]" />
-              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[16%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className={adminTableHeaderClass}>
-                <th className={adminThClass}>Order ID</th>
-                <th className={adminThClass}>Customer</th>
-                <th className={adminThClass}>Products</th>
-                <th className={adminThClass}>Qty</th>
-                <th className={adminThClass}>Price</th>
-                <th className={adminThClass}>Status</th>
-                <th className={adminThClass}>Payment</th>
-                <th className={adminThClass}>Date</th>
-                <th className={adminThClass}>Invoice</th>
+                <th className={adminCompactThClass}>Order ID</th>
+                <th className={adminCompactThClass}>Customer</th>
+                <th className={adminCompactThClass}>Products</th>
+                <th className={adminCompactThClass}>Qty</th>
+                <th className={adminCompactThClass}>Price</th>
+                <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Payment</th>
+                <th className={adminCompactThClass}>Transaction ID</th>
+                <th className={adminCompactThClass}>Date</th>
+                <th className={adminCompactThClass}>Invoice</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
+              {sortedOrders.map((order) => {
                 const payment = getPaymentStatus(order);
+                const transactionId = getTransactionId(order);
 
                 return (
                   <tr
@@ -135,49 +148,50 @@ function OrderSection() {
                     onClick={() => navigate(`/admin/orders/${order._id}`)}
                     className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                   >
-                    <td className={`${adminTdClass} font-semibold text-neutral-900`}>
+                    <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                       <span className="block truncate">{getOrderDisplayId(order)}</span>
                     </td>
-                    <td className={adminTdClass}>
-                      <p className="truncate font-semibold text-neutral-900">
+                    <td className={adminCompactTdClass}>
+                      <p className="truncate font-medium text-neutral-900">
                         {getCustomerName(order)}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-neutral-500">
+                      <p className="mt-0.5 truncate text-[10px] text-neutral-500">
                         {getCustomerPhone(order)}
                       </p>
                     </td>
-                    <td className={`${adminTdClass} text-neutral-600`}>
+                    <td className={`${adminCompactTdClass} text-neutral-600`}>
                       <span className="line-clamp-2 break-words">
                         {getProductSummary(order)}
                       </span>
                     </td>
-                    <td className={`${adminTdClass} text-neutral-800`}>{getTotalQty(order)}</td>
-                    <td className={`${adminTdClass} font-semibold text-neutral-900`}>
+                    <td className={`${adminCompactTdClass} text-neutral-800`}>
+                      {getTotalQty(order)}
+                    </td>
+                    <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                       <span className="block truncate">{formatPrice(order.total)}</span>
                     </td>
-                    <td className={adminTdClass}>
-                      <span className="text-xs font-medium capitalize text-neutral-600">
+                    <td className={adminCompactTdClass}>
+                      <span className="text-[10px] font-medium capitalize text-neutral-600">
                         {getOrderStatusLabel(order.status)}
                       </span>
                     </td>
-                    <td className={adminTdClass}>
+                    <td className={adminCompactTdClass}>
                       <span
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-medium lowercase ${
-                          payment === "paid"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lowercase ${getPaymentStatusBadgeClass(payment)}`}
                       >
                         {payment}
                       </span>
                     </td>
-                    <td className={`${adminTdClass} text-neutral-600`}>
-                      <span className="block truncate text-xs sm:text-sm">
-                        {formatDate(order.createdAt)}
+                    <td className={`${adminCompactTdClass} text-neutral-600`}>
+                      <span className="line-clamp-2 break-all">
+                        {transactionId || "—"}
                       </span>
                     </td>
-                    <td className={adminTdClass}>
-                      <div className="flex flex-col gap-1 text-xs font-medium text-neutral-700">
+                    <td className={`${adminCompactTdClass} text-neutral-600`}>
+                      <span className="block truncate">{formatDate(order.createdAt)}</span>
+                    </td>
+                    <td className={adminCompactTdClass}>
+                      <div className="flex flex-col gap-0.5 text-[10px] font-medium text-neutral-700">
                         <Link
                           to={`/orders/${order._id}`}
                           target="_blank"

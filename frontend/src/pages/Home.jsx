@@ -5,6 +5,7 @@ import ValuePropositions from "../components/mobile/ValuePropositions";
 import PromoBanner from "../components/mobile/PromoBanner";
 import TopBrands from "../components/mobile/TopBrands";
 import BestDeals from "../components/mobile/BestDeals";
+import TestimonialsImpact from "../components/home/TestimonialsImpact";
 
 function Home() {
   return (
@@ -16,6 +17,7 @@ function Home() {
       <PromoBanner />
       <TopBrands />
       <BestDeals />
+      <TestimonialsImpact />
     </div>
   );
 }

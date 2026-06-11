@@ -47,6 +47,13 @@ export const adminActionBtnClass =
 
 export const adminTdClass = "px-3 py-4 align-middle sm:px-4";
 
+export const adminCompactTableClass = "w-full table-fixed text-left text-[10px] sm:text-[11px]";
+
+export const adminCompactThClass =
+  "px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-wide sm:px-2.5 sm:text-[10px]";
+
+export const adminCompactTdClass = "px-2 py-2 align-middle sm:px-2.5";
+
 export const parseList = (value) =>
   value
     .split(",")

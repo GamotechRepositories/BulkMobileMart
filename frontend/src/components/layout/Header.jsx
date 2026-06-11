@@ -1,5 +1,7 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
+import { buildProductSearchUrl } from "../../utils/productSearch";
 
 export const LOGO_URL =
   "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
@@ -13,13 +15,30 @@ function SearchIcon({ className = "w-4 h-4" }) {
 }
 
 function SearchBar({ className = "" }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setQuery(searchParams.get("q") || "");
+  }, [searchParams]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    navigate(buildProductSearchUrl(trimmed));
+  };
+
   return (
     <form
       className={`flex items-stretch bg-gray-100 border border-gray-300 rounded-md overflow-hidden h-8 md:h-9 ${className}`}
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSubmit}
     >
       <input
         type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="Search for smartphones, tablets, accessories..."
         className="flex-1 bg-transparent text-gray-700 text-xs px-3 placeholder:text-gray-400 focus:outline-none min-w-0"
       />

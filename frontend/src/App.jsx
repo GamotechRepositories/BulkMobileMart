@@ -19,6 +19,7 @@ import Checkout from "./pages/Checkout";
 import Blog from "./pages/Blog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import ShippingDetails from "./pages/ShippingDetails";
 import Admin from "./pages/admin";
 
 function AuthModalHost() {
@@ -109,6 +110,54 @@ function App() {
             }
           />
           <Route
+            path="/about"
+            element={
+              <MobileLayout>
+                <About />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <MobileLayout>
+                <Contact />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/blog"
+            element={
+              <MobileLayout>
+                <Blog />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/privacy-policy"
+            element={
+              <MobileLayout>
+                <PrivacyPolicy />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/terms-and-conditions"
+            element={
+              <MobileLayout>
+                <TermsAndConditions />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/shipping-details"
+            element={
+              <MobileLayout>
+                <ShippingDetails />
+              </MobileLayout>
+            }
+          />
+          <Route
             path="/*"
             element={
               <Layout>
@@ -118,6 +167,7 @@ function App() {
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+                  <Route path="/shipping-details" element={<ShippingDetails />} />
                 </Routes>
               </Layout>
             }

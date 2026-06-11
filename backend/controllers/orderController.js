@@ -1,29 +1,10 @@
-import Cart from "../models/Cart.js";
-import Address from "../models/address/Address.js";
 import Order from "../models/order/Order.js";
-import User from "../models/user.js";
+import Product from "../models/Product.js";
+import Category from "../models/Category.js";
+import { finalizeOrder, prepareOrderData } from "../utils/orderHelpers.js";
 
-const FREE_DELIVERY_THRESHOLD = 999;
-const DELIVERY_CHARGE = 49;
-
-function addressToSnapshot(address) {
-  const raw = typeof address.toObject === "function" ? address.toObject() : address;
-
-  return {
-    name: (raw.name || raw.fullName || "").trim(),
-    number: String(raw.number || raw.phone || "").trim(),
-    landmark: (raw.landmark || raw.streetArea || "").trim(),
-    city: (raw.city || "").trim(),
-    state: (raw.state || "").trim(),
-    pincode: String(raw.pincode || "").trim(),
-  };
-}
-
-const populateCart = (query) =>
-  query.populate({
-    path: "items.product",
-    select: "name brandName discountedPrice productImages isActive",
-  });
+const PENDING_STATUSES = ["confirm", "processing", "shipping"];
+const INDIA_TZ = "Asia/Kolkata";
 
 export const placeOrder = async (req, res) => {
   try {
@@ -43,81 +24,32 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    const address = await Address.findOne({ _id: addressId, user: req.user._id });
-    if (!address) {
-      return res.status(404).json({
-        success: false,
-        message: "Address not found",
-      });
-    }
-
-    const cart = await populateCart(Cart.findOne({ user: req.user._id }));
-    if (!cart?.items?.length) {
+    if (paymentMethod === "online") {
       return res.status(400).json({
         success: false,
-        message: "Your cart is empty",
+        message: "Please complete payment using Razorpay for online orders",
       });
     }
 
-    const orderItems = [];
-    let subtotal = 0;
-
-    for (const item of cart.items) {
-      if (!item.product || !item.product.isActive) {
-        return res.status(400).json({
-          success: false,
-          message: "One or more products in your cart are no longer available",
-        });
-      }
-
-      const price = item.product.discountedPrice;
-      subtotal += price * item.quantity;
-
-      orderItems.push({
-        product: item.product._id,
-        name: item.product.name,
-        brandName: item.product.brandName || "",
-        price,
-        quantity: item.quantity,
-        image: item.product.productImages?.[0] || "",
-      });
-    }
-
-    const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
-    const total = subtotal + deliveryCharges;
-
-    const deliveryAddress = addressToSnapshot(address);
-    if (
-      !deliveryAddress.name ||
-      !deliveryAddress.number ||
-      !deliveryAddress.city ||
-      !deliveryAddress.state ||
-      !deliveryAddress.pincode
-    ) {
-      return res.status(400).json({
+    const result = await prepareOrderData(req.user._id, addressId);
+    if (result.error) {
+      return res.status(result.status).json({
         success: false,
-        message:
-          "Delivery address is incomplete. Please edit or re-add your address before placing the order.",
+        message: result.error,
       });
     }
 
-    const order = await Order.create({
-      user: req.user._id,
-      items: orderItems,
-      deliveryAddress,
-      paymentMethod,
-      subtotal,
-      deliveryCharges,
-      total,
+    const order = await finalizeOrder({
+      userId: req.user._id,
+      orderItems: result.orderItems,
+      deliveryAddress: result.deliveryAddress,
+      subtotal: result.subtotal,
+      deliveryCharges: result.deliveryCharges,
+      total: result.total,
+      cart: result.cart,
+      paymentMethod: "cod",
       paymentStatus: "unpaid",
     });
-
-    await User.findByIdAndUpdate(req.user._id, {
-      $addToSet: { orders: order._id },
-    });
-
-    cart.items = [];
-    await cart.save();
 
     res.status(201).json({
       success: true,
@@ -156,6 +88,133 @@ export const getOrderById = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+function applyCancelledPaymentRule(order, updates) {
+  if (updates.status !== "cancelled" || !order) return;
+
+  if (order.paymentMethod === "online" && order.paymentStatus === "paid") {
+    updates.paymentStatus = "refundable";
+  }
+}
+
+export const cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.status !== "confirm") {
+      return res.status(400).json({
+        success: false,
+        message: "Order can only be cancelled while status is Confirm",
+      });
+    }
+
+    order.status = "cancelled";
+    if (order.paymentMethod === "online" && order.paymentStatus === "paid") {
+      order.paymentStatus = "refundable";
+    }
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order cancelled successfully",
+      data: order,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    const year = Number.parseInt(req.query.year, 10) || currentYear;
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [todayOrders, recentTodayOrders, monthlyAgg, yearsAgg, products, categories] =
+      await Promise.all([
+      Order.find({
+        createdAt: { $gte: startOfToday, $lte: endOfToday },
+      }).select("status"),
+      Order.find({
+        createdAt: { $gte: startOfToday, $lte: endOfToday },
+      })
+        .populate("user", "name email phone")
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select("orderNumber total status createdAt user deliveryAddress"),
+      Order.aggregate([
+        {
+          $match: {
+            status: { $ne: "cancelled" },
+            $expr: {
+              $eq: [{ $year: { date: "$createdAt", timezone: INDIA_TZ } }, year],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { $month: { date: "$createdAt", timezone: INDIA_TZ } },
+            revenue: { $sum: "$total" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        {
+          $group: {
+            _id: { $year: { date: "$createdAt", timezone: INDIA_TZ } },
+          },
+        },
+        { $sort: { _id: -1 } },
+      ]),
+      Product.countDocuments(),
+      Category.countDocuments(),
+    ]);
+
+    const today = {
+      orders: todayOrders.length,
+      pending: todayOrders.filter((order) => PENDING_STATUSES.includes(order.status)).length,
+      delivered: todayOrders.filter((order) => order.status === "delivered").length,
+      cancelled: todayOrders.filter((order) => order.status === "cancelled").length,
+    };
+
+    const monthlySales = Array.from({ length: 12 }, (_, index) => {
+      const month = index + 1;
+      const found = monthlyAgg.find((entry) => entry._id === month);
+      return { month, revenue: Number(found?.revenue) || 0 };
+    });
+
+    const years = yearsAgg.map((entry) => entry._id);
+    if (!years.includes(currentYear)) {
+      years.unshift(currentYear);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        today,
+        recentTodayOrders,
+        monthlySales,
+        years,
+        totals: { products, categories },
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -206,7 +265,15 @@ export const updateOrder = async (req, res) => {
     const updates = {};
 
     const allowedStatuses = ["confirm", "processing", "shipping", "delivered", "cancelled"];
-    const allowedPaymentStatuses = ["unpaid", "paid"];
+    const allowedPaymentStatuses = ["unpaid", "paid", "refundable"];
+
+    const existingOrder = await Order.findById(req.params.id);
+    if (!existingOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
 
     if (status !== undefined) {
       if (!allowedStatuses.includes(status)) {
@@ -232,6 +299,8 @@ export const updateOrder = async (req, res) => {
       updates.paymentStatus = "paid";
     }
 
+    applyCancelledPaymentRule(existingOrder, updates);
+
     if (!Object.keys(updates).length) {
       return res.status(400).json({
         success: false,
@@ -244,13 +313,6 @@ export const updateOrder = async (req, res) => {
       { $set: updates },
       { new: true, runValidators: true }
     ).populate("user", "name email phone");
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
 
     res.status(200).json({
       success: true,

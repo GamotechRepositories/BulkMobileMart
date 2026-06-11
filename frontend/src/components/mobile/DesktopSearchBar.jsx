@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories } from "../../api/api";
+import { buildProductSearchUrl } from "../../utils/productSearch";
 
 function DesktopSearchBar({ className = "" }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
   const [category, setCategory] = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -22,10 +27,25 @@ function DesktopSearchBar({ className = "" }) {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    setQuery(searchParams.get("q") || "");
+    setCategory(searchParams.get("categoryName") || "");
+  }, [searchParams]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed && !category) {
+      navigate("/product");
+      return;
+    }
+    navigate(buildProductSearchUrl(trimmed, category));
+  };
+
   return (
     <form
       className={`flex h-11 items-stretch overflow-hidden rounded-md border border-border-light bg-[#f3f3f3] ${className}`}
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSubmit}
     >
       <div className="relative flex shrink-0 items-center border-r border-border-light bg-[#ebebeb]">
         <select
@@ -55,6 +75,8 @@ function DesktopSearchBar({ className = "" }) {
 
       <input
         type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="Search for products, brands and more..."
         className="min-w-0 flex-1 bg-transparent px-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
       />

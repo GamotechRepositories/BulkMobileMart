@@ -1,5 +1,5 @@
 const BANNER_IMAGE =
-  "https://images.unsplash.com/photo-1598327275661-3b45e4e4cb76?auto=format&fit=crop&w=800&q=80";
+  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1781174304/d5d13f8c-05f4-4332-915a-c6f3a059e30a.png";
 
 function PromoBanner() {
   return (
@@ -18,12 +18,14 @@ function PromoBanner() {
             WHOLESALE ONLY
           </button>
         </div>
-        <img
-          src={BANNER_IMAGE}
-          alt="Mobile accessories"
-          className="absolute right-0 top-1/2 h-[120px] w-[42%] -translate-y-1/2 object-cover object-center opacity-90 sm:h-[140px] md:h-[180px] md:w-[38%] lg:h-[220px]"
-          loading="lazy"
-        />
+        <div className="absolute right-3 top-1/2 h-[108px] w-[38%] -translate-y-1/2 overflow-hidden rounded-lg sm:right-4 sm:h-[128px] md:right-5 md:h-[165px] md:w-[35%] lg:h-[200px]">
+          <img
+            src={BANNER_IMAGE}
+            alt="Mobile accessories"
+            className="h-full w-full object-contain object-right opacity-90"
+            loading="lazy"
+          />
+        </div>
       </div>
     </section>
   );

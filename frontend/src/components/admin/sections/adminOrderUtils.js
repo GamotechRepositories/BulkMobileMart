@@ -15,6 +15,7 @@ export const PAYMENT_STATUS_OPTIONS = [
   { value: "all", label: "All Payments" },
   { value: "unpaid", label: "Unpaid" },
   { value: "paid", label: "Paid" },
+  { value: "refundable", label: "Refundable" },
 ];
 
 export const ADMIN_DETAIL_ORDER_STATUS_OPTIONS = [
@@ -28,6 +29,7 @@ export const ADMIN_DETAIL_ORDER_STATUS_OPTIONS = [
 export const ADMIN_DETAIL_PAYMENT_STATUS_OPTIONS = [
   { value: "unpaid", label: "unpaid" },
   { value: "paid", label: "paid" },
+  { value: "refundable", label: "refundable" },
 ];
 
 export const ORDER_PROGRESS_STEPS = ["Confirm", "Processing", "Shipping", "Delivered", "Cancelled"];
@@ -106,8 +108,65 @@ export function getPaymentStatus(order) {
   return order.paymentStatus || "unpaid";
 }
 
+export function getPaymentStatusBadgeClass(payment) {
+  if (payment === "paid") return "bg-green-100 text-green-700";
+  if (payment === "refundable") return "bg-blue-100 text-blue-700";
+  return "bg-amber-100 text-amber-800";
+}
+
 export function getOrderDisplayId(order) {
   return `#${getOrderNumber(order)}`;
+}
+
+export function getPaymentMethodLabel(order) {
+  return order.paymentMethod === "cod" ? "COD" : "Online";
+}
+
+export function getTransactionId(order) {
+  if (order.paymentMethod !== "online") return "";
+  return order.razorpayPaymentId || order.razorpayOrderId || "";
+}
+
+function downloadCsv(headers, rows, filename) {
+  const csv = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadPaymentsCsv(orders, filename = "payments.csv") {
+  const headers = [
+    "Order ID",
+    "Customer",
+    "Phone",
+    "Products",
+    "Amount",
+    "Method",
+    "Payment",
+    "Transaction ID",
+    "Date",
+  ];
+
+  const rows = orders.map((order) => [
+    getOrderNumber(order),
+    getCustomerName(order),
+    getCustomerPhone(order),
+    getProductSummary(order),
+    order.total,
+    getPaymentMethodLabel(order),
+    getPaymentStatus(order),
+    getTransactionId(order),
+    formatDate(order.createdAt),
+  ]);
+
+  downloadCsv(headers, rows, filename);
 }
 
 export function downloadOrdersCsv(orders, filename = "orders.csv") {
@@ -120,6 +179,7 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     "Price",
     "Status",
     "Payment",
+    "Transaction ID",
     "Date",
   ];
 
@@ -132,18 +192,9 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     order.total,
     getOrderStatusLabel(order.status),
     getPaymentStatus(order),
+    getTransactionId(order),
     formatDate(order.createdAt),
   ]);
 
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(headers, rows, filename);
 }

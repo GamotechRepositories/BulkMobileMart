@@ -194,17 +194,13 @@ function AdminOrderDetailSection() {
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/admin/orders")}
-            className="shrink-0 text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
-          >
-            ← Orders
-          </button>
-          <span className="text-neutral-300">|</span>
-          <h2 className="truncate text-lg font-bold text-neutral-900">#{orderId}</h2>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/admin/orders")}
+          className="shrink-0 text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
+        >
+          ← Orders
+        </button>
         <Link
           to={`/orders/${order._id}/invoice`}
           target="_blank"
@@ -215,8 +211,14 @@ function AdminOrderDetailSection() {
         </Link>
       </div>
 
-      {/* Status dropdowns */}
-      <div className={`${cardClass} flex flex-wrap items-start justify-end gap-4`}>
+      {/* Order ID + status dropdowns */}
+      <div className={`${cardClass} flex flex-wrap items-start justify-between gap-4`}>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+            Order ID
+          </p>
+          <p className="mt-1 text-lg font-bold text-neutral-900">#{orderId}</p>
+        </div>
         <div className="flex flex-wrap gap-4">
           <div className="min-w-[140px]">
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
@@ -290,6 +292,22 @@ function AdminOrderDetailSection() {
           <p className="mt-1 text-sm text-neutral-600">
             Payment Status: <span className="lowercase">{payment}</span>
           </p>
+          {order.paymentMethod === "online" && order.razorpayPaymentId && (
+            <>
+              <p className="mt-3 text-sm text-neutral-600">
+                Transaction ID:{" "}
+                <span className="break-all font-medium text-neutral-800">
+                  {order.razorpayPaymentId}
+                </span>
+              </p>
+              <p className="mt-1 text-sm text-neutral-600">
+                Payment Time:{" "}
+                <span className="font-medium text-neutral-800">
+                  {formatDateTime(order.paidAt || order.createdAt)}
+                </span>
+              </p>
+            </>
+          )}
           <p className="mt-4 text-right text-sm text-neutral-600">
             Items total: {formatPrice(order.subtotal)}
           </p>

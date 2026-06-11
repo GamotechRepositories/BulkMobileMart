@@ -107,9 +107,14 @@ export const updateAddress = (id, data) =>
 export const deleteAddress = (id) => api.delete(`/api/addresses/${id}`);
 
 export const placeOrder = (data) => api.post("/api/orders", data);
+export const createRazorpayOrder = (data) => api.post("/api/payments/create-order", data);
+export const verifyRazorpayPayment = (data) => api.post("/api/payments/verify", data);
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });
+export const getDashboardStats = (params) =>
+  api.get("/api/orders/admin/dashboard-stats", { params });
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
+export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
 export default api;

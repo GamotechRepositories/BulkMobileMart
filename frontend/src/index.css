@@ -47,6 +47,41 @@ img {
   display: none;
 }
 
+.info-page {
+  min-height: 100%;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.info-page .page-hero-section {
+  border-bottom-color: #e5e7eb;
+}
+
+.info-page .page-title {
+  color: #000000;
+}
+
+.legal-page .page-hero-section {
+  border-bottom: none;
+  padding: 1rem 0.75rem 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .legal-page .page-hero-section {
+    padding: 1.25rem 1rem 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .legal-page .page-hero-section {
+    padding: 1.5rem 1rem 1.25rem;
+  }
+}
+
+.legal-page .legal-content {
+  padding-top: 0;
+}
+
 .page-hero-section {
   padding: 1.5rem 0.75rem 2.5rem;
   border-bottom: 1px solid #262626;

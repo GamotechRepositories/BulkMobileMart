@@ -1,9 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteProduct, getAllProducts } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import ProductDetailModal from "../ProductDetailModal";
-import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
+import { IconEdit, IconTrash } from "../AdminIcons";
+import {
+  adminCompactTableClass,
+  adminCompactTdClass,
+  adminCompactThClass,
+  adminTableHeaderClass,
+  adminTableWrapperClass,
+} from "../adminStyles";
+import ProductListFilters from "./ProductListFilters";
+import { filterAndSortProducts } from "./productListUtils";
+
+const iconBtnClass =
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900";
+const iconBtnDangerClass =
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition hover:border-red-500 hover:bg-red-50 hover:text-red-600";
 
 function ShowProductSection() {
   const navigate = useNavigate();
@@ -12,6 +26,10 @@ function ShowProductSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
 
   const fetchProducts = async () => {
     try {
@@ -43,6 +61,17 @@ function ShowProductSection() {
     };
   }, [selectedProduct]);
 
+  const displayedProducts = useMemo(
+    () =>
+      filterAndSortProducts(products, {
+        selectedCategory,
+        searchQuery,
+        sortBy,
+        sortDir,
+      }),
+    [products, selectedCategory, searchQuery, sortBy, sortDir]
+  );
+
   const handleEdit = (product) => {
     navigate("/admin/products/add", { state: { editProduct: product } });
   };
@@ -63,112 +92,140 @@ function ShowProductSection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
-      <div className="mb-4">
-        <p className="text-sm text-text-secondary">
-          All products ({products.length}) · Click a row to view full details
-        </p>
-      </div>
-
       {loading ? (
-        <p className="text-text-secondary">Loading...</p>
-      ) : products.length === 0 ? (
-        <p className="text-text-secondary">No products yet.</p>
+        <p className="mt-4 text-text-secondary">Loading products...</p>
       ) : (
-        <div className={tableClass}>
-          <table className={compactTableClass}>
-            <colgroup>
-              <col className="w-[8%]" />
-              <col className="w-[22%]" />
-              <col className="w-[12%]" />
-              <col className="w-[18%]" />
-              <col className="w-[10%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[14%]" />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-border-light bg-mobile-surface">
-                <th className={thClass}>Image</th>
-                <th className={thClass}>Product Name</th>
-                <th className={thClass}>Brand</th>
-                <th className={thClass}>Categories</th>
-                <th className={thClass}>Price</th>
-                <th className={thClass}>Stock</th>
-                <th className={thClass}>Status</th>
-                <th className={`${thClass} text-right`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr
-                  key={product._id}
-                  onClick={() => setSelectedProduct(product)}
-                  className="border-b border-border-light last:border-0 cursor-pointer transition hover:bg-mobile-surface/80"
-                >
-                  <td className={tdClass}>
-                    <div className="h-10 w-10 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
-                      {product.productImages?.[0] ? (
-                        <img
-                          src={product.productImages[0]}
-                          alt={product.name}
-                          className="h-full w-full object-contain p-0.5"
-                        />
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className={`${tdClass} font-medium`}>
-                    <span className="line-clamp-2 break-words">{product.name}</span>
-                  </td>
-                  <td className={`${tdClass} text-text-secondary`}>
-                    <span className="block truncate">{product.brandName}</span>
-                  </td>
-                  <td className={`${tdClass} text-text-secondary`}>
-                    <span className="block truncate">{product.categories?.join(", ") || "—"}</span>
-                  </td>
-                  <td className={tdClass}>
-                    <span className="font-semibold text-primary">
-                      ₹{product.discountedPrice}
-                    </span>
-                    <span className="block text-xs text-text-muted line-through">
-                      ₹{product.price}
-                    </span>
-                  </td>
-                  <td className={`${tdClass} text-text-secondary`}>{product.stock}</td>
-                  <td className={tdClass}>
-                    <span
-                      className={
-                        product.isActive ? "text-green-600" : "text-red-500"
-                      }
+        <>
+          <ProductListFilters
+            products={products}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            onSortByChange={setSortBy}
+            sortDir={sortDir}
+            onSortDirToggle={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
+          />
+
+          <p className="mb-4 mt-4 text-sm font-medium text-neutral-700">
+            {displayedProducts.length} product{displayedProducts.length === 1 ? "" : "s"}
+            {displayedProducts.length !== products.length && ` of ${products.length}`} · Click a
+            row to view full details
+          </p>
+
+          {products.length === 0 ? (
+            <p className="text-text-secondary">No products found.</p>
+          ) : displayedProducts.length === 0 ? (
+            <p className="text-text-secondary">No products match your filters.</p>
+          ) : (
+            <div className={adminTableWrapperClass}>
+              <table className={adminCompactTableClass}>
+                <colgroup>
+                  <col className="w-[7%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
+                <thead>
+                  <tr className={adminTableHeaderClass}>
+                    <th className={adminCompactThClass}>Image</th>
+                    <th className={adminCompactThClass}>Product Name</th>
+                    <th className={adminCompactThClass}>Brand</th>
+                    <th className={adminCompactThClass}>Categories</th>
+                    <th className={adminCompactThClass}>Price</th>
+                    <th className={adminCompactThClass}>Stock</th>
+                    <th className={adminCompactThClass}>Status</th>
+                    <th className={adminCompactThClass}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedProducts.map((product) => (
+                    <tr
+                      key={product._id}
+                      onClick={() => setSelectedProduct(product)}
+                      className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                     >
-                      {product.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className={tdClass} onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-wrap justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(product)}
-                        className={btnSecondary}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(product._id, e)}
-                        className={btnDanger}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <td className={adminCompactTdClass}>
+                        <div className="h-8 w-8 overflow-hidden rounded border border-neutral-200 bg-neutral-50">
+                          {product.productImages?.[0] ? (
+                            <img
+                              src={product.productImages[0]}
+                              alt={product.name}
+                              className="h-full w-full object-contain p-0.5"
+                            />
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
+                        <span className="line-clamp-2 break-words">{product.name}</span>
+                      </td>
+                      <td className={`${adminCompactTdClass} text-neutral-600`}>
+                        <span className="block truncate">{product.brandName}</span>
+                      </td>
+                      <td className={`${adminCompactTdClass} text-neutral-600`}>
+                        <span className="line-clamp-2 break-words">
+                          {product.categories?.length
+                            ? `${product.categories.join(", ")}${product.subcategory ? ` / ${product.subcategory}` : ""}`
+                            : "—"}
+                        </span>
+                      </td>
+                      <td className={adminCompactTdClass}>
+                        <span className="block font-semibold text-neutral-900">
+                          ₹{product.discountedPrice}
+                        </span>
+                        <span className="block text-[10px] text-neutral-500 line-through">
+                          ₹{product.price}
+                        </span>
+                      </td>
+                      <td className={`${adminCompactTdClass} text-neutral-800`}>{product.stock}</td>
+                      <td className={adminCompactTdClass}>
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lowercase ${
+                            product.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {product.isActive ? "active" : "inactive"}
+                        </span>
+                      </td>
+                      <td className={adminCompactTdClass} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-nowrap items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(product)}
+                            className={iconBtnClass}
+                            title="Edit"
+                            aria-label="Edit product"
+                          >
+                            <IconEdit />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(product._id, e)}
+                            className={iconBtnDangerClass}
+                            title="Delete"
+                            aria-label="Delete product"
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       <ProductDetailModal

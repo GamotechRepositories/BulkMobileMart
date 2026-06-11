@@ -63,9 +63,12 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid"],
+      enum: ["unpaid", "paid", "refundable"],
       default: "unpaid",
     },
+    razorpayOrderId: { type: String, default: "" },
+    razorpayPaymentId: { type: String, default: "" },
+    paidAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -90,6 +93,15 @@ orderSchema.pre("findOneAndUpdate", function setPaidOnDeliveredUpdate() {
 orderSchema.pre("save", async function preSaveOrder() {
   if (this.isModified("status") && this.status === "delivered") {
     this.paymentStatus = "paid";
+  }
+
+  if (
+    this.isModified("status") &&
+    this.status === "cancelled" &&
+    this.paymentMethod === "online" &&
+    this.paymentStatus === "paid"
+  ) {
+    this.paymentStatus = "refundable";
   }
 
   if (this.orderNumber && /^\d{6}$/.test(this.orderNumber)) return;

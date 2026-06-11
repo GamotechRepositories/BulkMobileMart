@@ -492,6 +492,7 @@ function DesktopProductGrid({
   loading,
   pageTitle,
   backTo,
+  emptyMessage = "No products found in this category yet.",
   sortBy,
   showSort,
   onToggleSort,
@@ -548,9 +549,7 @@ function DesktopProductGrid({
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <p className="py-12 text-center text-text-secondary">
-                No products found in this category yet.
-              </p>
+              <p className="py-12 text-center text-text-secondary">{emptyMessage}</p>
             ) : (
               <div className="grid grid-cols-4 gap-4">
                 {products.map((product) => (
@@ -612,6 +611,7 @@ function Product() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const subcategory = searchParams.get("subcategory")?.trim() || "";
+  const searchQuery = searchParams.get("q")?.trim() || "";
 
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -629,9 +629,10 @@ function Product() {
         const params = {};
         if (categoryName) params.categoryName = categoryName;
         if (subcategory) params.subcategory = subcategory;
+        if (searchQuery) params.q = searchQuery;
 
         const requests = [getCategories()];
-        if (categoryName) {
+        if (categoryName || searchQuery) {
           requests.push(getProducts(params));
         }
 
@@ -648,9 +649,11 @@ function Product() {
     };
 
     fetchData();
-  }, [categoryName, subcategory]);
+  }, [categoryName, subcategory, searchQuery]);
 
-  const pageTitle = subcategory || categoryName || "Our Products";
+  const pageTitle = searchQuery
+    ? `Results for "${searchQuery}"`
+    : subcategory || categoryName || "Our Products";
 
   const sortedProducts = useMemo(() => {
     const list = [...products];
@@ -672,7 +675,25 @@ function Product() {
     }
   };
 
-  if (categoryName) {
+  const showProductResults = Boolean(categoryName || searchQuery);
+  const mobileBackTo = searchQuery
+    ? categoryName
+      ? subcategory
+        ? `/product?categoryName=${encodeURIComponent(categoryName)}`
+        : `/product?categoryName=${encodeURIComponent(categoryName)}`
+      : "/product"
+    : subcategory
+      ? `/product?categoryName=${encodeURIComponent(categoryName)}`
+      : "/";
+  const desktopBackTo = searchQuery
+    ? categoryName
+      ? `/product?categoryName=${encodeURIComponent(categoryName)}`
+      : "/product"
+    : subcategory
+      ? `/product?categoryName=${encodeURIComponent(categoryName)}`
+      : "/product";
+
+  if (showProductResults) {
     return (
       <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-72px-2rem)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
         <MobileProductHeader cartCount={cartCount} />
@@ -680,7 +701,7 @@ function Product() {
         <div className="lg:hidden">
           <MobileProductToolbar
             title={pageTitle}
-            backTo={subcategory ? `/product?categoryName=${encodeURIComponent(categoryName)}` : "/"}
+            backTo={mobileBackTo}
             onToggleSort={() => setShowSort((prev) => !prev)}
           />
 
@@ -721,7 +742,9 @@ function Product() {
               ))
             ) : sortedProducts.length === 0 ? (
               <p className="py-12 text-center text-sm text-text-secondary">
-                No products found in this category yet.
+                {searchQuery
+                  ? `No products found for "${searchQuery}".`
+                  : "No products found in this category yet."}
               </p>
             ) : (
               sortedProducts.map((product) => (
@@ -737,10 +760,11 @@ function Product() {
           activeCategoryName={categoryName}
           loading={loading}
           pageTitle={pageTitle}
-          backTo={
-            subcategory
-              ? `/product?categoryName=${encodeURIComponent(categoryName)}`
-              : "/product"
+          backTo={desktopBackTo}
+          emptyMessage={
+            searchQuery
+              ? `No products found for "${searchQuery}".`
+              : "No products found in this category yet."
           }
           sortBy={sortBy}
           showSort={showSort}

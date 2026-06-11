@@ -1,8 +1,27 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { buildProductSearchUrl } from "../../utils/productSearch";
+
 function MobileSearchBar({ className = "" }) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setQuery(searchParams.get("q") || "");
+  }, [searchParams]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    navigate(buildProductSearchUrl(trimmed));
+  };
+
   return (
     <form
       className={`flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5 ${className}`}
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSubmit}
     >
       <svg
         className="h-4 w-4 shrink-0 text-text-secondary sm:h-5 sm:w-5"
@@ -20,21 +39,16 @@ function MobileSearchBar({ className = "" }) {
       </svg>
       <input
         type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="Search Products..."
         className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none sm:text-base"
       />
       <button
-        type="button"
-        aria-label="Filter products"
-        className="shrink-0 text-text-secondary transition hover:text-primary"
+        type="submit"
+        className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-bold text-white sm:px-4 sm:text-sm"
       >
-        <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-          />
-        </svg>
+        Go
       </button>
     </form>
   );

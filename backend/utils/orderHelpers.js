@@ -1,0 +1,127 @@
+import Cart from "../models/Cart.js";
+import Address from "../models/address/Address.js";
+import Order from "../models/order/Order.js";
+import User from "../models/user.js";
+
+const FREE_DELIVERY_THRESHOLD = 999;
+const DELIVERY_CHARGE = 49;
+
+const populateCart = (query) =>
+  query.populate({
+    path: "items.product",
+    select: "name brandName discountedPrice productImages isActive",
+  });
+
+export function addressToSnapshot(address) {
+  const raw = typeof address.toObject === "function" ? address.toObject() : address;
+
+  return {
+    name: (raw.name || raw.fullName || "").trim(),
+    number: String(raw.number || raw.phone || "").trim(),
+    landmark: (raw.landmark || raw.streetArea || "").trim(),
+    city: (raw.city || "").trim(),
+    state: (raw.state || "").trim(),
+    pincode: String(raw.pincode || "").trim(),
+  };
+}
+
+export async function prepareOrderData(userId, addressId) {
+  const address = await Address.findOne({ _id: addressId, user: userId });
+  if (!address) {
+    return { error: "Address not found", status: 404 };
+  }
+
+  const cart = await populateCart(Cart.findOne({ user: userId }));
+  if (!cart?.items?.length) {
+    return { error: "Your cart is empty", status: 400 };
+  }
+
+  const orderItems = [];
+  let subtotal = 0;
+
+  for (const item of cart.items) {
+    if (!item.product || !item.product.isActive) {
+      return {
+        error: "One or more products in your cart are no longer available",
+        status: 400,
+      };
+    }
+
+    const price = item.product.discountedPrice;
+    subtotal += price * item.quantity;
+
+    orderItems.push({
+      product: item.product._id,
+      name: item.product.name,
+      brandName: item.product.brandName || "",
+      price,
+      quantity: item.quantity,
+      image: item.product.productImages?.[0] || "",
+    });
+  }
+
+  const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const total = subtotal + deliveryCharges;
+
+  const deliveryAddress = addressToSnapshot(address);
+  if (
+    !deliveryAddress.name ||
+    !deliveryAddress.number ||
+    !deliveryAddress.city ||
+    !deliveryAddress.state ||
+    !deliveryAddress.pincode
+  ) {
+    return {
+      error:
+        "Delivery address is incomplete. Please edit or re-add your address before placing the order.",
+      status: 400,
+    };
+  }
+
+  return {
+    orderItems,
+    deliveryAddress,
+    subtotal,
+    deliveryCharges,
+    total,
+    cart,
+  };
+}
+
+export async function finalizeOrder({
+  userId,
+  orderItems,
+  deliveryAddress,
+  subtotal,
+  deliveryCharges,
+  total,
+  cart,
+  paymentMethod,
+  paymentStatus,
+  razorpayOrderId,
+  razorpayPaymentId,
+  paidAt,
+}) {
+  const order = await Order.create({
+    user: userId,
+    items: orderItems,
+    deliveryAddress,
+    paymentMethod,
+    subtotal,
+    deliveryCharges,
+    total,
+    paymentStatus,
+    ...(razorpayOrderId && { razorpayOrderId }),
+    ...(razorpayPaymentId && { razorpayPaymentId }),
+    ...(paidAt && { paidAt }),
+  });
+
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { orders: order._id },
+  });
+
+  cart.items = [];
+  await cart.save();
+
+  return order;
+}

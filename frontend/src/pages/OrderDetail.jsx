@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getOrderById } from "../api/api";
+import { cancelOrder, getOrderById } from "../api/api";
 import { getOrderNumber } from "../utils/orderNumber";
 
 const formatPrice = (amount) =>
@@ -56,9 +56,32 @@ const STATUS_STEP_INDEX = {
 const PAYMENT_LABELS = {
   paid: "Paid",
   unpaid: "Unpaid",
+  refundable: "Refundable",
 };
 
 const getPaymentStatus = (order) => order.paymentStatus || "unpaid";
+
+function OnlinePaymentInfo({ order }) {
+  if (order.paymentMethod !== "online") return null;
+
+  const transactionId = order.razorpayPaymentId || order.razorpayOrderId;
+  const paymentTime = order.paidAt || order.createdAt;
+
+  if (!transactionId) return null;
+
+  return (
+    <div className="mt-2 w-full space-y-1 text-sm">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <p className="text-xs font-semibold tracking-wide text-text-secondary">TRANSACTION ID</p>
+        <p className="break-all font-medium text-text-primary">{transactionId}</p>
+      </div>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <p className="text-xs font-semibold tracking-wide text-text-secondary">PAYMENT TIME</p>
+        <p className="font-medium text-text-primary">{formatDateTime(paymentTime)}</p>
+      </div>
+    </div>
+  );
+}
 
 function ProgressStepperHorizontal({ order }) {
   const activeIndex = STATUS_STEP_INDEX[order.status] ?? 0;
@@ -171,6 +194,8 @@ function OrderDetail() {
   const { user, openAuthModal } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -195,6 +220,26 @@ function OrderDetail() {
 
     loadOrder();
   }, [user, id]);
+
+  const handleCancelOrder = async () => {
+    if (!order || cancelling || order.status !== "confirm") return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this order? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const { data } = await cancelOrder(order._id);
+      setOrder(data.data);
+    } catch (err) {
+      setCancelError(err.response?.data?.message || "Failed to cancel order");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -262,29 +307,39 @@ function OrderDetail() {
 
         <div className="space-y-4 lg:space-y-5">
           {/* Status card */}
-          <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-border-light bg-white px-4 py-4 shadow-sm sm:px-6 lg:px-8 lg:py-6">
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <div className="flex items-baseline gap-2">
-                <p className="text-xs font-semibold tracking-wide text-text-secondary">STATUS</p>
-                <p className="text-sm font-bold text-text-primary lg:text-base">
-                  {STATUS_LABELS[order.status] || order.status}
-                </p>
+          <div className="w-full rounded-xl border border-border-light bg-white px-4 py-4 shadow-sm sm:px-6 lg:px-8 lg:py-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-xs font-semibold tracking-wide text-text-secondary">STATUS</p>
+                    <p className="text-sm font-bold text-text-primary lg:text-base">
+                      {STATUS_LABELS[order.status] || order.status}
+                    </p>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-xs font-semibold tracking-wide text-text-secondary">PAYMENT</p>
+                    <p className="text-sm font-bold text-text-primary lg:text-base">
+                      {PAYMENT_LABELS[getPaymentStatus(order)] || getPaymentStatus(order)}
+                    </p>
+                  </div>
+                </div>
+                <OnlinePaymentInfo order={order} />
+                {cancelError && (
+                  <p className="mt-2 text-xs text-red-600 sm:text-sm">{cancelError}</p>
+                )}
               </div>
-              <div className="flex items-baseline gap-2">
-                <p className="text-xs font-semibold tracking-wide text-text-secondary">PAYMENT</p>
-                <p className="text-sm font-bold text-text-primary lg:text-base">
-                  {PAYMENT_LABELS[getPaymentStatus(order)] || getPaymentStatus(order)}
-                </p>
-              </div>
+              {order.status === "confirm" && (
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  disabled={cancelling}
+                  className="shrink-0 text-xs font-medium text-text-secondary transition hover:text-red-600 disabled:opacity-50 sm:text-sm lg:rounded-lg lg:border lg:border-border-light lg:px-4 lg:py-2"
+                >
+                  {cancelling ? "Cancelling..." : "Cancel Order"}
+                </button>
+              )}
             </div>
-            {order.status !== "cancelled" && order.status !== "delivered" && (
-              <button
-                type="button"
-                className="shrink-0 text-xs font-medium text-text-secondary transition hover:text-red-600 sm:text-sm lg:rounded-lg lg:border lg:border-border-light lg:px-4 lg:py-2"
-              >
-                Cancel Order
-              </button>
-            )}
           </div>
 
           {/* Progress stepper */}
@@ -320,7 +375,6 @@ function OrderDetail() {
                 <span>Total:</span>
                 <span>{formatPrice(order.total)}</span>
               </div>
-              <p className="pt-1 text-xs text-text-secondary">Order Date: {formatDate(order.createdAt)}</p>
             </div>
           </div>
 
@@ -358,9 +412,8 @@ function OrderDetail() {
 
           {/* Order items */}
           <div className="w-full rounded-xl border border-border-light bg-white shadow-sm">
-            <div className="hidden items-center justify-between border-b border-border-light px-6 py-5 sm:px-8 lg:flex">
+            <div className="hidden border-b border-border-light px-6 py-5 sm:px-8 lg:block">
               <h2 className="text-sm font-bold tracking-wide text-text-primary">ORDER ITEMS</h2>
-              <p className="text-sm text-text-secondary">Order Date: {formatDate(order.createdAt)}</p>
             </div>
 
             <h2 className="border-b border-border-light px-4 py-3 text-sm font-bold tracking-wide text-text-primary lg:hidden">

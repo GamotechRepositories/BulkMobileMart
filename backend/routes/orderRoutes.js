@@ -6,16 +6,20 @@ import {
   getOrderById,
   getAllOrders,
   updateOrder,
+  cancelOrder,
+  getDashboardStats,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
 
 router.use(protect);
 
+router.get("/admin/dashboard-stats", requireAdmin, getDashboardStats);
 router.get("/admin/all", requireAdmin, getAllOrders);
 router.patch("/admin/:id", requireAdmin, updateOrder);
 router.post("/", placeOrder);
 router.get("/", getMyOrders);
+router.patch("/:id/cancel", cancelOrder);
 router.get("/:id", getOrderById);
 
 export default router;

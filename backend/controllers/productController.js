@@ -192,6 +192,18 @@ export const getProducts = async (req, res) => {
       };
     }
 
+    if (req.query.q?.trim()) {
+      const term = escapeRegex(req.query.q.trim());
+      const regex = new RegExp(term, "i");
+      filter.$or = [
+        { name: regex },
+        { brandName: regex },
+        { subcategory: regex },
+        { categories: regex },
+        { description: regex },
+      ];
+    }
+
     let query = Product.find(filter).sort(sortOptions);
 
     if (req.query.limit) {
