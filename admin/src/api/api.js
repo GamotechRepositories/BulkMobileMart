@@ -74,12 +74,35 @@ export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`
 export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);
 
-export const uploadImageFile = (file, folder) => {
-  const formData = new FormData();
-  formData.append("image", file);
-  formData.append("folder", folder);
-  // Let axios set multipart boundary automatically.
-  return api.post("/api/upload/image", formData);
+/**
+ * Upload an image directly to S3 via a presigned URL.
+ * The file never passes through the Express server, so there is no
+ * body-size limit on the backend side.
+ * Returns the CloudFront URL of the uploaded image.
+ */
+export const uploadImageFile = async (file, folder) => {
+  // 1. Ask the backend for a short-lived presigned PUT URL
+  const { data: presignRes } = await api.post("/api/upload/presign", {
+    folder,
+    mimeType: file.type,
+    filename: file.name,
+  });
+
+  const { uploadUrl, cloudFrontUrl } = presignRes.data;
+
+  // 2. PUT the file directly to S3 — no auth header, just the correct Content-Type
+  const s3Res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  if (!s3Res.ok) {
+    throw new Error(`S3 upload failed (${s3Res.status}). Check your S3 CORS configuration.`);
+  }
+
+  // 3. Return in the same shape the old route returned so callers need no changes
+  return { data: { data: { url: cloudFrontUrl } } };
 };
 
 export default api;

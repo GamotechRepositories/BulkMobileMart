@@ -1,4 +1,5 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import {
   ALLOWED_UPLOAD_FOLDERS,
@@ -99,4 +100,39 @@ export function isS3Configured() {
       process.env.AWS_BUCKET_NAME &&
       process.env.CLOUDFRONT_URL
   );
+}
+
+/**
+ * Generate a presigned PUT URL so the browser can upload directly to S3.
+ * Returns { uploadUrl, key, cloudFrontUrl, expiresIn }.
+ */
+export async function presignUpload({ mimeType, folder, originalName = "", expiresIn = 300 }) {
+  if (!process.env.AWS_BUCKET_NAME) {
+    throw new Error("AWS_BUCKET_NAME is not configured");
+  }
+
+  const normalizedFolder = normalizeUploadFolder(folder);
+  if (!normalizedFolder || !ALLOWED_UPLOAD_FOLDERS.has(normalizedFolder)) {
+    throw new Error("Invalid upload folder");
+  }
+
+  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "jpg";
+  const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
+  const key = buildS3ObjectKey(normalizedFolder, fileName);
+
+  const client = getS3Client();
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+    ContentType: mimeType || "image/jpeg",
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn });
+
+  return {
+    uploadUrl,
+    key,
+    cloudFrontUrl: buildCdnUrl(key),
+    expiresIn,
+  };
 }

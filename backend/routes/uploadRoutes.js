@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { uploadImage } from "../controllers/uploadController.js";
+import { getPresignedUploadUrl } from "../controllers/presignController.js";
 import { optionalProtect } from "../middleware/authMiddleware.js";
 import { MAX_IMAGE_FILE_BYTES } from "../utils/imageValidation.js";
 
@@ -11,6 +12,7 @@ const upload = multer({
   limits: { fileSize: MAX_IMAGE_FILE_BYTES },
 });
 
+// Direct upload through server (kept for fallback)
 router.post(
   "/image",
   optionalProtect,
@@ -31,5 +33,8 @@ router.post(
   },
   uploadImage
 );
+
+// Presigned URL — browser uploads directly to S3, no file passes through the server
+router.post("/presign", optionalProtect, getPresignedUploadUrl);
 
 export default router;
