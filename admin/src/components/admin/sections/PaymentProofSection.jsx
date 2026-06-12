@@ -39,6 +39,12 @@ function getProductSummary(items = []) {
   return items.map((item) => `${item.name} × ${item.quantity}`).join(", ");
 }
 
+function getStatusLabel(status) {
+  if (status === "verified") return "Approved";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
+}
+
 function getStatusBadgeClass(status) {
   if (status === "verified") return "bg-green-100 text-green-800";
   if (status === "rejected") return "bg-red-100 text-red-800";
@@ -128,13 +134,19 @@ function PaymentProofDetailModal({ paymentId, onClose, onUpdated }) {
                 <span
                   className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(payment.status)}`}
                 >
-                  {payment.status}
+                  {getStatusLabel(payment.status)}
                 </span>
               </p>
               <p>
                 <span className="font-semibold text-neutral-700">Order status:</span>{" "}
                 {payment.order?.status || "—"}
               </p>
+              {payment.verifiedAt && (
+                <p>
+                  <span className="font-semibold text-neutral-700">Reviewed on:</span>{" "}
+                  {formatDate(payment.verifiedAt)}
+                </p>
+              )}
               <p>
                 <span className="font-semibold text-neutral-700">Customer:</span>{" "}
                 {payment.user?.name || "—"}
@@ -206,6 +218,19 @@ function PaymentProofDetailModal({ paymentId, onClose, onUpdated }) {
               </div>
             )}
 
+            {payment.status === "rejected" && payment.rejectionReason && (
+              <div className="rounded-lg bg-red-50 p-3 text-red-800">
+                <p className="font-semibold">Rejection reason</p>
+                <p className="mt-1">{payment.rejectionReason}</p>
+              </div>
+            )}
+
+            {payment.status === "verified" && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-800">
+                Payment approved. This proof stays in the admin list for your records.
+              </div>
+            )}
+
             {payment.status === "pending" && (
               <div className="space-y-3 border-t border-neutral-100 pt-4">
                 <div>
@@ -253,7 +278,7 @@ function PaymentProofSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(null);
 
   const fetchPayments = useCallback(async () => {
@@ -305,10 +330,10 @@ function PaymentProofSection() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm"
         >
+          <option value="all">All proofs</option>
           <option value="pending">Pending</option>
-          <option value="verified">Verified</option>
+          <option value="verified">Approved</option>
           <option value="rejected">Rejected</option>
-          <option value="all">All</option>
         </select>
       </div>
 
@@ -363,11 +388,11 @@ function PaymentProofSection() {
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${getStatusBadgeClass(payment.status)}`}
                     >
-                      {payment.status}
+                      {getStatusLabel(payment.status)}
                     </span>
                   </td>
                   <td className={`${adminCompactTdClass} text-neutral-600`}>
-                    {formatDate(payment.createdAt)}
+                    {formatDate(payment.verifiedAt || payment.createdAt)}
                   </td>
                   <td className={adminCompactTdClass}>
                     <button
@@ -375,7 +400,7 @@ function PaymentProofSection() {
                       onClick={() => setSelectedId(payment._id)}
                       className="text-xs font-semibold text-primary hover:underline"
                     >
-                      View
+                      {payment.status === "pending" ? "Review" : "View"}
                     </button>
                   </td>
                 </tr>
@@ -394,7 +419,7 @@ function PaymentProofSection() {
               ? "Payment approved successfully"
               : "Payment rejected and order cancelled"
           );
-          fetchPayments();
+          setStatusFilter(status === "verified" ? "verified" : status === "rejected" ? "rejected" : "all");
         }}
       />
     </div>
