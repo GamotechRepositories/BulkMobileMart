@@ -29,7 +29,7 @@ function ShowCategorySection() {
   }, []);
 
   const handleEdit = (cat) => {
-    navigate("/admin/categories/add", { state: { editCategory: cat } });
+    navigate("/categories/add", { state: { editCategory: cat } });
   };
 
   const handleDelete = async (id) => {

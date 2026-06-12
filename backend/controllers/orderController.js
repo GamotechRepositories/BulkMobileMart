@@ -280,7 +280,7 @@ export const updateOrder = async (req, res) => {
     const updates = {};
 
     const allowedStatuses = ["confirm", "processing", "shipping", "delivered", "cancelled"];
-    const allowedPaymentStatuses = ["unpaid", "paid", "refundable"];
+    const allowedPaymentStatuses = ["unpaid", "paid", "refundable", "pending_verification"];
 
     const existingOrder = await Order.findById(req.params.id);
     if (!existingOrder) {

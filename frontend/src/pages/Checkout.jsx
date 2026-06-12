@@ -59,6 +59,7 @@ function Checkout() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [message, setMessage] = useState("");
   const messageRef = useRef("");
 
@@ -108,7 +109,10 @@ function Checkout() {
     }
   }, [user, cartLoading, items.length, navigate, orderPlaced]);
 
-  const completeOrderSuccess = async () => {
+  const completeOrderSuccess = async (note = "") => {
+    setOrderSuccessNote(
+      note || "Your order has been placed and will be delivered soon."
+    );
     setOrderPlaced(true);
     await loadCart();
     setShowSuccessModal(true);
@@ -200,7 +204,9 @@ function Checkout() {
         upiTransactionRef,
       });
       setShowPaymentModal(false);
-      await completeOrderSuccess();
+      await completeOrderSuccess(
+        "Your order is confirmed. We will verify your UPI payment screenshot shortly."
+      );
     } catch (err) {
       setOrderError(
         err.response?.data?.message || "Failed to submit payment proof. Please try again."
@@ -266,10 +272,8 @@ function Checkout() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="mb-2 text-xl font-bold text-text-primary">Successfully Placed Order</h3>
-            <p className="mb-6 text-sm text-text-secondary">
-              Your order has been placed and will be delivered soon.
-            </p>
+            <h3 className="mb-2 text-xl font-bold text-text-primary">Order Confirmed</h3>
+            <p className="mb-6 text-sm text-text-secondary">{orderSuccessNote}</p>
             <button
               type="button"
               onClick={() => navigate("/orders")}

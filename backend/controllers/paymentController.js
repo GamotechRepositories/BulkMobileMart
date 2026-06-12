@@ -7,10 +7,8 @@ import {
   normalizeOrderMessage,
   prepareOrderData,
 } from "../utils/orderHelpers.js";
-import {
-  isValidImageDataUrl,
-  MAX_IMAGE_DATA_URL_LENGTH,
-} from "../utils/imageValidation.js";
+import { resolveImageForStorage } from "../utils/imageValidation.js";
+import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
@@ -207,17 +205,21 @@ export const submitUpiPaymentProof = async (req, res) => {
       });
     }
 
-    if (!screenshot || !isValidImageDataUrl(screenshot)) {
+    if (!screenshot) {
       return res.status(400).json({
         success: false,
-        message: "Payment screenshot is required (JPG, PNG, WEBP, or GIF)",
+        message: "Payment screenshot is required",
       });
     }
 
-    if (screenshot.length > MAX_IMAGE_DATA_URL_LENGTH) {
+    const resolvedScreenshot = await resolveImageForStorage(
+      screenshot,
+      UPLOAD_FOLDERS.PAYMENT_PROOFS
+    );
+    if (resolvedScreenshot.error) {
       return res.status(400).json({
         success: false,
-        message: "Screenshot is too large. Please upload an image under 2 MB",
+        message: resolvedScreenshot.error,
       });
     }
 
@@ -243,7 +245,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       total: result.total,
       cart: result.cart,
       paymentMethod: isCodAdvance ? "cod" : "online",
-      paymentStatus: "unpaid",
+      paymentStatus: "pending_verification",
+      status: "confirm",
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
     });
@@ -261,7 +264,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       deliveryCharges: result.deliveryCharges,
       items: result.orderItems,
       deliveryAddress: result.deliveryAddress,
-      screenshot,
+      screenshot: resolvedScreenshot.url,
       screenshotName,
       upiTransactionRef,
       customerMessage: orderMessage,
@@ -271,7 +274,7 @@ export const submitUpiPaymentProof = async (req, res) => {
     res.status(201).json({
       success: true,
       message:
-        "Order placed. We will verify your payment screenshot and confirm your order shortly.",
+        "Order confirmed. We will verify your UPI payment screenshot shortly.",
       data: {
         order,
         paymentId: payment._id,
@@ -377,24 +380,32 @@ export const updatePaymentStatus = async (req, res) => {
     await payment.save();
 
     if (status === "verified") {
-      const orderUpdate = { paymentStatus: "paid", paidAt: new Date() };
-
-      if (payment.paymentType === "cod_advance") {
-        orderUpdate.paymentStatus = "unpaid";
-        delete orderUpdate.paidAt;
-      }
-
       if (payment.paymentType === "online") {
-        await Order.findByIdAndUpdate(payment.order, orderUpdate);
+        await Order.findByIdAndUpdate(payment.order, {
+          status: "confirm",
+          paymentStatus: "paid",
+          paidAt: new Date(),
+        });
+      } else {
+        await Order.findByIdAndUpdate(payment.order, {
+          status: "confirm",
+          paymentStatus: "unpaid",
+          codAdvancePaidAt: new Date(),
+        });
       }
+    } else {
+      await Order.findByIdAndUpdate(payment.order, {
+        status: "cancelled",
+        paymentStatus: "unpaid",
+      });
     }
 
     res.status(200).json({
       success: true,
       message:
         status === "verified"
-          ? "Payment verified successfully"
-          : "Payment proof rejected",
+          ? "Payment approved successfully"
+          : "Payment proof rejected and order cancelled",
       data: payment,
     });
   } catch (error) {

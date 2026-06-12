@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { uploadImageFile } from "../../api/api";
+import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import {
   getPayableAmount,
   getQrCodeImageUrl,
   openUpiAppChooser,
 } from "../../utils/upiPayment";
 
-const MAX_SCREENSHOT_BYTES = 2 * 1024 * 1024;
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -15,15 +17,6 @@ const formatPrice = (amount) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 function PaymentModal({
   open,
@@ -40,6 +33,7 @@ function PaymentModal({
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -80,17 +74,24 @@ function PaymentModal({
     }
 
     if (file.size > MAX_SCREENSHOT_BYTES) {
-      setUploadError("Image must be under 2 MB");
+      setUploadError("Image must be under 5 MB");
       return;
     }
 
+    setUploadingScreenshot(true);
+    setUploadError("");
+
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setScreenshot({ name: file.name, dataUrl });
-      setScreenshotPreview(dataUrl);
-      setUploadError("");
-    } catch {
-      setUploadError("Failed to read the selected file");
+      const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.PAYMENT_PROOFS);
+      const url = data.data.url;
+      setScreenshot({ name: file.name, url });
+      setScreenshotPreview(url);
+    } catch (err) {
+      setUploadError(err.response?.data?.message || "Failed to upload screenshot");
+      setScreenshot(null);
+      setScreenshotPreview("");
+    } finally {
+      setUploadingScreenshot(false);
     }
   };
 
@@ -107,14 +108,14 @@ function PaymentModal({
   };
 
   const handleSubmitProof = async () => {
-    if (!screenshot?.dataUrl) {
+    if (!screenshot?.url) {
       setUploadError("Please upload your payment screenshot");
       return;
     }
 
     setUploadError("");
     await onSubmitUpiProof({
-      screenshot: screenshot.dataUrl,
+      screenshot: screenshot.url,
       screenshotName: screenshot.name,
       upiTransactionRef: upiTransactionRef.trim(),
     });
@@ -223,13 +224,15 @@ function PaymentModal({
                   <svg className="h-4 w-4 shrink-0 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
-                  <span className="text-[11px] font-medium text-text-primary">Choose screenshot</span>
+                  <span className="text-[11px] font-medium text-text-primary">
+                  {uploadingScreenshot ? "Uploading..." : "Choose screenshot"}
+                </span>
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={handleScreenshotChange}
-                    disabled={processing}
+                    disabled={processing || uploadingScreenshot}
                   />
                 </label>
               )}
@@ -251,7 +254,7 @@ function PaymentModal({
           <button
             type="button"
             onClick={handleSubmitProof}
-            disabled={processing || !screenshot}
+            disabled={processing || uploadingScreenshot || !screenshot}
             className="flex w-full items-center justify-center rounded-lg bg-primary py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
           >
             {processing ? "Sending..." : "Send screenshot"}

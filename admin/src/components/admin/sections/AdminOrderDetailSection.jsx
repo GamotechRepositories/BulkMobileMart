@@ -162,7 +162,7 @@ function AdminOrderDetailSection() {
         <p className="mb-4 text-text-secondary">{error}</p>
         <button
           type="button"
-          onClick={() => navigate("/admin/orders")}
+          onClick={() => navigate("/orders")}
           className="text-sm font-semibold text-primary hover:underline"
         >
           ← Back to Orders
@@ -196,7 +196,7 @@ function AdminOrderDetailSection() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => navigate("/admin/orders")}
+          onClick={() => navigate("/orders")}
           className="shrink-0 text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
         >
           ← Orders

@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { Navigate, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { STORE_URL } from "../constants/brand";
 import {
   btnPrimary,
   cardClass,
   inputClass,
   labelClass,
-} from "../../components/admin/adminStyles";
+} from "../components/admin/adminStyles";
 
 function AdminLogin() {
-  const { user, adminUser, loading, adminLogin } = useAuth();
+  const { adminUser, loading, adminLogin } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +26,7 @@ function AdminLogin() {
   }
 
   if (adminUser?.role === "admin") {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -35,7 +36,7 @@ function AdminLogin() {
 
     try {
       await adminLogin({ email, password });
-      navigate("/admin", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -56,13 +57,6 @@ function AdminLogin() {
             Sign in with an admin account to access the dashboard
           </p>
         </div>
-
-        {user?.role === "user" && (
-          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            You are logged in as a regular user. Admin access requires an admin
-            account.
-          </p>
-        )}
 
         {error && (
           <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -107,9 +101,9 @@ function AdminLogin() {
         </form>
 
         <p className="mt-6 text-center text-sm text-text-muted">
-          <Link to="/" className="text-primary hover:underline">
+          <a href={STORE_URL} className="text-primary hover:underline">
             Back to website
-          </Link>
+          </a>
         </p>
       </div>
     </div>

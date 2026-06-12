@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { submitSupportMessage } from "../api/api";
+import { submitSupportMessage, uploadImageFile } from "../api/api";
+import { UPLOAD_FOLDERS } from "../utils/uploadFolders";
 import { SUPPORT_ISSUE_OPTIONS } from "../utils/supportConstants";
 
-const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 1000;
 
 const SUPPORT_CONTACT = {
@@ -96,15 +97,6 @@ const initialForm = {
   message: "",
 };
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
 function ContactCard({ icon, iconBg, title, children, href, external }) {
   const content = (
     <div className="flex items-start gap-4">
@@ -147,6 +139,7 @@ function Support() {
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [openFaq, setOpenFaq] = useState(null);
@@ -181,17 +174,24 @@ function Support() {
     }
 
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      setError("Image must be under 2 MB");
+      setError("Image must be under 5 MB");
       return;
     }
 
+    setUploadingAttachment(true);
+    setError("");
+
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setAttachment({ name: file.name, dataUrl });
-      setAttachmentPreview(dataUrl);
-      setError("");
-    } catch {
-      setError("Failed to read the selected file");
+      const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.SUPPORT);
+      const url = data.data.url;
+      setAttachment({ name: file.name, url });
+      setAttachmentPreview(url);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to upload attachment");
+      setAttachment(null);
+      setAttachmentPreview("");
+    } finally {
+      setUploadingAttachment(false);
     }
   };
 
@@ -231,7 +231,7 @@ function Support() {
       setSubmitting(true);
       const { data } = await submitSupportMessage({
         ...form,
-        attachment: attachment?.dataUrl || "",
+        attachment: attachment?.url || "",
         attachmentName: attachment?.name || "",
       });
 

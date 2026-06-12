@@ -83,7 +83,7 @@ function PaymentProofDetailModal({ paymentId, onClose, onUpdated }) {
         status,
         rejectionReason: status === "rejected" ? rejectionReason : "",
       });
-      onUpdated?.();
+      onUpdated?.(status);
       onClose();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to update payment"));
@@ -124,12 +124,16 @@ function PaymentProofDetailModal({ paymentId, onClose, onUpdated }) {
                 {payment.orderNumber || payment.order?.orderNumber || "—"}
               </p>
               <p>
-                <span className="font-semibold text-neutral-700">Status:</span>{" "}
+                <span className="font-semibold text-neutral-700">Proof status:</span>{" "}
                 <span
                   className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(payment.status)}`}
                 >
                   {payment.status}
                 </span>
+              </p>
+              <p>
+                <span className="font-semibold text-neutral-700">Order status:</span>{" "}
+                {payment.order?.status || "—"}
               </p>
               <p>
                 <span className="font-semibold text-neutral-700">Customer:</span>{" "}
@@ -223,7 +227,7 @@ function PaymentProofDetailModal({ paymentId, onClose, onUpdated }) {
                     onClick={() => handleReview("verified")}
                     className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                   >
-                    Verify payment
+                    Approve payment
                   </button>
                   <button
                     type="button"
@@ -384,8 +388,12 @@ function PaymentProofSection() {
       <PaymentProofDetailModal
         paymentId={selectedId}
         onClose={() => setSelectedId(null)}
-        onUpdated={() => {
-          setSuccess("Payment updated successfully");
+        onUpdated={(status) => {
+          setSuccess(
+            status === "verified"
+              ? "Payment approved successfully"
+              : "Payment rejected and order cancelled"
+          );
           fetchPayments();
         }}
       />

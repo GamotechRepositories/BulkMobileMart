@@ -146,7 +146,7 @@ function OrderSection() {
                 return (
                   <tr
                     key={order._id}
-                    onClick={() => navigate(`/admin/orders/${order._id}`)}
+                    onClick={() => navigate(`/orders/${order._id}`)}
                     className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                   >
                     <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>

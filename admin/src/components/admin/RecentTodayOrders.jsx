@@ -45,7 +45,7 @@ function RecentTodayOrders({ orders, loading }) {
                 <tr key={order._id} className="border-b border-neutral-100 last:border-0">
                   <td className="py-3 pr-4">
                     <Link
-                      to={`/admin/orders/${order._id}`}
+                      to={`/orders/${order._id}`}
                       className="font-semibold text-primary hover:underline"
                     >
                       #{getOrderNumber(order)}

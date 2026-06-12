@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ADMIN_STORAGE_KEY, STORAGE_KEY } from "../utils/authStorage";
+import { STORAGE_KEY } from "../utils/authStorage";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -10,20 +10,16 @@ const api = axios.create({
 function getRequestToken() {
   if (typeof window === "undefined") return null;
 
-  const isAdminPath = window.location.pathname.startsWith("/admin");
-  const storageKey = isAdminPath ? ADMIN_STORAGE_KEY : STORAGE_KEY;
-  const stored = localStorage.getItem(storageKey);
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return null;
 
-  if (stored) {
-    try {
-      const { token } = JSON.parse(stored);
-      if (token) return token;
-    } catch {
-      localStorage.removeItem(storageKey);
-    }
+  try {
+    const { token } = JSON.parse(stored);
+    return token || null;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
   }
-
-  return null;
 }
 
 api.interceptors.request.use((config) => {
@@ -38,30 +34,12 @@ api.interceptors.request.use((config) => {
 
 export const getHeroBanners = (device = "desktop") =>
   api.get("/api/herobanners", { params: { device } });
-export const getAllHeroBanners = () => api.get("/api/herobanners/all");
-export const addHeroBanner = (data) =>
-  api.post("/api/herobanners", data, {
-    params: { device: data.bannerFor || data.device },
-  });
-export const updateHeroBanner = (id, data) =>
-  api.put(`/api/herobanners/${id}`, data, {
-    params: { device: data.bannerFor || data.device },
-  });
-export const deleteHeroBanner = (id) => api.delete(`/api/herobanners/${id}`);
 
 export const getCategories = () => api.get("/api/categories");
-export const getAllCategories = () => api.get("/api/categories/all");
 export const getCategoryById = (id) => api.get(`/api/categories/${id}`);
-export const addCategory = (data) => api.post("/api/categories", data);
-export const updateCategory = (id, data) => api.put(`/api/categories/${id}`, data);
-export const deleteCategory = (id) => api.delete(`/api/categories/${id}`);
 
 export const getProducts = (params) => api.get("/api/products", { params });
-export const getAllProducts = () => api.get("/api/products/all");
 export const getProductById = (id) => api.get(`/api/products/${id}`);
-export const addProduct = (data) => api.post("/api/products", data);
-export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);
-export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
 export const getCart = () => api.get("/api/cart");
 export const addToCartItem = (data) => api.post("/api/cart", data);
@@ -73,9 +51,6 @@ export const updateCartItemQty = (productId, quantity) =>
 export const signupUser = (data) => api.post("/api/users/signup", data);
 export const loginUser = (data) => api.post("/api/users/login", data);
 export const getMe = () => api.get("/api/users/me");
-export const getUsers = () => api.get("/api/users");
-export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
-export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 
 function buildAddressPayload(data) {
   const name = data.name?.trim() || "";
@@ -93,7 +68,6 @@ function buildAddressPayload(data) {
     state,
     pincode,
     isDefault: data.isDefault,
-    // legacy aliases — keeps old backend instances working until restarted
     fullName: name,
     phone: number,
     streetArea: landmark,
@@ -110,22 +84,18 @@ export const placeOrder = (data) => api.post("/api/orders", data);
 export const createRazorpayOrder = (data) => api.post("/api/payments/create-order", data);
 export const verifyRazorpayPayment = (data) => api.post("/api/payments/verify", data);
 export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-upi-proof", data);
-export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
-export const getAdminPaymentProof = (id) => api.get(`/api/payments/admin/${id}`);
-export const updateAdminPaymentProof = (id, data) =>
-  api.patch(`/api/payments/admin/${id}`, data);
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
-export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });
-export const getDashboardStats = (params) =>
-  api.get("/api/orders/admin/dashboard-stats", { params });
-export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
 export const submitSupportMessage = (data) => api.post("/api/support", data);
-export const getAdminSupportMessages = () => api.get("/api/support/admin");
-export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
-export const updateAdminSupportStatus = (id, data) =>
-  api.patch(`/api/support/admin/${id}`, data);
+
+export const uploadImageFile = (file, folder) => {
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("folder", folder);
+  // Let axios set multipart boundary automatically.
+  return api.post("/api/upload/image", formData);
+};
 
 export default api;

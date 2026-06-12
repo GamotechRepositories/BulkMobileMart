@@ -57,9 +57,21 @@ const PAYMENT_LABELS = {
   paid: "Paid",
   unpaid: "Unpaid",
   refundable: "Refundable",
+  pending_verification: "Payment verification pending",
 };
 
-const getPaymentStatus = (order) => order.paymentStatus || "unpaid";
+const getPaymentStatus = (order) => {
+  if (order.paymentMethod === "cod" && order.codAdvancePaidAt) {
+    return "advance_paid";
+  }
+  return order.paymentStatus || "unpaid";
+};
+
+const getPaymentLabel = (order) => {
+  const status = getPaymentStatus(order);
+  if (status === "advance_paid") return "COD advance paid";
+  return PAYMENT_LABELS[status] || status;
+};
 
 function OnlinePaymentInfo({ order }) {
   if (order.paymentMethod !== "online") return null;
@@ -323,7 +335,7 @@ function OrderDetail() {
                   <div className="flex items-baseline gap-2">
                     <p className="text-xs font-semibold tracking-wide text-text-secondary">PAYMENT</p>
                     <p className="text-sm font-bold text-text-primary lg:text-base">
-                      {PAYMENT_LABELS[getPaymentStatus(order)] || getPaymentStatus(order)}
+                      {getPaymentLabel(order)}
                     </p>
                   </div>
                 </div>

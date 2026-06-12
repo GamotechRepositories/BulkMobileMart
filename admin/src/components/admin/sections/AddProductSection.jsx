@@ -6,6 +6,8 @@ import {
   updateProduct,
 } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import ImagePicker from "../ImagePicker";
+import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 import {
   btnPrimary,
   btnSecondary,
@@ -92,7 +94,7 @@ function AddProductSection() {
     e.preventDefault();
     const images = productImages.map((s) => s.trim()).filter(Boolean);
     if (images.length === 0) {
-      setError("At least one image URL is required");
+      setError("At least one product image is required");
       return;
     }
     try {
@@ -126,7 +128,7 @@ function AddProductSection() {
       setForm(EMPTY_FORM);
       setProductImages([""]);
       setEditingId(null);
-      navigate("/admin/products/show", { replace: true });
+      navigate("/products/show", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save product");
     }
@@ -136,7 +138,7 @@ function AddProductSection() {
     setForm(EMPTY_FORM);
     setProductImages([""]);
     setEditingId(null);
-    navigate("/admin/products/show");
+    navigate("/products/show");
   };
 
   const setField = (name, value) => setForm((p) => ({ ...p, [name]: value }));
@@ -264,38 +266,34 @@ function AddProductSection() {
           </div>
         </div>
 
-        <div>
-          <label className={labelClass}>Image URLs *</label>
-          <div className="space-y-2">
-            {productImages.map((url, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  type="url"
-                  placeholder={`Image URL ${index + 1}`}
-                  value={url}
-                  onChange={(e) => updateImageUrl(index, e.target.value)}
-                  className={inputClass}
-                  required={index === 0 && productImages.length === 1}
-                />
-                {productImages.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeImageField(index)}
-                    className="shrink-0 rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50"
-                    aria-label="Remove image URL"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+        <div className="space-y-4">
+          <label className={labelClass}>Product images *</label>
+          {productImages.map((url, index) => (
+            <div key={index} className="rounded-lg border border-border-light p-3">
+              <ImagePicker
+                label={`Image ${index + 1}`}
+                folder={UPLOAD_FOLDERS.PRODUCTS}
+                required={index === 0}
+                value={url}
+                onChange={(newUrl) => updateImageUrl(index, newUrl)}
+              />
+              {productImages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeImageField(index)}
+                  className="mt-2 text-xs font-medium text-red-600 hover:underline"
+                >
+                  Remove this image slot
+                </button>
+              )}
+            </div>
+          ))}
           <button
             type="button"
             onClick={addImageField}
-            className="mt-2 text-sm font-semibold text-accent hover:underline"
+            className="text-sm font-semibold text-accent hover:underline"
           >
-            + Add more
+            + Add another image
           </button>
         </div>
 

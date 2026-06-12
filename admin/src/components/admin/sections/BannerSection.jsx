@@ -6,6 +6,8 @@ import {
   updateHeroBanner,
 } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import ImagePicker from "../ImagePicker";
+import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 import { btnDanger, btnPrimary, cardClass, inputClass, labelClass } from "../adminStyles";
 
 const DEVICE_LABELS = {
@@ -60,9 +62,15 @@ function AddBannerForm({ deviceType, onAdded }) {
     setError("");
     setSubmitting(true);
 
+    if (!form.imageUrl?.trim()) {
+      setError("Please upload a banner image");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const { data } = await addHeroBanner({
-        imageUrl: form.imageUrl,
+        imageUrl: form.imageUrl.trim(),
         alt: form.alt,
         order: form.order,
         bannerFor: deviceType,
@@ -93,17 +101,13 @@ function AddBannerForm({ deviceType, onAdded }) {
           {error}
         </p>
       )}
-      <div>
-        <label className={labelClass}>Image URL *</label>
-        <input
-          type="url"
-          required
-          placeholder="https://res.cloudinary.com/..."
-          value={form.imageUrl}
-          onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))}
-          className={inputClass}
-        />
-      </div>
+      <ImagePicker
+        label="Banner image"
+        folder={UPLOAD_FOLDERS.HERO_BANNERS}
+        required
+        value={form.imageUrl}
+        onChange={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className={labelClass}>Alt text</label>

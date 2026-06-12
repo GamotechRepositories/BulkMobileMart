@@ -158,14 +158,14 @@ function OverviewSection() {
           label="Total Products"
           value={totals.products}
           loading={loading}
-          to="/admin/products/show"
+          to="/products/show"
           icon={IconProduct}
         />
         <TotalCard
           label="Total Categories"
           value={totals.categories}
           loading={loading}
-          to="/admin/categories/show"
+          to="/categories/show"
           icon={IconCategory}
         />
       </div>

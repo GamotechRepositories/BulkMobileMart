@@ -73,7 +73,7 @@ function ShowProductSection() {
   );
 
   const handleEdit = (product) => {
-    navigate("/admin/products/add", { state: { editProduct: product } });
+    navigate("/products/add", { state: { editProduct: product } });
   };
 
   const handleDelete = async (id, e) => {

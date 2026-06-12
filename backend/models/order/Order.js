@@ -63,13 +63,14 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid", "refundable"],
+      enum: ["unpaid", "paid", "refundable", "pending_verification"],
       default: "unpaid",
     },
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
     codAdvanceAmount: { type: Number, default: 0, min: 0 },
     codAdvanceRazorpayPaymentId: { type: String, default: "" },
+    codAdvancePaidAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     message: {
       type: String,

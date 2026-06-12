@@ -47,9 +47,34 @@ const PAYMENT_LABELS = {
   paid: "Paid",
   unpaid: "Unpaid",
   refundable: "Refundable",
+  pending_verification: "Payment verification pending",
 };
 
-const getPaymentStatus = (order) => order.paymentStatus || "unpaid";
+const PAYMENT_STYLES = {
+  paid: "bg-green-50 text-green-700",
+  unpaid: "bg-amber-50 text-amber-700",
+  refundable: "bg-orange-50 text-orange-700",
+  pending_verification: "bg-yellow-50 text-yellow-800",
+};
+
+const getPaymentStatus = (order) => {
+  if (order.paymentMethod === "cod" && order.codAdvancePaidAt) {
+    return "advance_paid";
+  }
+  return order.paymentStatus || "unpaid";
+};
+
+const getPaymentLabel = (order) => {
+  const status = getPaymentStatus(order);
+  if (status === "advance_paid") return "COD advance paid";
+  return PAYMENT_LABELS[status] || status;
+};
+
+const getPaymentStyle = (order) => {
+  const status = getPaymentStatus(order);
+  if (status === "advance_paid") return "bg-green-50 text-green-700";
+  return PAYMENT_STYLES[status] || PAYMENT_STYLES.unpaid;
+};
 
 function getProductId(item) {
   if (!item?.product) return null;
@@ -70,7 +95,8 @@ function OrderCard({ order }) {
   };
 
   const paymentStatus = getPaymentStatus(order);
-  const showPaymentBadge = paymentStatus !== "unpaid";
+  const showPaymentBadge =
+    paymentStatus !== "unpaid" || order.paymentStatus === "pending_verification";
 
   const buyAgainButton = primaryProductId ? (
     <button
@@ -124,13 +150,9 @@ function OrderCard({ order }) {
 
           {showPaymentBadge && (
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                paymentStatus === "paid"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-amber-50 text-amber-700"
-              }`}
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPaymentStyle(order)}`}
             >
-              {PAYMENT_LABELS[paymentStatus] || paymentStatus}
+              {getPaymentLabel(order)}
             </span>
           )}
 
@@ -165,15 +187,13 @@ function OrderCard({ order }) {
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-lg font-bold text-primary">{formatPrice(order.total)}</p>
 
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                paymentStatus === "paid"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-amber-50 text-amber-700"
-              }`}
-            >
-              {PAYMENT_LABELS[paymentStatus] || paymentStatus}
-            </span>
+            {showPaymentBadge && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${getPaymentStyle(order)}`}
+              >
+                {getPaymentLabel(order)}
+              </span>
+            )}
 
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${

@@ -15,7 +15,7 @@ function AdminRoute() {
 
   if (!adminUser || adminUser.role !== "admin") {
     return (
-      <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
+      <Navigate to="/login" replace state={{ from: location.pathname }} />
     );
   }
 

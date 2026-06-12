@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { LOGO_URL } from "../layout/Header";
+import { LOGO_URL } from "../../constants/brand";
 import {
   IconBanner,
   IconCategory,
@@ -15,47 +15,47 @@ import {
 } from "./AdminIcons";
 
 const PAGE_TITLES = {
-  "/admin": "Dashboard",
-  "/admin/banners": "Hero Banners",
-  "/admin/categories/add": "Add Category",
-  "/admin/categories/show": "Show Category",
-  "/admin/products/add": "Add Product",
-  "/admin/products/show": "Show Product",
-  "/admin/users": "Users",
-  "/admin/orders": "Orders",
-  "/admin/payments": "Payments",
-  "/admin/payment-proofs": "UPI Payment Proofs",
-  "/admin/support": "Support Messages",
+  "/": "Dashboard",
+  "/banners": "Hero Banners",
+  "/categories/add": "Add Category",
+  "/categories/show": "Show Category",
+  "/products/add": "Add Product",
+  "/products/show": "Show Product",
+  "/users": "Users",
+  "/orders": "Orders",
+  "/payments": "Payments",
+  "/payment-proofs": "UPI Payment Proofs",
+  "/support": "Support Messages",
 };
 
 const NAV_ITEMS = [
-  { type: "link", to: "/admin", label: "Dashboard", end: true, icon: IconDashboard },
-  { type: "link", to: "/admin/banners", label: "Hero Banners", icon: IconBanner },
+  { type: "link", to: "/", label: "Dashboard", end: true, icon: IconDashboard },
+  { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
   {
     type: "group",
     label: "Categories",
     icon: IconCategory,
-    basePath: "/admin/categories",
+    basePath: "/categories",
     children: [
-      { to: "/admin/categories/add", label: "Add Category" },
-      { to: "/admin/categories/show", label: "Show Category" },
+      { to: "/categories/add", label: "Add Category" },
+      { to: "/categories/show", label: "Show Category" },
     ],
   },
   {
     type: "group",
     label: "Products",
     icon: IconProduct,
-    basePath: "/admin/products",
+    basePath: "/products",
     children: [
-      { to: "/admin/products/add", label: "Add Product" },
-      { to: "/admin/products/show", label: "Show Product" },
+      { to: "/products/add", label: "Add Product" },
+      { to: "/products/show", label: "Show Product" },
     ],
   },
-  { type: "link", to: "/admin/orders", label: "Orders", icon: IconOrder },
-  { type: "link", to: "/admin/payments", label: "Payments", icon: IconPayment },
-  { type: "link", to: "/admin/payment-proofs", label: "UPI Proofs", icon: IconPayment },
-  { type: "link", to: "/admin/support", label: "Support", icon: IconSupport },
-  { type: "link", to: "/admin/users", label: "Users", icon: IconUsers },
+  { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
+  { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
+  { type: "link", to: "/payment-proofs", label: "UPI Proofs", icon: IconPayment },
+  { type: "link", to: "/support", label: "Support", icon: IconSupport },
+  { type: "link", to: "/users", label: "Users", icon: IconUsers },
 ];
 
 const navLinkClass = ({ isActive }) =>
@@ -270,16 +270,15 @@ function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const pageTitle = /^\/admin\/orders\/[^/]+$/.test(location.pathname)
+  const pageTitle = /^\/orders\/[^/]+$/.test(location.pathname)
     ? "Order Details"
     : PAGE_TITLES[location.pathname] || "Dashboard";
 
-  const isDashboard =
-    location.pathname === "/admin" || location.pathname === "/admin/";
+  const isDashboard = location.pathname === "/" || location.pathname === "";
 
   const handleLogout = () => {
     adminLogout();
-    navigate("/admin/login");
+    navigate("/login");
   };
 
   const expandSidebar = () => setSidebarCollapsed(false);

@@ -1,15 +1,12 @@
 import SupportMessage, { SUPPORT_ISSUE_TYPES } from "../models/support/SupportMessage.js";
+import { resolveImageForStorage } from "../utils/imageValidation.js";
+import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_ATTACHMENT_LENGTH = 2_500_000;
 
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, maxLength);
-}
-
-function isValidDataUrl(value) {
-  return typeof value === "string" && /^data:image\/(jpeg|jpg|png|webp|gif);base64,/.test(value);
 }
 
 export const submitSupportMessage = async (req, res) => {
@@ -38,17 +35,13 @@ export const submitSupportMessage = async (req, res) => {
     if (!message) {
       return res.status(400).json({ success: false, message: "Message is required" });
     }
-    if (attachment && !isValidDataUrl(attachment)) {
-      return res.status(400).json({
-        success: false,
-        message: "Attachment must be a JPG, PNG, WEBP, or GIF image",
-      });
-    }
-    if (attachment && attachment.length > MAX_ATTACHMENT_LENGTH) {
-      return res.status(400).json({
-        success: false,
-        message: "Attachment is too large. Please upload an image under 2 MB",
-      });
+    let storedAttachment = "";
+    if (attachment) {
+      const resolved = await resolveImageForStorage(attachment, UPLOAD_FOLDERS.SUPPORT);
+      if (resolved.error) {
+        return res.status(400).json({ success: false, message: resolved.error });
+      }
+      storedAttachment = resolved.url;
     }
 
     const supportMessage = await SupportMessage.create({
@@ -58,7 +51,7 @@ export const submitSupportMessage = async (req, res) => {
       orderId,
       issueType,
       message,
-      attachment,
+      attachment: storedAttachment,
       attachmentName,
       user: req.user?._id || null,
     });

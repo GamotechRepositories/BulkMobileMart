@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { addCategory, updateCategory } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import ImagePicker from "../ImagePicker";
+import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 import {
   btnPrimary,
   btnSecondary,
@@ -79,7 +81,7 @@ function AddCategorySection() {
       setForm(EMPTY_FORM);
       setSubcategories([""]);
       setEditingId(null);
-      navigate("/admin/categories/show", { replace: true });
+      navigate("/categories/show", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save category");
     }
@@ -89,7 +91,7 @@ function AddCategorySection() {
     setForm(EMPTY_FORM);
     setSubcategories([""]);
     setEditingId(null);
-    navigate("/admin/categories/show");
+    navigate("/categories/show");
   };
 
   return (
@@ -122,19 +124,13 @@ function AddCategorySection() {
               className={inputClass}
             />
           </div>
-          <div>
-            <label className={labelClass}>Image URL *</label>
-            <input
-              type="url"
-              required
-              placeholder="https://..."
-              value={form.categoryImage}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, categoryImage: e.target.value }))
-              }
-              className={inputClass}
-            />
-          </div>
+          <ImagePicker
+            label="Category image"
+            folder={UPLOAD_FOLDERS.CATEGORIES}
+            required
+            value={form.categoryImage}
+            onChange={(url) => setForm((p) => ({ ...p, categoryImage: url }))}
+          />
         </div>
 
         <div>
