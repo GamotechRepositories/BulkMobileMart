@@ -12,6 +12,7 @@ import OrderInvoice from "./pages/OrderInvoice";
 import Profile from "./pages/Profile";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Support from "./pages/Support";
 import Product from "./pages/Product";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
@@ -126,6 +127,14 @@ function App() {
             }
           />
           <Route
+            path="/support"
+            element={
+              <MobileLayout>
+                <Support />
+              </MobileLayout>
+            }
+          />
+          <Route
             path="/blog"
             element={
               <MobileLayout>
@@ -165,6 +174,7 @@ function App() {
                   <Route path="/about" element={<About />} />
                   <Route path="/blog" element={<Blog />} />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/support" element={<Support />} />
                   <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                   <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
                   <Route path="/shipping-details" element={<ShippingDetails />} />

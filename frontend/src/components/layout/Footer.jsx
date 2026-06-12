@@ -6,6 +6,7 @@ const essentialLinks = [
   { to: "/product", label: "Products" },
   { to: "/about", label: "About Us" },
   { to: "/contact", label: "Contact" },
+  { to: "/support", label: "Support" },
 ];
 
 const legalLinks = [

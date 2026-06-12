@@ -117,4 +117,10 @@ export const getDashboardStats = (params) =>
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
+export const submitSupportMessage = (data) => api.post("/api/support", data);
+export const getAdminSupportMessages = () => api.get("/api/support/admin");
+export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
+export const updateAdminSupportStatus = (id, data) =>
+  api.patch(`/api/support/admin/${id}`, data);
+
 export default api;

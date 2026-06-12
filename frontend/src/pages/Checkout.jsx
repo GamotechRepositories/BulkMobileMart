@@ -14,12 +14,29 @@ import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressF
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
-const formatPrice = (amount) =>
+const MAX_ORDER_NOTE_LENGTH = 200;
+
+const formatPrice = (amount, fractionDigits = 0) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(amount);
+
+function StepSection({ title, children }) {
+  return (
+    <div className="rounded-xl border border-border-light bg-white p-5 shadow-sm sm:p-6">
+      <h2 className="mb-5 text-base font-bold text-text-primary sm:text-lg">{title}</h2>
+      {children}
+    </div>
+  );
+}
+
+function formatAddressLine(addr) {
+  const parts = [addr.landmark, addr.city, addr.state, addr.pincode].filter(Boolean);
+  return parts.join(", ");
+}
 
 function Checkout() {
   const navigate = useNavigate();
@@ -30,6 +47,7 @@ function Checkout() {
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [formError, setFormError] = useState("");
@@ -50,7 +68,14 @@ function Checkout() {
   );
   const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const orderTotal = subtotal + deliveryCharges;
-  const freeDeliveryGap = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal);
+  const gstIncluded = subtotal > 0 ? subtotal * (18 / 118) : 0;
+  const savings = items.reduce((sum, item) => {
+    const original = item.price ?? item.discountedPrice;
+    const diff = Math.max(0, original - item.discountedPrice);
+    return sum + diff * item.quantity;
+  }, 0);
+
+  const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId);
 
   const loadAddresses = async () => {
     setAddressesLoading(true);
@@ -173,6 +198,7 @@ function Checkout() {
       setAddresses((prev) => [newAddress, ...prev]);
       setSelectedAddressId(newAddress._id);
       setShowAddressForm(false);
+      setShowAddressPicker(false);
     } catch (err) {
       setFormError(err.response?.data?.message || "Failed to save address");
     } finally {
@@ -200,7 +226,6 @@ function Checkout() {
 
   return (
     <div className="min-h-screen bg-mobile-bg text-text-primary">
-      {/* Placing order loader */}
       {placingOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-10 py-8 shadow-lg">
@@ -212,7 +237,6 @@ function Checkout() {
         </div>
       )}
 
-      {/* Success modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-8 text-center shadow-lg">
@@ -236,28 +260,38 @@ function Checkout() {
         </div>
       )}
 
-      <section className="px-4 pb-24 pt-8 sm:px-6 sm:pb-14 lg:px-8 lg:pb-10">
-        <div className="mx-auto max-w-6xl">
-          <h1 className="mb-8 text-center text-2xl font-bold sm:text-3xl">Checkout</h1>
+      <section className="px-3 pb-24 pt-1 sm:px-4 sm:pb-14 lg:px-8 lg:pb-10 lg:pt-2">
+        <div className="mx-auto max-w-7xl">
+          <nav className="mb-3 text-xs text-text-secondary sm:text-sm">
+            <Link to="/" className="hover:text-primary">
+              Home
+            </Link>
+            <span className="mx-2">›</span>
+            <Link to="/cart" className="hover:text-primary">
+              Cart
+            </Link>
+            <span className="mx-2">›</span>
+            <span className="text-text-primary">Checkout</span>
+          </nav>
+
+          <h1 className="mb-6 text-2xl font-bold sm:text-3xl">Checkout</h1>
 
           {cartLoading ? (
-            <div className="grid animate-pulse gap-8 lg:grid-cols-[1fr_380px]">
-              <div className="space-y-6">
+            <div className="grid animate-pulse gap-6 lg:grid-cols-[1fr_380px]">
+              <div className="space-y-4">
                 <div className="h-44 rounded-xl border border-border-light bg-white" />
                 <div className="h-36 rounded-xl border border-border-light bg-white" />
+                <div className="h-32 rounded-xl border border-border-light bg-white" />
               </div>
               <div className="h-[480px] rounded-xl border border-border-light bg-white" />
             </div>
           ) : (
-            <div className="grid items-start gap-8 lg:grid-cols-[1fr_380px]">
-              {/* Left column */}
-              <div className="space-y-6">
-                {/* Payment Method */}
-                <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm">
-                  <h2 className="mb-5 text-base font-bold sm:text-lg">Payment Method</h2>
+            <div className="grid items-start gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
+              <div className="space-y-4">
+                <StepSection title="Payment Method">
                   <div className="space-y-3">
                     <label
-                      className={`flex cursor-pointer items-center gap-4 rounded-lg border px-5 py-4 transition ${
+                      className={`flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition sm:p-5 ${
                         paymentMethod === "cod"
                           ? "border-primary bg-primary/5"
                           : "border-border-light hover:border-primary/40"
@@ -269,15 +303,30 @@ function Checkout() {
                         value="cod"
                         checked={paymentMethod === "cod"}
                         onChange={() => setPaymentMethod("cod")}
-                        className="h-4 w-4 shrink-0 accent-primary"
+                        className="mt-1 h-4 w-4 shrink-0 accent-primary"
                       />
-                      <div>
-                        <p className="font-semibold text-text-primary">Cash on Delivery</p>
-                        <p className="text-sm text-text-secondary">Pay when you receive your order</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-primary">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.34 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-text-primary">Cash on Delivery</p>
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700">
+                              Recommended
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            Pay when you receive your order
+                          </p>
+                        </div>
                       </div>
                     </label>
+
                     <label
-                      className={`flex cursor-pointer items-center gap-4 rounded-lg border px-5 py-4 transition ${
+                      className={`flex cursor-pointer items-start gap-4 rounded-xl border p-4 transition sm:p-5 ${
                         paymentMethod === "online"
                           ? "border-primary bg-primary/5"
                           : "border-border-light hover:border-primary/40"
@@ -289,20 +338,31 @@ function Checkout() {
                         value="online"
                         checked={paymentMethod === "online"}
                         onChange={() => setPaymentMethod("online")}
-                        className="h-4 w-4 shrink-0 accent-primary"
+                        className="mt-1 h-4 w-4 shrink-0 accent-primary"
                       />
-                      <div>
-                        <p className="font-semibold text-text-primary">Pay Online</p>
-                        <p className="text-sm text-text-secondary">UPI, Cards, Net Banking</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-text-primary">Pay Online</p>
+                            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+                              Secure & Instant
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            UPI, Cards, Net Banking via Razorpay
+                          </p>
+                        </div>
                       </div>
                     </label>
                   </div>
-                </div>
+                </StepSection>
 
-                {/* Deliver To */}
-                <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-base font-bold sm:text-lg">Deliver To</h2>
-
+                <StepSection title="Delivery Details">
                   {addressesLoading ? (
                     <div className="h-24 animate-pulse rounded-lg bg-mobile-surface" />
                   ) : (
@@ -313,39 +373,80 @@ function Checkout() {
                         </p>
                       )}
 
-                      {addresses.length > 0 && !showAddressForm && (
-                        <ul className="mb-4 space-y-3">
-                          {addresses.map((addr) => (
-                            <li key={addr._id}>
-                              <label
-                                className={`flex cursor-pointer gap-4 rounded-lg border px-4 py-3 transition ${
-                                  selectedAddressId === addr._id
-                                    ? "border-primary bg-primary/5"
-                                    : "border-border-light hover:border-primary/40"
-                                }`}
+                      {selectedAddress && !showAddressForm && !showAddressPicker && (
+                        <div className="rounded-xl border border-border-light bg-mobile-surface/30 p-4 sm:p-5">
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-bold text-text-primary">{selectedAddress.name}</p>
+                              {selectedAddress.isDefault && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            {addresses.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAddressPicker(true)}
+                                className="shrink-0 text-sm font-semibold text-primary hover:underline"
                               >
-                                <input
-                                  type="radio"
-                                  name="address"
-                                  value={addr._id}
-                                  checked={selectedAddressId === addr._id}
-                                  onChange={() => setSelectedAddressId(addr._id)}
-                                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                                />
-                                <div className="min-w-0 flex-1 text-sm">
-                                  <p className="font-semibold text-text-primary">{addr.name}</p>
-                                  {addr.landmark && (
-                                    <p className="text-text-secondary">{addr.landmark}</p>
-                                  )}
-                                  <p className="text-text-secondary">
-                                    {addr.city}, {addr.state} — {addr.pincode}
-                                  </p>
-                                  <p className="text-text-secondary">+91 {addr.number}</p>
-                                </div>
-                              </label>
-                            </li>
-                          ))}
-                        </ul>
+                                Change
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-sm leading-relaxed text-text-secondary">
+                            {formatAddressLine(selectedAddress)}
+                          </p>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            +91 {selectedAddress.number}
+                          </p>
+                        </div>
+                      )}
+
+                      {showAddressPicker && !showAddressForm && (
+                        <div className="space-y-3">
+                          <ul className="space-y-2">
+                            {addresses.map((addr) => (
+                              <li key={addr._id}>
+                                <label
+                                  className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
+                                    selectedAddressId === addr._id
+                                      ? "border-primary bg-primary/5"
+                                      : "border-border-light hover:border-primary/40"
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="address"
+                                    value={addr._id}
+                                    checked={selectedAddressId === addr._id}
+                                    onChange={() => setSelectedAddressId(addr._id)}
+                                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                                  />
+                                  <div className="min-w-0 flex-1 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="font-semibold text-text-primary">{addr.name}</p>
+                                      {addr.isDefault && (
+                                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                          Default
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="mt-1 text-text-secondary">{formatAddressLine(addr)}</p>
+                                    <p className="text-text-secondary">+91 {addr.number}</p>
+                                  </div>
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddressPicker(false)}
+                            className="text-sm font-semibold text-primary hover:underline"
+                          >
+                            Done
+                          </button>
+                        </div>
                       )}
 
                       {showAddressForm ? (
@@ -372,23 +473,46 @@ function Checkout() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setShowAddressForm(true)}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-light py-4 text-sm font-medium text-text-secondary transition hover:border-primary hover:text-primary"
+                          onClick={() => {
+                            setShowAddressForm(true);
+                            setShowAddressPicker(false);
+                          }}
+                          className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
                         >
-                          <span className="text-lg leading-none">+</span>
+                          <span className="text-base leading-none">+</span>
                           Add New Address
                         </button>
                       )}
                     </>
                   )}
-                </div>
+                </StepSection>
+
+                <StepSection title="Order Notes (Optional)">
+                  <div className="relative">
+                    <textarea
+                      id="orderMessage"
+                      value={message}
+                      onChange={(e) => {
+                        if (e.target.value.length <= MAX_ORDER_NOTE_LENGTH) {
+                          setMessage(e.target.value);
+                        }
+                      }}
+                      maxLength={MAX_ORDER_NOTE_LENGTH}
+                      rows={4}
+                      placeholder="Add delivery instructions or any note for your order..."
+                      className="w-full resize-none rounded-xl border border-border-light px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                    />
+                    <span className="pointer-events-none absolute bottom-3 right-3 text-xs text-text-muted">
+                      {message.length}/{MAX_ORDER_NOTE_LENGTH}
+                    </span>
+                  </div>
+                </StepSection>
               </div>
 
-              {/* Right column — Order Summary */}
-              <div className="rounded-xl border border-border-light bg-white p-6 shadow-sm lg:sticky lg:top-24">
+              <div className="rounded-xl border border-border-light bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-24">
                 <h2 className="mb-5 text-base font-bold sm:text-lg">Order Summary</h2>
 
-                <ul className="mb-4 max-h-[180px] space-y-4 overflow-y-auto hide-scrollbar">
+                <ul className="mb-5 max-h-56 space-y-4 overflow-y-auto">
                   {items.map((item) => (
                     <li key={item._id} className="flex items-center gap-3">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
@@ -403,50 +527,53 @@ function Checkout() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-sm font-medium leading-snug">{item.name}</p>
+                        <p className="line-clamp-2 text-sm font-medium leading-snug text-text-primary">
+                          {item.name}
+                        </p>
                         <p className="mt-0.5 text-xs text-text-secondary">Qty: {item.quantity}</p>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold">
+                      <span className="shrink-0 text-sm font-semibold text-text-primary">
                         {formatPrice(item.discountedPrice * item.quantity)}
                       </span>
                     </li>
                   ))}
                 </ul>
 
-                <div className="mb-4">
-                  <label htmlFor="orderMessage" className="mb-1.5 block text-sm font-semibold text-text-primary">
-                    Your message (optional)
-                  </label>
-                  <textarea
-                    id="orderMessage"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    maxLength={500}
-                    rows={3}
-                    placeholder="Add delivery instructions or any note for your order..."
-                    className="w-full resize-none rounded-lg border border-border-light px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none"
-                  />
-                  <p className="mt-1 text-right text-xs text-text-muted">{message.length}/500</p>
-                </div>
-
-                <div className="space-y-2.5 text-sm">
+                <div className="space-y-2.5 border-t border-border-light pt-4 text-sm">
                   <div className="flex justify-between text-text-secondary">
                     <span>Subtotal</span>
-                    <span>{formatPrice(subtotal)}</span>
+                    <span className="font-medium text-text-primary">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Delivery Charges</span>
-                    <span>{deliveryCharges === 0 ? "Free" : formatPrice(deliveryCharges)}</span>
+                    <span
+                      className={`font-semibold ${
+                        deliveryCharges === 0 ? "text-green-600" : "text-text-primary"
+                      }`}
+                    >
+                      {deliveryCharges === 0 ? "FREE" : formatPrice(deliveryCharges)}
+                    </span>
                   </div>
-                  {freeDeliveryGap > 0 && (
-                    <p className="text-xs text-text-secondary">
-                      Add {formatPrice(freeDeliveryGap)} more for free delivery!
-                    </p>
-                  )}
-                  <div className="flex justify-between pt-1 text-base font-bold">
-                    <span>Total</span>
-                    <span className="text-lg text-primary">{formatPrice(orderTotal)}</span>
+                  <div className="flex justify-between text-text-secondary">
+                    <span>GST (Included)</span>
+                    <span className="font-medium text-text-primary">
+                      {formatPrice(gstIncluded, 2)}
+                    </span>
                   </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-border-light pt-4">
+                  <span className="text-base font-bold text-text-primary">Total Amount</span>
+                  <span className="text-xl font-bold text-primary sm:text-2xl">
+                    {formatPrice(orderTotal)}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-xs font-medium text-green-700 sm:text-sm">
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  You will save {formatPrice(savings)} on this order
                 </div>
 
                 {orderError && (
@@ -459,8 +586,15 @@ function Checkout() {
                   type="button"
                   disabled={!selectedAddressId || placingOrder}
                   onClick={handlePlaceOrder}
-                  className="mt-6 flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3.5 text-sm font-bold tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z"
+                    />
+                  </svg>
                   {placingOrder
                     ? paymentMethod === "online"
                       ? "Opening Payment..."
@@ -470,12 +604,9 @@ function Checkout() {
                       : "Place Order"}
                 </button>
 
-                <Link
-                  to="/cart"
-                  className="mt-4 flex items-center justify-center gap-1 text-sm text-text-secondary transition hover:text-primary"
-                >
-                  ← Back to Cart
-                </Link>
+                <p className="mt-3 text-center text-xs text-text-muted">
+                  Safe and Secure Payments. Easy returns.
+                </p>
               </div>
             </div>
           )}

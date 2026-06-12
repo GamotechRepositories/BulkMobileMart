@@ -17,6 +17,33 @@ const populateCart = (query) =>
     select: "name brandName discountedPrice productImages isActive",
   });
 
+export const populateOrderItems = (query) =>
+  query.populate({
+    path: "items.product",
+    select: "productImages",
+  });
+
+export function enrichOrderForResponse(order) {
+  const doc = typeof order.toObject === "function" ? order.toObject() : { ...order };
+
+  return {
+    ...doc,
+    items: (doc.items || []).map((item) => {
+      const productImages =
+        item.product && typeof item.product === "object" ? item.product.productImages || [] : [];
+      const productImage = productImages[0] || "";
+      const storedImage = (item.image || "").trim();
+
+      return {
+        ...item,
+        image: storedImage || productImage,
+        productImage,
+        product: item.product?._id || item.product,
+      };
+    }),
+  };
+}
+
 export function addressToSnapshot(address) {
   const raw = typeof address.toObject === "function" ? address.toObject() : address;
 

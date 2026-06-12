@@ -2,8 +2,10 @@ import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import {
+  enrichOrderForResponse,
   finalizeOrder,
   normalizeOrderMessage,
+  populateOrderItems,
   prepareOrderData,
 } from "../utils/orderHelpers.js";
 
@@ -69,9 +71,14 @@ export const placeOrder = async (req, res) => {
 
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const orders = await populateOrderItems(
+      Order.find({ user: req.user._id }).sort({ createdAt: -1 })
+    );
 
-    res.status(200).json({ success: true, data: orders });
+    res.status(200).json({
+      success: true,
+      data: orders.map((order) => enrichOrderForResponse(order)),
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -84,7 +91,9 @@ export const getOrderById = async (req, res) => {
         ? { _id: req.params.id }
         : { _id: req.params.id, user: req.user._id };
 
-    const order = await Order.findOne(query).populate("user", "name email phone");
+    const order = await populateOrderItems(
+      Order.findOne(query).populate("user", "name email phone")
+    );
 
     if (!order) {
       return res.status(404).json({
@@ -93,7 +102,7 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, data: order });
+    res.status(200).json({ success: true, data: enrichOrderForResponse(order) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

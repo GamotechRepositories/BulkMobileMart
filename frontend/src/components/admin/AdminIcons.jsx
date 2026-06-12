@@ -54,6 +54,18 @@ export function IconOrder({ className = "w-5 h-5" }) {
   );
 }
 
+export function IconSupport({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.75c0 2.485 2.099 4.5 4.688 4.5h.75c2.589 0 4.688-2.015 4.688-4.5V8.25a4.5 4.5 0 00-4.688-4.5h-.75C4.599 3.75 2.5 5.765 2.5 8.25v5.25z"
+      />
+    </svg>
+  );
+}
+
 export function IconPayment({ className = "w-5 h-5" }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
