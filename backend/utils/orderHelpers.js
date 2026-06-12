@@ -132,6 +132,8 @@ export async function finalizeOrder({
   paymentStatus,
   razorpayOrderId,
   razorpayPaymentId,
+  codAdvanceAmount = 0,
+  codAdvanceRazorpayPaymentId = "",
   paidAt,
   message = "",
 }) {
@@ -150,6 +152,8 @@ export async function finalizeOrder({
     message: orderMessage,
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),
+    ...(codAdvanceAmount > 0 && { codAdvanceAmount }),
+    ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
     ...(paidAt && { paidAt }),
   });
 

@@ -109,6 +109,11 @@ export const deleteAddress = (id) => api.delete(`/api/addresses/${id}`);
 export const placeOrder = (data) => api.post("/api/orders", data);
 export const createRazorpayOrder = (data) => api.post("/api/payments/create-order", data);
 export const verifyRazorpayPayment = (data) => api.post("/api/payments/verify", data);
+export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-upi-proof", data);
+export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
+export const getAdminPaymentProof = (id) => api.get(`/api/payments/admin/${id}`);
+export const updateAdminPaymentProof = (id, data) =>
+  api.patch(`/api/payments/admin/${id}`, data);
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });

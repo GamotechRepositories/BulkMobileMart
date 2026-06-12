@@ -1,15 +1,22 @@
 import express from "express";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 import {
   createRazorpayOrder,
+  getAdminPaymentById,
+  getAdminPayments,
+  submitUpiPaymentProof,
+  updatePaymentStatus,
   verifyRazorpayPayment,
 } from "../controllers/paymentController.js";
 
 const router = express.Router();
 
-router.use(protect);
+router.post("/submit-upi-proof", protect, submitUpiPaymentProof);
+router.post("/create-order", protect, createRazorpayOrder);
+router.post("/verify", protect, verifyRazorpayPayment);
 
-router.post("/create-order", createRazorpayOrder);
-router.post("/verify", verifyRazorpayPayment);
+router.get("/admin", protect, requireAdmin, getAdminPayments);
+router.get("/admin/:id", protect, requireAdmin, getAdminPaymentById);
+router.patch("/admin/:id", protect, requireAdmin, updatePaymentStatus);
 
 export default router;

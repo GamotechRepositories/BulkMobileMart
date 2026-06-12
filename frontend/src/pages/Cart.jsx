@@ -3,13 +3,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
-const WHATSAPP_CONTACT = {
-  name: "Ashok Modi",
-  phone: "917400222233",
-};
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_CONTACT.phone}?text=${encodeURIComponent(
-  "Hi Ashok, I need help with my cart on Bulk Mobile Mart."
-)}`;
 const FREE_DELIVERY_THRESHOLD = 999;
 
 const formatPrice = (amount, fractionDigits = 0) =>
@@ -19,14 +12,6 @@ const formatPrice = (amount, fractionDigits = 0) =>
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   }).format(amount);
-
-function WhatsAppIcon({ className = "h-5 w-5" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-    </svg>
-  );
-}
 
 function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact = false }) {
   const btnClass = compact ? "h-7 w-7 text-sm" : "h-8 w-8";
@@ -171,7 +156,6 @@ function OrderSummary({ items }) {
   }, 0);
 
   const shippingFree = subtotal >= FREE_DELIVERY_THRESHOLD;
-  const gstIncluded = subtotal > 0 ? subtotal * (18 / 118) : 0;
   const hasItems = items.length > 0;
 
   return (
@@ -189,10 +173,7 @@ function OrderSummary({ items }) {
             {shippingFree ? "FREE" : formatPrice(49)}
           </span>
         </div>
-        <div className="hidden justify-between text-text-secondary lg:flex">
-          <span>GST (Included)</span>
-          <span className="font-medium text-text-primary">{formatPrice(gstIncluded, 2)}</span>
-        </div>
+        <p className="text-[10px] text-text-muted lg:text-xs">GST included in prices</p>
       </div>
 
       <hr className="my-2 border-border-light lg:my-4" />
@@ -233,23 +214,16 @@ function OrderSummary({ items }) {
           Continue Shopping
         </Link>
 
-        <a
-          href={WHATSAPP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#25D366] px-1.5 py-2 text-[11px] font-semibold text-[#128C7E] transition hover:bg-[#25D366]/10 lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-sm"
+        <Link
+          to="/support"
+          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-primary px-1.5 py-2 text-[11px] font-semibold text-primary transition hover:bg-primary/5 lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-sm"
         >
-          <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 lg:h-4 lg:w-4" />
-          WhatsApp
-        </a>
+          <svg className="h-3.5 w-3.5 shrink-0 lg:h-4 lg:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          </svg>
+          Support
+        </Link>
       </div>
-
-      <p className="mt-2 hidden items-center justify-center gap-1.5 text-center text-xs text-text-muted lg:mt-4 lg:flex">
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z" />
-        </svg>
-        Secure Payments · Easy Returns
-      </p>
     </div>
   );
 }
@@ -286,15 +260,7 @@ function Cart() {
     <div className="bg-mobile-bg text-text-primary lg:min-h-screen">
       <section className="px-3 pb-4 pt-3 sm:px-4 lg:px-8 lg:pb-8 lg:pt-6">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 lg:mb-8 lg:flex-wrap lg:justify-start lg:gap-3">
-            <h1 className="text-lg font-bold lg:text-3xl">My Cart</h1>
-            <div className="flex min-w-0 items-center gap-1.5 text-xs text-text-secondary lg:gap-2 lg:text-sm">
-              <span className="truncate">{user.email}</span>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary lg:px-2.5 lg:text-xs">
-                Retail Customer
-              </span>
-            </div>
-          </div>
+          <h1 className="mb-2 shrink-0 text-lg font-bold lg:mb-8 lg:text-3xl">My Cart</h1>
 
           {loading ? (
             <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">

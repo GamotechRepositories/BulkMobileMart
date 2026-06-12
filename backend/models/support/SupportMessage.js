@@ -6,6 +6,7 @@ export const SUPPORT_ISSUE_TYPES = [
   "return_refund",
   "product_inquiry",
   "delivery",
+  "place_order",
   "other",
 ];
 

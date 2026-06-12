@@ -68,6 +68,8 @@ const orderSchema = new mongoose.Schema(
     },
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
+    codAdvanceAmount: { type: Number, default: 0, min: 0 },
+    codAdvanceRazorpayPaymentId: { type: String, default: "" },
     paidAt: { type: Date, default: null },
     message: {
       type: String,

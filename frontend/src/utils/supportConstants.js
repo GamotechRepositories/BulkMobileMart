@@ -4,6 +4,7 @@ export const SUPPORT_ISSUE_OPTIONS = [
   { value: "return_refund", label: "Return & Refund" },
   { value: "product_inquiry", label: "Product Inquiry" },
   { value: "delivery", label: "Delivery Issue" },
+  { value: "place_order", label: "Want to place order?" },
   { value: "other", label: "Other" },
 ];
 

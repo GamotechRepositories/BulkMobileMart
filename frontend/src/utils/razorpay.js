@@ -18,13 +18,21 @@ export function loadRazorpayScript() {
   });
 }
 
-export function openRazorpayCheckout({ keyId, amount, razorpayOrderId, user, onSuccess, onDismiss }) {
+export function openRazorpayCheckout({
+  keyId,
+  amount,
+  razorpayOrderId,
+  user,
+  description = "Order Payment",
+  onSuccess,
+  onDismiss,
+}) {
   const options = {
     key: keyId,
     amount,
     currency: "INR",
     name: "BulkMobileMart",
-    description: "Order Payment",
+    description,
     order_id: razorpayOrderId,
     prefill: {
       name: user?.name || "",
