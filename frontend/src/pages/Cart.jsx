@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
 const FREE_DELIVERY_THRESHOLD = 999;
+const SHIPPING_CHARGE = 49;
 
-const formatPrice = (amount, fractionDigits = 0) =>
+const formatPrice = (amount, fractionDigits = 2) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -13,8 +14,7 @@ const formatPrice = (amount, fractionDigits = 0) =>
     maximumFractionDigits: fractionDigits,
   }).format(amount);
 
-function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact = false }) {
-  const btnClass = compact ? "h-7 w-7 text-sm" : "h-8 w-8";
+function QuantityControl({ quantity, onDecrease, onIncrease, disabled }) {
   return (
     <div className="inline-flex items-center overflow-hidden rounded-md border border-border-light bg-white">
       <button
@@ -22,13 +22,11 @@ function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact =
         onClick={onDecrease}
         disabled={disabled}
         aria-label="Decrease quantity"
-        className={`flex items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40 ${btnClass}`}
+        className="flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
       >
         −
       </button>
-      <span
-        className={`flex min-w-[1.75rem] items-center justify-center border-x border-border-light px-1.5 text-xs font-semibold text-text-primary ${compact ? "h-7" : "h-8 text-sm"}`}
-      >
+      <span className="flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-2 text-sm font-semibold text-text-primary">
         {quantity}
       </span>
       <button
@@ -36,7 +34,7 @@ function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact =
         onClick={onIncrease}
         disabled={disabled}
         aria-label="Increase quantity"
-        className={`flex items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40 ${btnClass}`}
+        className="flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
       >
         +
       </button>
@@ -44,182 +42,227 @@ function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact =
   );
 }
 
-function CartItemsTable({ items, loading, onRemove, onUpdateQuantity }) {
+function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
+  const lineTotal = item.discountedPrice * item.quantity;
+
   return (
-    <div className="flex flex-col rounded-xl border border-border-light bg-white shadow-sm">
-      <div className="hidden grid-cols-[1fr_100px_120px_100px_auto] items-center gap-4 border-b border-border-light bg-mobile-surface/60 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-secondary lg:grid">
-        <span>Product</span>
-        <span className="text-center">Price</span>
-        <span className="text-center">Quantity</span>
-        <span className="text-right">Subtotal</span>
-        <span className="w-6" />
+    <article className="rounded-xl border border-border-light bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          to={`/product/${item._id}`}
+          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-white"
+        >
+          {item.productImages?.[0] ? (
+            <img
+              src={item.productImages[0]}
+              alt={item.name}
+              className="h-full w-full object-contain p-1"
+            />
+          ) : (
+            <div className="h-full w-full bg-mobile-surface" />
+          )}
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => onRemove(item._id)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
+          aria-label="Remove item"
+        >
+          ×
+        </button>
       </div>
 
-      <ul className="divide-y divide-border-light">
-        {items.map((item) => {
-          const lineTotal = item.discountedPrice * item.quantity;
+      <Link
+        to={`/product/${item._id}`}
+        className="mt-2 block text-sm font-bold leading-snug text-text-primary"
+      >
+        {item.name}
+      </Link>
 
-          return (
-            <li
+      <div className="mt-3 flex items-center justify-between">
+        <QuantityControl
+          quantity={item.quantity}
+          disabled={loading}
+          onDecrease={() => {
+            if (item.quantity <= 1) onRemove(item._id);
+            else onUpdateQuantity(item._id, item.quantity - 1);
+          }}
+          onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
+        />
+        <p className="text-base font-bold text-text-primary">{formatPrice(lineTotal)}</p>
+      </div>
+    </article>
+  );
+}
+
+function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
+  const lineTotal = item.discountedPrice * item.quantity;
+
+  return (
+    <li className="relative border-b border-border-light px-5 py-5 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => onRemove(item._id)}
+        className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
+        aria-label="Remove item"
+      >
+        ×
+      </button>
+
+      <div className="flex items-center gap-4 pr-10">
+        <Link
+          to={`/product/${item._id}`}
+          className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border-light bg-white"
+        >
+          {item.productImages?.[0] ? (
+            <img
+              src={item.productImages[0]}
+              alt={item.name}
+              className="h-full w-full object-contain p-1"
+            />
+          ) : (
+            <div className="h-full w-full bg-mobile-surface" />
+          )}
+        </Link>
+
+        <div className="min-w-0 flex-1">
+          <Link
+            to={`/product/${item._id}`}
+            className="line-clamp-2 text-base font-bold text-text-primary transition hover:text-primary"
+          >
+            {item.name}
+          </Link>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-6">
+          <QuantityControl
+            quantity={item.quantity}
+            disabled={loading}
+            onDecrease={() => {
+              if (item.quantity <= 1) onRemove(item._id);
+              else onUpdateQuantity(item._id, item.quantity - 1);
+            }}
+            onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
+          />
+          <p className="min-w-[4.5rem] text-right text-base font-bold text-text-primary">
+            {formatPrice(lineTotal)}
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  return (
+    <div>
+      <div className="space-y-3 lg:hidden">
+        {items.map((item) => (
+          <CartItemMobile
+            key={item._id}
+            item={item}
+            loading={loading}
+            onRemove={onRemove}
+            onUpdateQuantity={onUpdateQuantity}
+          />
+        ))}
+      </div>
+
+      <div className="hidden rounded-xl border border-border-light bg-white shadow-sm lg:block">
+        <div className="border-b border-border-light px-5 py-4">
+          <h2 className="text-base font-bold text-text-primary">Cart Items ({itemCount})</h2>
+        </div>
+        <ul>
+          {items.map((item) => (
+            <CartItemDesktop
               key={item._id}
-              className="flex items-center gap-2 px-3 py-2.5 lg:grid lg:grid-cols-[1fr_100px_120px_100px_auto] lg:items-center lg:gap-4 lg:px-5 lg:py-4"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-3">
-                <Link
-                  to={`/product/${item._id}`}
-                  className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border-light bg-mobile-surface lg:h-[72px] lg:w-[72px] lg:rounded-lg"
-                >
-                  {item.productImages?.[0] ? (
-                    <img
-                      src={item.productImages[0]}
-                      alt={item.name}
-                      className="h-full w-full object-contain p-0.5 lg:p-1"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-mobile-surface" />
-                  )}
-                </Link>
-
-                <div className="min-w-0 flex-1">
-                  <Link
-                    to={`/product/${item._id}`}
-                    className="line-clamp-1 text-xs font-bold text-text-primary transition hover:text-primary lg:line-clamp-2 lg:text-sm"
-                  >
-                    {item.name}
-                  </Link>
-                  <div className="mt-1 flex items-center justify-between gap-2 lg:hidden">
-                    <QuantityControl
-                      quantity={item.quantity}
-                      disabled={loading}
-                      compact
-                      onDecrease={() => {
-                        if (item.quantity <= 1) onRemove(item._id);
-                        else onUpdateQuantity(item._id, item.quantity - 1);
-                      }}
-                      onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
-                    />
-                    <span className="shrink-0 text-xs font-bold text-text-primary">
-                      {formatPrice(lineTotal)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <p className="hidden text-sm font-semibold text-text-primary lg:block lg:text-center">
-                {formatPrice(item.discountedPrice)}
-              </p>
-
-              <div className="hidden lg:flex lg:justify-center">
-                <QuantityControl
-                  quantity={item.quantity}
-                  disabled={loading}
-                  onDecrease={() => {
-                    if (item.quantity <= 1) onRemove(item._id);
-                    else onUpdateQuantity(item._id, item.quantity - 1);
-                  }}
-                  onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
-                />
-              </div>
-
-              <p className="hidden text-sm font-bold text-text-primary lg:block lg:text-right">
-                {formatPrice(lineTotal)}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => onRemove(item._id)}
-                className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500 lg:h-7 lg:w-7 lg:rounded-full lg:hover:bg-red-50"
-                aria-label="Remove item"
-              >
-                ×
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+              item={item}
+              loading={loading}
+              onRemove={onRemove}
+              onUpdateQuantity={onUpdateQuantity}
+            />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
 
 function OrderSummary({ items }) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
   const subtotal = items.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
-
-  const savings = items.reduce((sum, item) => {
-    const original = item.price ?? item.discountedPrice;
-    const diff = Math.max(0, original - item.discountedPrice);
-    return sum + diff * item.quantity;
-  }, 0);
-
   const shippingFree = subtotal >= FREE_DELIVERY_THRESHOLD;
+  const shipping = shippingFree ? 0 : SHIPPING_CHARGE;
+  const total = subtotal + shipping;
   const hasItems = items.length > 0;
 
   return (
-    <div className="shrink-0 rounded-xl border border-border-light bg-white p-3 shadow-sm lg:sticky lg:top-24 lg:p-6">
-      <h2 className="mb-2 text-sm font-bold text-text-primary lg:mb-4 lg:text-lg">Order Summary</h2>
+    <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-base font-bold text-text-primary sm:text-lg">Order Summary</h2>
 
-      <div className="space-y-1 text-xs lg:space-y-2.5 lg:text-sm">
-        <div className="flex justify-between text-text-secondary">
-          <span>Subtotal ({itemCount} item{itemCount === 1 ? "" : "s"})</span>
+      <div className="mt-4 space-y-3 text-sm">
+        <div className="flex items-center justify-between text-text-secondary">
+          <span>Subtotal ({itemCount} items)</span>
           <span className="font-medium text-text-primary">{formatPrice(subtotal)}</span>
         </div>
-        <div className="flex justify-between text-text-secondary">
-          <span>Shipping</span>
-          <span className={`font-semibold ${shippingFree ? "text-green-600" : "text-text-primary"}`}>
-            {shippingFree ? "FREE" : formatPrice(49)}
+        <div className="flex items-center justify-between text-text-secondary">
+          <span>Shipping Charges</span>
+          <span className="font-medium text-text-primary">
+            {shippingFree ? "FREE" : formatPrice(shipping)}
           </span>
         </div>
-        <p className="text-[10px] text-text-muted lg:text-xs">GST included in prices</p>
+        <p className="text-[11px] text-text-muted sm:text-xs">GST included in prices</p>
       </div>
 
-      <hr className="my-2 border-border-light lg:my-4" />
+      <hr className="my-4 border-border-light" />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-text-primary lg:text-base">Order Total</span>
-        <span className="text-lg font-bold text-primary lg:text-2xl">{formatPrice(subtotal)}</span>
-      </div>
-
-      <div className="mt-2 hidden items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700 lg:mt-4 lg:flex lg:py-2.5 lg:text-sm">
-        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-        You will save {formatPrice(savings)} on this order
+        <span className="text-base font-bold text-text-primary sm:text-lg">Total</span>
+        <span className="text-lg font-bold text-text-primary sm:text-xl">{formatPrice(total)}</span>
       </div>
 
       <Link
         to="/checkout"
-        className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-white transition hover:brightness-110 lg:mt-5 lg:gap-2 lg:py-3.5 lg:text-sm ${
+        className={`mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm ${
           !hasItems ? "pointer-events-none opacity-50" : ""
         }`}
         aria-disabled={!hasItems}
       >
-        Proceed to Checkout
-        <svg className="h-3.5 w-3.5 lg:h-4 lg:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
+        Place Order
       </Link>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 lg:mt-3">
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
         <Link
           to="/product"
-          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border-light px-1.5 py-2 text-[11px] font-semibold text-text-primary transition hover:border-primary hover:text-primary lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-sm"
+          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-border-light px-2 py-1.5 text-[11px] font-bold leading-none text-text-primary transition hover:border-primary hover:text-primary sm:text-xs"
         >
-          <svg className="h-3.5 w-3.5 shrink-0 lg:h-4 lg:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+          <svg className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+            />
           </svg>
           Continue Shopping
         </Link>
 
         <Link
           to="/support"
-          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-primary px-1.5 py-2 text-[11px] font-semibold text-primary transition hover:bg-primary/5 lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-sm"
+          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary px-2 py-1.5 text-[11px] font-bold leading-none text-primary transition hover:bg-primary/5 sm:text-xs"
+          title="Support"
         >
-          <svg className="h-3.5 w-3.5 shrink-0 lg:h-4 lg:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          <svg className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
+            />
           </svg>
           Support
         </Link>
@@ -228,19 +271,63 @@ function OrderSummary({ items }) {
   );
 }
 
+function TermsConditionsBox() {
+  return (
+    <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-sm font-bold text-text-primary sm:text-base">Terms & Conditions</h2>
+      <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-text-secondary sm:text-xs">
+        <li>Minimum order quantity is 10 units unless stated otherwise.</li>
+        <li>Orders are subject to stock availability and confirmation.</li>
+        <li>Prices include GST where applicable; invoices are GST-compliant.</li>
+        <li>Delivery timelines vary by location and order size.</li>
+        <li>Returns for defective goods must be reported within the specified timeframe.</li>
+      </ul>
+      <p className="mt-3 text-[11px] leading-relaxed text-text-secondary sm:text-xs">
+        By placing an order, you agree to our{" "}
+        <Link to="/terms-and-conditions" className="font-semibold text-primary hover:underline">
+          Terms & Conditions
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
+function CartSidebar({ items }) {
+  return (
+    <div className="space-y-4 lg:sticky lg:top-24">
+      <OrderSummary items={items} />
+      <TermsConditionsBox />
+    </div>
+  );
+}
+
 function Cart() {
   const { user, openAuthModal } = useAuth();
   const { items, removeFromCart, updateQuantity, loading, loadCart } = useCart();
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (user) loadCart();
   }, [user, loadCart]);
 
+  const handleClearCart = async () => {
+    if (!items.length || clearing) return;
+    setClearing(true);
+    try {
+      await Promise.all(items.map((item) => removeFromCart(item._id)));
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const pageTitle = "Shopping Cart";
+
   if (!user) {
     return (
       <div className="min-h-[60vh] bg-mobile-bg px-4 py-16 text-text-primary sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <h1 className="mb-3 text-2xl font-bold sm:text-3xl">My Cart</h1>
+          <h1 className="mb-3 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
           <p className="mb-6 text-text-secondary">
             Please login to view your cart and bulk orders.
           </p>
@@ -257,15 +344,27 @@ function Cart() {
   }
 
   return (
-    <div className="bg-mobile-bg text-text-primary lg:min-h-screen">
-      <section className="px-3 pb-4 pt-3 sm:px-4 lg:px-8 lg:pb-8 lg:pt-6">
+    <div className="min-h-screen bg-mobile-bg text-text-primary">
+      <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
         <div className="mx-auto w-full max-w-7xl">
-          <h1 className="mb-2 shrink-0 text-lg font-bold lg:mb-8 lg:text-3xl">My Cart</h1>
+          <div className="mb-4 flex items-center justify-between gap-3 sm:mb-6">
+            <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">{pageTitle}</h1>
+            {items.length > 0 ? (
+              <button
+                type="button"
+                onClick={handleClearCart}
+                disabled={clearing || loading}
+                className="text-sm font-semibold text-red-500 transition hover:text-red-600 disabled:opacity-50"
+              >
+                Clear Cart
+              </button>
+            ) : null}
+          </div>
 
           {loading ? (
-            <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
-              <div className="h-64 animate-pulse rounded-xl border border-border-light bg-white" />
-              <div className="h-96 animate-pulse rounded-xl border border-border-light bg-white" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6">
+              <div className="h-72 animate-pulse rounded-xl border border-border-light bg-white" />
+              <div className="h-80 animate-pulse rounded-xl border border-border-light bg-white" />
             </div>
           ) : items.length === 0 ? (
             <div className="rounded-xl border border-border-light bg-white py-16 text-center shadow-sm">
@@ -278,15 +377,14 @@ function Cart() {
               </Link>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[1fr_380px] lg:items-start lg:gap-8">
-              <CartItemsTable
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+              <CartItemsSection
                 items={items}
-                loading={loading}
+                loading={loading || clearing}
                 onRemove={removeFromCart}
                 onUpdateQuantity={updateQuantity}
               />
-
-              <OrderSummary items={items} />
+              <CartSidebar items={items} />
             </div>
           )}
         </div>

@@ -1,11 +1,28 @@
 import Address from "../models/address/Address.js";
 import User from "../models/user.js";
 
+const REQUIRED_FIELDS = [
+  "fullName",
+  "number",
+  "email",
+  "shopNo",
+  "shopName",
+  "fullAddress",
+  "landmark",
+  "city",
+  "state",
+  "pincode",
+];
+
 function normalizeAddressBody(body) {
   return {
-    name: (body.name || body.fullName || "").trim(),
+    fullName: (body.fullName || body.name || "").trim(),
     number: String(body.number || body.phone || "").trim(),
-    landmark: (body.landmark || body.streetArea || "").trim(),
+    email: String(body.email || "").trim().toLowerCase(),
+    shopNo: (body.shopNo || "").trim(),
+    shopName: (body.shopName || "").trim(),
+    fullAddress: (body.fullAddress || body.streetArea || "").trim(),
+    landmark: (body.landmark || "").trim(),
     city: (body.city || "").trim(),
     state: (body.state || "").trim(),
     pincode: String(body.pincode || "").trim(),
@@ -19,6 +36,10 @@ function formatValidationError(error) {
     return first?.message || "Invalid address data";
   }
   return error.message;
+}
+
+function getMissingFields(data) {
+  return REQUIRED_FIELDS.filter((field) => !data[field]);
 }
 
 export const getAddresses = async (req, res) => {
@@ -36,13 +57,14 @@ export const getAddresses = async (req, res) => {
 
 export const addAddress = async (req, res) => {
   try {
-    const { name, number, landmark, city, state, pincode, isDefault } =
-      normalizeAddressBody(req.body);
+    const normalized = normalizeAddressBody(req.body);
+    const { isDefault } = normalized;
+    const missing = getMissingFields(normalized);
 
-    if (!name || !number || !city || !state || !pincode) {
+    if (missing.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Name, phone number, city, state and pincode are required",
+        message: "All address fields are required",
       });
     }
 
@@ -58,12 +80,7 @@ export const addAddress = async (req, res) => {
 
     const address = await Address.create({
       user: req.user._id,
-      name,
-      number,
-      landmark: landmark || "",
-      city,
-      state,
-      pincode,
+      ...normalized,
       isDefault: shouldBeDefault,
     });
 
@@ -95,7 +112,7 @@ export const updateAddress = async (req, res) => {
       });
     }
 
-    const normalized = normalizeAddressBody(req.body);
+    const normalized = normalizeAddressBody({ ...address.toObject(), ...req.body });
     const { isDefault } = req.body;
 
     if (isDefault) {
@@ -105,18 +122,10 @@ export const updateAddress = async (req, res) => {
       );
     }
 
-    if (req.body.name !== undefined || req.body.fullName !== undefined) {
-      address.name = normalized.name;
-    }
-    if (req.body.number !== undefined || req.body.phone !== undefined) {
-      address.number = normalized.number;
-    }
-    if (req.body.landmark !== undefined || req.body.streetArea !== undefined) {
-      address.landmark = normalized.landmark;
-    }
-    if (req.body.city !== undefined) address.city = normalized.city;
-    if (req.body.state !== undefined) address.state = normalized.state;
-    if (req.body.pincode !== undefined) address.pincode = normalized.pincode;
+    REQUIRED_FIELDS.forEach((field) => {
+      address[field] = normalized[field];
+    });
+
     if (isDefault !== undefined) address.isDefault = isDefault;
 
     await address.save();

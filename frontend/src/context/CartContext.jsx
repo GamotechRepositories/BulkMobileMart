@@ -9,8 +9,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { useAuth } from "./AuthContext";
+import AddedToCartToast from "../components/cart/AddedToCartToast";
 
 const CartContext = createContext(null);
+const TOAST_DURATION_MS = 2600;
 
 const mapCartItems = (cart) => {
   if (!cart?.items?.length) return [];
@@ -34,7 +36,53 @@ export function CartProvider({ children }) {
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cartToast, setCartToast] = useState(null);
+  const [toastLeaving, setToastLeaving] = useState(false);
   const pendingAddRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const toastExitTimerRef = useRef(null);
+
+  const dismissCartToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    if (toastExitTimerRef.current) {
+      clearTimeout(toastExitTimerRef.current);
+      toastExitTimerRef.current = null;
+    }
+
+    setToastLeaving(true);
+    toastExitTimerRef.current = setTimeout(() => {
+      setCartToast(null);
+      setToastLeaving(false);
+    }, 250);
+  }, []);
+
+  const showAddedToCartToast = useCallback(
+    (product) => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
+
+      setToastLeaving(false);
+      setCartToast({
+        productImage: product?.productImages?.[0] || "",
+      });
+
+      toastTimerRef.current = setTimeout(() => {
+        dismissCartToast();
+      }, TOAST_DURATION_MS);
+    },
+    [dismissCartToast]
+  );
+
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (toastExitTimerRef.current) clearTimeout(toastExitTimerRef.current);
+    },
+    []
+  );
 
   const loadCart = useCallback(async () => {
     if (!user) {
@@ -86,12 +134,15 @@ export function CartProvider({ children }) {
           quantity: qty,
         });
         setItems(mapCartItems(data.data));
+        if (!options.buyNow) {
+          showAddedToCartToast(product);
+        }
         return { success: true };
       } catch {
         return { success: false };
       }
     },
-    [user, openAuthModal]
+    [user, openAuthModal, showAddedToCartToast]
   );
 
   useEffect(() => {
@@ -102,10 +153,11 @@ export function CartProvider({ children }) {
 
     addToCart(pending.product, pending.quantity).then((result) => {
       if (result?.success && pending.buyNow) {
+        dismissCartToast();
         navigate("/checkout");
       }
     });
-  }, [user, addToCart, navigate]);
+  }, [user, addToCart, navigate, dismissCartToast]);
 
   const removeFromCart = useCallback(
     async (productId) => {
@@ -150,6 +202,11 @@ export function CartProvider({ children }) {
       }}
     >
       {children}
+      <AddedToCartToast
+        visible={Boolean(cartToast)}
+        productImage={cartToast?.productImage}
+        leaving={toastLeaving}
+      />
     </CartContext.Provider>
   );
 }

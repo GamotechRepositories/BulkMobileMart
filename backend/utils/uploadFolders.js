@@ -2,6 +2,7 @@ export const UPLOAD_FOLDERS = {
   HERO_BANNERS: "hero-banners",
   CATEGORIES: "categories",
   PRODUCTS: "products",
+  BRANDS: "brands",
   PAYMENT_PROOFS: "payment-proofs",
   SUPPORT: "support",
 };
@@ -19,6 +20,7 @@ export const ADMIN_UPLOAD_FOLDERS = new Set([
   UPLOAD_FOLDERS.HERO_BANNERS,
   UPLOAD_FOLDERS.CATEGORIES,
   UPLOAD_FOLDERS.PRODUCTS,
+  UPLOAD_FOLDERS.BRANDS,
 ]);
 
 export const USER_UPLOAD_FOLDERS = new Set([UPLOAD_FOLDERS.PAYMENT_PROOFS]);

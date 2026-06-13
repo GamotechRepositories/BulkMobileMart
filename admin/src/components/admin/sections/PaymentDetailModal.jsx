@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getAddressFullName, formatAddressLine } from "../../../utils/addressDisplay";
 import { getAdminPaymentProof, updateAdminPaymentProof } from "../../../api/api";
 import {
   formatDate,
@@ -219,9 +220,15 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
                     const addr = proof?.deliveryAddress || order?.deliveryAddress;
                     return (
                       <>
-                        {addr.name}, {addr.number}
+                        {getAddressFullName(addr)}, {addr.number}
+                        {addr.email ? (
+                          <>
+                            <br />
+                            {addr.email}
+                          </>
+                        ) : null}
                         <br />
-                        {addr.landmark}, {addr.city}, {addr.state} — {addr.pincode}
+                        {formatAddressLine(addr)}
                       </>
                     );
                   })()}

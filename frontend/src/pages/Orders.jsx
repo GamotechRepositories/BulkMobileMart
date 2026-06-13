@@ -128,50 +128,49 @@ function OrderCard({ order }) {
         }}
         className="cursor-pointer px-3 py-3 transition hover:bg-mobile-surface/40 sm:px-5 sm:py-4"
       >
-        {/* Mobile: single compact row */}
-        <div className="flex items-center gap-2 sm:hidden">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-            <p className="shrink-0 text-sm font-bold text-text-primary">#{orderId}</p>
-            <span className="truncate text-[11px] text-text-secondary">
-              {formatPlacedDate(order.createdAt)}
-            </span>
+        {/* Mobile: 3-line layout */}
+        <div className="sm:hidden">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-text-primary">#{orderId}</p>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  STATUS_STYLES[order.status] || STATUS_STYLES.confirm
+                }`}
+              >
+                {STATUS_LABELS[order.status] || order.status}
+              </span>
+              <button
+                type="button"
+                onClick={toggleExpanded}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border-light text-text-secondary transition hover:border-primary hover:text-primary"
+                aria-label={expanded ? "Collapse order items" : "Expand order items"}
+                aria-expanded={expanded}
+              >
+                <svg
+                  className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          <p className="shrink-0 text-sm font-bold text-primary">{formatPrice(order.total)}</p>
+          <p className="mt-1.5 text-sm font-bold text-primary">{formatPrice(order.total)}</p>
 
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-              STATUS_STYLES[order.status] || STATUS_STYLES.confirm
-            }`}
-          >
-            {STATUS_LABELS[order.status] || order.status}
-          </span>
-
-          {showPaymentBadge && (
-            <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getPaymentStyle(order)}`}
+          {buyAgainButton ? (
+            <div
+              className="mt-2 flex justify-end"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
             >
-              {getPaymentLabel(order)}
-            </span>
-          )}
-
-          <button
-            type="button"
-            onClick={toggleExpanded}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border-light text-text-secondary transition hover:border-primary hover:text-primary"
-            aria-label={expanded ? "Collapse order items" : "Expand order items"}
-            aria-expanded={expanded}
-          >
-            <svg
-              className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              {buyAgainButton}
+            </div>
+          ) : null}
         </div>
 
         {/* Desktop */}
@@ -249,7 +248,7 @@ function OrderCard({ order }) {
       )}
 
       {buyAgainButton && (
-        <div className="flex justify-end px-3 pb-2 pt-2 sm:px-5 sm:pb-3 sm:pt-0">
+        <div className="hidden justify-end px-3 pb-2 pt-2 sm:flex sm:px-5 sm:pb-3 sm:pt-0">
           {buyAgainButton}
         </div>
       )}

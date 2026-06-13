@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 
 function UserIcon() {
   return (
-    <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -73,17 +73,12 @@ function UserAccountDropdown({ user }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="relative flex items-center gap-2.5 px-3 py-1 transition hover:opacity-80 xl:px-4"
+        className="flex h-10 w-10 items-center justify-center rounded-lg text-text-primary transition hover:text-primary"
         aria-expanded={open}
         aria-haspopup="true"
+        aria-label={`My account, ${firstName}`}
       >
-        <span className="shrink-0 text-text-primary">
-          <UserIcon />
-        </span>
-        <span className="text-left">
-          <span className="block text-sm font-bold leading-tight text-text-primary">{firstName}</span>
-          <span className="block text-xs leading-tight text-text-secondary">My Account</span>
-        </span>
+        <UserIcon />
       </button>
 
       {open && (

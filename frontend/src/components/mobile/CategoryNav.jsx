@@ -147,19 +147,19 @@ function CategoryCard({ category }) {
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-      className="group flex min-h-[140px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[160px] lg:min-h-[180px]"
+      className="group flex min-h-[108px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[160px] lg:min-h-[180px]"
     >
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pt-4 pb-2 sm:px-4 sm:pt-5 lg:pt-6">
-        <div className="flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 lg:h-28 lg:w-28">
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-3 pb-1 sm:px-4 sm:pt-5 lg:pt-6">
+        <div className="flex h-14 w-14 items-center justify-center sm:h-24 sm:w-24 lg:h-28 lg:w-28">
           <CategoryImage
             src={category.image}
             name={category.name}
             icon={category.icon}
-            className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
+            className="h-10 w-10 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
           />
         </div>
       </div>
-      <p className="px-3 pb-3 text-left text-xs font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-4 sm:pb-4 sm:text-sm lg:text-base">
+      <p className="px-2 pb-2 text-center text-[10px] font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-4 sm:pb-4 sm:text-left sm:text-sm lg:text-base">
         {category.name}
       </p>
     </Link>
@@ -202,7 +202,7 @@ function CategoryNav() {
         <h2 className="mb-4 text-lg font-bold text-text-primary sm:mb-5 sm:text-xl lg:mb-6 lg:text-2xl">
           Explore Our Categories
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
           {categories.map((category) => (
             <CategoryCard key={category.name} category={category} />
           ))}

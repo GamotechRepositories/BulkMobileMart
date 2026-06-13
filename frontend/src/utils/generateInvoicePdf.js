@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatAddressLine, getAddressFullName } from "./addressDisplay";
 import { getOrderNumber } from "./orderNumber";
 
 const formatPrice = (amount) =>
@@ -84,15 +85,16 @@ export function downloadInvoicePdf(order, user, filename) {
     doc.text(String(value), margin + colW - 3, rowY, { align: "right" });
   });
 
-  const addressLine = [addr?.landmark, `${addr?.city}, ${addr?.state} ${addr?.pincode}`]
-    .filter(Boolean)
-    .join(", ");
+  const addressLine = formatAddressLine(addr);
 
   const rightRows = [
-    ["Name", addr?.name || user?.name || "—"],
-    ["Email", user?.email || "—"],
+    ["Name", getAddressFullName(addr) || user?.name || "—"],
+    ["Email", addr?.email || user?.email || "—"],
     ["Phone", addr?.number ? `+91 ${addr.number}` : user?.phone ? `+91 ${user.phone}` : "—"],
-    ["Address", addressLine || "—"],
+    ["Shop", addr?.shopName || "—"],
+    ["Shop No.", addr?.shopNo || "—"],
+    ["Address", addr?.fullAddress || addressLine || "—"],
+    ["Landmark", addr?.landmark || "—"],
   ];
 
   rightRows.forEach(([label, value], i) => {

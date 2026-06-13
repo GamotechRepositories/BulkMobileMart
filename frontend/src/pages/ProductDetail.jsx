@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import WishlistButton from "../components/product/WishlistButton";
 
 const DEFAULT_MOQ = 10;
 const REVIEW_COUNT = 128;
@@ -460,7 +461,7 @@ function QuantitySelector({ quantity, min, max, onDecrease, onIncrease, disabled
   );
 }
 
-function ActionButtons({ inStock, addedFeedback, onAddToCart, onBuyNow, className = "" }) {
+function ActionButtons({ inStock, onAddToCart, onBuyNow, className = "" }) {
   return (
     <div className={className}>
       <button
@@ -469,7 +470,7 @@ function ActionButtons({ inStock, addedFeedback, onAddToCart, onBuyNow, classNam
         disabled={!inStock}
         className="flex-1 rounded-md bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {addedFeedback ? "Added!" : "Add to Cart"}
+        Add to Cart
       </button>
       <button
         type="button"
@@ -493,7 +494,6 @@ function ProductDetail() {
   const [error, setError] = useState("");
   const [activeImage, setActiveImage] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
-  const [addedFeedback, setAddedFeedback] = useState(false);
   const [quantity, setQuantity] = useState(DEFAULT_MOQ);
 
   useEffect(() => {
@@ -536,11 +536,6 @@ function ProductDetail() {
     const result = await addToCart(product, quantity);
     if (result?.requiresLogin) {
       openAuthModal("login");
-      return;
-    }
-    if (result?.success) {
-      setAddedFeedback(true);
-      setTimeout(() => setAddedFeedback(false), 2000);
     }
   };
 
@@ -613,6 +608,9 @@ function ProductDetail() {
         <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-2 lg:items-stretch lg:gap-8 xl:gap-10">
           <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
             <div className="relative overflow-hidden rounded-lg border border-border-light bg-white">
+              <div className="absolute left-2 top-2 z-10">
+                <WishlistButton product={product} size="md" />
+              </div>
               {images[activeImage] && (
                 <button
                   type="button"
@@ -704,7 +702,6 @@ function ProductDetail() {
 
             <ActionButtons
               inStock={inStock}
-              addedFeedback={addedFeedback}
               onAddToCart={handleAddToCart}
               onBuyNow={handleBuyNow}
               className="mt-5 flex w-full gap-3 lg:mt-auto lg:pt-4"

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getOrderById, updateAdminOrder } from "../../../api/api";
 import { getOrderNumber } from "../../../utils/orderNumber";
@@ -175,11 +176,8 @@ function AdminOrderDetailSection() {
   const payment = getPaymentStatus(order);
   const orderId = getOrderNumber(order);
   const customerEmail = order.user?.email || "";
-  const customerName = order.user?.name || addr?.name || "—";
-  const addressLine = [addr?.landmark, addr?.city, addr?.state, addr?.pincode]
-    .filter(Boolean)
-    .join(", ")
-    .replace(/, (\d{6})$/, " - $1");
+  const customerName = order.user?.name || getAddressFullName(addr) || "—";
+  const addressLine = formatAddressLine(addr);
 
   return (
     <div className="min-w-0 space-y-4">

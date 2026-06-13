@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
+import { WishlistProvider } from "./context/WishlistContext";
 import AuthModal from "./components/auth/AuthModal";
 import Layout from "./components/layout/Layout";
 import ScrollToTop from "./components/layout/ScrollToTop";
@@ -16,6 +17,7 @@ import Support from "./pages/Support";
 import Product from "./pages/Product";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Wishlist from "./pages/Wishlist";
 import Checkout from "./pages/Checkout";
 import Blog from "./pages/Blog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -41,6 +43,7 @@ function App() {
       <ScrollToTop />
       <AuthProvider>
         <CartProvider>
+        <WishlistProvider>
         <Routes>
           <Route
             path="/"
@@ -87,6 +90,14 @@ function App() {
             element={
               <MobileLayout>
                 <Cart />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/wishlist"
+            element={
+              <MobileLayout>
+                <Wishlist />
               </MobileLayout>
             }
           />
@@ -189,6 +200,7 @@ function App() {
           />
         </Routes>
         <AuthModalHost />
+        </WishlistProvider>
         </CartProvider>
       </AuthProvider>
     </BrowserRouter>

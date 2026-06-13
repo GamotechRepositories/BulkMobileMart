@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { getAddressFullName } from "../../utils/addressDisplay";
 import { getOrderNumber } from "../../utils/orderNumber";
 import { cardClass } from "./adminStyles";
 
@@ -52,7 +53,7 @@ function RecentTodayOrders({ orders, loading }) {
                     </Link>
                   </td>
                   <td className="py-3 pr-4 text-neutral-700">
-                    {order.user?.name || order.deliveryAddress?.name || "—"}
+                    {order.user?.name || getAddressFullName(order.deliveryAddress) || "—"}
                   </td>
                   <td className="py-3 pr-4 font-medium text-neutral-900">
                     {formatPrice(order.total)}

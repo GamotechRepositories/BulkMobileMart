@@ -12,6 +12,10 @@ import OrderSection from "../components/admin/sections/OrderSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
 import PaymentSection from "../components/admin/sections/PaymentSection";
 import SupportSection from "../components/admin/sections/SupportSection";
+import AddBrandSection from "../components/admin/sections/AddBrandSection";
+import ShowBrandSection from "../components/admin/sections/ShowBrandSection";
+import AddTestimonialSection from "../components/admin/sections/AddTestimonialSection";
+import ShowTestimonialSection from "../components/admin/sections/ShowTestimonialSection";
 import AdminLogin from "./AdminLogin";
 
 function Admin() {
@@ -28,6 +32,12 @@ function Admin() {
           <Route path="products/add" element={<AddProductSection />} />
           <Route path="products/show" element={<ShowProductSection />} />
           <Route path="products" element={<Navigate to="show" replace />} />
+          <Route path="brands/add" element={<AddBrandSection />} />
+          <Route path="brands/show" element={<ShowBrandSection />} />
+          <Route path="brands" element={<Navigate to="show" replace />} />
+          <Route path="testimonials/add" element={<AddTestimonialSection />} />
+          <Route path="testimonials/show" element={<ShowTestimonialSection />} />
+          <Route path="testimonials" element={<Navigate to="show" replace />} />
           <Route path="users" element={<UserSection />} />
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />

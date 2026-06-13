@@ -10,7 +10,7 @@ function MobileLayout({ children }) {
       <TopNav />
       <MobileHeader />
       <CategoryNavbar />
-      <main className="mx-auto w-full max-w-7xl flex-1 bg-mobile-bg pb-20 pt-0 lg:pt-[108px] lg:pb-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 bg-mobile-bg pb-20 pt-0 lg:pb-8 lg:pt-[108px]">
         {children}
       </main>
       <Footer />

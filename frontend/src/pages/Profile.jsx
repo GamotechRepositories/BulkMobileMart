@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getAddresses, addAddress, updateAddress, deleteAddress } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
-
+import {
+  formatAddressLine,
+  getAddressFullName,
+  mapAddressToForm,
+} from "../utils/addressDisplay";
 function InfoField({ label, value }) {
   return (
     <div>
@@ -10,10 +14,6 @@ function InfoField({ label, value }) {
       <p className="mt-1 text-base text-text-primary">{value}</p>
     </div>
   );
-}
-
-function formatAddressLine(addr) {
-  return [addr.landmark, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ");
 }
 
 function Profile() {
@@ -156,20 +156,14 @@ function Profile() {
                 )}
                 <AddressForm
                   initial={
-                      editingAddress
-                        ? {
-                            name: editingAddress.name || "",
-                            number: editingAddress.number || "",
-                            landmark: editingAddress.landmark || "",
-                            city: editingAddress.city || "",
-                            state: editingAddress.state || "",
-                            pincode: editingAddress.pincode || "",
-                          }
-                        : {
-                            ...ADDRESS_FORM_FIELDS,
-                            name: user.name || "",
-                            number: user.phone || "",
-                          }
+                    editingAddress
+                      ? mapAddressToForm(editingAddress)
+                      : {
+                          ...ADDRESS_FORM_FIELDS,
+                          fullName: user.name || "",
+                          number: user.phone || "",
+                          email: user.email || "",
+                        }
                   }
                   onSubmit={handleSaveAddress}
                   onCancel={cancelAddressForm}
@@ -192,7 +186,7 @@ function Profile() {
                     className="rounded-lg border border-gray-200 px-5 py-4"
                   >
                     <p className="text-base font-semibold text-text-primary">
-                      {addr.name}
+                      {getAddressFullName(addr)}
                       {addr.isDefault && (
                         <span className="ml-2 inline-block rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
                           Default

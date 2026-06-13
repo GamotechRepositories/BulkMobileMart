@@ -1,25 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-
-const TESTIMONIALS = [
-  {
-    text: "BulkMobileMart is our trusted partner for all bulk mobile requirements. Genuine products, best prices and on-time delivery every time!",
-    name: "Rajesh Kumar",
-    role: "Mobile Retailer, Delhi",
-    avatar: "https://i.pravatar.cc/100?img=12",
-  },
-  {
-    text: "We order 100+ units every month. Their GST invoicing and pan-India delivery make bulk buying hassle-free for our stores.",
-    name: "Priya Sharma",
-    role: "Distributor, Mumbai",
-    avatar: "https://i.pravatar.cc/100?img=45",
-  },
-  {
-    text: "Best wholesale rates on chargers and accessories. The sales team responds quickly and orders always arrive sealed and verified.",
-    name: "Amit Patel",
-    role: "Electronics Store Owner, Ahmedabad",
-    avatar: "https://i.pravatar.cc/100?img=33",
-  },
-];
+import { getTestimonials } from "../../api/api";
 
 const STATS = [
   {
@@ -88,23 +68,35 @@ function Stars() {
   );
 }
 
-function TestimonialCarousel() {
+function TestimonialCarousel({ testimonials }) {
   const [current, setCurrent] = useState(0);
+  const count = testimonials.length;
 
   const prev = useCallback(() => {
-    setCurrent((i) => (i - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
-  }, []);
+    setCurrent((i) => (i - 1 + count) % count);
+  }, [count]);
 
   const next = useCallback(() => {
-    setCurrent((i) => (i + 1) % TESTIMONIALS.length);
-  }, []);
+    setCurrent((i) => (i + 1) % count);
+  }, [count]);
 
   useEffect(() => {
+    if (count <= 1) return undefined;
     const timer = setInterval(next, AUTO_PLAY_MS);
     return () => clearInterval(timer);
-  }, [next]);
+  }, [next, count]);
 
-  const item = TESTIMONIALS[current];
+  useEffect(() => {
+    if (current >= count) {
+      setCurrent(0);
+    }
+  }, [count, current]);
+
+  if (count === 0) {
+    return null;
+  }
+
+  const item = testimonials[current];
 
   return (
     <div>
@@ -113,7 +105,9 @@ function TestimonialCarousel() {
       </h2>
 
       <div className="flex w-full items-center gap-3 lg:max-w-md">
-        <NavArrowButton direction="left" onClick={prev} label="Previous testimonial" />
+        {count > 1 && (
+          <NavArrowButton direction="left" onClick={prev} label="Previous testimonial" />
+        )}
 
         <div className="relative flex min-h-[180px] min-w-0 flex-1 flex-col justify-between overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 shadow-sm sm:px-5 sm:py-5">
           <span className="absolute left-3 top-2 select-none font-serif text-4xl leading-none text-primary/25">
@@ -130,20 +124,17 @@ function TestimonialCarousel() {
             </p>
           </div>
 
-          <div className="relative z-10 flex items-center gap-3">
-            <img
-              src={item.avatar}
-              alt={item.name}
-              className="h-10 w-10 rounded-full border border-neutral-200 object-cover"
-            />
-            <div>
-              <p className="text-sm font-bold text-neutral-900">{item.name}</p>
+          <div className="relative z-10">
+            <p className="text-sm font-bold text-neutral-900">{item.name}</p>
+            {item.role ? (
               <p className="text-xs text-neutral-500">{item.role}</p>
-            </div>
+            ) : null}
           </div>
         </div>
 
-        <NavArrowButton direction="right" onClick={next} label="Next testimonial" />
+        {count > 1 && (
+          <NavArrowButton direction="right" onClick={next} label="Next testimonial" />
+        )}
       </div>
     </div>
   );
@@ -178,10 +169,40 @@ function ImpactStats() {
 }
 
 function TestimonialsImpact() {
+  const [testimonials, setTestimonials] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        const { data } = await getTestimonials();
+        setTestimonials(data.data || []);
+      } catch {
+        setTestimonials([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTestimonials();
+  }, []);
+
+  if (!loading && testimonials.length === 0) {
+    return (
+      <section className="bg-white px-5 py-8 sm:px-6 md:px-8 lg:px-12 md:py-10">
+        <div className="mx-auto max-w-[1600px]">
+          <ImpactStats />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="bg-white px-5 py-8 sm:px-6 md:px-8 lg:px-12 md:py-10">
       <div className="mx-auto grid max-w-[1600px] grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-center lg:gap-10">
-        <TestimonialCarousel />
+        {!loading && testimonials.length > 0 ? (
+          <TestimonialCarousel testimonials={testimonials} />
+        ) : null}
         <ImpactStats />
       </div>
     </section>

@@ -48,6 +48,17 @@ export const addCategory = (data) => api.post("/api/categories", data);
 export const updateCategory = (id, data) => api.put(`/api/categories/${id}`, data);
 export const deleteCategory = (id) => api.delete(`/api/categories/${id}`);
 
+export const getAllBrands = () => api.get("/api/brands/all");
+export const addBrand = (data) => api.post("/api/brands", data);
+export const updateBrand = (id, data) => api.put(`/api/brands/${id}`, data);
+export const deleteBrand = (id) => api.delete(`/api/brands/${id}`);
+
+export const getAllTestimonials = () => api.get("/api/testimonials/all");
+export const addTestimonial = (data) => api.post("/api/testimonials", data);
+export const updateTestimonial = (id, data) =>
+  api.put(`/api/testimonials/${id}`, data);
+export const deleteTestimonial = (id) => api.delete(`/api/testimonials/${id}`);
+
 export const getAllProducts = () => api.get("/api/products/all");
 export const addProduct = (data) => api.post("/api/products", data);
 export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);

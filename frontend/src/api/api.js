@@ -38,6 +38,9 @@ export const getHeroBanners = (device = "desktop") =>
 export const getCategories = () => api.get("/api/categories");
 export const getCategoryById = (id) => api.get(`/api/categories/${id}`);
 
+export const getBrands = () => api.get("/api/brands");
+export const getTestimonials = () => api.get("/api/testimonials");
+
 export const getProducts = (params) => api.get("/api/products", { params });
 export const getProductById = (id) => api.get(`/api/products/${id}`);
 
@@ -48,29 +51,43 @@ export const removeFromCartItem = (productId) =>
 export const updateCartItemQty = (productId, quantity) =>
   api.put(`/api/cart/${productId}`, { quantity });
 
+export const getWishlist = () => api.get("/api/wishlist");
+export const toggleWishlistItem = (productId) =>
+  api.post("/api/wishlist/toggle", { productId });
+export const removeFromWishlistItem = (productId) =>
+  api.delete(`/api/wishlist/${productId}`);
+
 export const signupUser = (data) => api.post("/api/users/signup", data);
 export const loginUser = (data) => api.post("/api/users/login", data);
 export const getMe = () => api.get("/api/users/me");
 
 function buildAddressPayload(data) {
-  const name = data.name?.trim() || "";
-  const number = data.number?.trim() || "";
+  const fullName = data.fullName?.trim() || data.name?.trim() || "";
+  const number = data.number?.trim() || data.phone?.trim() || "";
+  const email = data.email?.trim() || "";
+  const shopNo = data.shopNo?.trim() || "";
+  const shopName = data.shopName?.trim() || "";
+  const fullAddress = data.fullAddress?.trim() || data.streetArea?.trim() || "";
   const landmark = data.landmark?.trim() || "";
   const city = data.city?.trim() || "";
   const state = data.state?.trim() || "";
   const pincode = data.pincode?.trim() || "";
 
   return {
-    name,
+    fullName,
     number,
+    email,
+    shopNo,
+    shopName,
+    fullAddress,
     landmark,
     city,
     state,
     pincode,
     isDefault: data.isDefault,
-    fullName: name,
+    name: fullName,
     phone: number,
-    streetArea: landmark,
+    streetArea: fullAddress,
   };
 }
 

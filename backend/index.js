@@ -15,6 +15,9 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import supportRoutes from "./routes/supportRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import proxyRoutes from "./routes/proxyRoutes.js";
+import brandRoutes from "./routes/brandRoutes.js";
+import testimonialRoutes from "./routes/testimonialRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,6 +47,9 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/proxy", proxyRoutes);
+app.use("/api/brands", brandRoutes);
+app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

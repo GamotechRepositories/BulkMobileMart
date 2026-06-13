@@ -12,6 +12,11 @@ import {
 import PaymentModal from "../components/checkout/PaymentModal";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
+import {
+  formatAddressLine,
+  getAddressFullName,
+  mapAddressToForm,
+} from "../utils/addressDisplay";
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
@@ -34,11 +39,6 @@ function StepSection({ title, children }) {
       {children}
     </div>
   );
-}
-
-function formatAddressLine(addr) {
-  const parts = [addr.landmark, addr.city, addr.state, addr.pincode].filter(Boolean);
-  return parts.join(", ");
 }
 
 function Checkout() {
@@ -392,7 +392,7 @@ function Checkout() {
                         <div className="rounded-xl border border-border-light bg-mobile-surface/30 p-4 sm:p-5">
                           <div className="mb-3 flex items-start justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-bold text-text-primary">{selectedAddress.name}</p>
+                              <p className="font-bold text-text-primary">{getAddressFullName(selectedAddress)}</p>
                               {selectedAddress.isDefault && (
                                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                                   Default
@@ -440,7 +440,7 @@ function Checkout() {
                                   />
                                   <div className="min-w-0 flex-1 text-sm">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <p className="font-semibold text-text-primary">{addr.name}</p>
+                                      <p className="font-semibold text-text-primary">{getAddressFullName(addr)}</p>
                                       {addr.isDefault && (
                                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                           Default
@@ -474,8 +474,9 @@ function Checkout() {
                           <AddressForm
                             initial={{
                               ...ADDRESS_FORM_FIELDS,
-                              name: user.name || "",
+                              fullName: user.name || "",
                               number: user.phone || "",
+                              email: user.email || "",
                             }}
                             onSubmit={handleSaveAddress}
                             onCancel={() => {

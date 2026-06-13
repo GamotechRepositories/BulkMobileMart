@@ -2,12 +2,13 @@ import mongoose from "mongoose";
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 const PINCODE_PATTERN = /^\d{6}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Shared address fields — used by Address model and order delivery snapshot */
 export const addressFieldDefinitions = {
-  name: {
+  fullName: {
     type: String,
-    required: [true, "Name is required"],
+    required: [true, "Full name is required"],
     trim: true,
   },
   number: {
@@ -20,10 +21,37 @@ export const addressFieldDefinitions = {
       message: "Phone must be 10 digits and start with 6, 7, 8, or 9",
     },
   },
+  email: {
+    type: String,
+    required: [true, "Email is required"],
+    trim: true,
+    lowercase: true,
+    validate: {
+      validator(value) {
+        return EMAIL_PATTERN.test(value);
+      },
+      message: "Enter a valid email address",
+    },
+  },
+  shopNo: {
+    type: String,
+    required: [true, "Shop number is required"],
+    trim: true,
+  },
+  shopName: {
+    type: String,
+    required: [true, "Shop name is required"],
+    trim: true,
+  },
+  fullAddress: {
+    type: String,
+    required: [true, "Full address is required"],
+    trim: true,
+  },
   landmark: {
     type: String,
+    required: [true, "Landmark is required"],
     trim: true,
-    default: "",
   },
   city: {
     type: String,

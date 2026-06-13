@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
-function MobileSearchBar({ className = "" }) {
+function MobileSearchBar({ className = "", autoFocus = false, onSubmit }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
@@ -16,6 +16,7 @@ function MobileSearchBar({ className = "" }) {
     const trimmed = query.trim();
     if (!trimmed) return;
     navigate(buildProductSearchUrl(trimmed));
+    onSubmit?.();
   };
 
   return (
@@ -42,6 +43,7 @@ function MobileSearchBar({ className = "" }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search Products..."
+        autoFocus={autoFocus}
         className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none sm:text-base"
       />
       <button

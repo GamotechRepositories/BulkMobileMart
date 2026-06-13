@@ -4,12 +4,14 @@ import { useAuth } from "../../context/AuthContext";
 import { LOGO_URL } from "../../constants/brand";
 import {
   IconBanner,
+  IconBrand,
   IconCategory,
   IconDashboard,
   IconOrder,
   IconPayment,
   IconProduct,
   IconSupport,
+  IconTestimonial,
   IconUser,
   IconUsers,
 } from "./AdminIcons";
@@ -21,6 +23,10 @@ const PAGE_TITLES = {
   "/categories/show": "Show Category",
   "/products/add": "Add Product",
   "/products/show": "Show Product",
+  "/brands/add": "Add Brand",
+  "/brands/show": "Show Brands",
+  "/testimonials/add": "Add Testimonial",
+  "/testimonials/show": "Testimonials",
   "/users": "Users",
   "/orders": "Orders",
   "/payments": "Payments",
@@ -48,6 +54,26 @@ const NAV_ITEMS = [
     children: [
       { to: "/products/add", label: "Add Product" },
       { to: "/products/show", label: "Show Product" },
+    ],
+  },
+  {
+    type: "group",
+    label: "Brands",
+    icon: IconBrand,
+    basePath: "/brands",
+    children: [
+      { to: "/brands/add", label: "Add Brand" },
+      { to: "/brands/show", label: "Show Brands" },
+    ],
+  },
+  {
+    type: "group",
+    label: "Testimonials",
+    icon: IconTestimonial,
+    basePath: "/testimonials",
+    children: [
+      { to: "/testimonials/add", label: "Add Testimonial" },
+      { to: "/testimonials/show", label: "Show Testimonials" },
     ],
   },
   { type: "link", to: "/orders", label: "Orders", icon: IconOrder },

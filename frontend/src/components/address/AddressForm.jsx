@@ -1,8 +1,12 @@
 import { useState } from "react";
 
 export const ADDRESS_FORM_FIELDS = {
-  name: "",
+  fullName: "",
   number: "",
+  email: "",
+  shopNo: "",
+  shopName: "",
+  fullAddress: "",
   landmark: "",
   city: "",
   state: "",
@@ -11,19 +15,31 @@ export const ADDRESS_FORM_FIELDS = {
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
 const PINCODE_PATTERN = /^\d{6}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateAddressForm(form) {
-  const name = form.name?.trim();
+  const fullName = form.fullName?.trim();
   const number = form.number?.trim();
+  const email = form.email?.trim();
+  const shopNo = form.shopNo?.trim();
+  const shopName = form.shopName?.trim();
+  const fullAddress = form.fullAddress?.trim();
+  const landmark = form.landmark?.trim();
   const city = form.city?.trim();
   const state = form.state?.trim();
   const pincode = form.pincode?.trim();
 
-  if (!name) return "Name is required";
+  if (!fullName) return "Full name is required";
   if (!number) return "Phone number is required";
   if (!PHONE_PATTERN.test(number)) {
     return "Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9";
   }
+  if (!email) return "Email is required";
+  if (!EMAIL_PATTERN.test(email)) return "Enter a valid email address";
+  if (!shopNo) return "Shop number is required";
+  if (!shopName) return "Shop name is required";
+  if (!fullAddress) return "Full address is required";
+  if (!landmark) return "Landmark is required";
   if (!city) return "City is required";
   if (!state) return "State is required";
   if (!pincode) return "Pincode is required";
@@ -53,8 +69,12 @@ function AddressForm({ initial, onSubmit, onCancel, submitting }) {
     }
 
     onSubmit({
-      name: form.name.trim(),
+      fullName: form.fullName.trim(),
       number: form.number.trim(),
+      email: form.email.trim(),
+      shopNo: form.shopNo.trim(),
+      shopName: form.shopName.trim(),
+      fullAddress: form.fullAddress.trim(),
       landmark: form.landmark.trim(),
       city: form.city.trim(),
       state: form.state.trim(),
@@ -71,37 +91,73 @@ function AddressForm({ initial, onSubmit, onCancel, submitting }) {
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{validationError}</p>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2">
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            required
-            placeholder="Name"
-            className={inputClass}
-          />
-        </div>
-        <div className="col-span-1">
-          <input
-            name="number"
-            value={form.number}
-            onChange={handleChange}
-            required
-            maxLength={10}
-            pattern="[6789][0-9]{9}"
-            placeholder="10-digit mobile"
-            inputMode="numeric"
-            className={inputClass}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <input
+          name="fullName"
+          value={form.fullName}
+          onChange={handleChange}
+          required
+          placeholder="Full name"
+          className={inputClass}
+        />
+        <input
+          name="number"
+          value={form.number}
+          onChange={handleChange}
+          required
+          maxLength={10}
+          pattern="[6789][0-9]{9}"
+          placeholder="Number"
+          inputMode="numeric"
+          className={inputClass}
+        />
       </div>
+
+      <input
+        name="email"
+        type="email"
+        value={form.email}
+        onChange={handleChange}
+        required
+        placeholder="Email ID"
+        className={inputClass}
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <input
+          name="shopNo"
+          value={form.shopNo}
+          onChange={handleChange}
+          required
+          placeholder="Shop no."
+          className={inputClass}
+        />
+        <input
+          name="shopName"
+          value={form.shopName}
+          onChange={handleChange}
+          required
+          placeholder="Shop name"
+          className={inputClass}
+        />
+      </div>
+
+      <textarea
+        name="fullAddress"
+        value={form.fullAddress}
+        onChange={handleChange}
+        required
+        rows={2}
+        placeholder="Full address"
+        className={`${inputClass} resize-none`}
+      />
 
       <input
         name="landmark"
         value={form.landmark}
         onChange={handleChange}
-        placeholder="Landmark / Street area"
+        required
+        placeholder="Landmark"
         className={inputClass}
       />
 

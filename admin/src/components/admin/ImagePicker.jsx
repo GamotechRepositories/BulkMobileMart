@@ -39,7 +39,11 @@ function ImagePicker({
       const { data } = await uploadImageFile(file, folder);
       onChange(data.data.url);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload image");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to upload image"
+      );
     } finally {
       setUploading(false);
     }

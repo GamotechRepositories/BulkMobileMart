@@ -1,4 +1,5 @@
 import { getOrderNumber } from "../../../utils/orderNumber";
+import { getAddressFullName } from "../../../utils/addressDisplay";
 
 export const ORDER_STATUSES = ["confirm", "processing", "shipping", "delivered", "cancelled"];
 
@@ -92,7 +93,7 @@ export const formatDate = (dateStr) =>
   });
 
 export function getCustomerName(order) {
-  return order.user?.name || order.deliveryAddress?.name || "—";
+  return order.user?.name || getAddressFullName(order.deliveryAddress) || "—";
 }
 
 export function getCustomerPhone(order) {

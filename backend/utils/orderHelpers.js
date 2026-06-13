@@ -48,9 +48,13 @@ export function addressToSnapshot(address) {
   const raw = typeof address.toObject === "function" ? address.toObject() : address;
 
   return {
-    name: (raw.name || raw.fullName || "").trim(),
+    fullName: (raw.fullName || raw.name || "").trim(),
     number: String(raw.number || raw.phone || "").trim(),
-    landmark: (raw.landmark || raw.streetArea || "").trim(),
+    email: String(raw.email || "").trim().toLowerCase(),
+    shopNo: (raw.shopNo || "").trim(),
+    shopName: (raw.shopName || "").trim(),
+    fullAddress: (raw.fullAddress || raw.streetArea || raw.landmark || "").trim(),
+    landmark: (raw.landmark || "").trim(),
     city: (raw.city || "").trim(),
     state: (raw.state || "").trim(),
     pincode: String(raw.pincode || "").trim(),
@@ -96,13 +100,21 @@ export async function prepareOrderData(userId, addressId) {
   const total = subtotal + deliveryCharges;
 
   const deliveryAddress = addressToSnapshot(address);
-  if (
-    !deliveryAddress.name ||
-    !deliveryAddress.number ||
-    !deliveryAddress.city ||
-    !deliveryAddress.state ||
-    !deliveryAddress.pincode
-  ) {
+  const requiredSnapshotFields = [
+    "fullName",
+    "number",
+    "email",
+    "shopNo",
+    "shopName",
+    "fullAddress",
+    "landmark",
+    "city",
+    "state",
+    "pincode",
+  ];
+  const hasCompleteAddress = requiredSnapshotFields.every((field) => deliveryAddress[field]);
+
+  if (!hasCompleteAddress) {
     return {
       error:
         "Delivery address is incomplete. Please edit or re-add your address before placing the order.",

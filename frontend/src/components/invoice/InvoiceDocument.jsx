@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { getAddressFullName } from "../../utils/addressDisplay";
 import { LOGO_URL } from "../layout/Header";
 import { getOrderNumber } from "../../utils/orderNumber";
 
@@ -83,15 +84,14 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide">Bill To</h2>
             <dl className="space-y-2 text-sm">
               {[
-                ["Name", addr?.name || user?.name || "—"],
-                ["Email", user?.email || "—"],
+                ["Name", getAddressFullName(addr) || user?.name || "—"],
+                ["Email", addr?.email || user?.email || "—"],
                 ["Phone", addr?.number ? `+91 ${addr.number}` : user?.phone ? `+91 ${user.phone}` : "—"],
-                [
-                  "Address",
-                  [addr?.landmark, `${addr?.city}, ${addr?.state} ${addr?.pincode}`]
-                    .filter(Boolean)
-                    .join(", ") || "—",
-                ],
+                ["Shop", addr?.shopName || "—"],
+                ["Shop No.", addr?.shopNo || "—"],
+                ["Address", addr?.fullAddress || "—"],
+                ["Landmark", addr?.landmark || "—"],
+                ["City", [addr?.city, addr?.state, addr?.pincode].filter(Boolean).join(", ") || "—"],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3">
                   <dt className="shrink-0 text-text-secondary">{label}</dt>

@@ -204,7 +204,31 @@ export const getProducts = async (req, res) => {
       ];
     }
 
-    let query = Product.find(filter).sort(sortOptions);
+    if (req.query.brandName?.trim()) {
+      filter.brandName = {
+        $regex: new RegExp(
+          `^${escapeRegex(req.query.brandName.trim())}$`,
+          "i"
+        ),
+      };
+    }
+
+    const minPrice = Number(req.query.minPrice);
+    const maxPrice = Number(req.query.maxPrice);
+    if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+      filter.discountedPrice = {};
+      if (Number.isFinite(minPrice)) filter.discountedPrice.$gte = minPrice;
+      if (Number.isFinite(maxPrice)) filter.discountedPrice.$lte = maxPrice;
+    }
+
+    let sort = sortOptions;
+    const sortParam = String(req.query.sort || "").trim();
+    if (sortParam === "price-asc") sort = { discountedPrice: 1, name: 1 };
+    else if (sortParam === "price-desc") sort = { discountedPrice: -1, name: 1 };
+    else if (sortParam === "name") sort = { name: 1 };
+    else if (sortParam === "brand") sort = { brandName: 1, name: 1 };
+
+    let query = Product.find(filter).sort(sort);
 
     if (req.query.limit) {
       const limit = Math.min(parseInt(req.query.limit, 10) || 15, 50);

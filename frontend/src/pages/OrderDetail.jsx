@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { formatAddressLine, getAddressFullName } from "../utils/addressDisplay";
 import { useAuth } from "../context/AuthContext";
 import { cancelOrder, getOrderById } from "../api/api";
 import { getOrderNumber } from "../utils/orderNumber";
@@ -290,10 +291,7 @@ function OrderDetail() {
   }
 
   const addr = order.deliveryAddress;
-  const addressLine = [addr?.landmark, addr?.city, addr?.state, addr?.pincode]
-    .filter(Boolean)
-    .join(", ")
-    .replace(/, (\d{6})$/, " - $1");
+  const addressLine = formatAddressLine(addr);
   const orderMessage = (
     order.message ||
     order.customerNote ||
@@ -379,10 +377,12 @@ function OrderDetail() {
             <div>
               <h2 className="mb-3 text-sm font-bold tracking-wide text-text-primary">ADDRESS</h2>
               <p className="text-sm leading-relaxed text-text-secondary">
-                {addr?.name}
+                {getAddressFullName(addr)}
                 <br />
                 {addressLine}
                 <br />
+                {addr?.email ? `${addr.email}` : null}
+                {addr?.email ? <br /> : null}
                 +91 {addr?.number}
               </p>
             </div>
