@@ -24,7 +24,6 @@ const PAGE_TITLES = {
   "/users": "Users",
   "/orders": "Orders",
   "/payments": "Payments",
-  "/payment-proofs": "UPI Payment Proofs",
   "/support": "Support Messages",
 };
 
@@ -53,7 +52,6 @@ const NAV_ITEMS = [
   },
   { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
-  { type: "link", to: "/payment-proofs", label: "UPI Proofs", icon: IconPayment },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },
 ];

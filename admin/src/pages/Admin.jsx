@@ -11,7 +11,6 @@ import UserSection from "../components/admin/sections/UserSection";
 import OrderSection from "../components/admin/sections/OrderSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
 import PaymentSection from "../components/admin/sections/PaymentSection";
-import PaymentProofSection from "../components/admin/sections/PaymentProofSection";
 import SupportSection from "../components/admin/sections/SupportSection";
 import AdminLogin from "./AdminLogin";
 
@@ -33,7 +32,7 @@ function Admin() {
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />
           <Route path="payments" element={<PaymentSection />} />
-          <Route path="payment-proofs" element={<PaymentProofSection />} />
+          <Route path="payment-proofs" element={<Navigate to="/payments" replace />} />
           <Route path="support" element={<SupportSection />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

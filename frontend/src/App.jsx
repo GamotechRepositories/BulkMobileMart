@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import AuthModal from "./components/auth/AuthModal";
@@ -66,7 +66,14 @@ function App() {
               </MobileLayout>
             }
           />
-          <Route path="/orders/:id/invoice" element={<OrderInvoice />} />
+          <Route
+            path="/orders/:id/invoice"
+            element={
+              <MobileLayout>
+                <OrderInvoice />
+              </MobileLayout>
+            }
+          />
           <Route
             path="/profile"
             element={
@@ -163,6 +170,7 @@ function App() {
               </MobileLayout>
             }
           />
+          <Route path="/admin/*" element={<Navigate to="/" replace />} />
           <Route
             path="/*"
             element={

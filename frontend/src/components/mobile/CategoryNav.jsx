@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
+
 const DEFAULT_CATEGORIES = [
   { name: "Chargers", icon: "charger" },
   { name: "Earphones", icon: "earphone" },
@@ -27,7 +28,7 @@ const ICON_TYPES = [
   "adapter",
 ];
 
-function CategoryIcon({ type, className = "h-8 w-8" }) {
+function CategoryIcon({ type, className = "h-10 w-10" }) {
   const icons = {
     charger: (
       <>
@@ -119,21 +120,49 @@ function isUsableCategoryImage(url) {
   return true;
 }
 
-function CategoryImage({ src, name, icon, className = "h-8 w-8" }) {
+function CategoryImage({ src, name, icon, className = "h-10 w-10" }) {
   const [failed, setFailed] = useState(false);
 
   if (!isUsableCategoryImage(src) || failed) {
-    return <CategoryIcon type={icon} className={className} />;
+    return (
+      <CategoryIcon
+        type={icon}
+        className={`${className} transition-transform duration-300 ease-out group-hover:scale-110`}
+      />
+    );
   }
 
   return (
     <img
       src={src}
       alt={name}
-      className="h-full w-full object-contain"
+      className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-110"
       loading="lazy"
       onError={() => setFailed(true)}
     />
+  );
+}
+
+function CategoryCard({ category }) {
+  return (
+    <Link
+      to={`/product?categoryName=${encodeURIComponent(category.name)}`}
+      className="group flex min-h-[140px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[160px] lg:min-h-[180px]"
+    >
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-3 pt-4 pb-2 sm:px-4 sm:pt-5 lg:pt-6">
+        <div className="flex h-20 w-20 items-center justify-center sm:h-24 sm:w-24 lg:h-28 lg:w-28">
+          <CategoryImage
+            src={category.image}
+            name={category.name}
+            icon={category.icon}
+            className="h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
+          />
+        </div>
+      </div>
+      <p className="px-3 pb-3 text-left text-xs font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-4 sm:pb-4 sm:text-sm lg:text-base">
+        {category.name}
+      </p>
+    </Link>
   );
 }
 
@@ -168,51 +197,16 @@ function CategoryNav() {
   }, []);
 
   return (
-    <section className="bg-mobile-bg px-4 py-4 sm:px-6 sm:py-5 md:px-8 lg:py-6">
-      {/* Mobile & tablet: horizontal scroll */}
-      <div className="-mx-1 flex gap-4 overflow-x-auto hide-scrollbar scroll-smooth px-1 pb-1 lg:hidden">
-        {categories.map((category) => (
-          <Link
-            key={category.name}
-            to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-            className="flex w-[72px] shrink-0 flex-col items-center gap-2.5 sm:w-[80px]"
-          >
-            <div className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-border-light bg-white p-2 shadow-sm sm:h-[68px] sm:w-[68px]">
-              <CategoryImage
-                src={category.image}
-                name={category.name}
-                icon={category.icon}
-              />
-            </div>
-            <span className="w-full text-center text-[11px] font-medium leading-tight text-text-primary sm:text-xs">
-              {category.name}
-            </span>
-          </Link>
-        ))}
-        <div className="w-1 shrink-0" aria-hidden="true" />
-      </div>
-
-      {/* Desktop: neat grid layout */}
-      <div className="hidden lg:grid lg:grid-cols-5 lg:gap-x-6 lg:gap-y-8 xl:grid-cols-10 xl:gap-x-4 xl:gap-y-0">
-        {categories.map((category) => (
-          <Link
-            key={category.name}
-            to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-            className="group flex flex-col items-center gap-3 text-center"
-          >
-            <div className="flex h-[76px] w-[76px] items-center justify-center rounded-full border border-border-light bg-white p-2.5 shadow-sm transition group-hover:border-primary/40 group-hover:shadow-md xl:h-[84px] xl:w-[84px]">
-              <CategoryImage
-                src={category.image}
-                name={category.name}
-                icon={category.icon}
-                className="h-9 w-9 xl:h-10 xl:w-10"
-              />
-            </div>
-            <span className="min-h-[2.5rem] max-w-[100px] text-sm font-medium leading-snug text-text-primary xl:max-w-[110px] xl:text-[15px]">
-              {category.name}
-            </span>
-          </Link>
-        ))}
+    <section className="bg-mobile-bg px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-[1600px]">
+        <h2 className="mb-4 text-lg font-bold text-text-primary sm:mb-5 sm:text-xl lg:mb-6 lg:text-2xl">
+          Explore Our Categories
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
+          {categories.map((category) => (
+            <CategoryCard key={category.name} category={category} />
+          ))}
+        </div>
       </div>
     </section>
   );

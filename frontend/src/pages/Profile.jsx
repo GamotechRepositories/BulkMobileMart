@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getAddresses, addAddress, updateAddress, deleteAddress } from "../api/api";
-import MobileHeader from "../components/mobile/MobileHeader";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 
 function InfoField({ label, value }) {
@@ -96,11 +95,7 @@ function Profile() {
 
   return (
     <div className="min-h-screen bg-mobile-bg px-4 pb-24 pt-4 sm:px-6 lg:pb-10 lg:pt-10">
-      <div className="lg:hidden">
-        <MobileHeader showSearch={false} />
-      </div>
-
-      <div className="mx-auto mt-6 max-w-xl sm:mt-8 lg:mt-0">
+      <div className="mx-auto max-w-xl lg:mt-0">
         <h1 className="mb-8 text-center text-2xl font-bold text-text-primary sm:text-3xl">
           Profile
         </h1>

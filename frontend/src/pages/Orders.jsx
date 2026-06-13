@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getMyOrders } from "../api/api";
-import MobileHeader from "../components/mobile/MobileHeader";
 import OrderItemImage from "../components/orders/OrderItemImage";
 import { getOrderNumber } from "../utils/orderNumber";
 
@@ -286,8 +285,7 @@ function Orders() {
 
   return (
     <div className="min-h-screen bg-mobile-bg px-4 pb-24 pt-2 sm:px-6 md:px-8 lg:pb-8 lg:pt-4">
-      <MobileHeader showSearch={false} />
-      <div className="mx-auto mt-2 max-w-5xl sm:mt-4">
+      <div className="mx-auto max-w-5xl">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">My Orders</h1>
           <p className="mt-1 text-sm text-text-secondary">

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getProductById } from "../api/api";
-import { LOGO_URL } from "../components/layout/Header";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
 const DEFAULT_MOQ = 10;
 const REVIEW_COUNT = 128;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -69,6 +69,74 @@ async function downloadProductImage(imageUrl, productName, imageIndex) {
   }
 }
 
+async function fetchImageBlob(imageUrl) {
+  if (!imageUrl) return null;
+
+  try {
+    const proxyResponse = await fetch(
+      `${API_URL}/api/proxy/image?url=${encodeURIComponent(imageUrl)}`
+    );
+    if (proxyResponse.ok) {
+      return await proxyResponse.blob();
+    }
+  } catch {
+    // fall through to direct fetch
+  }
+
+  try {
+    const directResponse = await fetch(imageUrl);
+    if (!directResponse.ok) return null;
+    return await directResponse.blob();
+  } catch {
+    return null;
+  }
+}
+
+async function getShareableImageFile(imageUrl, productName) {
+  const blob = await fetchImageBlob(imageUrl);
+  if (!blob) return null;
+
+  const ext = getImageExtension(imageUrl);
+  const safeName = (productName || "product")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+
+  return new File([blob], `${safeName || "product"}.${ext}`, {
+    type: blob.type || "image/jpeg",
+  });
+}
+
+function buildShareMessage(productName, shareUrl) {
+  return [`Check out ${productName} on Bulk Mobile Mart`, "", shareUrl].join("\n");
+}
+
+async function shareProductWithImage({ productName, shareUrl, imageUrl }) {
+  if (!navigator.share) return false;
+
+  const shareText = `Check out ${productName} on Bulk Mobile Mart`;
+  const shareMessage = buildShareMessage(productName, shareUrl);
+  const imageFile = await getShareableImageFile(imageUrl, productName);
+
+  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
+    await navigator.share({
+      title: productName,
+      text: shareText,
+      url: shareUrl,
+      files: [imageFile],
+    });
+    return true;
+  }
+
+  await navigator.share({
+    title: productName,
+    text: shareMessage,
+    url: shareUrl,
+  });
+  return true;
+}
+
 function DownloadIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -93,9 +161,10 @@ function ShareIcon() {
   );
 }
 
-function ProductShareMenu({ productName, shareUrl }) {
+function ProductShareMenu({ productName, shareUrl, imageUrl }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -111,6 +180,7 @@ function ProductShareMenu({ productName, shareUrl }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  const shareMessage = buildShareMessage(productName, shareUrl);
   const shareText = `Check out ${productName} on Bulk Mobile Mart`;
 
   const shareOptions = [
@@ -119,50 +189,88 @@ function ProductShareMenu({ productName, shareUrl }) {
       label: "WhatsApp",
       icon: "WA",
       iconClass: "bg-green-500 text-white",
-      href: `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`,
+      fallbackUrl: `https://wa.me/?text=${encodeURIComponent(shareMessage)}`,
     },
     {
       id: "facebook",
       label: "Facebook",
       icon: "f",
       iconClass: "bg-blue-600 text-white",
-      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      fallbackUrl: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
     },
     {
       id: "twitter",
       label: "X",
       icon: "X",
       iconClass: "bg-black text-white",
-      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+      fallbackUrl: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
     },
     {
       id: "email",
       label: "Email",
       icon: "@",
       iconClass: "bg-mobile-surface text-text-primary",
-      href: `mailto:?subject=${encodeURIComponent(productName)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`,
+      fallbackUrl: `mailto:?subject=${encodeURIComponent(productName)}&body=${encodeURIComponent(shareMessage)}`,
     },
   ];
 
   const handleNativeShare = async () => {
     if (!navigator.share) return false;
 
+    setSharing(true);
+
     try {
-      await navigator.share({
-        title: productName,
-        text: shareText,
-        url: shareUrl,
-      });
+      await shareProductWithImage({ productName, shareUrl, imageUrl });
       setOpen(false);
       return true;
-    } catch {
+    } catch (error) {
+      if (error?.name === "AbortError") return true;
       return false;
+    } finally {
+      setSharing(false);
     }
   };
 
-  const handleCopyLink = async () => {
+  const handlePlatformShare = async (fallbackUrl) => {
+    setSharing(true);
+
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      const shared = await shareProductWithImage({ productName, shareUrl, imageUrl });
+      if (shared) {
+        setOpen(false);
+        return;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    } finally {
+      setSharing(false);
+    }
+
+    window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+    setOpen(false);
+  };
+
+  const handleCopyShare = async () => {
+    const imageFile = await getShareableImageFile(imageUrl, productName);
+
+    try {
+      if (imageFile && navigator.clipboard?.write && window.ClipboardItem) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([shareMessage], { type: "text/plain" }),
+            [imageFile.type]: imageFile,
+          }),
+        ]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return;
+      }
+    } catch {
+      // fall through to text-only copy
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareMessage);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -182,7 +290,8 @@ function ProductShareMenu({ productName, shareUrl }) {
       <button
         type="button"
         onClick={handleShareClick}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light text-text-secondary transition hover:border-primary hover:text-primary"
+        disabled={sharing}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light text-text-secondary transition hover:border-primary hover:text-primary disabled:opacity-50"
         aria-label="Share product"
         aria-expanded={open}
       >
@@ -191,17 +300,19 @@ function ProductShareMenu({ productName, shareUrl }) {
 
       {open && (
         <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-border-light bg-white p-3 shadow-lg">
-          <p className="mb-3 text-sm font-semibold text-text-primary">Share this product</p>
+          <p className="mb-1 text-sm font-semibold text-text-primary">Share this product</p>
+          <p className="mb-3 text-[11px] leading-snug text-text-secondary">
+            Shares product image file and direct link
+          </p>
 
           <div className="grid grid-cols-4 gap-2">
             {shareOptions.map((option) => (
-              <a
+              <button
                 key={option.id}
-                href={option.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setOpen(false)}
-                className="flex flex-col items-center gap-1 rounded-md px-1 py-2 text-center transition hover:bg-mobile-surface"
+                type="button"
+                disabled={sharing}
+                onClick={() => handlePlatformShare(option.fallbackUrl)}
+                className="flex flex-col items-center gap-1 rounded-md px-1 py-2 text-center transition hover:bg-mobile-surface disabled:opacity-50"
               >
                 <span
                   className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${option.iconClass}`}
@@ -209,16 +320,17 @@ function ProductShareMenu({ productName, shareUrl }) {
                   {option.icon}
                 </span>
                 <span className="text-[10px] font-medium text-text-secondary">{option.label}</span>
-              </a>
+              </button>
             ))}
           </div>
 
           <button
             type="button"
-            onClick={handleCopyLink}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-mobile-surface"
+            onClick={handleCopyShare}
+            disabled={sharing}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-mobile-surface disabled:opacity-50"
           >
-            {copied ? "Link copied!" : "Copy link"}
+            {copied ? "Copied!" : "Copy link & image"}
           </button>
         </div>
       )}
@@ -294,56 +406,6 @@ const TABS = [
   { id: "reviews", label: "Reviews" },
   { id: "shipping", label: "Shipping & Delivery", shortLabel: "Shipping" },
 ];
-
-function MobileStoreHeader({ cartCount }) {
-  return (
-    <div className="border-b border-border-light bg-white px-4 py-2.5">
-      <div className="relative flex h-10 items-center justify-between">
-        <Link
-          to="/product"
-          className="flex h-9 w-9 items-center justify-center text-text-primary"
-          aria-label="Open menu"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </Link>
-
-        <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <img src={LOGO_URL} alt="BulkMobileMart" className="h-9 w-auto object-contain" />
-        </Link>
-
-        <Link
-          to="/cart"
-          className="relative flex h-9 w-9 items-center justify-center text-text-primary"
-          aria-label="Cart"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-            />
-          </svg>
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-            {cartCount > 99 ? "99+" : cartCount}
-          </span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function MobileTopNav({ cartCount }) {
-  return (
-    <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm lg:hidden">
-        <MobileStoreHeader cartCount={cartCount} />
-      </header>
-      <div className="h-[61px] shrink-0 lg:hidden" aria-hidden="true" />
-    </>
-  );
-}
 
 function ThumbnailCarousel({ images, activeImage, onSelect }) {
   if (!images.length) return null;
@@ -425,7 +487,7 @@ function ActionButtons({ inStock, addedFeedback, onAddToCart, onBuyNow, classNam
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, cartCount } = useCart();
+  const { addToCart } = useCart();
   const { openAuthModal } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -496,7 +558,6 @@ function ProductDetail() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white pb-28 lg:pb-10">
-        <MobileTopNav cartCount={cartCount} />
         <div className="mx-auto w-full max-w-7xl px-3 pb-8 pt-4 sm:px-4 md:px-5 lg:px-6 xl:px-8">
           <div className="animate-pulse">
             <div className="mb-6 hidden h-4 w-64 rounded bg-mobile-surface lg:block" />
@@ -517,7 +578,6 @@ function ProductDetail() {
   if (error || !product) {
     return (
       <div className="min-h-screen bg-white pb-28 lg:pb-10">
-        <MobileTopNav cartCount={cartCount} />
         <div className="mx-auto w-full max-w-7xl px-3 py-16 text-center sm:px-4 md:px-5 lg:px-6 xl:px-8">
           <p className="mb-6 text-text-secondary">{error || "Product not found."}</p>
           <Link to="/product" className="text-sm font-medium text-primary hover:underline">
@@ -535,7 +595,6 @@ function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-white pb-24 text-text-primary lg:pb-10">
-      <MobileTopNav cartCount={cartCount} />
       <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4 md:px-5 lg:px-6 lg:pt-4 xl:px-8">
         <nav className="mb-4 hidden flex-wrap items-center gap-1.5 text-xs text-text-secondary sm:mb-5 sm:text-sm lg:flex">
           <Link to="/" className="transition hover:text-primary">
@@ -587,7 +646,12 @@ function ProductDetail() {
               </h1>
               <ProductShareMenu
                 productName={product.name}
-                shareUrl={typeof window !== "undefined" ? window.location.href : ""}
+                shareUrl={
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/product/${product._id}`
+                    : ""
+                }
+                imageUrl={images[activeImage] || images[0] || ""}
               />
             </div>
             <p className="mt-1 text-sm text-text-secondary">{productSku(product)}</p>

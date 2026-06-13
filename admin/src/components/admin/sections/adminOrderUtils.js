@@ -15,6 +15,7 @@ export const PAYMENT_STATUS_OPTIONS = [
   { value: "all", label: "All Payments" },
   { value: "unpaid", label: "Unpaid" },
   { value: "paid", label: "Paid" },
+  { value: "pending_verification", label: "Pending verification" },
   { value: "refundable", label: "Refundable" },
 ];
 

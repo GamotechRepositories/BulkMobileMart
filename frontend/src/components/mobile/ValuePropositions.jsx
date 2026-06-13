@@ -1,7 +1,6 @@
 const ITEMS = [
   {
-    title: "Best Prices",
-    subtitle: "Guaranteed",
+    label: "Best Prices Guaranteed",
     icon: (
       <>
         <path
@@ -18,8 +17,7 @@ const ITEMS = [
     ),
   },
   {
-    title: "Wide Range",
-    subtitle: "of Products",
+    label: "Wide Range of Products",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
@@ -28,8 +26,7 @@ const ITEMS = [
     ),
   },
   {
-    title: "Bulk Orders",
-    subtitle: "Bigger Savings",
+    label: "Bulk Orders Bigger Savings",
     icon: (
       <path
         strokeLinecap="round"
@@ -39,8 +36,7 @@ const ITEMS = [
     ),
   },
   {
-    title: "Fast & Safe",
-    subtitle: "Delivery",
+    label: "Fast & Safe Delivery",
     icon: (
       <path
         strokeLinecap="round"
@@ -75,13 +71,12 @@ function ValuePropositions() {
         <div className="grid grid-cols-4 gap-2 sm:gap-4 md:gap-5">
           {ITEMS.map((item) => (
             <div
-              key={item.title}
+              key={item.label}
               className="flex flex-col items-center px-1 text-center sm:px-2"
             >
               <FeatureIcon>{item.icon}</FeatureIcon>
-              <p className="text-[10px] leading-snug text-text-primary sm:text-xs md:text-sm">
-                <span className="font-bold">{item.title}</span>{" "}
-                <span className="font-normal">{item.subtitle}</span>
+              <p className="text-[10px] font-bold leading-snug text-text-primary sm:text-xs md:text-sm">
+                {item.label}
               </p>
             </div>
           ))}

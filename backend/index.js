@@ -14,6 +14,7 @@ import adminOrderRoutes from "./routes/adminOrderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import supportRoutes from "./routes/supportRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import proxyRoutes from "./routes/proxyRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,6 +43,7 @@ app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/proxy", proxyRoutes);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

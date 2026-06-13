@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getProducts } from "../api/api";
-import { LOGO_URL } from "../components/layout/Header";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
@@ -30,45 +29,6 @@ function SortIcon() {
     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4M8 15l4 4 4-4" />
     </svg>
-  );
-}
-
-function MobileStoreHeader({ cartCount }) {
-  return (
-    <div className="border-b border-border-light bg-white px-4 py-2.5">
-      <div className="relative flex h-10 items-center justify-between">
-        <Link
-          to="/product"
-          className="flex h-9 w-9 items-center justify-center text-text-primary"
-          aria-label="Open menu"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </Link>
-
-        <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-          <img src={LOGO_URL} alt="BulkMobileMart" className="h-9 w-auto object-contain" />
-        </Link>
-
-        <Link
-          to="/cart"
-          className="relative flex h-9 w-9 items-center justify-center text-text-primary"
-          aria-label="Cart"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-            />
-          </svg>
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-            {cartCount > 99 ? "99+" : cartCount}
-          </span>
-        </Link>
-      </div>
-    </div>
   );
 }
 
@@ -115,14 +75,6 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
         </>
       )}
     </div>
-  );
-}
-
-function MobileProductHeader({ cartCount }) {
-  return (
-    <header className="sticky top-0 z-40 lg:hidden">
-      <MobileStoreHeader cartCount={cartCount} />
-    </header>
   );
 }
 
@@ -619,7 +571,7 @@ function Product() {
   const [sortBy, setSortBy] = useState("default");
   const [showSort, setShowSort] = useState(false);
 
-  const { addToCart, cartCount } = useCart();
+  const { addToCart } = useCart();
   const { openAuthModal } = useAuth();
 
   useEffect(() => {
@@ -696,8 +648,6 @@ function Product() {
   if (showProductResults) {
     return (
       <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-72px-2rem)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
-        <MobileProductHeader cartCount={cartCount} />
-
         <div className="lg:hidden">
           <MobileProductToolbar
             title={pageTitle}
@@ -781,8 +731,6 @@ function Product() {
 
   return (
     <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-72px-2rem)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
-      <MobileProductHeader cartCount={cartCount} />
-
       <MobileProductToolbar title="Our Products" backTo="/" showActions={false} />
 
       <section className="px-4 py-4 lg:hidden">
