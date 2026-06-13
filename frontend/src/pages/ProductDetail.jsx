@@ -115,15 +115,14 @@ function buildShareMessage(productName, shareUrl) {
 async function shareProductWithImage({ productName, shareUrl, imageUrl }) {
   if (!navigator.share) return false;
 
-  const shareText = `Check out ${productName} on Bulk Mobile Mart`;
   const shareMessage = buildShareMessage(productName, shareUrl);
   const imageFile = await getShareableImageFile(imageUrl, productName);
 
   if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
+    // With files, mobile apps (e.g. WhatsApp) use `text` as the caption and
+    // often ignore `url` and `title`. Put the product link inside `text`.
     await navigator.share({
-      title: productName,
-      text: shareText,
-      url: shareUrl,
+      text: shareMessage,
       files: [imageFile],
     });
     return true;
