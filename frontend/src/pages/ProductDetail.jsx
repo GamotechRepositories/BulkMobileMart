@@ -14,6 +14,12 @@ import {
   isBulkPricing,
   isMultiVariant,
 } from "../utils/productPricing";
+import {
+  buildProductShareContent,
+  getShareableProductFile,
+  shareProduct,
+  updateProductShareMeta,
+} from "../utils/productShare";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -39,45 +45,97 @@ function getImageExtension(url) {
   return match ? match[1].toLowerCase() : "jpg";
 }
 
-function buildDownloadUrl(imageUrl, filename) {
-  if (imageUrl.includes("cloudinary.com") && imageUrl.includes("/upload/")) {
-    return imageUrl.replace("/upload/", `/upload/fl_attachment:${filename}/`);
-  }
-  return imageUrl;
+function getMimeType(ext) {
+  const types = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+  };
+  return types[ext] || "image/jpeg";
 }
 
-async function downloadProductImage(imageUrl, productName, imageIndex) {
-  if (!imageUrl) return;
-
+function buildImageFilename(productName, imageUrl, imageIndex) {
+  const ext = getImageExtension(imageUrl);
   const safeName = (productName || "product")
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
     .toLowerCase();
-  const filename = `${safeName || "product"}-${imageIndex + 1}.${getImageExtension(imageUrl)}`;
-  const downloadUrl = buildDownloadUrl(imageUrl, filename);
 
-  try {
-    const response = await fetch(downloadUrl);
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
-  } catch {
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = filename;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  return `${safeName || "product"}-${imageIndex + 1}.${ext}`;
+}
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function buildProxyDownloadUrl(imageUrl, filename) {
+  const params = new URLSearchParams({
+    url: imageUrl,
+    filename,
+  });
+  return `${API_URL}/api/proxy/image/download?${params.toString()}`;
+}
+
+function triggerBlobDownload(blob, filename, mimeType) {
+  const objectUrl = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+async function downloadProductImage(imageUrl, productName, imageIndex) {
+  if (!imageUrl) return false;
+
+  const filename = buildImageFilename(productName, imageUrl, imageIndex);
+  const blob = await fetchImageBlob(imageUrl);
+
+  if (!blob) {
+    try {
+      const response = await fetch(buildProxyDownloadUrl(imageUrl, filename));
+      if (response.ok) {
+        const fallbackBlob = await response.blob();
+        triggerBlobDownload(
+          fallbackBlob,
+          filename,
+          getMimeType(getImageExtension(imageUrl))
+        );
+        return true;
+      }
+    } catch {
+      // fall through to direct navigation download
+    }
+
+    window.location.assign(buildProxyDownloadUrl(imageUrl, filename));
+    return true;
   }
+
+  const ext = getImageExtension(imageUrl);
+  const mimeType = blob.type?.startsWith("image/") ? blob.type : getMimeType(ext);
+  const file = new File([blob], filename, { type: mimeType });
+
+  if (isMobileDevice() && navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return true;
+    } catch (error) {
+      if (error?.name === "AbortError") return false;
+    }
+  }
+
+  if (isMobileDevice()) {
+    window.location.assign(buildProxyDownloadUrl(imageUrl, filename));
+    return true;
+  }
+
+  triggerBlobDownload(blob, filename, mimeType);
+  return true;
 }
 
 async function fetchImageBlob(imageUrl) {
@@ -101,50 +159,6 @@ async function fetchImageBlob(imageUrl) {
   } catch {
     return null;
   }
-}
-
-async function getShareableImageFile(imageUrl, productName) {
-  const blob = await fetchImageBlob(imageUrl);
-  if (!blob) return null;
-
-  const ext = getImageExtension(imageUrl);
-  const safeName = (productName || "product")
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .toLowerCase();
-
-  return new File([blob], `${safeName || "product"}.${ext}`, {
-    type: blob.type || "image/jpeg",
-  });
-}
-
-function buildShareMessage(productName, shareUrl) {
-  return [`Check out ${productName} on Bulk Mobile Mart`, "", shareUrl].join("\n");
-}
-
-async function shareProductWithImage({ productName, shareUrl, imageUrl }) {
-  if (!navigator.share) return false;
-
-  const shareMessage = buildShareMessage(productName, shareUrl);
-  const imageFile = await getShareableImageFile(imageUrl, productName);
-
-  if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
-    // With files, mobile apps (e.g. WhatsApp) use `text` as the caption and
-    // often ignore `url` and `title`. Put the product link inside `text`.
-    await navigator.share({
-      text: shareMessage,
-      files: [imageFile],
-    });
-    return true;
-  }
-
-  await navigator.share({
-    title: productName,
-    text: shareMessage,
-    url: shareUrl,
-  });
-  return true;
 }
 
 function DownloadIcon() {
@@ -171,11 +185,15 @@ function ShareIcon() {
   );
 }
 
-function ProductShareMenu({ productName, shareUrl, imageUrl }) {
+function ProductShareMenu({ product, shareUrl, imageUrl, variantName = "" }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
   const menuRef = useRef(null);
+
+  const shareContent = buildProductShareContent({ product, shareUrl, variantName });
+  const { text: shareMessage, title: shareTitle } = shareContent;
+  const shareText = `${shareContent.productName} · ${shareContent.priceLabel}`;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -190,9 +208,6 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const shareMessage = buildShareMessage(productName, shareUrl);
-  const shareText = `Check out ${productName} on Bulk Mobile Mart`;
-
   const shareOptions = [
     {
       id: "whatsapp",
@@ -206,7 +221,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
       label: "Facebook",
       icon: "f",
       iconClass: "bg-blue-600 text-white",
-      fallbackUrl: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+      fallbackUrl: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`,
     },
     {
       id: "twitter",
@@ -220,7 +235,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
       label: "Email",
       icon: "@",
       iconClass: "bg-mobile-surface text-text-primary",
-      fallbackUrl: `mailto:?subject=${encodeURIComponent(productName)}&body=${encodeURIComponent(shareMessage)}`,
+      fallbackUrl: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareMessage)}`,
     },
   ];
 
@@ -230,7 +245,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
     setSharing(true);
 
     try {
-      await shareProductWithImage({ productName, shareUrl, imageUrl });
+      await shareProduct({ product, shareUrl, imageUrl, variantName });
       setOpen(false);
       return true;
     } catch (error) {
@@ -245,7 +260,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
     setSharing(true);
 
     try {
-      const shared = await shareProductWithImage({ productName, shareUrl, imageUrl });
+      const shared = await shareProduct({ product, shareUrl, imageUrl, variantName });
       if (shared) {
         setOpen(false);
         return;
@@ -261,7 +276,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
   };
 
   const handleCopyShare = async () => {
-    const imageFile = await getShareableImageFile(imageUrl, productName);
+    const imageFile = await getShareableProductFile({ product, imageUrl, variantName });
 
     try {
       if (imageFile && navigator.clipboard?.write && window.ClipboardItem) {
@@ -312,7 +327,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
         <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-border-light bg-white p-3 shadow-lg">
           <p className="mb-1 text-sm font-semibold text-text-primary">Share this product</p>
           <p className="mb-3 text-[11px] leading-snug text-text-secondary">
-            Shares product image file and direct link
+            Shares product image, price, and link
           </p>
 
           <div className="grid grid-cols-4 gap-2">
@@ -340,7 +355,7 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
             disabled={sharing}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-mobile-surface disabled:opacity-50"
           >
-            {copied ? "Copied!" : "Copy link & image"}
+            {copied ? "Copied!" : "Copy details & image"}
           </button>
         </div>
       )}
@@ -499,6 +514,7 @@ function ProductDetail() {
   const [quantity, setQuantity] = useState(DEFAULT_MOQ);
   const [selectedVariant, setSelectedVariant] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
+  const [downloadingImage, setDownloadingImage] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -549,6 +565,28 @@ function ProductDetail() {
   }, [product]);
 
   const activeVariantName = product && isMultiVariant(product) ? selectedVariant : "";
+
+  const shareUrl =
+    typeof window !== "undefined" && product?._id
+      ? `${window.location.origin}/product/${product._id}`
+      : "";
+
+  const shareImageUrl = images[activeImage] || images[0] || "";
+
+  useEffect(() => {
+    if (!product) return undefined;
+
+    updateProductShareMeta({
+      product,
+      shareUrl,
+      imageUrl: shareImageUrl,
+      variantName: activeVariantName,
+    });
+
+    return () => {
+      document.title = "BulkMobileMart";
+    };
+  }, [product, shareUrl, shareImageUrl, activeVariantName]);
 
   const availableColors = useMemo(() => {
     if (!product) return [];
@@ -662,11 +700,21 @@ function ProductDetail() {
               {images[activeImage] && (
                 <button
                   type="button"
-                  onClick={() =>
-                    downloadProductImage(images[activeImage], product.name, activeImage)
-                  }
-                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary shadow-sm transition hover:border-primary hover:text-primary"
-                  aria-label="Download image"
+                  disabled={downloadingImage}
+                  onClick={async () => {
+                    setDownloadingImage(true);
+                    try {
+                      await downloadProductImage(
+                        images[activeImage],
+                        product.name,
+                        activeImage
+                      );
+                    } finally {
+                      setDownloadingImage(false);
+                    }
+                  }}
+                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary shadow-sm transition hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
+                  aria-label="Save image to gallery"
                 >
                   <DownloadIcon />
                 </button>
@@ -690,13 +738,10 @@ function ProductDetail() {
                 {product.name}
               </h1>
               <ProductShareMenu
-                productName={product.name}
-                shareUrl={
-                  typeof window !== "undefined"
-                    ? `${window.location.origin}/product/${product._id}`
-                    : ""
-                }
-                imageUrl={images[activeImage] || images[0] || ""}
+                product={product}
+                shareUrl={shareUrl}
+                imageUrl={shareImageUrl}
+                variantName={activeVariantName}
               />
             </div>
             <p className="mt-1 text-sm text-text-secondary">{productSku(product)}</p>

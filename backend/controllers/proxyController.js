@@ -25,6 +25,37 @@ function isAllowedImageUrl(urlString) {
   }
 }
 
+function sanitizeFilename(filename) {
+  return String(filename || "image.jpg")
+    .replace(/[^\w.\-]/g, "_")
+    .slice(0, 120);
+}
+
+async function streamImageResponse(imageUrl, res, { attachmentFilename } = {}) {
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    res.status(response.status).json({ message: "Failed to fetch image" });
+    return false;
+  }
+
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+
+  if (attachmentFilename) {
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${sanitizeFilename(attachmentFilename)}"`
+    );
+  }
+
+  res.send(buffer);
+  return true;
+}
+
 export async function proxyImage(req, res) {
   const imageUrl = String(req.query.url || "").trim();
 
@@ -37,18 +68,28 @@ export async function proxyImage(req, res) {
   }
 
   try {
-    const response = await fetch(imageUrl);
+    const ok = await streamImageResponse(imageUrl, res);
+    if (!ok) return;
+  } catch {
+    res.status(502).json({ message: "Failed to fetch image" });
+  }
+}
 
-    if (!response.ok) {
-      return res.status(response.status).json({ message: "Failed to fetch image" });
-    }
+export async function proxyImageDownload(req, res) {
+  const imageUrl = String(req.query.url || "").trim();
+  const filename = sanitizeFilename(req.query.filename || "product-image.jpg");
 
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    const buffer = Buffer.from(await response.arrayBuffer());
+  if (!imageUrl) {
+    return res.status(400).json({ message: "Image URL is required" });
+  }
 
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(buffer);
+  if (!isAllowedImageUrl(imageUrl)) {
+    return res.status(403).json({ message: "Image URL is not allowed" });
+  }
+
+  try {
+    const ok = await streamImageResponse(imageUrl, res, { attachmentFilename: filename });
+    if (!ok) return;
   } catch {
     res.status(502).json({ message: "Failed to fetch image" });
   }
