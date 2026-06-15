@@ -1,11 +1,29 @@
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
+import {
+  getAvailableColors,
+  getMinOrderQuantity,
+  getVariant,
+  getVariantStock,
+  isMultiVariant,
+  PRODUCT_PRICING_SELECT,
+} from "../utils/productPricing.js";
+
+const normalizeVariantName = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const normalizeColorName = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const matchesCartItem = (item, productId, variantName, colorName) =>
+  item.product.toString() === productId &&
+  normalizeVariantName(item.variantName) === normalizeVariantName(variantName) &&
+  normalizeColorName(item.colorName) === normalizeColorName(colorName);
 
 const populateCart = (query) =>
   query.populate({
     path: "items.product",
-    select:
-      "name brandName price discountedPrice discountedPercent productImages stock subcategory",
+    select: PRODUCT_PRICING_SELECT,
   });
 
 export const getCart = async (req, res) => {
@@ -31,7 +49,9 @@ export const getCart = async (req, res) => {
 
 export const addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, variantName, colorName } = req.body;
+    const normalizedVariantName = normalizeVariantName(variantName);
+    const normalizedColorName = normalizeColorName(colorName);
 
     if (!productId) {
       return res.status(400).json({
@@ -63,24 +83,96 @@ export const addToCart = async (req, res) => {
       });
     }
 
+    if (isMultiVariant(product)) {
+      if (!normalizedVariantName) {
+        return res.status(400).json({
+          success: false,
+          message: "Variant selection is required for this product",
+        });
+      }
+
+      if (!getVariant(product, normalizedVariantName)) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected variant is not available",
+        });
+      }
+    }
+
+    const availableColors = getAvailableColors(product, normalizedVariantName);
+    if (availableColors.length > 0) {
+      if (!normalizedColorName) {
+        return res.status(400).json({
+          success: false,
+          message: "Color selection is required for this product",
+        });
+      }
+
+      const colorMatch = availableColors.some(
+        (color) => color.name?.trim().toLowerCase() === normalizedColorName.toLowerCase()
+      );
+
+      if (!colorMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected color is not available",
+        });
+      }
+    }
+
+    const minQty = getMinOrderQuantity(product, normalizedVariantName);
+    if (qty < minQty) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum order quantity is ${minQty}`,
+      });
+    }
+
+    const availableStock = getVariantStock(product, normalizedVariantName);
+    if (qty > availableStock) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${availableStock} units available in stock`,
+      });
+    }
+
     let cart = await Cart.findOne({ user: req.user._id });
 
     if (!cart) {
       cart = await Cart.create({
         user: req.user._id,
         email: req.user.email,
-        items: [{ product: productId, quantity: qty }],
+        items: [
+          {
+            product: productId,
+            quantity: qty,
+            variantName: normalizedVariantName,
+            colorName: normalizedColorName,
+          },
+        ],
       });
     } else {
       cart.email = req.user.email;
-      const existingIndex = cart.items.findIndex(
-        (item) => item.product.toString() === productId
+      const existingIndex = cart.items.findIndex((item) =>
+        matchesCartItem(item, productId, normalizedVariantName, normalizedColorName)
       );
 
       if (existingIndex >= 0) {
-        cart.items[existingIndex].quantity += qty;
+        const nextQty = cart.items[existingIndex].quantity + qty;
+        if (nextQty > availableStock) {
+          return res.status(400).json({
+            success: false,
+            message: `Only ${availableStock} units available in stock`,
+          });
+        }
+        cart.items[existingIndex].quantity = nextQty;
       } else {
-        cart.items.push({ product: productId, quantity: qty });
+        cart.items.push({
+          product: productId,
+          quantity: qty,
+          variantName: normalizedVariantName,
+          colorName: normalizedColorName,
+        });
       }
 
       await cart.save();
@@ -101,6 +193,8 @@ export const addToCart = async (req, res) => {
 export const removeFromCart = async (req, res) => {
   try {
     const { productId } = req.params;
+    const variantName = normalizeVariantName(req.query.variantName);
+    const colorName = normalizeColorName(req.query.colorName);
 
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
@@ -111,7 +205,7 @@ export const removeFromCart = async (req, res) => {
     }
 
     cart.items = cart.items.filter(
-      (item) => item.product.toString() !== productId
+      (item) => !matchesCartItem(item, productId, variantName, colorName)
     );
     await cart.save();
 
@@ -130,7 +224,9 @@ export const removeFromCart = async (req, res) => {
 export const updateCartItem = async (req, res) => {
   try {
     const { productId } = req.params;
-    const { quantity } = req.body;
+    const { quantity, variantName, colorName } = req.body;
+    const normalizedVariantName = normalizeVariantName(variantName);
+    const normalizedColorName = normalizeColorName(colorName);
 
     const qty = Number(quantity);
     if (!Number.isFinite(qty)) {
@@ -148,8 +244,8 @@ export const updateCartItem = async (req, res) => {
       });
     }
 
-    const itemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId
+    const itemIndex = cart.items.findIndex((item) =>
+      matchesCartItem(item, productId, normalizedVariantName, normalizedColorName)
     );
 
     if (itemIndex < 0) {
@@ -157,6 +253,32 @@ export const updateCartItem = async (req, res) => {
         success: false,
         message: "Product not in cart",
       });
+    }
+
+    if (qty >= 1) {
+      const product = await Product.findById(productId);
+      if (!product || !product.isActive) {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+
+      const minQty = getMinOrderQuantity(product, normalizedVariantName);
+      if (qty < minQty) {
+        return res.status(400).json({
+          success: false,
+          message: `Minimum order quantity is ${minQty}`,
+        });
+      }
+
+      const availableStock = getVariantStock(product, normalizedVariantName);
+      if (qty > availableStock) {
+        return res.status(400).json({
+          success: false,
+          message: `Only ${availableStock} units available in stock`,
+        });
+      }
     }
 
     if (qty < 1) {

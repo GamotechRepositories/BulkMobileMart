@@ -17,15 +17,107 @@ import {
   parseList,
 } from "../adminStyles";
 
-const EMPTY_FORM = {
+import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
+
+function deriveDiscountPercent(price, discountedPrice) {
+  const original = Number(price);
+  const discounted = Number(discountedPrice);
+  if (!Number.isFinite(original) || original <= 0 || !Number.isFinite(discounted)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(((original - discounted) / original) * 100)));
+}
+
+const EMPTY_VARIANT = {
   name: "",
-  categories: "",
-  subcategory: "",
-  brandName: "",
+  stock: "",
+  pricingType: "single",
   price: "",
   discountedPrice: "",
-  discountedPercent: "",
+  bulkMinOrderQuantity: "",
+  slabs: [{ ...EMPTY_SLAB }],
+  colors: [],
+};
+
+const createEmptyVariant = () => ({
+  ...EMPTY_VARIANT,
+  slabs: [{ ...EMPTY_SLAB }],
+});
+
+function mapVariantFromProduct(variant) {
+  return {
+    name: variant.name || "",
+    stock: String(variant.stock ?? ""),
+    pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
+    price: String(variant.price ?? ""),
+    discountedPrice: String(variant.discountedPrice ?? ""),
+    bulkMinOrderQuantity: String(variant.bulkPricing?.minOrderQuantity ?? ""),
+    colors: Array.isArray(variant.colors)
+      ? variant.colors.map((color) => ({
+          name: color.name || "",
+        }))
+      : [],
+    slabs:
+      variant.bulkPricing?.slabs?.length > 0
+        ? variant.bulkPricing.slabs.map((slab) => ({
+            maxQuantity:
+              slab.maxQuantity == null ? "" : String(slab.maxQuantity),
+            pricePerUnit: String(slab.pricePerUnit ?? ""),
+          }))
+        : [{ ...EMPTY_SLAB }],
+  };
+}
+
+function mapVariantToPayload(variant) {
+  const base = {
+    name: variant.name.trim(),
+    stock: Number(variant.stock),
+    pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
+    colors: (variant.colors || [])
+      .filter((color) => color.name?.trim())
+      .map((color) => ({
+        name: color.name.trim(),
+      })),
+  };
+
+  if (variant.pricingType === "bulk") {
+    return {
+      ...base,
+      bulkPricing: {
+        minOrderQuantity: Number(variant.bulkMinOrderQuantity),
+        slabs: variant.slabs
+          .map((slab) => ({
+            maxQuantity: slab.maxQuantity.trim()
+              ? Number(slab.maxQuantity)
+              : null,
+            pricePerUnit: Number(slab.pricePerUnit),
+          }))
+          .filter((slab) => Number.isFinite(slab.pricePerUnit)),
+      },
+    };
+  }
+
+  return {
+    ...base,
+    price: Number(variant.price),
+    discountedPrice: Number(variant.discountedPrice),
+    discountedPercent: deriveDiscountPercent(variant.price, variant.discountedPrice),
+    bulkPricing: { minOrderQuantity: null, slabs: [] },
+  };
+}
+
+const EMPTY_FORM = {
+  name: "",
+  primaryCategory: "",
+  subcategory: "",
+  brandName: "",
+  variantType: "single",
+  pricingType: "single",
+  price: "",
+  discountedPrice: "",
+  bulkMinOrderQuantity: "",
   stock: "",
+  colors: [],
   ratings: "0",
   description: "",
   features: "",
@@ -42,6 +134,8 @@ function AddProductSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [bulkSlabs, setBulkSlabs] = useState([{ ...EMPTY_SLAB }]);
+  const [variants, setVariants] = useState([createEmptyVariant(), createEmptyVariant()]);
   const [productImages, setProductImages] = useState([""]);
   const [editingId, setEditingId] = useState(null);
 
@@ -56,19 +150,42 @@ function AddProductSection() {
       setEditingId(editProduct._id);
       setForm({
         name: editProduct.name,
-        categories: (editProduct.categories || []).join(", "),
+        primaryCategory: editProduct.categories?.[0] || "",
         subcategory: editProduct.subcategory || "",
         brandName: editProduct.brandName || "",
+        variantType: editProduct.variantType === "multi" ? "multi" : "single",
+        pricingType: editProduct.pricingType === "bulk" ? "bulk" : "single",
         price: String(editProduct.price ?? ""),
         discountedPrice: String(editProduct.discountedPrice ?? ""),
-        discountedPercent: String(editProduct.discountedPercent ?? ""),
+        bulkMinOrderQuantity: String(editProduct.bulkPricing?.minOrderQuantity ?? ""),
         stock: String(editProduct.stock ?? ""),
+        colors: Array.isArray(editProduct.colors)
+          ? editProduct.colors.map((color) => ({
+              name: color.name || "",
+            }))
+          : [],
         ratings: String(editProduct.ratings ?? 0),
         description: editProduct.description || "",
         features: (editProduct.features || []).join(", "),
         warranty: editProduct.warranty || "",
         isActive: editProduct.isActive,
       });
+      const slabs = editProduct.bulkPricing?.slabs || [];
+      setBulkSlabs(
+        slabs.length > 0
+          ? slabs.map((slab) => ({
+              maxQuantity:
+                slab.maxQuantity == null ? "" : String(slab.maxQuantity),
+              pricePerUnit: String(slab.pricePerUnit ?? ""),
+            }))
+          : [{ ...EMPTY_SLAB }]
+      );
+      const productVariants = editProduct.variants || [];
+      setVariants(
+        productVariants.length > 0
+          ? productVariants.map(mapVariantFromProduct)
+          : [createEmptyVariant(), createEmptyVariant()]
+      );
       const imgs = editProduct.productImages || [];
       setProductImages(imgs.length > 0 ? imgs : [""]);
     }
@@ -97,18 +214,56 @@ function AddProductSection() {
       setError("At least one product image is required");
       return;
     }
+    if (!form.primaryCategory.trim()) {
+      setError("Category is required");
+      return;
+    }
+    if (form.variantType === "multi") {
+      const namedVariants = variants.filter((variant) => variant.name.trim());
+      if (namedVariants.length < 2) {
+        setError("Add at least 2 variants for multi variant products");
+        return;
+      }
+      const invalidStock = namedVariants.some(
+        (variant) =>
+          variant.stock === "" ||
+          !Number.isFinite(Number(variant.stock)) ||
+          Number(variant.stock) < 0
+      );
+      if (invalidStock) {
+        setError("Stock is required for each variant");
+        return;
+      }
+    } else if (form.pricingType === "bulk") {
+      if (!form.bulkMinOrderQuantity.trim()) {
+        setError("Minimum order quantity is required for bulk pricing");
+        return;
+      }
+      const validSlabs = bulkSlabs.filter((slab) => slab.pricePerUnit.trim());
+      if (validSlabs.length === 0) {
+        setError("Add at least one pricing slab for bulk pricing");
+        return;
+      }
+    }
     try {
       setError("");
       setSuccess("");
       const payload = {
         name: form.name,
-        categories: parseList(form.categories),
+        categories: [form.primaryCategory.trim()],
         subcategory: form.subcategory,
         brandName: form.brandName,
-        price: Number(form.price),
-        discountedPrice: Number(form.discountedPrice),
-        discountedPercent: Number(form.discountedPercent),
-        stock: Number(form.stock),
+        pricingType: form.pricingType,
+        variantType: form.variantType,
+        stock: form.variantType === "multi" ? undefined : Number(form.stock),
+        colors:
+          form.variantType === "multi"
+            ? undefined
+            : (form.colors || [])
+                .filter((color) => color.name?.trim())
+                .map((color) => ({
+                  name: color.name.trim(),
+                })),
         ratings: Number(form.ratings) || 0,
         productImages: images,
         description: form.description,
@@ -116,6 +271,29 @@ function AddProductSection() {
         warranty: form.warranty,
         isActive: form.isActive,
       };
+
+      if (form.variantType === "multi") {
+        payload.variants = variants
+          .filter((variant) => variant.name.trim())
+          .map(mapVariantToPayload);
+      } else if (form.pricingType === "bulk") {
+        payload.bulkPricing = {
+          minOrderQuantity: Number(form.bulkMinOrderQuantity),
+          slabs: bulkSlabs
+            .map((slab) => ({
+              maxQuantity: slab.maxQuantity.trim()
+                ? Number(slab.maxQuantity)
+                : null,
+              pricePerUnit: Number(slab.pricePerUnit),
+            }))
+            .filter((slab) => Number.isFinite(slab.pricePerUnit)),
+        };
+      } else {
+        payload.price = Number(form.price);
+        payload.discountedPrice = Number(form.discountedPrice);
+        payload.discountedPercent = deriveDiscountPercent(form.price, form.discountedPrice);
+        payload.bulkPricing = { minOrderQuantity: null, slabs: [] };
+      }
 
       if (editingId) {
         await updateProduct(editingId, payload);
@@ -126,6 +304,8 @@ function AddProductSection() {
       }
 
       setForm(EMPTY_FORM);
+      setBulkSlabs([{ ...EMPTY_SLAB }]);
+      setVariants([createEmptyVariant(), createEmptyVariant()]);
       setProductImages([""]);
       setEditingId(null);
       navigate("/products/show", { replace: true });
@@ -136,12 +316,29 @@ function AddProductSection() {
 
   const handleCancel = () => {
     setForm(EMPTY_FORM);
+    setBulkSlabs([{ ...EMPTY_SLAB }]);
+    setVariants([createEmptyVariant(), createEmptyVariant()]);
     setProductImages([""]);
     setEditingId(null);
     navigate("/products/show");
   };
 
   const setField = (name, value) => setForm((p) => ({ ...p, [name]: value }));
+
+  const handlePrimaryCategoryChange = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      primaryCategory: value,
+      subcategory: "",
+    }));
+  };
+
+  const isMultiVariant = form.variantType === "multi";
+
+  const selectedCategory = categories.find(
+    (cat) => cat.categoryName === form.primaryCategory
+  );
+  const availableSubcategories = selectedCategory?.subcategories || [];
 
   return (
     <div>
@@ -181,89 +378,225 @@ function AddProductSection() {
             />
           </div>
           <div>
-            <label className={labelClass}>Categories * (comma separated, max 4)</label>
-            <input
-              type="text"
+            <label className={labelClass}>Category *</label>
+            <select
               required
-              list="category-suggestions"
-              placeholder="Chargers, Most Purchase"
-              value={form.categories}
-              onChange={(e) => setField("categories", e.target.value)}
+              value={form.primaryCategory}
+              onChange={(e) => handlePrimaryCategoryChange(e.target.value)}
               className={inputClass}
-            />
-            <datalist id="category-suggestions">
+            >
+              <option value="">Select category</option>
               {categories.map((cat) => (
-                <option key={cat._id} value={cat.categoryName} />
+                <option key={cat._id} value={cat.categoryName}>
+                  {cat.categoryName}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
             <label className={labelClass}>Subcategory *</label>
-            <input
-              type="text"
-              required
-              value={form.subcategory}
-              onChange={(e) => setField("subcategory", e.target.value)}
-              className={inputClass}
-            />
+            {!form.primaryCategory ? (
+              <select disabled className={inputClass}>
+                <option value="">Select a category first</option>
+              </select>
+            ) : availableSubcategories.length > 0 ? (
+              <select
+                required
+                value={form.subcategory}
+                onChange={(e) => setField("subcategory", e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select subcategory</option>
+                {availableSubcategories.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+                {form.subcategory &&
+                !availableSubcategories.some(
+                  (sub) => sub.toLowerCase() === form.subcategory.toLowerCase()
+                ) ? (
+                  <option value={form.subcategory}>{form.subcategory}</option>
+                ) : null}
+              </select>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter subcategory"
+                  value={form.subcategory}
+                  onChange={(e) => setField("subcategory", e.target.value)}
+                  className={inputClass}
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  No subcategories defined for this category. Add them under Categories first, or enter one here.
+                </p>
+              </>
+            )}
           </div>
-          <div>
-            <label className={labelClass}>Price (₹) *</label>
-            <input
-              type="number"
-              required
-              min="0"
-              value={form.price}
-              onChange={(e) => setField("price", e.target.value)}
-              className={inputClass}
-            />
+        </div>
+
+        <div className={`grid gap-4 ${isMultiVariant ? "" : "sm:grid-cols-2"}`}>
+          <div className="rounded-lg border border-border-light p-4">
+            <p className="mb-3 text-sm font-semibold text-text-primary">Variant type</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="variantType"
+                  value="single"
+                  checked={form.variantType === "single"}
+                  onChange={() => setField("variantType", "single")}
+                  className="h-4 w-4 accent-primary"
+                />
+                Single variant
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="variantType"
+                  value="multi"
+                  checked={form.variantType === "multi"}
+                  onChange={() => setField("variantType", "multi")}
+                  className="h-4 w-4 accent-primary"
+                />
+                Multi variant
+              </label>
+            </div>
           </div>
-          <div>
-            <label className={labelClass}>Discounted price (₹) *</label>
-            <input
-              type="number"
-              required
-              min="0"
-              value={form.discountedPrice}
-              onChange={(e) => setField("discountedPrice", e.target.value)}
-              className={inputClass}
-            />
+          {!isMultiVariant ? (
+            <div className="rounded-lg border border-border-light p-4">
+              <p className="mb-3 text-sm font-semibold text-text-primary">Pricing</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="pricingType"
+                    value="single"
+                    checked={form.pricingType === "single"}
+                    onChange={() => setField("pricingType", "single")}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  Single price
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="pricingType"
+                    value="bulk"
+                    checked={form.pricingType === "bulk"}
+                    onChange={() => setField("pricingType", "bulk")}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  Bulk price
+                </label>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {isMultiVariant ? (
+          <div className="space-y-4 rounded-lg border border-border-light p-4">
+            <div>
+              <label className={labelClass}>Product variants *</label>
+              <p className="mb-3 text-xs text-text-muted">
+                Each variant has its own pricing slabs or single price.
+              </p>
+            </div>
+            {variants.map((variant, index) => (
+              <div
+                key={index}
+                className="space-y-4 rounded-lg border border-border-light p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <label className={labelClass}>Variant name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Red, 128GB"
+                      value={variant.name}
+                      onChange={(e) =>
+                        setVariants((prev) =>
+                          prev.map((item, i) =>
+                            i === index ? { ...item, name: e.target.value } : item
+                          )
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  {variants.length > 2 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVariants((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      className="mt-6 rounded-lg border border-border-light px-3 py-2 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+                <VariantPricingFields
+                  variant={variant}
+                  onChange={(updated) =>
+                    setVariants((prev) =>
+                      prev.map((item, i) => (i === index ? updated : item))
+                    )
+                  }
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setVariants((prev) => [...prev, createEmptyVariant()])}
+              className="text-sm font-semibold text-accent hover:underline"
+            >
+              + Add variant
+            </button>
           </div>
-          <div>
-            <label className={labelClass}>Discount % *</label>
-            <input
-              type="number"
-              required
-              min="0"
-              max="100"
-              value={form.discountedPercent}
-              onChange={(e) => setField("discountedPercent", e.target.value)}
-              className={inputClass}
+        ) : (
+          <>
+            <VariantPricingFields
+              showPricingType={false}
+              variant={{
+                pricingType: form.pricingType,
+                stock: form.stock,
+                colors: form.colors,
+                price: form.price,
+                discountedPrice: form.discountedPrice,
+                bulkMinOrderQuantity: form.bulkMinOrderQuantity,
+                slabs: bulkSlabs,
+              }}
+              onChange={(updated) => {
+                setForm((prev) => ({
+                  ...prev,
+                  pricingType: updated.pricingType,
+                  stock: updated.stock,
+                  colors: updated.colors || [],
+                  price: updated.price,
+                  discountedPrice: updated.discountedPrice,
+                  bulkMinOrderQuantity: updated.bulkMinOrderQuantity,
+                }));
+                setBulkSlabs(updated.slabs);
+              }}
             />
-          </div>
-          <div>
-            <label className={labelClass}>Stock *</label>
-            <input
-              type="number"
-              required
-              min="0"
-              value={form.stock}
-              onChange={(e) => setField("stock", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Rating (0-5)</label>
-            <input
-              type="number"
-              min="0"
-              max="5"
-              step="0.1"
-              value={form.ratings}
-              onChange={(e) => setField("ratings", e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          </>
+        )}
+
+        <div>
+          <label className={labelClass}>Rating (0-5)</label>
+          <input
+            type="number"
+            min="0"
+            max="5"
+            step="0.1"
+            value={form.ratings}
+            onChange={(e) => setField("ratings", e.target.value)}
+            className={inputClass}
+          />
         </div>
 
         <div className="space-y-4">

@@ -2,6 +2,10 @@ import Cart from "../models/Cart.js";
 import Address from "../models/address/Address.js";
 import Order from "../models/order/Order.js";
 import User from "../models/user.js";
+import {
+  getUnitPriceForQuantity,
+  PRODUCT_PRICING_SELECT,
+} from "./productPricing.js";
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
@@ -14,7 +18,7 @@ export function normalizeOrderMessage(body = {}) {
 const populateCart = (query) =>
   query.populate({
     path: "items.product",
-    select: "name brandName discountedPrice productImages isActive",
+    select: PRODUCT_PRICING_SELECT,
   });
 
 export const populateOrderItems = (query) =>
@@ -83,13 +87,21 @@ export async function prepareOrderData(userId, addressId) {
       };
     }
 
-    const price = item.product.discountedPrice;
+    const variantName = item.variantName || "";
+    const colorName = item.colorName || "";
+    const price = getUnitPriceForQuantity(
+      item.product,
+      item.quantity,
+      variantName
+    );
     subtotal += price * item.quantity;
 
     orderItems.push({
       product: item.product._id,
       name: item.product.name,
       brandName: item.product.brandName || "",
+      variantName,
+      colorName,
       price,
       quantity: item.quantity,
       image: item.product.productImages?.[0] || "",

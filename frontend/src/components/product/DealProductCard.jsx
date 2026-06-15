@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import WishlistButton from "./WishlistButton";
+import { formatProductPriceLabel, getTotalProductStock } from "../../utils/productPricing";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -16,7 +17,7 @@ function DealProductCard({ product, onAdd, layout = "scroll", addDisabled = fals
     product.features?.[0] ||
     product.brandName ||
     product.sub;
-  const inStock = (product.stock ?? 0) > 0;
+  const inStock = getTotalProductStock(product) > 0;
   const disabled = addDisabled || !inStock;
 
   const layoutClass =
@@ -50,7 +51,7 @@ function DealProductCard({ product, onAdd, layout = "scroll", addDisabled = fals
             {subtitle}
           </p>
           <p className="mt-1 text-sm font-bold text-primary sm:text-base">
-            {formatPrice(product.discountedPrice ?? product.price)}
+            {formatProductPriceLabel(product, formatPrice)}
           </p>
         </Link>
       </div>

@@ -65,7 +65,7 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
 
         <button
           type="button"
-          onClick={() => onRemove(item._id)}
+          onClick={() => onRemove(item._id, item.variantName, item.colorName)}
           className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
           aria-label="Remove item"
         >
@@ -78,6 +78,16 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
         className="mt-2 block text-sm font-bold leading-snug text-text-primary"
       >
         {item.name}
+        {item.variantName ? (
+          <span className="mt-1 block text-xs font-medium text-text-secondary">
+            Variant: {item.variantName}
+          </span>
+        ) : null}
+        {item.colorName ? (
+          <span className="mt-1 block text-xs font-medium text-text-secondary">
+            Color: {item.colorName}
+          </span>
+        ) : null}
       </Link>
 
       <div className="mt-3 flex items-center justify-between">
@@ -85,10 +95,12 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
           quantity={item.quantity}
           disabled={loading}
           onDecrease={() => {
-            if (item.quantity <= 1) onRemove(item._id);
-            else onUpdateQuantity(item._id, item.quantity - 1);
+            if (item.quantity <= 1) onRemove(item._id, item.variantName, item.colorName);
+            else onUpdateQuantity(item._id, item.quantity - 1, item.variantName, item.colorName);
           }}
-          onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
+          onIncrease={() =>
+            onUpdateQuantity(item._id, item.quantity + 1, item.variantName, item.colorName)
+          }
         />
         <p className="text-base font-bold text-text-primary">{formatPrice(lineTotal)}</p>
       </div>
@@ -103,7 +115,7 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
     <li className="relative border-b border-border-light px-5 py-5 last:border-b-0">
       <button
         type="button"
-        onClick={() => onRemove(item._id)}
+        onClick={() => onRemove(item._id, item.variantName, item.colorName)}
         className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
         aria-label="Remove item"
       >
@@ -132,6 +144,16 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
             className="line-clamp-2 text-base font-bold text-text-primary transition hover:text-primary"
           >
             {item.name}
+        {item.variantName ? (
+          <span className="mt-1 block text-xs font-medium text-text-secondary">
+            Variant: {item.variantName}
+          </span>
+        ) : null}
+        {item.colorName ? (
+          <span className="mt-1 block text-xs font-medium text-text-secondary">
+            Color: {item.colorName}
+          </span>
+        ) : null}
           </Link>
         </div>
 
@@ -140,10 +162,12 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
             quantity={item.quantity}
             disabled={loading}
             onDecrease={() => {
-              if (item.quantity <= 1) onRemove(item._id);
-              else onUpdateQuantity(item._id, item.quantity - 1);
+              if (item.quantity <= 1) onRemove(item._id, item.variantName, item.colorName);
+              else onUpdateQuantity(item._id, item.quantity - 1, item.variantName, item.colorName);
             }}
-            onIncrease={() => onUpdateQuantity(item._id, item.quantity + 1)}
+            onIncrease={() =>
+              onUpdateQuantity(item._id, item.quantity + 1, item.variantName, item.colorName)
+            }
           />
           <p className="min-w-[4.5rem] text-right text-base font-bold text-text-primary">
             {formatPrice(lineTotal)}
@@ -162,7 +186,7 @@ function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
       <div className="space-y-3 lg:hidden">
         {items.map((item) => (
           <CartItemMobile
-            key={item._id}
+            key={`${item._id}-${item.variantName || "default"}-${item.colorName || "default"}`}
             item={item}
             loading={loading}
             onRemove={onRemove}
@@ -178,7 +202,7 @@ function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
         <ul>
           {items.map((item) => (
             <CartItemDesktop
-              key={item._id}
+              key={`${item._id}-${item.variantName || "default"}-${item.colorName || "default"}`}
               item={item}
               loading={loading}
               onRemove={onRemove}
@@ -315,7 +339,9 @@ function Cart() {
     if (!items.length || clearing) return;
     setClearing(true);
     try {
-      await Promise.all(items.map((item) => removeFromCart(item._id)));
+      await Promise.all(
+        items.map((item) => removeFromCart(item._id, item.variantName, item.colorName))
+      );
     } finally {
       setClearing(false);
     }

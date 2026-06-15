@@ -4,8 +4,18 @@ import { getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
+import {
+  formatProductPriceLabel,
+  getAvailableColors,
+  getBulkTierRows,
+  getMinOrderQuantity,
+  getUnitPriceForQuantity,
+  getVariantStock,
+  isBulkPricing,
+  isMultiVariant,
+} from "../utils/productPricing";
 
-const DEFAULT_MOQ = 10;
+const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -338,14 +348,6 @@ function ProductShareMenu({ productName, shareUrl, imageUrl }) {
   );
 }
 
-function getBulkTiers(basePrice) {
-  return [
-    { qty: "10 - 49", price: basePrice },
-    { qty: "50 - 99", price: Math.round(basePrice * 0.94 * 100) / 100 },
-    { qty: "100+", price: Math.round(basePrice * 0.88 * 100) / 100 },
-  ];
-}
-
 function StarRating({ rating, reviewCount }) {
   return (
     <div className="flex items-center gap-2">
@@ -408,7 +410,7 @@ const TABS = [
 ];
 
 function ThumbnailCarousel({ images, activeImage, onSelect }) {
-  if (!images.length) return null;
+  if (images.length <= 1) return null;
 
   return (
     <div className="flex justify-center gap-2 overflow-x-auto hide-scrollbar">
@@ -495,6 +497,8 @@ function ProductDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
   const [quantity, setQuantity] = useState(DEFAULT_MOQ);
+  const [selectedVariant, setSelectedVariant] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -502,12 +506,23 @@ function ProductDetail() {
       setError("");
       try {
         const { data } = await getProductById(id);
-        setProduct(data.data);
+        const nextProduct = data.data;
+        const initialVariant =
+          nextProduct?.variantType === "multi"
+            ? nextProduct.variants?.[0]?.name || ""
+            : "";
+        const initialColors = getAvailableColors(nextProduct, initialVariant);
+
+        setProduct(nextProduct);
+        setSelectedVariant(initialVariant);
+        setSelectedColor(initialColors[0]?.name || "");
         setActiveImage(0);
         setActiveTab("description");
-        setQuantity(DEFAULT_MOQ);
+        setQuantity(getMinOrderQuantity(nextProduct, initialVariant, DEFAULT_MOQ));
       } catch {
         setProduct(null);
+        setSelectedVariant("");
+        setSelectedColor("");
         setError("Product not found.");
       } finally {
         setLoading(false);
@@ -517,23 +532,48 @@ function ProductDetail() {
     fetchProduct();
   }, [id]);
 
+  const handleVariantChange = (variantName) => {
+    setSelectedVariant(variantName);
+    if (product) {
+      const colors = getAvailableColors(product, variantName);
+      setSelectedColor(colors[0]?.name || "");
+      setQuantity(getMinOrderQuantity(product, variantName, DEFAULT_MOQ));
+    }
+  };
+
   const images = useMemo(() => {
     if (!product?.productImages?.length) return [];
-    const list = [...product.productImages];
-    while (list.length < 4 && list.length > 0) {
-      list.push(list[0]);
-    }
-    return list.slice(0, 4);
+    return product.productImages.filter(
+      (img) => typeof img === "string" && img.trim()
+    );
   }, [product]);
 
-  const bulkTiers = useMemo(
-    () => (product ? getBulkTiers(product.discountedPrice) : []),
-    [product]
-  );
+  const activeVariantName = product && isMultiVariant(product) ? selectedVariant : "";
+
+  const availableColors = useMemo(() => {
+    if (!product) return [];
+    return getAvailableColors(product, activeVariantName);
+  }, [product, activeVariantName]);
+
+  const bulkTiers = useMemo(() => {
+    if (!product || !isBulkPricing(product, activeVariantName)) return [];
+    return getBulkTierRows(product, activeVariantName);
+  }, [product, activeVariantName]);
+
+  const minOrderQuantity = product
+    ? getMinOrderQuantity(product, activeVariantName, DEFAULT_MOQ)
+    : DEFAULT_MOQ;
+  const currentUnitPrice = product
+    ? getUnitPriceForQuantity(product, quantity, activeVariantName)
+    : 0;
 
   const handleAddToCart = async () => {
     if (!product) return;
-    const result = await addToCart(product, quantity);
+    if (availableColors.length > 0 && !selectedColor) return;
+    const result = await addToCart(product, quantity, {
+      variantName: activeVariantName,
+      colorName: selectedColor,
+    });
     if (result?.requiresLogin) {
       openAuthModal("login");
     }
@@ -541,7 +581,12 @@ function ProductDetail() {
 
   const handleBuyNow = async () => {
     if (!product) return;
-    const result = await addToCart(product, quantity, { buyNow: true });
+    if (availableColors.length > 0 && !selectedColor) return;
+    const result = await addToCart(product, quantity, {
+      variantName: activeVariantName,
+      colorName: selectedColor,
+      buyNow: true,
+    });
     if (result?.requiresLogin) {
       openAuthModal("login");
       return;
@@ -583,9 +628,12 @@ function ProductDetail() {
   }
 
   const category = product.categories?.[0] || "Products";
-  const inStock = product.stock > 0;
+  const variantStock = getVariantStock(product, activeVariantName);
+  const inStock = variantStock > 0;
   const rating = product.ratings || 4.5;
-  const maxQuantity = inStock ? Math.max(product.stock, DEFAULT_MOQ) : DEFAULT_MOQ;
+  const maxQuantity = inStock
+    ? Math.max(variantStock, minOrderQuantity)
+    : minOrderQuantity;
 
   return (
     <div className="min-h-screen bg-white pb-24 text-text-primary lg:pb-10">
@@ -658,47 +706,118 @@ function ProductDetail() {
             </div>
 
             <p className="mt-3 text-3xl font-bold text-primary lg:mt-4 lg:text-[2rem] xl:text-4xl">
-              {formatPrice(product.discountedPrice)}
+              {formatProductPriceLabel(product, formatPrice, activeVariantName)}
             </p>
 
-            <p className="mt-2 text-sm font-medium text-text-primary">
-              MOQ: {DEFAULT_MOQ} Pieces
-            </p>
+            {isMultiVariant(product) ? (
+              <div className="mt-3">
+                <p className="mb-2 text-sm font-semibold text-text-primary">Select variant</p>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant) => {
+                    const isActive = selectedVariant === variant.name;
+                    return (
+                      <button
+                        key={variant.name}
+                        type="button"
+                        onClick={() => handleVariantChange(variant.name)}
+                        className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                          isActive
+                            ? "border-primary bg-primary text-white"
+                            : "border-border-light bg-white text-text-primary hover:border-primary/40"
+                        }`}
+                      >
+                        {variant.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {availableColors.length > 0 ? (
+              <div className="mt-3">
+                <p className="mb-2 text-sm font-semibold text-text-primary">Select color</p>
+                <div className="flex flex-wrap gap-2">
+                  {availableColors.map((color) => {
+                    const isActive = selectedColor === color.name;
+                    return (
+                      <button
+                        key={color.name}
+                        type="button"
+                        onClick={() => setSelectedColor(color.name)}
+                        title={color.name}
+                        className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                          isActive
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-border-light bg-white text-text-primary hover:border-primary/40"
+                        }`}
+                      >
+                        {color.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {isBulkPricing(product, activeVariantName) ? (
+              <p className="mt-1 text-sm text-text-secondary">
+                Current selection: {formatPrice(currentUnitPrice)} / piece
+              </p>
+            ) : null}
+
+            {(isBulkPricing(product, activeVariantName) || isMultiVariant(product)) ? (
+              <p className="mt-2 text-sm font-medium text-text-primary">
+                {isBulkPricing(product, activeVariantName)
+                  ? `MOQ: ${minOrderQuantity} Pieces`
+                  : null}
+                {isBulkPricing(product, activeVariantName) && isMultiVariant(product)
+                  ? ` · Stock: ${variantStock}`
+                  : null}
+                {!isBulkPricing(product, activeVariantName) && isMultiVariant(product)
+                  ? `Stock: ${variantStock}`
+                  : null}
+              </p>
+            ) : null}
 
             <div className="mt-2">
               <QuantitySelector
                 quantity={quantity}
-                min={DEFAULT_MOQ}
+                min={minOrderQuantity}
                 max={maxQuantity}
                 disabled={!inStock}
-                onDecrease={() => setQuantity((prev) => Math.max(DEFAULT_MOQ, prev - 1))}
+                onDecrease={() =>
+                  setQuantity((prev) => Math.max(minOrderQuantity, prev - 1))
+                }
                 onIncrease={() => setQuantity((prev) => Math.min(maxQuantity, prev + 1))}
               />
             </div>
 
-            <div className="mt-3 lg:mt-4">
-              <h2 className="mb-2 text-base font-bold">Bulk Price (Per Piece)</h2>
-              <div className="overflow-hidden rounded-lg border border-border-light">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-mobile-surface">
-                    <tr>
-                      <th className="px-4 py-2.5 font-semibold text-text-primary">Qty (Pieces)</th>
-                      <th className="px-4 py-2.5 font-semibold text-text-primary">Price (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bulkTiers.map((tier) => (
-                      <tr key={tier.qty} className="border-t border-border-light">
-                        <td className="px-4 py-2.5 text-text-secondary">{tier.qty}</td>
-                        <td className="px-4 py-2.5 font-medium text-text-primary">
-                          {formatPrice(tier.price)}
-                        </td>
+            {bulkTiers.length > 0 ? (
+              <div className="mt-3 lg:mt-4">
+                <h2 className="mb-2 text-base font-bold">Bulk Price (Per Piece)</h2>
+                <div className="overflow-hidden rounded-lg border border-border-light">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-mobile-surface">
+                      <tr>
+                        <th className="px-4 py-2.5 font-semibold text-text-primary">Qty (Pieces)</th>
+                        <th className="px-4 py-2.5 font-semibold text-text-primary">Price (₹)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {bulkTiers.map((tier) => (
+                        <tr key={tier.key || tier.qty} className="border-t border-border-light">
+                          <td className="px-4 py-2.5 text-text-secondary">{tier.qty}</td>
+                          <td className="px-4 py-2.5 font-medium text-text-primary">
+                            {formatPrice(tier.price)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <ActionButtons
               inStock={inStock}

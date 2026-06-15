@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import { resolvePricingFields } from "../utils/productPricing.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -18,6 +19,25 @@ const normalizeFeatures = (features) => {
   if (!Array.isArray(features)) return [];
   return features
     .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+};
+
+const normalizeColors = (colors) => {
+  if (!Array.isArray(colors)) return [];
+
+  return colors
+    .map((color) => {
+      if (typeof color === "string") {
+        const name = color.trim();
+        return name ? { name, hex: "#cccccc" } : null;
+      }
+
+      const name = color?.name?.trim();
+      if (!name) return null;
+
+      const hex = color?.hex?.trim() || "#cccccc";
+      return { name, hex };
+    })
     .filter(Boolean);
 };
 
@@ -87,7 +107,7 @@ const validateCategoriesAndSubcategory = async (categories, subcategory) => {
   if (!matchedSub && mainCategory.subcategories.length > 0) {
     return {
       valid: false,
-      message: "Subcategory does not belong to the main category",
+      message: `Subcategory must be one of: ${mainCategory.subcategories.join(", ")}`,
     };
   }
 
@@ -113,26 +133,153 @@ const validateCategoriesAndSubcategory = async (categories, subcategory) => {
   };
 };
 
-const buildProductPayload = (body) => ({
-  name: body.name?.trim(),
-  categories: normalizeCategories(
-    body.categories,
-    body.categoryName,
-    body.category
-  ),
-  subcategory: body.subcategory?.trim(),
-  brandName: (body.brandName ?? body.brand)?.trim(),
-  price: body.price ?? body.original_price,
-  discountedPrice: body.discountedPrice ?? body.discounted_price,
-  discountedPercent: body.discountedPercent ?? body.discount_percent,
-  ratings: body.ratings,
-  stock: body.stock,
-  productImages: normalizeImages(body.productImages, body.images),
-  description: body.description?.trim() ?? "",
-  features: normalizeFeatures(body.features),
-  warranty: body.warranty?.trim() ?? "",
-  isActive: body.isActive,
-});
+const buildProductPayload = (body) => {
+  const variantType = body.variantType === "multi" ? "multi" : "single";
+  const pricingType = body.pricingType === "bulk" ? "bulk" : "single";
+
+  return {
+    name: body.name?.trim(),
+    categories: normalizeCategories(
+      body.categories,
+      body.categoryName,
+      body.category
+    ),
+    subcategory: body.subcategory?.trim(),
+    brandName: (body.brandName ?? body.brand)?.trim(),
+    variantType,
+    variants: Array.isArray(body.variants)
+      ? body.variants.map((variant) => ({
+          name: variant.name?.trim(),
+          pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
+          bulkPricing:
+            variant.pricingType === "bulk"
+              ? {
+                  minOrderQuantity: variant.bulkPricing?.minOrderQuantity,
+                  slabs: variant.bulkPricing?.slabs || [],
+                }
+              : { minOrderQuantity: null, slabs: [] },
+          price: variant.price,
+          discountedPrice: variant.discountedPrice,
+          discountedPercent: variant.discountedPercent,
+          stock: variant.stock,
+          colors: normalizeColors(variant.colors),
+        }))
+      : [],
+    pricingType,
+    bulkPricing:
+      pricingType === "bulk"
+        ? {
+            minOrderQuantity: body.bulkPricing?.minOrderQuantity,
+            slabs: body.bulkPricing?.slabs || [],
+          }
+        : { minOrderQuantity: null, slabs: [] },
+    price: body.price ?? body.original_price,
+    discountedPrice: body.discountedPrice ?? body.discounted_price,
+    discountedPercent: body.discountedPercent ?? body.discount_percent,
+    ratings: body.ratings,
+    stock: body.stock,
+    colors: normalizeColors(body.colors),
+    productImages: normalizeImages(body.productImages, body.images),
+    description: body.description?.trim() ?? "",
+    features: normalizeFeatures(body.features),
+    warranty: body.warranty?.trim() ?? "",
+    isActive: body.isActive,
+  };
+};
+
+const resolveProductPricing = (payload) => {
+  if (payload.variantType === "multi") {
+    const namedVariants = payload.variants.filter((variant) => variant.name);
+
+    if (namedVariants.length < 2) {
+      return { error: "At least 2 variants are required for multi variant products" };
+    }
+
+    const names = new Set();
+    for (const variant of namedVariants) {
+      const key = variant.name.toLowerCase();
+      if (names.has(key)) {
+        return { error: `Duplicate variant name "${variant.name}"` };
+      }
+      names.add(key);
+    }
+
+    const resolvedVariants = [];
+
+    for (const variant of namedVariants) {
+      const stock = Number(variant.stock);
+      if (!Number.isFinite(stock) || stock < 0) {
+        return { error: `Variant "${variant.name}": stock is required` };
+      }
+
+      const pricing = resolvePricingFields({
+        pricingType: variant.pricingType,
+        bulkPricing: variant.bulkPricing,
+        price: variant.price,
+        discountedPrice: variant.discountedPrice,
+        discountedPercent: variant.discountedPercent,
+      });
+
+      if (pricing.error) {
+        return { error: `Variant "${variant.name}": ${pricing.error}` };
+      }
+
+      resolvedVariants.push({
+        name: variant.name,
+        pricingType: pricing.pricingType,
+        bulkPricing: pricing.bulkPricing,
+        price: pricing.price,
+        discountedPrice: pricing.discountedPrice,
+        discountedPercent: pricing.discountedPercent,
+        stock,
+        colors: normalizeColors(variant.colors),
+      });
+    }
+
+    const totalStock = resolvedVariants.reduce(
+      (sum, variant) => sum + variant.stock,
+      0
+    );
+
+    const minDiscounted = Math.min(
+      ...resolvedVariants.map((variant) => variant.discountedPrice)
+    );
+    const maxPrice = Math.max(...resolvedVariants.map((variant) => variant.price));
+    const hasBulk = resolvedVariants.some((variant) => variant.pricingType === "bulk");
+
+    return {
+      variantType: "multi",
+      variants: resolvedVariants,
+      stock: totalStock,
+      colors: [],
+      pricingType: hasBulk ? "bulk" : "single",
+      bulkPricing: { minOrderQuantity: null, slabs: [] },
+      price: maxPrice,
+      discountedPrice: minDiscounted,
+      discountedPercent:
+        maxPrice > 0
+          ? Math.round(((maxPrice - minDiscounted) / maxPrice) * 100)
+          : 0,
+    };
+  }
+
+  const pricing = resolvePricingFields(payload);
+  if (pricing.error) {
+    return { error: pricing.error };
+  }
+
+  return {
+    variantType: "single",
+    variants: [],
+    stock: payload.stock,
+    colors: normalizeColors(payload.colors),
+    pricingType: pricing.pricingType,
+    bulkPricing: pricing.bulkPricing,
+    price: pricing.price,
+    discountedPrice: pricing.discountedPrice,
+    discountedPercent: pricing.discountedPercent,
+  };
+};
 
 const validateRequiredFields = (payload) => {
   const missing = [];
@@ -142,22 +289,11 @@ const validateRequiredFields = (payload) => {
   if (payload.categories.length > 4) missing.push("categories (max 4)");
   if (!payload.subcategory) missing.push("subcategory");
   if (!payload.brandName) missing.push("brandName");
-  if (payload.price === undefined || payload.price === null || payload.price === "")
-    missing.push("price");
-  if (
-    payload.discountedPrice === undefined ||
-    payload.discountedPrice === null ||
-    payload.discountedPrice === ""
-  )
-    missing.push("discountedPrice");
-  if (
-    payload.discountedPercent === undefined ||
-    payload.discountedPercent === null ||
-    payload.discountedPercent === ""
-  )
-    missing.push("discountedPercent");
-  if (payload.stock === undefined || payload.stock === null || payload.stock === "")
-    missing.push("stock");
+  if (payload.variantType !== "multi") {
+    if (payload.stock === undefined || payload.stock === null || payload.stock === "") {
+      missing.push("stock");
+    }
+  }
   if (!payload.productImages.length) missing.push("productImages");
 
   if (missing.length > 0) {
@@ -287,16 +423,26 @@ export const addProduct = async (req, res) => {
         .json({ success: false, message: categoryCheck.message });
     }
 
+    const pricingFields = resolveProductPricing(payload);
+    if (pricingFields.error) {
+      return res.status(400).json({ success: false, message: pricingFields.error });
+    }
+
     const product = await Product.create({
       name: payload.name,
       categories: categoryCheck.categories,
       subcategory: categoryCheck.subcategory,
       brandName: payload.brandName,
-      price: payload.price,
-      discountedPrice: payload.discountedPrice,
-      discountedPercent: payload.discountedPercent,
+      variantType: pricingFields.variantType,
+      variants: pricingFields.variants,
+      pricingType: pricingFields.pricingType,
+      bulkPricing: pricingFields.bulkPricing,
+      price: pricingFields.price,
+      discountedPrice: pricingFields.discountedPrice,
+      discountedPercent: pricingFields.discountedPercent,
       ratings: payload.ratings ?? 0,
-      stock: payload.stock,
+      stock: pricingFields.stock ?? payload.stock,
+      colors: pricingFields.colors ?? [],
       productImages: payload.productImages,
       description: payload.description,
       features: payload.features,
@@ -334,6 +480,10 @@ export const updateProduct = async (req, res) => {
       category: req.body.category,
       subcategory: req.body.subcategory ?? existing.subcategory,
       brandName: req.body.brandName ?? req.body.brand ?? existing.brandName,
+      variantType: req.body.variantType ?? existing.variantType,
+      variants: req.body.variants ?? existing.variants,
+      pricingType: req.body.pricingType ?? existing.pricingType,
+      bulkPricing: req.body.bulkPricing ?? existing.bulkPricing,
       price: req.body.price ?? req.body.original_price ?? existing.price,
       discountedPrice:
         req.body.discountedPrice ??
@@ -345,6 +495,7 @@ export const updateProduct = async (req, res) => {
         existing.discountedPercent,
       ratings: req.body.ratings ?? existing.ratings,
       stock: req.body.stock ?? existing.stock,
+      colors: req.body.colors ?? existing.colors,
       productImages:
         req.body.productImages ?? req.body.images ?? existing.productImages,
       description: req.body.description ?? existing.description,
@@ -370,6 +521,11 @@ export const updateProduct = async (req, res) => {
         .json({ success: false, message: categoryCheck.message });
     }
 
+    const pricingFields = resolveProductPricing(payload);
+    if (pricingFields.error) {
+      return res.status(400).json({ success: false, message: pricingFields.error });
+    }
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       {
@@ -377,11 +533,16 @@ export const updateProduct = async (req, res) => {
         categories: categoryCheck.categories,
         subcategory: categoryCheck.subcategory,
         brandName: payload.brandName,
-        price: payload.price,
-        discountedPrice: payload.discountedPrice,
-        discountedPercent: payload.discountedPercent,
+        variantType: pricingFields.variantType,
+        variants: pricingFields.variants,
+        pricingType: pricingFields.pricingType,
+        bulkPricing: pricingFields.bulkPricing,
+        price: pricingFields.price,
+        discountedPrice: pricingFields.discountedPrice,
+        discountedPercent: pricingFields.discountedPercent,
         ratings: payload.ratings,
-        stock: payload.stock,
+        stock: pricingFields.stock ?? payload.stock,
+        colors: pricingFields.colors ?? [],
         productImages: payload.productImages,
         description: payload.description,
         features: payload.features,

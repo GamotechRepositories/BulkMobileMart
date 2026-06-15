@@ -1,5 +1,107 @@
 import mongoose from "mongoose";
 
+const bulkPricingSlabSchema = new mongoose.Schema(
+  {
+    minQuantity: {
+      type: Number,
+      required: [true, "Slab min quantity is required"],
+      min: [1, "Slab min quantity must be at least 1"],
+    },
+    maxQuantity: {
+      type: Number,
+      default: null,
+      validate: {
+        validator(value) {
+          return value == null || value >= 1;
+        },
+        message: "Slab max quantity must be at least 1",
+      },
+    },
+    pricePerUnit: {
+      type: Number,
+      required: [true, "Slab price per unit is required"],
+      min: [0, "Slab price cannot be negative"],
+    },
+  },
+  { _id: false }
+);
+
+const bulkPricingSchema = new mongoose.Schema(
+  {
+    minOrderQuantity: {
+      type: Number,
+      min: [1, "Minimum order quantity must be at least 1"],
+      default: null,
+    },
+    slabs: {
+      type: [bulkPricingSlabSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
+const productColorSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Color name is required"],
+      trim: true,
+    },
+    hex: {
+      type: String,
+      trim: true,
+      default: "#cccccc",
+    },
+  },
+  { _id: false }
+);
+
+const productVariantSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Variant name is required"],
+      trim: true,
+    },
+    pricingType: {
+      type: String,
+      enum: ["single", "bulk"],
+      default: "single",
+    },
+    bulkPricing: {
+      type: bulkPricingSchema,
+      default: () => ({ slabs: [] }),
+    },
+    price: {
+      type: Number,
+      min: [0, "Price cannot be negative"],
+      default: 0,
+    },
+    discountedPrice: {
+      type: Number,
+      min: [0, "Discounted price cannot be negative"],
+      default: 0,
+    },
+    discountedPercent: {
+      type: Number,
+      min: [0, "Discounted percent cannot be negative"],
+      max: [100, "Discounted percent cannot exceed 100"],
+      default: 0,
+    },
+    stock: {
+      type: Number,
+      min: [0, "Stock cannot be negative"],
+      default: 0,
+    },
+    colors: {
+      type: [productColorSchema],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -35,6 +137,24 @@ const productSchema = new mongoose.Schema(
       required: [true, "Brand name is required"],
       trim: true,
     },
+    variantType: {
+      type: String,
+      enum: ["single", "multi"],
+      default: "single",
+    },
+    variants: {
+      type: [productVariantSchema],
+      default: [],
+    },
+    pricingType: {
+      type: String,
+      enum: ["single", "bulk"],
+      default: "single",
+    },
+    bulkPricing: {
+      type: bulkPricingSchema,
+      default: () => ({ slabs: [] }),
+    },
     price: {
       type: Number,
       required: [true, "Price is required"],
@@ -61,6 +181,10 @@ const productSchema = new mongoose.Schema(
       type: Number,
       required: [true, "Stock is required"],
       min: [0, "Stock cannot be negative"],
+    },
+    colors: {
+      type: [productColorSchema],
+      default: [],
     },
     productImages: {
       type: [String],

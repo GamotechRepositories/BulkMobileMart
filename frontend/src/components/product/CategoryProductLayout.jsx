@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
+import CategoryHeaderSection from "./CategoryHeaderSection";
 
 function buildCategoryUrl(categoryName, params = {}) {
   const search = new URLSearchParams();
@@ -193,9 +194,6 @@ function CompactProductFilters({
 }
 
 function CategoryFilterToolbar({
-  categoryName,
-  subcategories,
-  activeSubcategory,
   brands,
   selectedBrand,
   onBrandChange,
@@ -204,40 +202,8 @@ function CategoryFilterToolbar({
   onMinPriceChange,
   onMaxPriceChange,
 }) {
-  const [searchParams] = useSearchParams();
-  const preservedFilters = {
-    brand: searchParams.get("brand")?.trim() || "",
-    minPrice: searchParams.get("minPrice")?.trim() || "",
-    maxPrice: searchParams.get("maxPrice")?.trim() || "",
-  };
-  const pills = ["All", ...(subcategories || [])];
-
   return (
-    <div className="hidden shrink-0 flex-row items-center gap-2 bg-white px-3 py-2 sm:px-4 lg:flex">
-      <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        {pills.map((pill) => {
-          const isAll = pill === "All";
-          const isActive = isAll ? !activeSubcategory : activeSubcategory === pill;
-          const to = isAll
-            ? buildCategoryUrl(categoryName, preservedFilters)
-            : buildCategoryUrl(categoryName, { ...preservedFilters, subcategory: pill });
-
-          return (
-            <Link
-              key={pill}
-              to={to}
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-normal transition sm:text-[11px] ${
-                isActive
-                  ? "border-primary bg-primary text-white"
-                  : "border-border-light bg-white text-text-primary hover:border-primary/40"
-              }`}
-            >
-              {pill}
-            </Link>
-          );
-        })}
-      </div>
-
+    <div className="hidden shrink-0 flex-row items-center justify-end gap-2 bg-white px-3 py-2 sm:px-4 lg:flex">
       <CompactProductFilters
         brands={brands}
         selectedBrand={selectedBrand}
@@ -312,10 +278,10 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
         <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
           <Link
             to="/product"
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] transition ${
+            className={`flex shrink-0 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[10px] transition ${
               allActive
-                ? "bg-primary/10 text-primary"
-                : "text-text-primary hover:bg-mobile-surface"
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border-light text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
             }`}
           >
             <SidebarCategoryImage showGrid name="All Products" />
@@ -327,10 +293,10 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
               <Link
                 key={cat._id}
                 to={buildCategoryUrl(cat.categoryName)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] transition ${
+                className={`flex shrink-0 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[10px] transition ${
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-primary hover:bg-mobile-surface"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border-light text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
                 }`}
               >
                 <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
@@ -351,10 +317,10 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
       <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
         <Link
           to="/product"
-          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition ${
+          className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
             allActive
-              ? "bg-primary/10 font-semibold text-primary"
-              : "font-medium text-text-primary hover:bg-mobile-surface"
+              ? "border-primary bg-primary/10 font-semibold text-primary"
+              : "border-border-light font-medium text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
           }`}
         >
           <SidebarCategoryImage showGrid name="All Products" />
@@ -366,10 +332,10 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
             <Link
               key={cat._id}
               to={buildCategoryUrl(cat.categoryName)}
-              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition ${
+              className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
                 isActive
-                  ? "bg-primary/10 font-semibold text-primary"
-                  : "font-medium text-text-primary hover:bg-mobile-surface"
+                  ? "border-primary bg-primary/10 font-semibold text-primary"
+                  : "border-border-light font-medium text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
               }`}
             >
               <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
@@ -402,10 +368,15 @@ function CategoryProductMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-3 pt-2 sm:px-4 sm:pt-3">
+        <CategoryHeaderSection
+          category={activeCategoryDoc}
+          categoryName={categoryName}
+          subcategories={activeCategoryDoc?.subcategories || []}
+          activeSubcategory={filters.subcategory}
+        />
+      </div>
       <CategoryFilterToolbar
-        categoryName={categoryName}
-        subcategories={activeCategoryDoc?.subcategories || []}
-        activeSubcategory={filters.subcategory}
         brands={filters.availableBrands}
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}

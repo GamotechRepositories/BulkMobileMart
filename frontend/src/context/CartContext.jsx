@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { useAuth } from "./AuthContext";
 import AddedToCartToast from "../components/cart/AddedToCartToast";
+import { getUnitPriceForQuantity, getVariantStock } from "../utils/productPricing";
 
 const CartContext = createContext(null);
 const TOAST_DURATION_MS = 2600;
@@ -19,16 +20,30 @@ const mapCartItems = (cart) => {
 
   return cart.items
     .filter((item) => item.product)
-    .map((item) => ({
-      _id: item.product._id,
-      name: item.product.name,
-      brandName: item.product.brandName,
-      price: item.product.price,
-      discountedPrice: item.product.discountedPrice,
-      productImages: item.product.productImages,
-      stock: item.product.stock ?? 0,
-      quantity: item.quantity,
-    }));
+    .map((item) => {
+      const unitPrice = getUnitPriceForQuantity(
+        item.product,
+        item.quantity,
+        item.variantName || ""
+      );
+
+      return {
+        _id: item.product._id,
+        variantName: item.variantName || "",
+        colorName: item.colorName || "",
+        name: item.product.name,
+        brandName: item.product.brandName,
+        price: item.product.price,
+        discountedPrice: unitPrice,
+        pricingType: item.product.pricingType,
+        bulkPricing: item.product.bulkPricing,
+        variantType: item.product.variantType,
+        variants: item.product.variants,
+        productImages: item.product.productImages,
+        stock: getVariantStock(item.product, item.variantName || ""),
+        quantity: item.quantity,
+      };
+    });
 };
 
 export function CartProvider({ children }) {
@@ -123,6 +138,8 @@ export function CartProvider({ children }) {
           product,
           quantity: qty,
           buyNow: Boolean(options.buyNow),
+          variantName: options.variantName || "",
+          colorName: options.colorName || "",
         };
         openAuthModal("login");
         return { requiresLogin: true };
@@ -132,6 +149,8 @@ export function CartProvider({ children }) {
         const { data } = await addToCartItem({
           productId: product._id,
           quantity: qty,
+          variantName: options.variantName || "",
+          colorName: options.colorName || "",
         });
         setItems(mapCartItems(data.data));
         if (!options.buyNow) {
@@ -151,7 +170,11 @@ export function CartProvider({ children }) {
     const pending = pendingAddRef.current;
     pendingAddRef.current = null;
 
-    addToCart(pending.product, pending.quantity).then((result) => {
+    addToCart(pending.product, pending.quantity, {
+      variantName: pending.variantName,
+      colorName: pending.colorName,
+      buyNow: pending.buyNow,
+    }).then((result) => {
       if (result?.success && pending.buyNow) {
         dismissCartToast();
         navigate("/checkout");
@@ -160,11 +183,11 @@ export function CartProvider({ children }) {
   }, [user, addToCart, navigate, dismissCartToast]);
 
   const removeFromCart = useCallback(
-    async (productId) => {
+    async (productId, variantName = "", colorName = "") => {
       if (!user) return;
 
       try {
-        const { data } = await removeFromCartItem(productId);
+        const { data } = await removeFromCartItem(productId, variantName, colorName);
         setItems(mapCartItems(data.data));
       } catch {
         /* keep current items on error */
@@ -174,11 +197,16 @@ export function CartProvider({ children }) {
   );
 
   const updateQuantity = useCallback(
-    async (productId, quantity) => {
+    async (productId, quantity, variantName = "", colorName = "") => {
       if (!user) return;
 
       try {
-        const { data } = await updateCartItemQty(productId, quantity);
+        const { data } = await updateCartItemQty(
+          productId,
+          quantity,
+          variantName,
+          colorName
+        );
         setItems(mapCartItems(data.data));
       } catch {
         /* keep current items on error */

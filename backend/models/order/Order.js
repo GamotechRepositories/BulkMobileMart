@@ -12,6 +12,8 @@ const orderItemSchema = new mongoose.Schema(
     brandName: { type: String, default: "" },
     price: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
+    variantName: { type: String, default: "" },
+    colorName: { type: String, default: "" },
     image: { type: String, default: "" },
   },
   { _id: true }
