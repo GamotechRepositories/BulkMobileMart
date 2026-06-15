@@ -1,0 +1,40 @@
+name: Mobile App CI
+
+on:
+  push:
+    paths:
+      - 'mobile app/**'
+      - '.github/workflows/mobile-app-ci.yml'
+  pull_request:
+    paths:
+      - 'mobile app/**'
+      - '.github/workflows/mobile-app-ci.yml'
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare environment file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test

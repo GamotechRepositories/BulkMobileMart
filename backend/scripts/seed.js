@@ -8,52 +8,52 @@ import Product from "../models/Product.js";
 const CATEGORIES = [
   {
     categoryName: "Chargers",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-chargers/400/400",
     subcategories: ["Fast Charger", "Car Charger", "Wireless Charger"],
   },
   {
     categoryName: "Earphones",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-earphones/400/400",
     subcategories: ["Wired", "Wireless", "Earbuds"],
   },
   {
     categoryName: "Cables",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-cables/400/400",
     subcategories: ["Type-C", "Lightning", "Micro USB"],
   },
   {
     categoryName: "Neckbands",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-neckbands/400/400",
     subcategories: ["Bluetooth", "Sports"],
   },
   {
     categoryName: "Power Banks",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-power-banks/400/400",
     subcategories: ["10000mAh", "20000mAh"],
   },
   {
     categoryName: "Smart Watches",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-smart-watches/400/400",
     subcategories: ["Fitness", "Kids"],
   },
   {
     categoryName: "Bluetooth Speakers",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-bluetooth-speakers/400/400",
     subcategories: ["Portable", "Party"],
   },
   {
     categoryName: "Mobile Covers",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-mobile-covers/400/400",
     subcategories: ["Silicone", "Hard Case"],
   },
   {
     categoryName: "Tempered Glass",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-tempered-glass/400/400",
     subcategories: ["9H", "Privacy"],
   },
   {
     categoryName: "Adapters",
-    categoryImage: "",
+    categoryImage: "https://picsum.photos/seed/bmm-cat-adapters/400/400",
     subcategories: ["OTG", "Audio Jack"],
   },
 ];
@@ -70,7 +70,7 @@ const PRODUCTS = [
     stock: 100,
     ratings: 4.5,
     productImages: [
-      "https://images.unsplash.com/photo-1591290619762-d2a4c81c3f67?w=400",
+      "https://picsum.photos/seed/bmm-fast-charger/400/400",
     ],
     description: "20W fast charging adapter with Type-C cable.",
     features: ["20W Output", "BIS Certified"],
@@ -87,7 +87,7 @@ const PRODUCTS = [
     stock: 80,
     ratings: 4.2,
     productImages: [
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400",
+      "https://picsum.photos/seed/bmm-neckband/400/400",
     ],
     description: "Wireless neckband with deep bass.",
     features: ["12hr Battery", "IPX5"],
@@ -104,7 +104,7 @@ const PRODUCTS = [
     stock: 200,
     ratings: 4.0,
     productImages: [
-      "https://images.unsplash.com/photo-1625948515291-69613efd103f?w=400",
+      "https://picsum.photos/seed/bmm-typec-cable/400/400",
     ],
     description: "Durable braided Type-C cable.",
     features: ["1 Meter", "Fast Charge"],
@@ -121,7 +121,7 @@ const PRODUCTS = [
     stock: 50,
     ratings: 4.6,
     productImages: [
-      "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400",
+      "https://picsum.photos/seed/bmm-powerbank/400/400",
     ],
     description: "Compact 10000mAh power bank with dual USB.",
     features: ["Dual Port", "LED Indicator"],
@@ -138,7 +138,7 @@ const PRODUCTS = [
     stock: 60,
     ratings: 4.3,
     productImages: [
-      "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=400",
+      "https://picsum.photos/seed/bmm-earbuds/400/400",
     ],
     description: "True wireless earbuds with charging case.",
     features: ["Touch Control", "20hr Playback"],
@@ -155,13 +155,80 @@ const PRODUCTS = [
     stock: 75,
     ratings: 4.1,
     productImages: [
-      "https://images.unsplash.com/photo-1618005198919-d86d5f5b4a9f?w=400",
+      "https://picsum.photos/seed/bmm-car-charger/400/400",
     ],
     description: "Fast dual USB car charger.",
     features: ["Dual USB", "LED Light"],
     warranty: "6 months",
   },
 ];
+
+const BROKEN_IMAGE_REPLACEMENTS = {
+  "photo-1591290619762-d2a4c81c3f67":
+    "https://picsum.photos/seed/bmm-fast-charger/400/400",
+  "photo-1505740420928-5e560c06d30e":
+    "https://picsum.photos/seed/bmm-neckband/400/400",
+  "photo-1625948515291-69613efd103f":
+    "https://picsum.photos/seed/bmm-typec-cable/400/400",
+  "photo-1609091839311-d5365f9ff1c5":
+    "https://picsum.photos/seed/bmm-powerbank/400/400",
+  "photo-1572569511254-d8f925fe2cbb":
+    "https://picsum.photos/seed/bmm-earbuds/400/400",
+  "photo-1618005198919-d86d5f5b4a9f":
+    "https://picsum.photos/seed/bmm-car-charger/400/400",
+};
+
+async function fixEmptyCategoryImages() {
+  let updated = 0;
+
+  for (const cat of CATEGORIES) {
+    const result = await Category.updateOne(
+      {
+        categoryName: cat.categoryName,
+        $or: [
+          { categoryImage: { $exists: false } },
+          { categoryImage: "" },
+          { categoryImage: { $regex: /res\.cloudinary\.com\/demo/i } },
+        ],
+      },
+      { $set: { categoryImage: cat.categoryImage } },
+    );
+    if (result.modifiedCount > 0) updated += 1;
+  }
+
+  if (updated > 0) {
+    console.log(`Fixed empty category images on ${updated} categories`);
+  }
+}
+
+async function fixBrokenProductImages() {
+  const products = await Product.find({ productImages: /unsplash\.com/ });
+  let updated = 0;
+
+  for (const product of products) {
+    let changed = false;
+    product.productImages = product.productImages.map((url) => {
+      for (const [partial, replacement] of Object.entries(
+        BROKEN_IMAGE_REPLACEMENTS
+      )) {
+        if (url.includes(partial)) {
+          changed = true;
+          return replacement;
+        }
+      }
+      return url;
+    });
+
+    if (changed) {
+      await product.save();
+      updated += 1;
+    }
+  }
+
+  if (updated > 0) {
+    console.log(`Fixed broken product images on ${updated} products`);
+  }
+}
 
 async function seed() {
   await connectDB();
@@ -194,6 +261,9 @@ async function seed() {
   } else {
     console.log(`Products already exist (${existingProducts}), skipping`);
   }
+
+  await fixEmptyCategoryImages();
+  await fixBrokenProductImages();
 
   const summary = {
     database: mongoose.connection.name,
