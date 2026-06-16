@@ -260,7 +260,7 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ categories: 1, subcategory: 1 });
-productSchema.index({ categories: 1, subcategories: 1 });
+productSchema.index({ subcategories: 1 });
 
 const Product = mongoose.model(
   "BulkMobileMartProduct",
