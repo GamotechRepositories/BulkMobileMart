@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { clearBuyNowCheckout } from "../utils/checkoutSession";
+import {
+  getCartStepForItem,
+  getDecreasedCartQuantity,
+} from "../utils/cartDefaults";
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const SHIPPING_CHARGE = 49;
@@ -95,12 +100,15 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
           quantity={item.quantity}
           disabled={loading}
           onDecrease={() => {
-            if (item.quantity <= 1) onRemove(item._id, item.variantName, item.colorName);
-            else onUpdateQuantity(item._id, item.quantity - 1, item.variantName, item.colorName);
+            const step = getCartStepForItem(item);
+            const nextQty = getDecreasedCartQuantity(item.quantity, step);
+            if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
+            else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
           }}
-          onIncrease={() =>
-            onUpdateQuantity(item._id, item.quantity + 1, item.variantName, item.colorName)
-          }
+          onIncrease={() => {
+            const step = getCartStepForItem(item);
+            onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
+          }}
         />
         <p className="text-base font-bold text-text-primary">{formatPrice(lineTotal)}</p>
       </div>
@@ -162,12 +170,15 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
             quantity={item.quantity}
             disabled={loading}
             onDecrease={() => {
-              if (item.quantity <= 1) onRemove(item._id, item.variantName, item.colorName);
-              else onUpdateQuantity(item._id, item.quantity - 1, item.variantName, item.colorName);
+              const step = getCartStepForItem(item);
+              const nextQty = getDecreasedCartQuantity(item.quantity, step);
+              if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
+              else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
             }}
-            onIncrease={() =>
-              onUpdateQuantity(item._id, item.quantity + 1, item.variantName, item.colorName)
-            }
+            onIncrease={() => {
+              const step = getCartStepForItem(item);
+              onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
+            }}
           />
           <p className="min-w-[4.5rem] text-right text-base font-bold text-text-primary">
             {formatPrice(lineTotal)}
@@ -253,6 +264,7 @@ function OrderSummary({ items }) {
 
       <Link
         to="/checkout"
+        onClick={() => clearBuyNowCheckout()}
         className={`mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm ${
           !hasItems ? "pointer-events-none opacity-50" : ""
         }`}
@@ -332,6 +344,7 @@ function Cart() {
   const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
+    clearBuyNowCheckout();
     if (user) loadCart();
   }, [user, loadCart]);
 

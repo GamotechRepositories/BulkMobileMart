@@ -1,11 +1,28 @@
 import Cart from "../models/Cart.js";
 import Address from "../models/address/Address.js";
 import Order from "../models/order/Order.js";
+import Product from "../models/Product.js";
 import User from "../models/user.js";
 import {
+  getAvailableColors,
   getUnitPriceForQuantity,
+  getVariant,
+  getVariantStock,
+  isMultiVariant,
   PRODUCT_PRICING_SELECT,
 } from "./productPricing.js";
+
+const normalizeVariantName = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const normalizeColorName = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const matchesOrderedItem = (cartItem, orderItem) =>
+  String(cartItem?.product || "") === String(orderItem.product || "") &&
+  normalizeVariantName(cartItem.variantName) ===
+    normalizeVariantName(orderItem.variantName) &&
+  normalizeColorName(cartItem.colorName) === normalizeColorName(orderItem.colorName);
 
 const FREE_DELIVERY_THRESHOLD = 999;
 const DELIVERY_CHARGE = 49;
@@ -65,35 +82,103 @@ export function addressToSnapshot(address) {
   };
 }
 
-export async function prepareOrderData(userId, addressId) {
-  const address = await Address.findOne({ _id: addressId, user: userId });
-  if (!address) {
-    return { error: "Address not found", status: 404 };
+async function resolveCheckoutItems(rawItems) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    return { error: "No items to checkout", status: 400 };
   }
 
-  const cart = await populateCart(Cart.findOne({ user: userId }));
-  if (!cart?.items?.length) {
-    return { error: "Your cart is empty", status: 400 };
+  const resolved = [];
+
+  for (const entry of rawItems) {
+    const productId = entry.productId || entry._id;
+    const normalizedVariantName = normalizeVariantName(entry.variantName);
+    const normalizedColorName = normalizeColorName(entry.colorName);
+    const qty = Number(entry.quantity);
+
+    if (!productId || !Number.isFinite(qty) || qty < 1) {
+      return { error: "Invalid checkout item", status: 400 };
+    }
+
+    const product = await Product.findById(productId).select(PRODUCT_PRICING_SELECT);
+    if (!product || !product.isActive) {
+      return {
+        error: "One or more products are no longer available",
+        status: 404,
+      };
+    }
+
+    if (isMultiVariant(product)) {
+      if (!normalizedVariantName) {
+        return {
+          error: "Variant selection is required for this product",
+          status: 400,
+        };
+      }
+
+      if (!getVariant(product, normalizedVariantName)) {
+        return {
+          error: "Selected variant is not available",
+          status: 400,
+        };
+      }
+    }
+
+    const availableColors = getAvailableColors(product, normalizedVariantName);
+    if (availableColors.length > 0) {
+      if (!normalizedColorName) {
+        return {
+          error: "Color selection is required for this product",
+          status: 400,
+        };
+      }
+
+      const colorMatch = availableColors.some(
+        (color) =>
+          color.name?.trim().toLowerCase() === normalizedColorName.toLowerCase()
+      );
+
+      if (!colorMatch) {
+        return {
+          error: "Selected color is not available",
+          status: 400,
+        };
+      }
+    }
+
+    const availableStock = getVariantStock(product, normalizedVariantName);
+    if (qty > availableStock) {
+      return {
+        error: `Only ${availableStock} units available in stock`,
+        status: 400,
+      };
+    }
+
+    resolved.push({
+      product,
+      quantity: qty,
+      variantName: normalizedVariantName,
+      colorName: normalizedColorName,
+    });
   }
 
+  return { items: resolved };
+}
+
+function buildOrderItemsFromResolved(items) {
   const orderItems = [];
   let subtotal = 0;
 
-  for (const item of cart.items) {
+  for (const item of items) {
     if (!item.product || !item.product.isActive) {
       return {
-        error: "One or more products in your cart are no longer available",
+        error: "One or more products are no longer available",
         status: 400,
       };
     }
 
     const variantName = item.variantName || "";
     const colorName = item.colorName || "";
-    const price = getUnitPriceForQuantity(
-      item.product,
-      item.quantity,
-      variantName
-    );
+    const price = getUnitPriceForQuantity(item.product, item.quantity, variantName);
     subtotal += price * item.quantity;
 
     orderItems.push({
@@ -107,6 +192,40 @@ export async function prepareOrderData(userId, addressId) {
       image: item.product.productImages?.[0] || "",
     });
   }
+
+  return { orderItems, subtotal };
+}
+
+export async function prepareOrderData(userId, addressId, options = {}) {
+  const address = await Address.findOne({ _id: addressId, user: userId });
+  if (!address) {
+    return { error: "Address not found", status: 404 };
+  }
+
+  const checkoutMode = options.checkoutItems?.length ? "buyNow" : "cart";
+  let itemsToProcess = [];
+
+  if (checkoutMode === "buyNow") {
+    const resolved = await resolveCheckoutItems(options.checkoutItems);
+    if (resolved.error) {
+      return { error: resolved.error, status: resolved.status };
+    }
+    itemsToProcess = resolved.items;
+  } else {
+    const cart = await populateCart(Cart.findOne({ user: userId }));
+    if (!cart?.items?.length) {
+      return { error: "Your cart is empty", status: 400 };
+    }
+    itemsToProcess = cart.items;
+  }
+
+  const built = buildOrderItemsFromResolved(itemsToProcess);
+  if (built.error) {
+    return built;
+  }
+
+  const { orderItems, subtotal } = built;
+  const cart = await populateCart(Cart.findOne({ user: userId }));
 
   const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const total = subtotal + deliveryCharges;
@@ -141,6 +260,7 @@ export async function prepareOrderData(userId, addressId) {
     deliveryCharges,
     total,
     cart,
+    checkoutMode,
   };
 }
 
@@ -152,6 +272,7 @@ export async function finalizeOrder({
   deliveryCharges,
   total,
   cart,
+  checkoutMode = "cart",
   paymentMethod,
   paymentStatus,
   status = "confirm",
@@ -187,8 +308,17 @@ export async function finalizeOrder({
     $addToSet: { orders: order._id },
   });
 
-  cart.items = [];
-  await cart.save();
+  if (cart) {
+    if (checkoutMode === "buyNow") {
+      cart.items = cart.items.filter(
+        (item) =>
+          !orderItems.some((ordered) => matchesOrderedItem(item, ordered))
+      );
+    } else {
+      cart.items = [];
+    }
+    await cart.save();
+  }
 
   return order;
 }

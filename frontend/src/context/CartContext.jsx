@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useNavigate } from "react-router-dom";
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { useAuth } from "./AuthContext";
 import AddedToCartToast from "../components/cart/AddedToCartToast";
@@ -47,7 +46,6 @@ const mapCartItems = (cart) => {
 };
 
 export function CartProvider({ children }) {
-  const navigate = useNavigate();
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -137,7 +135,6 @@ export function CartProvider({ children }) {
         pendingAddRef.current = {
           product,
           quantity: qty,
-          buyNow: Boolean(options.buyNow),
           variantName: options.variantName || "",
           colorName: options.colorName || "",
         };
@@ -153,9 +150,7 @@ export function CartProvider({ children }) {
           colorName: options.colorName || "",
         });
         setItems(mapCartItems(data.data));
-        if (!options.buyNow) {
-          showAddedToCartToast(product);
-        }
+        showAddedToCartToast(product);
         return { success: true };
       } catch {
         return { success: false };
@@ -173,14 +168,8 @@ export function CartProvider({ children }) {
     addToCart(pending.product, pending.quantity, {
       variantName: pending.variantName,
       colorName: pending.colorName,
-      buyNow: pending.buyNow,
-    }).then((result) => {
-      if (result?.success && pending.buyNow) {
-        dismissCartToast();
-        navigate("/checkout");
-      }
     });
-  }, [user, addToCart, navigate, dismissCartToast]);
+  }, [user, addToCart]);
 
   const removeFromCart = useCallback(
     async (productId, variantName = "", colorName = "") => {

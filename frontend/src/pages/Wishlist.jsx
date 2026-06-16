@@ -5,30 +5,15 @@ import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import DealProductCard from "../components/product/DealProductCard";
 import {
-  getAvailableColors,
-  isMultiVariant,
-  isProductInStock,
-} from "../utils/productPricing";
+  getCartStepForProduct,
+  getDecreasedCartQuantity,
+  resolveCartDefaults,
+} from "../utils/cartDefaults";
 
 function Wishlist() {
   const { user, openAuthModal } = useAuth();
   const { items: wishlistItems, loading, loadWishlist } = useWishlist();
   const { items: cartItems, addToCart, updateQuantity, removeFromCart } = useCart();
-
-  const resolveCartDefaults = (product) => {
-    let variantName = "";
-    if (isMultiVariant(product)) {
-      const firstInStockVariant = product.variants.find((variant) =>
-        isProductInStock(product, variant.name)
-      );
-      variantName = firstInStockVariant?.name || product.variants?.[0]?.name || "";
-    }
-
-    const availableColors = getAvailableColors(product, variantName);
-    const colorName = availableColors[0]?.name || "";
-
-    return { variantName, colorName };
-  };
 
   useEffect(() => {
     if (user) loadWishlist();
@@ -36,8 +21,8 @@ function Wishlist() {
 
   const handleAdd = async (product) => {
     if (!product._id || product._id.length < 10) return;
-    const { variantName, colorName } = resolveCartDefaults(product);
-    const result = await addToCart(product, 1, {
+    const { variantName, colorName, quantity } = resolveCartDefaults(product);
+    const result = await addToCart(product, quantity, {
       variantName,
       colorName,
     });
@@ -64,7 +49,8 @@ function Wishlist() {
   const handleIncrease = async (product) => {
     if (!product._id || product._id.length < 10) return;
     const { variantName, colorName } = resolveCartDefaults(product);
-    const result = await addToCart(product, 1, {
+    const step = getCartStepForProduct(product, variantName);
+    const result = await addToCart(product, step, {
       variantName,
       colorName,
     });
@@ -76,13 +62,15 @@ function Wishlist() {
   const handleDecrease = async (product) => {
     const line = getCartLine(product);
     if (!line) return;
-    if (line.quantity <= 1) {
+    const step = getCartStepForProduct(product, line.variantName || "");
+    const nextQty = getDecreasedCartQuantity(line.quantity, step);
+    if (nextQty <= 0) {
       await removeFromCart(line._id, line.variantName || "", line.colorName || "");
       return;
     }
     await updateQuantity(
       line._id,
-      line.quantity - 1,
+      nextQty,
       line.variantName || "",
       line.colorName || ""
     );

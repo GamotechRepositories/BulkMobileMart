@@ -13,6 +13,10 @@ import PaymentModal from "../components/checkout/PaymentModal";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import {
+  clearBuyNowCheckout,
+  getBuyNowCheckout,
+} from "../utils/checkoutSession";
+import {
   formatAddressLine,
   getAddressFullName,
 } from "../utils/addressDisplay";
@@ -47,6 +51,20 @@ function Checkout() {
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const { items, loading: cartLoading, loadCart } = useCart();
 
+  const buyNowItem = getBuyNowCheckout();
+  const isBuyNow = Boolean(buyNowItem);
+  const checkoutItems = isBuyNow ? [buyNowItem] : items;
+  const paymentCheckoutItems = isBuyNow
+    ? [
+        {
+          productId: buyNowItem.productId,
+          quantity: buyNowItem.quantity,
+          variantName: buyNowItem.variantName || "",
+          colorName: buyNowItem.colorName || "",
+        },
+      ]
+    : undefined;
+
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -68,13 +86,13 @@ function Checkout() {
     messageRef.current = message;
   }, [message]);
 
-  const subtotal = items.reduce(
+  const subtotal = checkoutItems.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
   const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const orderTotal = subtotal + deliveryCharges;
-  const savings = items.reduce((sum, item) => {
+  const savings = checkoutItems.reduce((sum, item) => {
     const original = item.price ?? item.discountedPrice;
     const diff = Math.max(0, original - item.discountedPrice);
     return sum + diff * item.quantity;
@@ -122,18 +140,28 @@ function Checkout() {
       user &&
       !bootstrapping &&
       !cartLoading &&
-      items.length === 0 &&
+      checkoutItems.length === 0 &&
       !orderPlaced
     ) {
-      navigate("/cart", { replace: true });
+      navigate(isBuyNow ? "/product" : "/cart", { replace: true });
     }
-  }, [authLoading, user, bootstrapping, cartLoading, items.length, navigate, orderPlaced]);
+  }, [
+    authLoading,
+    user,
+    bootstrapping,
+    cartLoading,
+    checkoutItems.length,
+    navigate,
+    orderPlaced,
+    isBuyNow,
+  ]);
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
       note || "Your order has been placed and will be delivered soon."
     );
     setOrderPlaced(true);
+    clearBuyNowCheckout();
     await loadCart();
     setShowSuccessModal(true);
   };
@@ -149,6 +177,7 @@ function Checkout() {
     const { data } = await createRazorpayOrder({
       addressId: selectedAddressId,
       paymentMode,
+      checkoutItems: paymentCheckoutItems,
     });
     const paymentData = data.data;
 
@@ -171,6 +200,7 @@ function Checkout() {
             addressId: selectedAddressId,
             paymentMode,
             customerMessage: safeTrim(messageRef.current),
+            checkoutItems: paymentCheckoutItems,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -219,6 +249,7 @@ function Checkout() {
         addressId: selectedAddressId,
         paymentMode,
         customerMessage: safeTrim(messageRef.current),
+        checkoutItems: paymentCheckoutItems,
         screenshot,
         screenshotName,
         upiTransactionRef,
@@ -311,8 +342,8 @@ function Checkout() {
               Home
             </Link>
             <span className="mx-2">›</span>
-            <Link to="/cart" className="hover:text-primary">
-              Cart
+            <Link to={isBuyNow ? "/product" : "/cart"} className="hover:text-primary">
+              {isBuyNow ? "Products" : "Cart"}
             </Link>
             <span className="mx-2">›</span>
             <span className="text-text-primary">Checkout</span>
@@ -320,7 +351,7 @@ function Checkout() {
 
           <h1 className="mb-4 text-xl font-bold sm:mb-6 sm:text-2xl lg:text-3xl">Checkout</h1>
 
-          {cartLoading ? (
+          {cartLoading && !isBuyNow ? (
             <div className="grid animate-pulse gap-6 lg:grid-cols-[1fr_380px]">
               <div className="space-y-4">
                 <div className="h-44 rounded-xl border border-border-light bg-white" />
@@ -508,8 +539,8 @@ function Checkout() {
                 <h2 className="mb-3 text-sm font-bold sm:mb-5 sm:text-base lg:text-lg">Order Summary</h2>
 
                 <ul className="mb-3 max-h-40 space-y-3 overflow-y-auto sm:mb-5 sm:max-h-56 sm:space-y-4">
-                  {items.map((item) => (
-                    <li key={item._id} className="flex items-center gap-3">
+                  {checkoutItems.map((item) => (
+                    <li key={`${item.productId || item._id}-${item.variantName || "default"}-${item.colorName || "default"}`} className="flex items-center gap-3">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
                         {item.productImages?.[0] ? (
                           <img

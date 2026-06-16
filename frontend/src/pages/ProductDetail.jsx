@@ -15,6 +15,10 @@ import {
   isMultiVariant,
 } from "../utils/productPricing";
 import {
+  buildBuyNowCheckoutItem,
+  setBuyNowCheckout,
+} from "../utils/checkoutSession";
+import {
   buildProductShareContent,
   getShareableProductFile,
   shareProduct,
@@ -525,7 +529,8 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { openAuthModal } = useAuth();
+  const { user, openAuthModal } = useAuth();
+  const buyNowPendingRef = useRef(false);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -641,17 +646,30 @@ function ProductDetail() {
   const handleBuyNow = async () => {
     if (!product) return;
     if (availableColors.length > 0 && !selectedColor) return;
-    const result = await addToCart(product, quantity, {
-      variantName: activeVariantName,
-      colorName: selectedColor,
-      buyNow: true,
-    });
-    if (result?.requiresLogin) {
+
+    const checkoutItem = buildBuyNowCheckoutItem(
+      product,
+      quantity,
+      activeVariantName,
+      selectedColor
+    );
+    setBuyNowCheckout(checkoutItem);
+
+    if (!user) {
+      buyNowPendingRef.current = true;
       openAuthModal("login");
       return;
     }
-    if (result?.success) navigate("/checkout");
+
+    navigate("/checkout", { state: { mode: "buyNow" } });
   };
+
+  useEffect(() => {
+    if (!user || !buyNowPendingRef.current) return;
+
+    buyNowPendingRef.current = false;
+    navigate("/checkout", { state: { mode: "buyNow" } });
+  }, [user, navigate]);
 
   if (loading) {
     return (
@@ -853,9 +871,11 @@ function ProductDetail() {
                 max={maxQuantity}
                 disabled={!inStock}
                 onDecrease={() =>
-                  setQuantity((prev) => Math.max(minOrderQuantity, prev - 1))
+                  setQuantity((prev) => Math.max(minOrderQuantity, prev - minOrderQuantity))
                 }
-                onIncrease={() => setQuantity((prev) => Math.min(maxQuantity, prev + 1))}
+                onIncrease={() =>
+                  setQuantity((prev) => Math.min(maxQuantity, prev + minOrderQuantity))
+                }
               />
             </div>
 
