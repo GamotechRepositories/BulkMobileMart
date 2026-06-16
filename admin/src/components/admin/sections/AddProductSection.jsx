@@ -14,6 +14,7 @@ import {
   btnPrimary,
   btnSecondary,
   cardClass,
+  formHeaderClass,
   inputClass,
   labelClass,
 } from "../adminStyles";
@@ -512,11 +513,11 @@ function AddProductSection() {
   const availableSubcategories = selectedCategory?.subcategories || [];
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
       <form onSubmit={handleSubmit} className={`${cardClass} space-y-4`}>
-        <div className="flex items-center justify-between gap-3">
+        <div className={formHeaderClass}>
           <h3 className="font-semibold">
             {editingId ? "Edit Product" : "Add Product"}
           </h3>
@@ -944,7 +945,7 @@ function AddProductSection() {
         </div>
 
         <div className="space-y-3 rounded-lg border border-border-light p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className={formHeaderClass}>
             <p className="text-sm font-semibold text-text-primary">Product Specifications</p>
             <button
               type="button"
@@ -1025,11 +1026,11 @@ function AddProductSection() {
                     />
                   )}
                 </div>
-                <div className="sm:col-span-1 sm:flex sm:items-end">
+                <div className="sm:col-span-12 sm:flex sm:items-end lg:col-span-1">
                   <button
                     type="button"
                     onClick={() => removeSpecification(index)}
-                    className="w-full rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                    className="w-full rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50 sm:w-auto"
                   >
                     Remove
                   </button>

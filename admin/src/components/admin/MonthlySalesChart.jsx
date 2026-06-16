@@ -80,7 +80,7 @@ function MonthlySalesChart({ monthlySales, year, years, onYearChange, loading })
 
   return (
     <div className={cardClass}>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <h3 className="text-base font-semibold text-neutral-900">Monthly Sales</h3>
         <select
           value={year}

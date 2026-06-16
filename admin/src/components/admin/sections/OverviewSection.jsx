@@ -101,7 +101,7 @@ function OverviewSection() {
   const recentTodayOrders = useMemo(() => getRecentTodayOrders(orders), [orders]);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}

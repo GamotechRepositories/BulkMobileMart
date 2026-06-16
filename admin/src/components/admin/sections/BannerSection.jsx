@@ -209,7 +209,7 @@ function BannerSection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2">

@@ -5,6 +5,11 @@ import {
   btnSecondary,
   inputClass,
   labelClass,
+  modalBodyClass,
+  modalFooterClass,
+  modalHeaderClass,
+  modalOverlayClass,
+  modalPanelClass,
 } from "./adminStyles";
 
 const emptyForm = {
@@ -61,15 +66,12 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
+    <div className={modalOverlayClass} onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        className={`${modalPanelClass} sm:max-w-md`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-border-light px-5 py-4">
+        <div className={modalHeaderClass}>
           <h2 className="text-lg font-bold text-text-primary">
             {isAdd ? "Add User" : "Edit User"}
           </h2>
@@ -85,7 +87,8 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className={`${modalBodyClass} space-y-4`}>
           <div>
             <label className={labelClass}>Name *</label>
             <input
@@ -131,8 +134,9 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
               minLength={6}
             />
           </div>
+          </div>
 
-          <div className="flex justify-end gap-2 border-t border-border-light pt-4">
+          <div className={modalFooterClass}>
             <button type="button" onClick={onClose} className={btnSecondary} disabled={saving}>
               Cancel
             </button>

@@ -1,5 +1,14 @@
 import { createPortal } from "react-dom";
-import { btnPrimary, btnSecondary } from "./adminStyles";
+import {
+  adminDetailRowClass,
+  btnPrimary,
+  btnSecondary,
+  modalBodyClass,
+  modalFooterClass,
+  modalHeaderClass,
+  modalOverlayClass,
+  modalPanelClass,
+} from "./adminStyles";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -10,9 +19,9 @@ const formatPrice = (amount) =>
 
 function DetailRow({ label, value, children }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 py-2 border-b border-border-light last:border-0 text-sm">
+    <div className={adminDetailRowClass}>
       <span className="font-medium text-text-secondary">{label}</span>
-      <span className="text-text-primary">{children ?? value ?? "—"}</span>
+      <span className="min-w-0 break-words text-text-primary">{children ?? value ?? "—"}</span>
     </div>
   );
 }
@@ -21,20 +30,14 @@ function ProductDetailModal({ product, onClose, onEdit }) {
   if (!product) return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border-light bg-white px-5 py-4">
+    <div className={modalOverlayClass} onClick={onClose}>
+      <div className={modalPanelClass} onClick={(e) => e.stopPropagation()}>
+        <div className={modalHeaderClass}>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-accent">
               {product.brandName}
             </p>
-            <h2 className="text-lg font-bold text-text-primary leading-snug">
+            <h2 className="text-base font-bold leading-snug text-text-primary sm:text-lg">
               {product.name}
             </h2>
           </div>
@@ -50,7 +53,7 @@ function ProductDetailModal({ product, onClose, onEdit }) {
           </button>
         </div>
 
-        <div className="px-5 py-4">
+        <div className={modalBodyClass}>
           {product.productImages?.length > 0 && (
             <div className="mb-5 flex gap-2 overflow-x-auto hide-scrollbar">
               {product.productImages.map((img, index) => (
@@ -142,7 +145,7 @@ function ProductDetailModal({ product, onClose, onEdit }) {
           </div>
         </div>
 
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-border-light bg-white px-5 py-4">
+        <div className={modalFooterClass}>
           <button type="button" onClick={onClose} className={btnSecondary}>
             Close
           </button>

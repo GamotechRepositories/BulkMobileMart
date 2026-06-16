@@ -8,6 +8,7 @@ import {
   btnPrimary,
   btnSecondary,
   cardClass,
+  formHeaderClass,
   inputClass,
   labelClass,
 } from "../adminStyles";
@@ -95,11 +96,11 @@ function AddCategorySection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
       <form onSubmit={handleSubmit} className={`${cardClass} space-y-4`}>
-        <div className="flex items-center justify-between gap-3">
+        <div className={formHeaderClass}>
           <h3 className="font-semibold">
             {editingId ? "Edit Category" : "Add Category"}
           </h3>

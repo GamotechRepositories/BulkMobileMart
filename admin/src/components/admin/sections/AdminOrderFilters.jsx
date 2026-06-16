@@ -80,7 +80,7 @@ function AdminOrderFilters({
         <button
           type="button"
           onClick={onDownload}
-          className="shrink-0 rounded-lg bg-neutral-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 lg:mb-0"
+          className="w-full shrink-0 rounded-lg bg-neutral-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 sm:w-auto lg:mb-0"
         >
           Download XLS
         </button>

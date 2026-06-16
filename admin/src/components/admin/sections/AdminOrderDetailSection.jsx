@@ -8,6 +8,7 @@ import {
   adminFilterInputClass,
   adminTableClass,
   adminTableHeaderClass,
+  adminTableWrapperClass,
   adminTdClass,
   adminThClass,
   cardClass,
@@ -328,7 +329,7 @@ function AdminOrderDetailSection() {
         <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-neutral-500">
           Order Items
         </h3>
-        <div className="overflow-hidden rounded-lg border border-neutral-200">
+        <div className={adminTableWrapperClass}>
           <table className={adminTableClass}>
             <thead>
               <tr className={adminTableHeaderClass}>

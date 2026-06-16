@@ -12,6 +12,8 @@ import {
   btnPrimary,
   iconBtnClass,
   iconBtnDangerClass,
+  pageHeaderActionsClass,
+  pageHeaderClass,
 } from "../adminStyles";
 
 function UserSection() {
@@ -98,10 +100,11 @@ function UserSection() {
         }}
       />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className={pageHeaderClass}>
         <p className="text-sm font-medium text-neutral-700">
           All users ({users.length})
         </p>
+        <div className={pageHeaderActionsClass}>
         <button
           type="button"
           onClick={() => setShowAddUser(true)}
@@ -109,6 +112,7 @@ function UserSection() {
         >
           Add User
         </button>
+        </div>
       </div>
 
       {loading ? (

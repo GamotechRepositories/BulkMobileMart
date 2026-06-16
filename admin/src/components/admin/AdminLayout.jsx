@@ -358,45 +358,55 @@ function AdminLayout() {
           sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-64"
         }`}
       >
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-neutral-200 bg-white px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-3 min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-neutral-900 truncate">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 transition hover:bg-neutral-50 lg:hidden"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="truncate text-base font-bold text-neutral-900 sm:text-xl">
               {pageTitle}
             </h1>
           </div>
 
-          {isDashboard && (
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {isDashboard ? (
               <a
                 href={STORE_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-neutral-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-neutral-700 transition hover:border-accent hover:text-accent"
+                className="hidden rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-accent hover:text-accent sm:inline-flex sm:px-4 sm:text-sm"
               >
                 Visit Site
               </a>
-              {adminUser ? (
-                <>
-                  <span className="hidden md:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700 max-w-[140px] truncate">
-                    <IconUser className="w-4 h-4 shrink-0" />
-                    {adminUser.name.split(" ")[0]}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="rounded-lg border border-red-200 bg-red-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-red-600 transition hover:bg-red-100"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <span className="hidden sm:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700">
-                  <IconUser className="w-4 h-4" />
-                  Admin
+            ) : null}
+            {adminUser ? (
+              <>
+                <span className="hidden md:inline-flex max-w-[140px] items-center gap-2 truncate rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700">
+                  <IconUser className="h-4 w-4 shrink-0" />
+                  {adminUser.name.split(" ")[0]}
                 </span>
-              )}
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:px-4 sm:text-sm"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <span className="hidden items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 sm:inline-flex">
+                <IconUser className="h-4 w-4" />
+                Admin
+              </span>
+            )}
+          </div>
         </header>
 
         <main className="min-w-0 overflow-x-hidden p-4 sm:p-6">

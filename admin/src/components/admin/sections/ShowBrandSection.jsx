@@ -7,6 +7,8 @@ import {
   btnPrimary,
   btnSecondary,
   compactTableClass,
+  pageHeaderClass,
+  pageHeaderActionsClass,
   tableClass,
   tdClass,
   thClass,
@@ -54,13 +56,14 @@ function ShowBrandSection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className={pageHeaderClass}>
         <p className="text-sm text-text-secondary">
           All brands ({brands.length})
         </p>
+        <div className={pageHeaderActionsClass}>
         <button
           type="button"
           onClick={() => navigate("/brands/add")}
@@ -68,6 +71,7 @@ function ShowBrandSection() {
         >
           Add Brand
         </button>
+        </div>
       </div>
 
       {loading ? (

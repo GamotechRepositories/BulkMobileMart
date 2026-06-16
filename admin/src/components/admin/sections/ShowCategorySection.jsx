@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteCategory, getAllCategories } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
-import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
+import { btnDanger, btnSecondary, compactTableClass, pageHeaderClass, tableClass, tdClass, thClass } from "../adminStyles";
 
 function ShowCategorySection() {
   const navigate = useNavigate();
@@ -46,10 +46,10 @@ function ShowCategorySection() {
   };
 
   return (
-    <div>
+    <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className={pageHeaderClass}>
         <p className="text-sm text-text-secondary">
           All categories ({categories.length})
         </p>
