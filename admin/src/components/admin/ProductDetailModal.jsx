@@ -71,7 +71,14 @@ function ProductDetailModal({ product, onClose, onEdit }) {
           <div className="rounded-lg border border-border-light bg-mobile-surface/50 px-4">
             <DetailRow label="Product ID" value={product._id} />
             <DetailRow label="Brand" value={product.brandName} />
-            <DetailRow label="Subcategory" value={product.subcategory} />
+            <DetailRow
+              label="Subcategories"
+              value={
+                Array.isArray(product.subcategories) && product.subcategories.length
+                  ? product.subcategories.join(", ")
+                  : product.subcategory
+              }
+            />
             <DetailRow label="Categories">
               {product.categories?.length
                 ? product.categories.join(", ")
@@ -88,7 +95,11 @@ function ProductDetailModal({ product, onClose, onEdit }) {
                 {product.discountedPercent}% off
               </span>
             </DetailRow>
-            <DetailRow label="Stock" value={String(product.stock)} />
+            <DetailRow label="In stock">
+              <span className={product.inStock !== false ? "text-green-600" : "text-red-500"}>
+                {product.inStock !== false ? "Yes" : "No"}
+              </span>
+            </DetailRow>
             <DetailRow label="Rating" value={`${product.ratings ?? 0} / 5`} />
             <DetailRow label="Status">
               <span className={product.isActive ? "text-green-600" : "text-red-500"}>
@@ -98,18 +109,20 @@ function ProductDetailModal({ product, onClose, onEdit }) {
             <DetailRow label="Description">
               {product.description || "—"}
             </DetailRow>
-            <DetailRow label="Features">
-              {product.features?.length ? (
-                <ul className="list-disc pl-4 space-y-1">
-                  {product.features.map((f) => (
-                    <li key={f}>{f}</li>
+            <DetailRow label="Product Specifications">
+              {product.specifications?.length ? (
+                <ul className="space-y-1">
+                  {product.specifications.map((spec, index) => (
+                    <li key={`${spec.name}-${spec.value}-${index}`}>
+                      <span className="font-medium">{spec.name}: </span>
+                      {spec.value}
+                    </li>
                   ))}
                 </ul>
               ) : (
                 "—"
               )}
             </DetailRow>
-            <DetailRow label="Warranty" value={product.warranty || "—"} />
             <DetailRow
               label="Created"
               value={

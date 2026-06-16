@@ -8,6 +8,10 @@ import CategoryProductLayout, {
   DesktopCategorySidebar,
   MobileCategoryProductLayout,
 } from "../components/product/CategoryProductLayout";
+import {
+  formatProductPriceLabel,
+  isProductInStock,
+} from "../utils/productPricing";
 import WishlistButton from "../components/product/WishlistButton";
 import ProductThumb from "../components/product/ProductThumb";
 
@@ -88,7 +92,7 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
 }
 
 function MobileProductCard({ product, onAdd }) {
-  const inStock = (product.stock ?? 0) > 0;
+  const inStock = isProductInStock(product);
   const discount = product.discountedPercent ?? 0;
 
   return (

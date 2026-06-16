@@ -22,7 +22,12 @@ function getSlabStartQuantity(minOrderQuantity, slabs, index) {
   return start;
 }
 
-function VariantPricingFields({ variant, onChange, showPricingType = true }) {
+function VariantPricingFields({
+  variant,
+  onChange,
+  showPricingType = true,
+  showInStock = true,
+}) {
   const updateField = (field, value) => {
     onChange({ ...variant, [field]: value });
   };
@@ -75,33 +80,37 @@ function VariantPricingFields({ variant, onChange, showPricingType = true }) {
         </div>
       ) : null}
 
-      <div className={`grid gap-4 ${isBulk ? "sm:grid-cols-2" : ""}`}>
-        <div>
-          <label className={labelClass}>Stock *</label>
-          <input
-            type="number"
-            required
-            min="0"
-            value={variant.stock ?? ""}
-            onChange={(e) => updateField("stock", e.target.value)}
-            className={inputClass}
-          />
+      {showInStock || isBulk ? (
+        <div className={`grid gap-4 ${showInStock && isBulk ? "sm:grid-cols-2" : ""}`}>
+          {showInStock ? (
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={variant.inStock !== false}
+                  onChange={(e) => updateField("inStock", e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                <span className="text-sm font-medium text-text-primary">In stock</span>
+              </label>
+            </div>
+          ) : null}
+          {isBulk ? (
+            <div>
+              <label className={labelClass}>Minimum order quantity *</label>
+              <input
+                type="number"
+                required
+                min="1"
+                placeholder="e.g. 50"
+                value={variant.bulkMinOrderQuantity}
+                onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          ) : null}
         </div>
-        {isBulk ? (
-          <div>
-            <label className={labelClass}>Minimum order quantity *</label>
-            <input
-              type="number"
-              required
-              min="1"
-              placeholder="e.g. 50"
-              value={variant.bulkMinOrderQuantity}
-              onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {!isBulk ? (
         <div className="grid gap-4 sm:grid-cols-2">

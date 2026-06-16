@@ -1,7 +1,7 @@
 const SORT_GETTERS = {
   name: (product) => product.name?.toLowerCase() || "",
   price: (product) => Number(product.discountedPrice) || 0,
-  stock: (product) => Number(product.stock) || 0,
+  stock: (product) => (product.inStock !== false ? 1 : 0),
   brand: (product) => product.brandName?.toLowerCase() || "",
 };
 
@@ -17,13 +17,19 @@ export function filterAndSortProducts(products, { selectedCategory, searchQuery,
     result = result.filter((product) => {
       const name = product.name?.toLowerCase() || "";
       const brand = product.brandName?.toLowerCase() || "";
-      const subcategory = product.subcategory?.toLowerCase() || "";
+      const subcategories = [
+        ...(Array.isArray(product.subcategories) ? product.subcategories : []),
+        product.subcategory,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       const categories = (product.categories || []).join(" ").toLowerCase();
 
       return (
         name.includes(query) ||
         brand.includes(query) ||
-        subcategory.includes(query) ||
+        subcategories.includes(query) ||
         categories.includes(query)
       );
     });

@@ -91,13 +91,22 @@ export function getVariant(product, variantName) {
   );
 }
 
-export function getVariantStock(product, variantName = "") {
+export function isProductInStock(product, variantName = "") {
   if (isMultiVariant(product)) {
     const variant = getVariant(product, variantName);
-    return variant?.stock ?? 0;
+    if (!variant) return false;
+    if (typeof variant.inStock === "boolean") return variant.inStock;
+    return (variant.stock ?? 0) > 0;
   }
 
-  return product?.stock ?? 0;
+  if (typeof product?.inStock === "boolean") return product.inStock;
+  return (product?.stock ?? 0) > 0;
+}
+
+const IN_STOCK_MAX_QTY = 9999;
+
+export function getVariantStock(product, variantName = "") {
+  return isProductInStock(product, variantName) ? IN_STOCK_MAX_QTY : 0;
 }
 
 export function getAvailableColors(product, variantName = "") {
@@ -111,13 +120,14 @@ export function getAvailableColors(product, variantName = "") {
 
 export function getTotalProductStock(product) {
   if (isMultiVariant(product)) {
-    return product.variants.reduce(
-      (sum, variant) => sum + (Number(variant.stock) || 0),
-      0
-    );
+    return product.variants.some((variant) =>
+      typeof variant.inStock === "boolean" ? variant.inStock : (variant.stock ?? 0) > 0
+    )
+      ? IN_STOCK_MAX_QTY
+      : 0;
   }
 
-  return product?.stock ?? 0;
+  return isProductInStock(product) ? IN_STOCK_MAX_QTY : 0;
 }
 
 export function getPricingSource(product, variantName) {
@@ -276,4 +286,4 @@ export function resolvePricingFields(payload) {
 }
 
 export const PRODUCT_PRICING_SELECT =
-  "name brandName price discountedPrice discountedPercent productImages stock subcategory pricingType bulkPricing variantType variants colors isActive";
+  "name brandName price discountedPrice discountedPercent productImages stock inStock subcategory subcategories pricingType bulkPricing variantType variants colors isActive";

@@ -22,6 +22,26 @@ const normalizeFeatures = (features) => {
     .filter(Boolean);
 };
 
+const normalizeSpecifications = (specifications) => {
+  if (!Array.isArray(specifications)) return [];
+
+  const normalized = [];
+  const seen = new Set();
+
+  specifications.forEach((item) => {
+    const name = item?.name?.trim();
+    const value = item?.value?.trim();
+    if (!name || !value) return;
+
+    const key = `${name.toLowerCase()}::${value.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push({ name, value });
+  });
+
+  return normalized;
+};
+
 const normalizeColors = (colors) => {
   if (!Array.isArray(colors)) return [];
 
@@ -72,6 +92,43 @@ const normalizeCategories = (categories, categoryName, category) => {
   return unique;
 };
 
+const normalizeSubcategories = (body) => {
+  if (Array.isArray(body?.subcategories)) {
+    const unique = [];
+    const seen = new Set();
+
+    body.subcategories.forEach((item) => {
+      const name = typeof item === "string" ? item.trim() : "";
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(name);
+      }
+    });
+
+    return unique;
+  }
+
+  if (typeof body?.subcategory === "string" && body.subcategory.trim()) {
+    return [body.subcategory.trim()];
+  }
+
+  return [];
+};
+
+const normalizeInStock = (value, legacyStock) => {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (legacyStock !== undefined && legacyStock !== null && legacyStock !== "") {
+    return Number(legacyStock) > 0;
+  }
+  return true;
+};
+
+const legacyStockFromInStock = (inStock) => (inStock ? 1 : 0);
+
 const findCategoryByName = async (categoryName) =>
   Category.findOne({
     categoryName: {
@@ -79,15 +136,13 @@ const findCategoryByName = async (categoryName) =>
     },
   });
 
-const validateCategoriesAndSubcategory = async (categories, subcategory) => {
-  const trimmedSub = subcategory?.trim();
-
+const validateCategoriesAndSubcategories = async (categories, subcategories) => {
   if (!categories.length) {
     return { valid: false, message: "At least one category is required" };
   }
 
-  if (!trimmedSub) {
-    return { valid: false, message: "Subcategory name is required" };
+  if (!subcategories.length) {
+    return { valid: false, message: "At least one subcategory is required" };
   }
 
   const mainCategoryName = categories[0];
@@ -100,15 +155,31 @@ const validateCategoriesAndSubcategory = async (categories, subcategory) => {
     };
   }
 
-  const matchedSub = mainCategory.subcategories.find(
-    (sub) => sub.toLowerCase() === trimmedSub.toLowerCase()
-  );
+  const normalizedSubcategories = [];
 
-  if (!matchedSub && mainCategory.subcategories.length > 0) {
-    return {
-      valid: false,
-      message: `Subcategory must be one of: ${mainCategory.subcategories.join(", ")}`,
-    };
+  for (const subcategoryName of subcategories) {
+    const trimmedSub = subcategoryName?.trim();
+    if (!trimmedSub) continue;
+
+    const matchedSub = mainCategory.subcategories.find(
+      (sub) => sub.toLowerCase() === trimmedSub.toLowerCase()
+    );
+
+    if (!matchedSub && mainCategory.subcategories.length > 0) {
+      return {
+        valid: false,
+        message: `Subcategory "${trimmedSub}" must be one of: ${mainCategory.subcategories.join(", ")}`,
+      };
+    }
+
+    const resolved = matchedSub || trimmedSub;
+    if (!normalizedSubcategories.some((sub) => sub.toLowerCase() === resolved.toLowerCase())) {
+      normalizedSubcategories.push(resolved);
+    }
+  }
+
+  if (!normalizedSubcategories.length) {
+    return { valid: false, message: "At least one subcategory is required" };
   }
 
   const normalizedCategories = [];
@@ -129,7 +200,8 @@ const validateCategoriesAndSubcategory = async (categories, subcategory) => {
   return {
     valid: true,
     categories: normalizedCategories,
-    subcategory: matchedSub || trimmedSub,
+    subcategories: normalizedSubcategories,
+    subcategory: normalizedSubcategories[0],
   };
 };
 
@@ -145,6 +217,7 @@ const buildProductPayload = (body) => {
       body.category
     ),
     subcategory: body.subcategory?.trim(),
+    subcategories: normalizeSubcategories(body),
     brandName: (body.brandName ?? body.brand)?.trim(),
     variantType,
     variants: Array.isArray(body.variants)
@@ -162,6 +235,7 @@ const buildProductPayload = (body) => {
           discountedPrice: variant.discountedPrice,
           discountedPercent: variant.discountedPercent,
           stock: variant.stock,
+          inStock: normalizeInStock(variant.inStock, variant.stock),
           colors: normalizeColors(variant.colors),
         }))
       : [],
@@ -178,12 +252,14 @@ const buildProductPayload = (body) => {
     discountedPercent: body.discountedPercent ?? body.discount_percent,
     ratings: body.ratings,
     stock: body.stock,
+    inStock: normalizeInStock(body.inStock, body.stock),
     colors: normalizeColors(body.colors),
     productImages: normalizeImages(body.productImages, body.images),
     description: body.description?.trim() ?? "",
     features: normalizeFeatures(body.features),
+    specifications: normalizeSpecifications(body.specifications),
     warranty: body.warranty?.trim() ?? "",
-    isActive: body.isActive,
+    isActive: body.isActive !== false,
   };
 };
 
@@ -207,10 +283,7 @@ const resolveProductPricing = (payload) => {
     const resolvedVariants = [];
 
     for (const variant of namedVariants) {
-      const stock = Number(variant.stock);
-      if (!Number.isFinite(stock) || stock < 0) {
-        return { error: `Variant "${variant.name}": stock is required` };
-      }
+      const inStock = normalizeInStock(variant.inStock, variant.stock);
 
       const pricing = resolvePricingFields({
         pricingType: variant.pricingType,
@@ -231,15 +304,13 @@ const resolveProductPricing = (payload) => {
         price: pricing.price,
         discountedPrice: pricing.discountedPrice,
         discountedPercent: pricing.discountedPercent,
-        stock,
+        inStock,
+        stock: legacyStockFromInStock(inStock),
         colors: normalizeColors(variant.colors),
       });
     }
 
-    const totalStock = resolvedVariants.reduce(
-      (sum, variant) => sum + variant.stock,
-      0
-    );
+    const productInStock = resolvedVariants.some((variant) => variant.inStock);
 
     const minDiscounted = Math.min(
       ...resolvedVariants.map((variant) => variant.discountedPrice)
@@ -250,7 +321,8 @@ const resolveProductPricing = (payload) => {
     return {
       variantType: "multi",
       variants: resolvedVariants,
-      stock: totalStock,
+      inStock: productInStock,
+      stock: legacyStockFromInStock(productInStock),
       colors: [],
       pricingType: hasBulk ? "bulk" : "single",
       bulkPricing: { minOrderQuantity: null, slabs: [] },
@@ -268,10 +340,13 @@ const resolveProductPricing = (payload) => {
     return { error: pricing.error };
   }
 
+  const inStock = normalizeInStock(payload.inStock, payload.stock);
+
   return {
     variantType: "single",
     variants: [],
-    stock: payload.stock,
+    inStock,
+    stock: legacyStockFromInStock(inStock),
     colors: normalizeColors(payload.colors),
     pricingType: pricing.pricingType,
     bulkPricing: pricing.bulkPricing,
@@ -287,13 +362,10 @@ const validateRequiredFields = (payload) => {
   if (!payload.name) missing.push("name");
   if (!payload.categories.length) missing.push("categories");
   if (payload.categories.length > 4) missing.push("categories (max 4)");
-  if (!payload.subcategory) missing.push("subcategory");
-  if (!payload.brandName) missing.push("brandName");
-  if (payload.variantType !== "multi") {
-    if (payload.stock === undefined || payload.stock === null || payload.stock === "") {
-      missing.push("stock");
-    }
+  if (!payload.subcategories?.length && !payload.subcategory) {
+    missing.push("subcategories");
   }
+  if (!payload.brandName) missing.push("brandName");
   if (!payload.productImages.length) missing.push("productImages");
 
   if (missing.length > 0) {
@@ -320,12 +392,11 @@ export const getProducts = async (req, res) => {
     }
 
     if (req.query.subcategory?.trim()) {
-      filter.subcategory = {
-        $regex: new RegExp(
-          `^${escapeRegex(req.query.subcategory.trim())}$`,
-          "i"
-        ),
-      };
+      const subRegex = new RegExp(
+        `^${escapeRegex(req.query.subcategory.trim())}$`,
+        "i"
+      );
+      filter.$or = [{ subcategory: subRegex }, { subcategories: subRegex }];
     }
 
     if (req.query.q?.trim()) {
@@ -412,9 +483,9 @@ export const addProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: requiredError });
     }
 
-    const categoryCheck = await validateCategoriesAndSubcategory(
+    const categoryCheck = await validateCategoriesAndSubcategories(
       payload.categories,
-      payload.subcategory
+      payload.subcategories?.length ? payload.subcategories : [payload.subcategory].filter(Boolean)
     );
 
     if (!categoryCheck.valid) {
@@ -432,6 +503,7 @@ export const addProduct = async (req, res) => {
       name: payload.name,
       categories: categoryCheck.categories,
       subcategory: categoryCheck.subcategory,
+      subcategories: categoryCheck.subcategories,
       brandName: payload.brandName,
       variantType: pricingFields.variantType,
       variants: pricingFields.variants,
@@ -441,11 +513,13 @@ export const addProduct = async (req, res) => {
       discountedPrice: pricingFields.discountedPrice,
       discountedPercent: pricingFields.discountedPercent,
       ratings: payload.ratings ?? 0,
-      stock: pricingFields.stock ?? payload.stock,
+      inStock: pricingFields.inStock ?? payload.inStock ?? true,
+      stock: pricingFields.stock ?? legacyStockFromInStock(payload.inStock),
       colors: pricingFields.colors ?? [],
       productImages: payload.productImages,
       description: payload.description,
       features: payload.features,
+      specifications: payload.specifications,
       warranty: payload.warranty,
       isActive: payload.isActive ?? true,
     });
@@ -479,6 +553,7 @@ export const updateProduct = async (req, res) => {
       categoryName: req.body.categoryName,
       category: req.body.category,
       subcategory: req.body.subcategory ?? existing.subcategory,
+      subcategories: req.body.subcategories ?? existing.subcategories,
       brandName: req.body.brandName ?? req.body.brand ?? existing.brandName,
       variantType: req.body.variantType ?? existing.variantType,
       variants: req.body.variants ?? existing.variants,
@@ -495,11 +570,13 @@ export const updateProduct = async (req, res) => {
         existing.discountedPercent,
       ratings: req.body.ratings ?? existing.ratings,
       stock: req.body.stock ?? existing.stock,
+      inStock: req.body.inStock ?? existing.inStock,
       colors: req.body.colors ?? existing.colors,
       productImages:
         req.body.productImages ?? req.body.images ?? existing.productImages,
       description: req.body.description ?? existing.description,
       features: req.body.features ?? existing.features,
+      specifications: req.body.specifications ?? existing.specifications,
       warranty: req.body.warranty ?? existing.warranty,
       isActive: req.body.isActive ?? existing.isActive,
     });
@@ -510,9 +587,9 @@ export const updateProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: requiredError });
     }
 
-    const categoryCheck = await validateCategoriesAndSubcategory(
+    const categoryCheck = await validateCategoriesAndSubcategories(
       payload.categories,
-      payload.subcategory
+      payload.subcategories?.length ? payload.subcategories : [payload.subcategory].filter(Boolean)
     );
 
     if (!categoryCheck.valid) {
@@ -532,6 +609,7 @@ export const updateProduct = async (req, res) => {
         name: payload.name,
         categories: categoryCheck.categories,
         subcategory: categoryCheck.subcategory,
+        subcategories: categoryCheck.subcategories,
         brandName: payload.brandName,
         variantType: pricingFields.variantType,
         variants: pricingFields.variants,
@@ -541,11 +619,13 @@ export const updateProduct = async (req, res) => {
         discountedPrice: pricingFields.discountedPrice,
         discountedPercent: pricingFields.discountedPercent,
         ratings: payload.ratings,
-        stock: pricingFields.stock ?? payload.stock,
+        inStock: pricingFields.inStock ?? payload.inStock ?? true,
+        stock: pricingFields.stock ?? legacyStockFromInStock(payload.inStock),
         colors: pricingFields.colors ?? [],
         productImages: payload.productImages,
         description: payload.description,
         features: payload.features,
+        specifications: payload.specifications,
         warranty: payload.warranty,
         isActive: payload.isActive,
       },

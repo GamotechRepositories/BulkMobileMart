@@ -141,7 +141,7 @@ function ShowProductSection() {
                     <th className={adminCompactThClass}>Brand</th>
                     <th className={adminCompactThClass}>Categories</th>
                     <th className={adminCompactThClass}>Price</th>
-                    <th className={adminCompactThClass}>Stock</th>
+                    <th className={adminCompactThClass}>In stock</th>
                     <th className={adminCompactThClass}>Status</th>
                     <th className={adminCompactThClass}>Actions</th>
                   </tr>
@@ -173,7 +173,16 @@ function ShowProductSection() {
                       <td className={`${adminCompactTdClass} text-neutral-600`}>
                         <span className="line-clamp-2 break-words">
                           {product.categories?.length
-                            ? `${product.categories.join(", ")}${product.subcategory ? ` / ${product.subcategory}` : ""}`
+                            ? `${product.categories.join(", ")}${
+                                (product.subcategories?.length
+                                  ? product.subcategories
+                                  : product.subcategory
+                                    ? [product.subcategory]
+                                    : []
+                                ).length
+                                  ? ` / ${(product.subcategories?.length ? product.subcategories : [product.subcategory]).join(", ")}`
+                                  : ""
+                              }`
                             : "—"}
                         </span>
                       </td>
@@ -185,7 +194,9 @@ function ShowProductSection() {
                           ₹{product.price}
                         </span>
                       </td>
-                      <td className={`${adminCompactTdClass} text-neutral-800`}>{product.stock}</td>
+                      <td className={`${adminCompactTdClass} text-neutral-800`}>
+                        {product.inStock !== false ? "In stock" : "Out of stock"}
+                      </td>
                       <td className={adminCompactTdClass}>
                         <span
                           className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lowercase ${

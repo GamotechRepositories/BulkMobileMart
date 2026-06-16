@@ -28,8 +28,17 @@ function useCategoryFilters(products, categoryName) {
   );
 
   const filteredProducts = products.filter((product) => {
-    if (subcategory && product.subcategory?.toLowerCase() !== subcategory.toLowerCase()) {
-      return false;
+    if (subcategory) {
+      const target = subcategory.toLowerCase();
+      const productSubs = Array.isArray(product.subcategories)
+        ? product.subcategories
+        : product.subcategory
+          ? [product.subcategory]
+          : [];
+      const matchesSubcategory = productSubs.some(
+        (sub) => sub?.toLowerCase() === target
+      );
+      if (!matchesSubcategory) return false;
     }
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;

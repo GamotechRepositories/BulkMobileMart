@@ -67,6 +67,26 @@ function buildImageFilename(productName, imageUrl, imageIndex) {
   return `${safeName || "product"}-${imageIndex + 1}.${ext}`;
 }
 
+function getResolvedSpecifications(product) {
+  if (Array.isArray(product?.specifications) && product.specifications.length > 0) {
+    return product.specifications.filter((spec) => spec?.name && spec?.value);
+  }
+
+  const fallback = [];
+  if (product?.brandName) fallback.push({ name: "Brand", value: product.brandName });
+  if (product?.categories?.[0]) fallback.push({ name: "Category", value: product.categories[0] });
+  if (product?.subcategory) fallback.push({ name: "Subcategory", value: product.subcategory });
+  if (product?.warranty) fallback.push({ name: "Warranty", value: product.warranty });
+  if (Array.isArray(product?.features)) {
+    product.features.forEach((feature, index) => {
+      if (feature?.trim()) {
+        fallback.push({ name: `Feature ${index + 1}`, value: feature.trim() });
+      }
+    });
+  }
+  return fallback;
+}
+
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
@@ -572,6 +592,7 @@ function ProductDetail() {
       : "";
 
   const shareImageUrl = images[activeImage] || images[0] || "";
+  const specifications = useMemo(() => getResolvedSpecifications(product), [product]);
 
   useEffect(() => {
     if (!product) return undefined;
@@ -918,29 +939,20 @@ function ProductDetail() {
             )}
 
             {activeTab === "specifications" && (
-              <ul className="space-y-2 text-text-primary">
-                <li>
-                  <span className="font-semibold">Brand: </span>
-                  {product.brandName}
-                </li>
-                <li>
-                  <span className="font-semibold">Category: </span>
-                  {category}
-                </li>
-                <li>
-                  <span className="font-semibold">Subcategory: </span>
-                  {product.subcategory}
-                </li>
-                {product.warranty && (
-                  <li>
-                    <span className="font-semibold">Warranty: </span>
-                    {product.warranty}
-                  </li>
+              <div>
+                {specifications.length > 0 ? (
+                  <ul className="space-y-2 text-text-primary">
+                    {specifications.map((spec, index) => (
+                      <li key={`${spec.name}-${spec.value}-${index}`}>
+                        <span className="font-semibold">{spec.name}: </span>
+                        {spec.value}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-text-secondary">No specifications added.</p>
                 )}
-                {product.features?.map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
+              </div>
             )}
 
             {activeTab === "reviews" && (

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   addProduct,
+  getAllBrands,
   getAllCategories,
   updateProduct,
 } from "../../../api/api";
@@ -14,7 +15,6 @@ import {
   cardClass,
   inputClass,
   labelClass,
-  parseList,
 } from "../adminStyles";
 
 import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
@@ -30,7 +30,7 @@ function deriveDiscountPercent(price, discountedPrice) {
 
 const EMPTY_VARIANT = {
   name: "",
-  stock: "",
+  inStock: true,
   pricingType: "single",
   price: "",
   discountedPrice: "",
@@ -44,10 +44,50 @@ const createEmptyVariant = () => ({
   slabs: [{ ...EMPTY_SLAB }],
 });
 
+const SPECIFICATION_LIBRARY = [
+  { name: "Model", options: [] },
+  { name: "Material", options: ["PVC", "Metal", "Rubber"] },
+  { name: "Compatibility", options: ["Android", "iPhone", "Type-C"] },
+  { name: "Power Output (Watt)", options: [] },
+  { name: "Cable Length", options: ["15cm", "1mtr", "2mtr", "3mtr"] },
+  {
+    name: "Warranty",
+    options: ["No warranty", "Testing warranty", "6 month", "12 month"],
+  },
+  { name: "Packaging Type", options: ["Polly", "Box"] },
+  { name: "Country of Origin", options: ["India", "China"] },
+  { name: "Quality Grade", options: ["Premium", "Standard"] },
+  { name: "Master Carton Qty", options: [] },
+];
+
+const createEmptySpecification = () => ({
+  name: "",
+  customName: "",
+  value: "",
+});
+
+const SPEC_LIBRARY_STORAGE_KEY = "admin.productSpecificationLibrary";
+
+function buildSpecificationLibrary(customNames = []) {
+  const base = [...SPECIFICATION_LIBRARY];
+  const seen = new Set(base.map((item) => item.name.toLowerCase()));
+
+  customNames.forEach((name) => {
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    base.push({ name: trimmed, options: [] });
+  });
+
+  return base;
+}
+
 function mapVariantFromProduct(variant) {
   return {
     name: variant.name || "",
-    stock: String(variant.stock ?? ""),
+    inStock: variant.inStock !== false,
     pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
     price: String(variant.price ?? ""),
     discountedPrice: String(variant.discountedPrice ?? ""),
@@ -71,7 +111,7 @@ function mapVariantFromProduct(variant) {
 function mapVariantToPayload(variant) {
   const base = {
     name: variant.name.trim(),
-    stock: Number(variant.stock),
+    inStock: variant.inStock !== false,
     pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
     colors: (variant.colors || [])
       .filter((color) => color.name?.trim())
@@ -109,19 +149,18 @@ function mapVariantToPayload(variant) {
 const EMPTY_FORM = {
   name: "",
   primaryCategory: "",
-  subcategory: "",
+  subcategories: [],
   brandName: "",
   variantType: "single",
   pricingType: "single",
   price: "",
   discountedPrice: "",
   bulkMinOrderQuantity: "",
-  stock: "",
+  inStock: true,
   colors: [],
   ratings: "0",
   description: "",
-  features: "",
-  warranty: "",
+  specifications: [createEmptySpecification()],
   isActive: true,
 };
 
@@ -131,9 +170,11 @@ function AddProductSection() {
   const editProduct = location.state?.editProduct;
 
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [customSpecNames, setCustomSpecNames] = useState([]);
   const [bulkSlabs, setBulkSlabs] = useState([{ ...EMPTY_SLAB }]);
   const [variants, setVariants] = useState([createEmptyVariant(), createEmptyVariant()]);
   const [productImages, setProductImages] = useState([""]);
@@ -143,6 +184,22 @@ function AddProductSection() {
     getAllCategories()
       .then(({ data }) => setCategories(data.data || []))
       .catch(() => setCategories([]));
+    getAllBrands()
+      .then(({ data }) => setBrands(data.data || []))
+      .catch(() => setBrands([]));
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SPEC_LIBRARY_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setCustomSpecNames(parsed.filter((item) => typeof item === "string"));
+      }
+    } catch {
+      setCustomSpecNames([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -151,14 +208,18 @@ function AddProductSection() {
       setForm({
         name: editProduct.name,
         primaryCategory: editProduct.categories?.[0] || "",
-        subcategory: editProduct.subcategory || "",
+        subcategories: Array.isArray(editProduct.subcategories)
+          ? editProduct.subcategories
+          : editProduct.subcategory
+            ? [editProduct.subcategory]
+            : [],
         brandName: editProduct.brandName || "",
         variantType: editProduct.variantType === "multi" ? "multi" : "single",
         pricingType: editProduct.pricingType === "bulk" ? "bulk" : "single",
         price: String(editProduct.price ?? ""),
         discountedPrice: String(editProduct.discountedPrice ?? ""),
         bulkMinOrderQuantity: String(editProduct.bulkPricing?.minOrderQuantity ?? ""),
-        stock: String(editProduct.stock ?? ""),
+        inStock: editProduct.inStock !== false,
         colors: Array.isArray(editProduct.colors)
           ? editProduct.colors.map((color) => ({
               name: color.name || "",
@@ -166,8 +227,31 @@ function AddProductSection() {
           : [],
         ratings: String(editProduct.ratings ?? 0),
         description: editProduct.description || "",
-        features: (editProduct.features || []).join(", "),
-        warranty: editProduct.warranty || "",
+        specifications:
+          Array.isArray(editProduct.specifications) &&
+          editProduct.specifications.length > 0
+            ? editProduct.specifications.map((spec) => ({
+                name: spec.name || "",
+                customName: "",
+                value: spec.value || "",
+              }))
+            : [
+                ...(editProduct.warranty
+                  ? [
+                      {
+                        name: "Warranty",
+                        customName: "",
+                        value: editProduct.warranty,
+                      },
+                    ]
+                  : []),
+                ...((editProduct.features || []).map((feature, index) => ({
+                  name: "__custom__",
+                  customName: `Feature ${index + 1}`,
+                  value: feature,
+                })) || []),
+                createEmptySpecification(),
+              ],
         isActive: editProduct.isActive,
       });
       const slabs = editProduct.bulkPricing?.slabs || [];
@@ -218,20 +302,14 @@ function AddProductSection() {
       setError("Category is required");
       return;
     }
+    if (!form.subcategories.length) {
+      setError("Select at least one subcategory");
+      return;
+    }
     if (form.variantType === "multi") {
       const namedVariants = variants.filter((variant) => variant.name.trim());
       if (namedVariants.length < 2) {
         setError("Add at least 2 variants for multi variant products");
-        return;
-      }
-      const invalidStock = namedVariants.some(
-        (variant) =>
-          variant.stock === "" ||
-          !Number.isFinite(Number(variant.stock)) ||
-          Number(variant.stock) < 0
-      );
-      if (invalidStock) {
-        setError("Stock is required for each variant");
         return;
       }
     } else if (form.pricingType === "bulk") {
@@ -251,11 +329,11 @@ function AddProductSection() {
       const payload = {
         name: form.name,
         categories: [form.primaryCategory.trim()],
-        subcategory: form.subcategory,
+        subcategories: form.subcategories,
         brandName: form.brandName,
         pricingType: form.pricingType,
         variantType: form.variantType,
-        stock: form.variantType === "multi" ? undefined : Number(form.stock),
+        inStock: form.variantType === "multi" ? undefined : form.inStock !== false,
         colors:
           form.variantType === "multi"
             ? undefined
@@ -267,8 +345,18 @@ function AddProductSection() {
         ratings: Number(form.ratings) || 0,
         productImages: images,
         description: form.description,
-        features: parseList(form.features),
-        warranty: form.warranty,
+        specifications: form.specifications
+          .map((spec) => {
+            const selectedName = spec.name === "__custom__" ? spec.customName : spec.name;
+            if (spec.name === "__custom__" && selectedName?.trim()) {
+              persistCustomSpecification(selectedName);
+            }
+            return {
+              name: selectedName?.trim(),
+              value: spec.value?.trim(),
+            };
+          })
+          .filter((spec) => spec.name && spec.value),
         isActive: form.isActive,
       };
 
@@ -329,11 +417,68 @@ function AddProductSection() {
     setForm((prev) => ({
       ...prev,
       primaryCategory: value,
-      subcategory: "",
+      subcategories: [],
     }));
   };
 
+  const toggleSubcategory = (subcategoryName) => {
+    setForm((prev) => {
+      const exists = prev.subcategories.some(
+        (sub) => sub.toLowerCase() === subcategoryName.toLowerCase()
+      );
+      return {
+        ...prev,
+        subcategories: exists
+          ? prev.subcategories.filter(
+              (sub) => sub.toLowerCase() !== subcategoryName.toLowerCase()
+            )
+          : [...prev.subcategories, subcategoryName],
+      };
+    });
+  };
+
   const isMultiVariant = form.variantType === "multi";
+  const specificationLibrary = buildSpecificationLibrary(customSpecNames);
+
+  const addSpecification = () => {
+    setForm((prev) => ({
+      ...prev,
+      specifications: [...prev.specifications, createEmptySpecification()],
+    }));
+  };
+
+  const updateSpecification = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      specifications: prev.specifications.map((spec, i) =>
+        i === index ? { ...spec, [field]: value } : spec
+      ),
+    }));
+  };
+
+  const removeSpecification = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      specifications:
+        prev.specifications.length === 1
+          ? [createEmptySpecification()]
+          : prev.specifications.filter((_, i) => i !== index),
+    }));
+  };
+
+  const persistCustomSpecification = (name) => {
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+
+    setCustomSpecNames((prev) => {
+      if (prev.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+      const next = [...prev, trimmed];
+      window.localStorage.setItem(SPEC_LIBRARY_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const selectedCategory = categories.find(
     (cat) => cat.categoryName === form.primaryCategory
@@ -368,14 +513,39 @@ function AddProductSection() {
             />
           </div>
           <div>
-            <label className={labelClass}>Brand name *</label>
-            <input
-              type="text"
-              required
-              value={form.brandName}
-              onChange={(e) => setField("brandName", e.target.value)}
-              className={inputClass}
-            />
+            <label className={labelClass}>Brand *</label>
+            {brands.length > 0 ? (
+              <select
+                required
+                value={form.brandName}
+                onChange={(e) => setField("brandName", e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select brand</option>
+                {brands.map((brand) => (
+                  <option key={brand._id} value={brand.brandName}>
+                    {brand.brandName}
+                    {!brand.isActive ? " (Inactive)" : ""}
+                  </option>
+                ))}
+                {form.brandName &&
+                !brands.some(
+                  (brand) =>
+                    brand.brandName.toLowerCase() === form.brandName.toLowerCase()
+                ) ? (
+                  <option value={form.brandName}>{form.brandName}</option>
+                ) : null}
+              </select>
+            ) : (
+              <>
+                <select disabled className={inputClass}>
+                  <option value="">No brands available</option>
+                </select>
+                <p className="mt-1 text-xs text-text-muted">
+                  Add brands under Brands first, then select one here.
+                </p>
+              </>
+            )}
           </div>
           <div>
             <label className={labelClass}>Category *</label>
@@ -393,40 +563,45 @@ function AddProductSection() {
               ))}
             </select>
           </div>
-          <div>
-            <label className={labelClass}>Subcategory *</label>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Subcategories *</label>
             {!form.primaryCategory ? (
-              <select disabled className={inputClass}>
-                <option value="">Select a category first</option>
-              </select>
+              <p className="text-sm text-text-muted">Select a category first</p>
             ) : availableSubcategories.length > 0 ? (
-              <select
-                required
-                value={form.subcategory}
-                onChange={(e) => setField("subcategory", e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select subcategory</option>
-                {availableSubcategories.map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
-                {form.subcategory &&
-                !availableSubcategories.some(
-                  (sub) => sub.toLowerCase() === form.subcategory.toLowerCase()
-                ) ? (
-                  <option value={form.subcategory}>{form.subcategory}</option>
-                ) : null}
-              </select>
+              <div className="flex flex-wrap gap-2 rounded-lg border border-border-light p-3">
+                {availableSubcategories.map((sub) => {
+                  const isSelected = form.subcategories.some(
+                    (item) => item.toLowerCase() === sub.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => toggleSubcategory(sub)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                        isSelected
+                          ? "border-primary bg-primary text-white"
+                          : "border-border-light bg-white text-text-primary hover:border-primary/40"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
               <>
                 <input
                   type="text"
                   required
                   placeholder="Enter subcategory"
-                  value={form.subcategory}
-                  onChange={(e) => setField("subcategory", e.target.value)}
+                  value={form.subcategories[0] || ""}
+                  onChange={(e) =>
+                    setField(
+                      "subcategories",
+                      e.target.value.trim() ? [e.target.value.trim()] : []
+                    )
+                  }
                   className={inputClass}
                 />
                 <p className="mt-1 text-xs text-text-muted">
@@ -434,6 +609,32 @@ function AddProductSection() {
                 </p>
               </>
             )}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border-light p-4">
+          <p className="mb-3 text-sm font-semibold text-text-primary">Product status</p>
+          <div className="flex flex-wrap items-center gap-6">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setField("isActive", e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              Product is active (visible on website)
+            </label>
+            {!isMultiVariant ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.inStock !== false}
+                  onChange={(e) => setField("inStock", e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                In stock
+              </label>
+            ) : null}
           </div>
         </div>
 
@@ -561,9 +762,10 @@ function AddProductSection() {
           <>
             <VariantPricingFields
               showPricingType={false}
+              showInStock={false}
               variant={{
                 pricingType: form.pricingType,
-                stock: form.stock,
+                inStock: form.inStock,
                 colors: form.colors,
                 price: form.price,
                 discountedPrice: form.discountedPrice,
@@ -574,7 +776,7 @@ function AddProductSection() {
                 setForm((prev) => ({
                   ...prev,
                   pricingType: updated.pricingType,
-                  stock: updated.stock,
+                  inStock: updated.inStock !== false,
                   colors: updated.colors || [],
                   price: updated.price,
                   discountedPrice: updated.discountedPrice,
@@ -640,36 +842,101 @@ function AddProductSection() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelClass}>Features (comma separated)</label>
-            <input
-              type="text"
-              value={form.features}
-              onChange={(e) => setField("features", e.target.value)}
-              className={inputClass}
-            />
+        <div className="space-y-3 rounded-lg border border-border-light p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-text-primary">Product Specifications</p>
+            <button
+              type="button"
+              onClick={addSpecification}
+              className="text-sm font-semibold text-accent hover:underline"
+            >
+              + Add new specification
+            </button>
           </div>
-          <div>
-            <label className={labelClass}>Warranty</label>
-            <input
-              type="text"
-              value={form.warranty}
-              onChange={(e) => setField("warranty", e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          {form.specifications.map((spec, index) => {
+            const selectedName =
+              spec.name === "__custom__" ? spec.customName.trim() : spec.name;
+            const selectedConfig = specificationLibrary.find(
+              (item) => item.name === selectedName
+            );
+            const valueOptions = selectedConfig?.options || [];
+            return (
+              <div
+                key={`${spec.name}-${index}`}
+                className="grid gap-3 rounded-lg border border-border-light p-3 sm:grid-cols-12"
+              >
+                <div className="sm:col-span-4">
+                  <label className={labelClass}>Specification</label>
+                  <select
+                    value={spec.name}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      updateSpecification(index, "name", nextName);
+                      if (nextName !== "__custom__") {
+                        updateSpecification(index, "customName", "");
+                      }
+                      updateSpecification(index, "value", "");
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Select specification</option>
+                    {specificationLibrary.map((item) => (
+                      <option key={item.name} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
+                    <option value="__custom__">+ Add custom specification</option>
+                  </select>
+                  {spec.name === "__custom__" ? (
+                    <input
+                      type="text"
+                      placeholder="Enter specification name"
+                      value={spec.customName}
+                      onChange={(e) =>
+                        updateSpecification(index, "customName", e.target.value)
+                      }
+                      className={`${inputClass} mt-2`}
+                    />
+                  ) : null}
+                </div>
+                <div className="sm:col-span-7">
+                  <label className={labelClass}>Value</label>
+                  {valueOptions.length > 0 ? (
+                    <select
+                      value={spec.value}
+                      onChange={(e) => updateSpecification(index, "value", e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select value</option>
+                      {valueOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Enter value"
+                      value={spec.value}
+                      onChange={(e) => updateSpecification(index, "value", e.target.value)}
+                      className={inputClass}
+                    />
+                  )}
+                </div>
+                <div className="sm:col-span-1 sm:flex sm:items-end">
+                  <button
+                    type="button"
+                    onClick={() => removeSpecification(index)}
+                    className="w-full rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.isActive}
-            onChange={(e) => setField("isActive", e.target.checked)}
-            className="h-4 w-4 accent-primary"
-          />
-          Active (visible on website)
-        </label>
 
         <button type="submit" className={btnPrimary}>
           {editingId ? "Update Product" : "Add Product"}

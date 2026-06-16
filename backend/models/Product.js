@@ -57,6 +57,22 @@ const productColorSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const productSpecificationSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "Specification name is required"],
+      trim: true,
+    },
+    value: {
+      type: String,
+      required: [true, "Specification value is required"],
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
 const productVariantSchema = new mongoose.Schema(
   {
     name: {
@@ -93,6 +109,10 @@ const productVariantSchema = new mongoose.Schema(
       type: Number,
       min: [0, "Stock cannot be negative"],
       default: 0,
+    },
+    inStock: {
+      type: Boolean,
+      default: true,
     },
     colors: {
       type: [productColorSchema],
@@ -131,6 +151,10 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Subcategory name is required"],
       trim: true,
+    },
+    subcategories: {
+      type: [String],
+      default: [],
     },
     brandName: {
       type: String,
@@ -179,8 +203,12 @@ const productSchema = new mongoose.Schema(
     },
     stock: {
       type: Number,
-      required: [true, "Stock is required"],
       min: [0, "Stock cannot be negative"],
+      default: 0,
+    },
+    inStock: {
+      type: Boolean,
+      default: true,
     },
     colors: {
       type: [productColorSchema],
@@ -209,6 +237,10 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    specifications: {
+      type: [productSpecificationSchema],
+      default: [],
+    },
     warranty: {
       type: String,
       trim: true,
@@ -223,6 +255,7 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ categories: 1, subcategory: 1 });
+productSchema.index({ categories: 1, subcategories: 1 });
 
 const Product = mongoose.model(
   "BulkMobileMartProduct",

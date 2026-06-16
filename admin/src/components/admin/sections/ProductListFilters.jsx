@@ -6,7 +6,7 @@ import {
 const SORT_OPTIONS = [
   { value: "name", label: "Sort by Name" },
   { value: "price", label: "Sort by Price" },
-  { value: "stock", label: "Sort by Stock" },
+  { value: "stock", label: "Sort by availability" },
   { value: "brand", label: "Sort by Brand" },
 ];
 
