@@ -22,22 +22,18 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(ordersControllerProvider.notifier).loadOrders());
-  }
-
   Future<void> _loadOrders() async {
     await ref.read(ordersControllerProvider.notifier).loadOrders();
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    final ordersState = ref.watch(ordersControllerProvider);
+    final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
+    final orders = ref.watch(ordersControllerProvider.select((s) => s.orders));
+    final loading = ref.watch(ordersControllerProvider.select((s) => s.loading));
+    final error = ref.watch(ordersControllerProvider.select((s) => s.error));
 
-    if (!auth.isLoggedIn) {
+    if (!isLoggedIn) {
       return RefreshableBody(
         onRefresh: _loadOrders,
         child: _LoginPrompt(
@@ -46,21 +42,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       );
     }
 
-    if (ordersState.loading && ordersState.orders.isEmpty) {
+    if (loading && orders.isEmpty) {
       return const SkeletonOrderList();
     }
 
-    if (ordersState.error != null && ordersState.orders.isEmpty) {
+    if (error != null && orders.isEmpty) {
       return RefreshableBody(
         onRefresh: _loadOrders,
         child: _OrdersError(
-          message: ordersState.error!,
+          message: error,
           onRetry: _loadOrders,
         ),
       );
     }
 
-    if (ordersState.orders.isEmpty) {
+    if (orders.isEmpty) {
       return RefreshableBody(
         onRefresh: _loadOrders,
         child: _EmptyOrders(onBrowse: () => context.go(RoutePaths.product)),
@@ -69,27 +65,34 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadOrders,
-      child: ListView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        children: [
-          const Text(
-            'My Orders',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Track, manage and reorder your purchases',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          ...ordersState.orders.map(
-            (order) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _OrderCard(order: order),
-            ),
-          ),
-        ],
+        itemCount: orders.length + 3,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return const Text(
+              'My Orders',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            );
+          }
+          if (index == 1) {
+            return const Padding(
+              padding: EdgeInsets.only(top: 4, bottom: 16),
+              child: Text(
+                'Track, manage and reorder your purchases',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            );
+          }
+          if (index == orders.length + 2) return const SizedBox.shrink();
+
+          final order = orders[index - 2];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _OrderCard(order: order),
+          );
+        },
       ),
     );
   }
@@ -218,6 +221,10 @@ class _OrderCardState extends State<_OrderCard> {
                                   child: AppNetworkImage(
                                     imageUrl: item.image,
                                     fit: BoxFit.contain,
+                                    width: 48,
+                                    height: 48,
+                                    cacheWidth: 96,
+                                    cacheHeight: 96,
                                     errorIcon: Icons.image_outlined,
                                   ),
                                 )

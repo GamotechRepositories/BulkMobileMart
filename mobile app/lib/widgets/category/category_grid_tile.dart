@@ -39,8 +39,41 @@ List<Category> filterShopCategories(List<Category> categories) {
       .toList();
 }
 
+/// Fallback labels when API categories are unavailable (frontend CategoryNav).
+const defaultShopCategoryNames = [
+  'Chargers',
+  'Earphones',
+  'Cables',
+  'Neckbands',
+  'Power Banks',
+  'Smart Watches',
+  'Bluetooth Speakers',
+  'Mobile Covers',
+  'Tempered Glass',
+  'Adapters',
+];
+
+List<Category> defaultShopCategories() {
+  return defaultShopCategoryNames
+      .map(
+        (name) => Category(
+          id: name.toLowerCase().replaceAll(' ', '-'),
+          categoryName: name,
+          categoryImage: '',
+        ),
+      )
+      .toList();
+}
+
+/// API categories when available; otherwise frontend-style defaults.
+List<Category> resolveDisplayCategories(List<Category> categories) {
+  final filtered = filterShopCategories(categories);
+  if (filtered.isNotEmpty) return filtered;
+  return defaultShopCategories();
+}
+
 /// Visual style for category tiles.
-enum CategoryTileStyle { card, flat }
+enum CategoryTileStyle { card, flat, storefront }
 
 /// Large storefront category tile (3-column grid).
 class CategoryGridTile extends StatelessWidget {
@@ -98,10 +131,87 @@ class CategoryGridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (style == CategoryTileStyle.flat) {
-      return _buildFlatTile(context);
+    switch (style) {
+      case CategoryTileStyle.flat:
+        return _buildFlatTile(context);
+      case CategoryTileStyle.storefront:
+        return _buildStorefrontTile(context);
+      case CategoryTileStyle.card:
+        return _buildCardTile(context);
     }
-    return _buildCardTile(context);
+  }
+
+  Widget _buildStorefrontTile(BuildContext context) {
+    final tileIcon = icon ?? Icons.category_outlined;
+    final resolvedImage = category != null
+        ? resolveCategoryImageUrl(category!)
+        : (isUsableCategoryImage(imageUrl) ? imageUrl!.trim() : null);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+                  child: Center(
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: isMore
+                          ? Icon(
+                              Icons.grid_view_rounded,
+                              size: 32,
+                              color: AppColors.primary,
+                            )
+                          : resolvedImage != null
+                              ? AppNetworkImage(
+                                  imageUrl: resolvedImage,
+                                  fit: BoxFit.contain,
+                                  cacheWidth: 112,
+                                  cacheHeight: 112,
+                                  errorIcon: tileIcon,
+                                  errorIconSize: 32,
+                                )
+                              : Icon(
+                                  tileIcon,
+                                  size: 32,
+                                  color: AppColors.textPrimary,
+                                ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: isMore ? AppColors.primary : AppColors.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFlatTile(BuildContext context) {

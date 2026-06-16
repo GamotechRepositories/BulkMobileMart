@@ -5,9 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/bootstrap/app_bootstrap.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
-import '../../routes/app_router.dart';
-import '../../routes/route_paths.dart';
-import 'cart/added_to_cart_toast.dart';
 import 'common/app_splash.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
@@ -41,19 +38,19 @@ class _AppShellState extends ConsumerState<AppShell> {
       activeIcon: Icons.receipt_long_rounded,
     ),
     FlipkartNavItem(
-      label: 'Account',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-    ),
-    FlipkartNavItem(
       label: 'Cart',
       icon: Icons.shopping_cart_outlined,
       activeIcon: Icons.shopping_cart_rounded,
       showBadge: true,
     ),
+    FlipkartNavItem(
+      label: 'Account',
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+    ),
   ];
 
-  static const _authRequiredIndices = {2, 4};
+  static const _authRequiredIndices = {2, 3};
 
   @override
   void initState() {
@@ -106,7 +103,6 @@ class _AppShellState extends ConsumerState<AppShell> {
               ],
             ),
             const _ShellSideEffects(),
-            const AddedToCartToast(),
             const WishlistToast(),
           ],
         ),
@@ -132,21 +128,6 @@ class _ShellSideEffects extends ConsumerWidget {
         bootstrapUserSession(ref);
       } else if (previous?.isLoggedIn != true && next.isLoggedIn) {
         bootstrapUserSession(ref);
-      }
-    });
-
-    ref.listen(cartControllerProvider, (previous, next) {
-      if (next.navigateToCheckout) {
-        ref.read(cartControllerProvider.notifier).clearCheckoutNavigation();
-        ref.read(routerProvider).push(RoutePaths.checkout);
-      }
-      if (next.errorMessage != null &&
-          next.errorMessage != previous?.errorMessage) {
-        final message = next.errorMessage!;
-        ref.read(cartControllerProvider.notifier).clearError();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
       }
     });
 

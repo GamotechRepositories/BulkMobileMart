@@ -43,6 +43,8 @@ export const placeOrder = async (req, res) => {
       return res.status(result.status).json({
         success: false,
         message: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        ...(result.removedItems ? { removedItems: result.removedItems } : {}),
       });
     }
 

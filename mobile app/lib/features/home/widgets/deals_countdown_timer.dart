@@ -45,7 +45,8 @@ class _DealsCountdownTimerState extends State<DealsCountdownTimer> {
     final minutes = _pad(_remaining.inMinutes.remainder(60));
     final seconds = _pad(_remaining.inSeconds.remainder(60));
 
-    return Container(
+    return RepaintBoundary(
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: AppDecorations.pill(),
       child: Row(
@@ -65,6 +66,7 @@ class _DealsCountdownTimerState extends State<DealsCountdownTimer> {
           ),
         ],
       ),
+    ),
     );
   }
 }

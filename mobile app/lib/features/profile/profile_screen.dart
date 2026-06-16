@@ -25,12 +25,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _savingAddress = false;
   String? _formError;
 
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(addressControllerProvider.notifier).loadAddresses());
-  }
-
   Future<void> _handleSaveAddress(Map<String, String> form) async {
     setState(() {
       _savingAddress = true;
@@ -88,10 +82,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authControllerProvider);
-    final addresses = ref.watch(addressControllerProvider);
+    final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
+    final user = ref.watch(authControllerProvider.select((s) => s.user));
+    final addresses = ref.watch(addressControllerProvider.select((s) => s.addresses));
+    final addressesLoading =
+        ref.watch(addressControllerProvider.select((s) => s.loading));
 
-    if (!auth.isLoggedIn) {
+    if (!isLoggedIn) {
       return RefreshableBody(
         onRefresh: _refreshProfile,
         child: Center(
@@ -117,7 +114,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
 
-    final user = auth.user!;
+    if (user == null) {
+      return RefreshableBody(
+        onRefresh: _refreshProfile,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final packageInfo = ref.watch(packageInfoProvider);
 
     return RefreshIndicator(
@@ -188,9 +191,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 8),
                   Text(_formError!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
                 ],
-              ] else if (addresses.loading)
+              ] else if (addressesLoading)
                 const SkeletonAddressList()
-              else if (addresses.addresses.isEmpty)
+              else if (addresses.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Text(
@@ -199,7 +202,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 )
               else
-                ...addresses.addresses.map(
+                ...addresses.map(
                   (address) => Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: _AddressCard(

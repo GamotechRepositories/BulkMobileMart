@@ -222,9 +222,10 @@ function Checkout() {
     });
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!selectedAddressId || placingOrder) return;
     setOrderError("");
+    await loadCart();
     setShowPaymentModal(true);
   };
 
@@ -259,9 +260,12 @@ function Checkout() {
         "Your order is confirmed. We will verify your UPI payment screenshot shortly."
       );
     } catch (err) {
-      setOrderError(
-        err.response?.data?.message || "Failed to submit payment proof. Please try again."
-      );
+      const message =
+        err.response?.data?.message || "Failed to submit payment proof. Please try again.";
+      setOrderError(message);
+      if (message.toLowerCase().includes("no longer available")) {
+        await loadCart();
+      }
     } finally {
       setPlacingOrder(false);
     }

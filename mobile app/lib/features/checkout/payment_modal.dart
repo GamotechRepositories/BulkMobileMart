@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
+import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/upi_payment.dart';
 import '../../widgets/common/image_source_sheet.dart';
@@ -25,7 +27,7 @@ class PaymentModal extends StatefulWidget {
   final String paymentMethod;
   final double orderTotal;
   final VoidCallback onPayWithRazorpay;
-  final Future<void> Function({
+  final Future<String?> Function({
     required String screenshotUrl,
     required String screenshotName,
     required String upiTransactionRef,
@@ -43,10 +45,12 @@ class _PaymentModalState extends State<PaymentModal> {
 
   final _picker = ImagePicker();
   String? _screenshotUrl;
+  String? _screenshotLocalPath;
   String? _screenshotName;
   String _upiTransactionRef = '';
   String? _uploadError;
   bool _uploadingScreenshot = false;
+  bool _submittingProof = false;
   String _upiHint = '';
 
   bool get _isCod => widget.paymentMethod == 'cod';
@@ -57,13 +61,28 @@ class _PaymentModalState extends State<PaymentModal> {
   String get _paymentNote => _isCod ? 'COD Advance' : 'Order Payment';
 
   Future<void> _pickScreenshot() async {
-    final source = await showImageSourceSheet(context);
+    final source = await showImageSourceSheet(context, useRootNavigator: true);
     if (source == null) return;
 
-    final picked = await _picker.pickImage(source: source);
+    XFile? picked;
+    try {
+      picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 92,
+      );
+    } on PlatformException {
+      if (!mounted) return;
+      setState(() => _uploadError = 'Unable to open camera/gallery. Please allow permission.');
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _uploadError = 'Unable to pick screenshot. Please try again.');
+      return;
+    }
     if (picked == null) return;
+    final pickedFile = picked;
 
-    final file = File(picked.path);
+    final file = File(pickedFile.path);
     final bytes = await file.length();
     if (bytes > _maxScreenshotBytes) {
       setState(() => _uploadError = 'Image must be under 5 MB');
@@ -73,22 +92,28 @@ class _PaymentModalState extends State<PaymentModal> {
     setState(() {
       _uploadingScreenshot = true;
       _uploadError = null;
+      _screenshotLocalPath = pickedFile.path;
+      _screenshotUrl = null;
+      _screenshotName = null;
     });
 
     try {
-      final url = await widget.onUploadScreenshot(picked.path);
+      final url = await widget.onUploadScreenshot(pickedFile.path);
       if (!mounted) return;
       setState(() {
         _screenshotUrl = url;
-        _screenshotName = picked.name;
+        _screenshotName = pickedFile.name;
         _uploadingScreenshot = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _uploadError = 'Failed to upload screenshot';
+        _uploadError = e is ApiException
+            ? e.message
+            : 'Failed to upload screenshot. Please try again.';
         _screenshotUrl = null;
         _screenshotName = null;
+        _screenshotLocalPath = null;
         _uploadingScreenshot = false;
       });
     }
@@ -112,18 +137,31 @@ class _PaymentModalState extends State<PaymentModal> {
       return;
     }
 
-    setState(() => _uploadError = null);
-    await widget.onSubmitUpiProof(
+    setState(() {
+      _uploadError = null;
+      _submittingProof = true;
+    });
+    final error = await widget.onSubmitUpiProof(
       screenshotUrl: _screenshotUrl!,
       screenshotName: _screenshotName ?? 'screenshot.jpg',
       upiTransactionRef: _upiTransactionRef.trim(),
     );
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context, rootNavigator: true).pop();
+      return;
+    }
+    setState(() {
+      _uploadError = error;
+      _submittingProof = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final qrUrl = UpiPayment.getQrCodeImageUrl(_payableAmount, note: _paymentNote);
     final displayError = widget.error.isNotEmpty ? widget.error : (_uploadError ?? '');
+    final busy = widget.processing || _uploadingScreenshot || _submittingProof;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -142,7 +180,7 @@ class _PaymentModalState extends State<PaymentModal> {
                     ),
                   ),
                   IconButton(
-                    onPressed: widget.processing ? null : () => Navigator.pop(context),
+                    onPressed: busy ? null : () => Navigator.pop(context),
                     icon: const Icon(Icons.close, size: 20),
                   ),
                 ],
@@ -232,7 +270,7 @@ class _PaymentModalState extends State<PaymentModal> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: widget.processing ? null : _payViaApp,
+                              onPressed: busy ? null : _payViaApp,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF25D366),
                                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -273,23 +311,42 @@ class _PaymentModalState extends State<PaymentModal> {
                             style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: 8),
-                          if (_screenshotUrl != null)
+                          if (_screenshotLocalPath != null || _screenshotUrl != null)
                             Column(
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: CachedNetworkImage(
-                                    imageUrl: _screenshotUrl!,
-                                    height: 64,
-                                    width: double.infinity,
-                                    fit: BoxFit.contain,
-                                  ),
+                                  child: _screenshotLocalPath != null
+                                      ? Image.file(
+                                          File(_screenshotLocalPath!),
+                                          height: 120,
+                                          width: double.infinity,
+                                          fit: BoxFit.contain,
+                                        )
+                                      : CachedNetworkImage(
+                                          imageUrl: _screenshotUrl!,
+                                          height: 120,
+                                          width: double.infinity,
+                                          fit: BoxFit.contain,
+                                        ),
                                 ),
+                                if (_uploadingScreenshot)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      'Uploading screenshot...',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
                                 TextButton(
-                                  onPressed: widget.processing
+                                  onPressed: busy
                                       ? null
                                       : () => setState(() {
                                             _screenshotUrl = null;
+                                            _screenshotLocalPath = null;
                                             _screenshotName = null;
                                             _uploadError = null;
                                           }),
@@ -302,9 +359,7 @@ class _PaymentModalState extends State<PaymentModal> {
                             )
                           else
                             OutlinedButton.icon(
-                              onPressed: widget.processing || _uploadingScreenshot
-                                  ? null
-                                  : _pickScreenshot,
+                              onPressed: busy ? null : _pickScreenshot,
                               icon: const Icon(Icons.upload_file, size: 16),
                               label: Text(
                                 _uploadingScreenshot ? 'Uploading...' : 'Choose screenshot',
@@ -313,7 +368,7 @@ class _PaymentModalState extends State<PaymentModal> {
                             ),
                           const SizedBox(height: 8),
                           TextField(
-                            enabled: !widget.processing,
+                            enabled: !busy,
                             decoration: const InputDecoration(
                               hintText: 'UPI Transaction ID (optional)',
                               isDense: true,
@@ -337,21 +392,17 @@ class _PaymentModalState extends State<PaymentModal> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: widget.processing ||
-                              _uploadingScreenshot ||
-                              _screenshotUrl == null
-                          ? null
-                          : _submitProof,
-                      child: Text(widget.processing ? 'Sending...' : 'Send screenshot'),
+                      onPressed: busy || _uploadingScreenshot || _screenshotUrl == null ? null : _submitProof,
+                      child: Text(_submittingProof ? 'Sending...' : 'Send screenshot'),
                     ),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: widget.processing ? null : widget.onPayWithRazorpay,
+                      onPressed: busy ? null : widget.onPayWithRazorpay,
                       child: Text(
-                        widget.processing ? 'Processing...' : 'Pay via Razorpay instead',
+                        busy ? 'Processing...' : 'Pay via Razorpay instead',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),

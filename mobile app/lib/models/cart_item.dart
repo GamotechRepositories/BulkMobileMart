@@ -11,6 +11,8 @@ class CartItem {
     required this.productImages,
     required this.stock,
     required this.quantity,
+    this.variantName = '',
+    this.colorName = '',
   });
 
   final String id;
@@ -21,6 +23,8 @@ class CartItem {
   final List<String> productImages;
   final int stock;
   final int quantity;
+  final String variantName;
+  final String colorName;
 
   double get lineTotal => discountedPrice * quantity;
 
@@ -34,6 +38,8 @@ class CartItem {
       productImages: productImages,
       stock: stock,
       quantity: quantity ?? this.quantity,
+      variantName: variantName,
+      colorName: colorName,
     );
   }
 
@@ -47,6 +53,8 @@ class CartItem {
       productImages: product.productImages,
       stock: product.stock,
       quantity: quantity,
+      variantName: '',
+      colorName: '',
     );
   }
 
@@ -67,6 +75,8 @@ class CartItem {
           .toList(),
       stock: _toInt(product['stock']),
       quantity: _toInt(json['quantity']),
+      variantName: json['variantName']?.toString() ?? '',
+      colorName: json['colorName']?.toString() ?? '',
     );
   }
 }

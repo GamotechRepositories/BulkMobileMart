@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
@@ -27,8 +27,54 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
-  int _quantity = AppConstants.moq;
+  int _quantity = defaultSingleMoq;
   String _activeTab = 'description';
+  String _selectedVariant = '';
+  String _selectedColor = '';
+  String? _quantitySyncedKey;
+  bool _isAddedToCart = false;
+
+  @override
+  void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.productId != widget.productId) {
+      _quantitySyncedKey = null;
+      _selectedVariant = '';
+      _selectedColor = '';
+      _quantity = defaultSingleMoq;
+      _activeTab = 'description';
+      _isAddedToCart = false;
+    }
+  }
+
+  void _syncQuantityForProduct(Product product, String activeVariantName) {
+    final key = '${widget.productId}|$activeVariantName';
+    if (_quantitySyncedKey == key) return;
+    _quantitySyncedKey = key;
+
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
+    final nextQuantity = minOrderQuantity.clamp(minOrderQuantity, maxQuantity);
+
+    if (_quantity != nextQuantity) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _quantity = nextQuantity);
+      });
+    }
+  }
+
+  void _handleVariantChange(Product product, String variantName) {
+    setState(() {
+      _selectedVariant = variantName;
+      _quantitySyncedKey = null;
+      final minOrderQuantity = getMinOrderQuantity(product, variantName);
+      _quantity = minOrderQuantity;
+      final colors = getAvailableColors(product, variantName);
+      _selectedColor = colors.isNotEmpty ? colors.first.name : '';
+      _isAddedToCart = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,13 +97,33 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Widget _buildContent(BuildContext context, Product product) {
-    final inStock = product.stock > 0;
-    final maxQuantity =
-        inStock ? (product.stock > AppConstants.moq ? product.stock : AppConstants.moq) : AppConstants.moq;
+    final activeVariantName = resolveActiveVariantName(product, _selectedVariant);
+    if (isMultiVariant(product) && _selectedVariant.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _selectedVariant.isNotEmpty) return;
+        _handleVariantChange(product, product.variants.first.name);
+      });
+    }
+    _syncQuantityForProduct(product, activeVariantName);
+
+    final variantStock = getVariantStock(product, activeVariantName);
+    final inStock = variantStock > 0;
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
+    final currentUnitPrice =
+        getUnitPriceForQuantity(product, _quantity, activeVariantName);
+    final bulkTiers = getBulkTierRows(product, activeVariantName);
+    final showBulkSection = isBulkPricing(product, activeVariantName);
     final images = product.productImages;
-    final bulkTiers = getBulkTiers(product.discountedPrice);
     final category = product.categories.isNotEmpty ? product.categories.first : 'Products';
     final rating = product.ratings > 0 ? product.ratings : 4.5;
+    final availableColors = getAvailableColors(product, activeVariantName);
+    if (_selectedColor.isEmpty && availableColors.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _selectedColor.isNotEmpty) return;
+        setState(() => _selectedColor = availableColors.first.name);
+      });
+    }
 
     return Column(
       children: [
@@ -113,14 +179,31 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                formatInr(product.discountedPrice, withDecimals: true),
+                formatProductPriceLabel(
+                  product,
+                  (amount) => formatInr(amount, withDecimals: true),
+                  activeVariantName,
+                ),
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
                 ),
               ),
-              if (product.price > product.discountedPrice)
+              if (showBulkSection)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Current selection: ${formatInr(currentUnitPrice, withDecimals: true)} / piece',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              if (!showBulkSection &&
+                  product.price > product.discountedPrice &&
+                  !isMultiVariant(product))
                 Text(
                   formatInr(product.price, withDecimals: true),
                   style: const TextStyle(
@@ -130,7 +213,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               const SizedBox(height: 8),
               Text(
-                inStock ? 'In Stock (${product.stock} available)' : 'Out of Stock',
+                inStock ? 'In Stock ($variantStock available)' : 'Out of Stock',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: inStock ? Colors.green.shade700 : Colors.red,
@@ -142,54 +225,123 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.mobileSurface,
-                  borderRadius: BorderRadius.circular(12),
+              if (isMultiVariant(product)) ...[
+                const Text(
+                  'Select variant',
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Bulk pricing', style: TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    ...bulkTiers.map(
-                      (tier) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(tier.qtyLabel),
-                            Text(
-                              formatInr(tier.price, withDecimals: true),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: product.variants.map((variant) {
+                    final isActive = activeVariantName == variant.name;
+                    return ChoiceChip(
+                      label: Text(variant.name),
+                      selected: isActive,
+                      onSelected: (_) => _handleVariantChange(product, variant.name),
+                      selectedColor: AppColors.primary,
+                      labelStyle: TextStyle(
+                        color: isActive ? Colors.white : AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (showBulkSection || isMultiVariant(product))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    [
+                      if (showBulkSection) 'MOQ: $minOrderQuantity Pieces',
+                      if (isMultiVariant(product)) 'Stock: $variantStock',
+                    ].join(' · '),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              if (bulkTiers.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.mobileSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Bulk Price (Per Piece)',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      ...bulkTiers.map(
+                        (tier) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(tier.qtyLabel),
+                              Text(
+                                formatInr(tier.price, withDecimals: true),
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
+              if (bulkTiers.isNotEmpty) const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
                   _QuantitySelector(
                     quantity: _quantity,
-                    min: AppConstants.moq,
+                    min: minOrderQuantity,
                     max: maxQuantity,
                     disabled: !inStock,
                     onDecrease: () => setState(() {
-                      if (_quantity > AppConstants.moq) _quantity--;
+                      if (_quantity > minOrderQuantity) _quantity--;
+                      _isAddedToCart = false;
                     }),
                     onIncrease: () => setState(() {
                       if (_quantity < maxQuantity) _quantity++;
+                      _isAddedToCart = false;
                     }),
                   ),
                 ],
               ),
+              if (availableColors.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Select color',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: availableColors
+                      .map(
+                        (color) => ChoiceChip(
+                          label: Text(color.name),
+                          selected: _selectedColor == color.name,
+                          onSelected: (_) =>
+                              setState(() => _selectedColor = color.name),
+                          selectedColor: AppColors.primary.withValues(alpha: 0.12),
+                          backgroundColor: AppColors.mobileSurface,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -239,8 +391,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: inStock ? () => _addToCart(product) : null,
-                  child: const Text('Add to Cart'),
+                  onPressed: inStock
+                      ? () {
+                          if (_isAddedToCart) {
+                            context.go(RoutePaths.cart);
+                            return;
+                          }
+                          _addToCart(product);
+                        }
+                      : null,
+                  child: Text(_isAddedToCart ? 'Go to Cart' : 'Add to Cart'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -282,7 +442,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Future<void> _addToCart(Product product) async {
     final result = await ref
         .read(cartControllerProvider.notifier)
-        .addToCart(product, _quantity);
+        .addToCart(
+          product,
+          _quantity,
+          variantName: _selectedVariant,
+          colorName: _selectedColor,
+        );
+    if (result == AddToCartResult.success && mounted) {
+      setState(() => _isAddedToCart = true);
+    }
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
     }
@@ -293,6 +461,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           product,
           _quantity,
           buyNow: true,
+          variantName: _selectedVariant,
+          colorName: _selectedColor,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();

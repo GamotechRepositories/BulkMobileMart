@@ -1,4 +1,5 @@
 import '../core/utils/json_parsers.dart';
+import 'product_pricing_models.dart';
 
 class Product {
   const Product({
@@ -17,6 +18,11 @@ class Product {
     this.features = const [],
     this.warranty = '',
     this.isActive = true,
+    this.variantType = 'single',
+    this.variants = const [],
+    this.pricingType = 'single',
+    this.bulkPricing = const BulkPricing(),
+    this.colors = const [],
   });
 
   final String id;
@@ -34,6 +40,11 @@ class Product {
   final List<String> features;
   final String warranty;
   final bool isActive;
+  final String variantType;
+  final List<ProductVariant> variants;
+  final String pricingType;
+  final BulkPricing bulkPricing;
+  final List<ProductColor> colors;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -61,6 +72,17 @@ class Product {
           .toList(),
       warranty: json['warranty']?.toString() ?? '',
       isActive: json['isActive'] as bool? ?? true,
+      variantType: json['variantType']?.toString() ?? 'single',
+      variants: (json['variants'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProductVariant.fromJson)
+          .toList(),
+      pricingType: json['pricingType']?.toString() ?? 'single',
+      bulkPricing: BulkPricing.fromJson(json['bulkPricing']),
+      colors: (json['colors'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProductColor.fromJson)
+          .toList(),
     );
   }
 }

@@ -58,8 +58,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     Future.microtask(() {
-      ref.read(cartControllerProvider.notifier).loadCart();
-      ref.read(addressControllerProvider.notifier).loadAddresses();
+      final cart = ref.read(cartControllerProvider);
+      if (cart.items.isEmpty && !cart.loading) {
+        ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+      }
+      final addresses = ref.read(addressControllerProvider);
+      if (addresses.addresses.isEmpty && !addresses.loading) {
+        ref.read(addressControllerProvider.notifier).loadAddresses();
+      }
     });
   }
 
@@ -128,9 +134,19 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
   }
 
-  void _openPaymentModal() {
+  void _openPaymentModal() async {
     if (_selectedAddressId == null || _placingOrder) return;
     setState(() => _orderError = '');
+
+    await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+    if (!mounted) return;
+
+    final cartItems = ref.read(cartControllerProvider).items;
+    if (cartItems.isEmpty) {
+      setState(() => _orderError = 'Your cart is empty. Please add items before checkout.');
+      if (mounted) context.go(RoutePaths.cart);
+      return;
+    }
 
     showDialog<void>(
       context: context,
@@ -151,7 +167,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           required String screenshotName,
           required String upiTransactionRef,
         }) async {
-          await _submitUpiProof(
+          return _submitUpiProof(
             screenshot: screenshotUrl,
             screenshotName: screenshotName,
             upiTransactionRef: upiTransactionRef,
@@ -249,16 +265,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     // no-op
   }
 
-  Future<void> _submitUpiProof({
+  Future<String?> _submitUpiProof({
     required String screenshot,
     required String screenshotName,
     required String upiTransactionRef,
   }) async {
-    setState(() {
-      _placingOrder = true;
-      _orderError = '';
-    });
-
     try {
       await ref.read(apiServiceProvider).submitUpiPaymentProof({
         'addressId': _selectedAddressId,
@@ -268,17 +279,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'screenshotName': screenshotName,
         'upiTransactionRef': upiTransactionRef,
       });
-      if (mounted) Navigator.of(context).pop();
       await _completeOrderSuccess(
         'Your order is confirmed. We will verify your UPI payment screenshot shortly.',
       );
+      return null;
     } catch (e) {
-      setState(() {
-        _orderError = e is ApiException
-            ? e.message
-            : 'Failed to submit payment proof. Please try again.';
-        _placingOrder = false;
-      });
+      final message = e is ApiException
+          ? e.message
+          : 'Failed to submit payment proof. Please try again.';
+      if (mounted) {
+        setState(() => _orderError = message);
+        if (message.toLowerCase().contains('no longer available')) {
+          await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+        }
+      }
+      return message;
     }
   }
 
@@ -707,6 +722,16 @@ class _CheckoutLineItem extends StatelessWidget {
                 'Qty: ${item.quantity}',
                 style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
+              if (item.variantName.isNotEmpty)
+                Text(
+                  'Variant: ${item.variantName}',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              if (item.colorName.isNotEmpty)
+                Text(
+                  'Color: ${item.colorName}',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
             ],
           ),
         ),

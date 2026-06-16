@@ -33,9 +33,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.home,
     routes: [
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (context, state, navigationShell) {
           return AppShell(navigationShell: navigationShell);
+        },
+        navigatorContainerBuilder: (context, navigationShell, children) {
+          return children[navigationShell.currentIndex];
         },
         branches: [
           StatefulShellBranch(
@@ -81,20 +84,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: _shellNavigatorProfileKey,
-            routes: [
-              GoRoute(
-                path: RoutePaths.profile,
-                builder: (context, state) => const ProfileScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
             navigatorKey: _shellNavigatorCartKey,
             routes: [
               GoRoute(
                 path: RoutePaths.cart,
                 builder: (context, state) => const CartScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorProfileKey,
+            routes: [
+              GoRoute(
+                path: RoutePaths.profile,
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),

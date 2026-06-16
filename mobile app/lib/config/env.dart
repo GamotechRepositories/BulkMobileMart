@@ -1,4 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 class Env {
   Env._();
@@ -11,6 +12,11 @@ class Env {
   static const productionApiUrl = 'https://api.bulkmobilemart.in';
 
   static String get apiUrl {
+    // Production/release builds must always use live backend.
+    if (kReleaseMode) {
+      return productionApiUrl;
+    }
+
     final raw = dotenv.env['API_URL']?.trim();
     final url =
         raw != null && raw.isNotEmpty ? raw : productionApiUrl;

@@ -82,6 +82,50 @@ export function addressToSnapshot(address) {
   };
 }
 
+export function listUnavailableCartItems(items = []) {
+  const unavailable = [];
+  const available = [];
+
+  for (const item of items) {
+    if (!item?.product) {
+      unavailable.push({
+        productId: item?.product,
+        name: "Unavailable product",
+        reason: "missing",
+      });
+      continue;
+    }
+
+    if (item.product.isActive === false) {
+      unavailable.push({
+        productId: item.product._id,
+        name: item.product.name || "Unavailable product",
+        reason: "inactive",
+      });
+      continue;
+    }
+
+    available.push(item);
+  }
+
+  return { unavailable, available };
+}
+
+export async function pruneUnavailableCartItems(cart) {
+  if (!cart?.items?.length) {
+    return { removed: [], changed: false };
+  }
+
+  const { unavailable, available } = listUnavailableCartItems(cart.items);
+  if (!unavailable.length) {
+    return { removed: [], changed: false };
+  }
+
+  cart.items = available;
+  await cart.save();
+  return { removed: unavailable, changed: true };
+}
+
 async function resolveCheckoutItems(rawItems) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: "No items to checkout", status: 400 };
@@ -169,10 +213,11 @@ function buildOrderItemsFromResolved(items) {
   let subtotal = 0;
 
   for (const item of items) {
-    if (!item.product || !item.product.isActive) {
+    if (!item.product || item.product.isActive === false) {
       return {
         error: "One or more products are no longer available",
         status: 400,
+        code: "CART_ITEMS_UNAVAILABLE",
       };
     }
 
@@ -204,6 +249,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const checkoutMode = options.checkoutItems?.length ? "buyNow" : "cart";
   let itemsToProcess = [];
+  let cart = null;
 
   if (checkoutMode === "buyNow") {
     const resolved = await resolveCheckoutItems(options.checkoutItems);
@@ -211,11 +257,28 @@ export async function prepareOrderData(userId, addressId, options = {}) {
       return { error: resolved.error, status: resolved.status };
     }
     itemsToProcess = resolved.items;
+    cart = await populateCart(Cart.findOne({ user: userId }));
   } else {
-    const cart = await populateCart(Cart.findOne({ user: userId }));
+    cart = await populateCart(Cart.findOne({ user: userId }));
     if (!cart?.items?.length) {
       return { error: "Your cart is empty", status: 400 };
     }
+
+    const { removed } = await pruneUnavailableCartItems(cart);
+    if (removed.length) {
+      const names = removed.map((item) => item.name).join(", ");
+      return {
+        error: `These items are no longer available: ${names}. They were removed from your cart. Please review and try again.`,
+        status: 400,
+        code: "CART_ITEMS_UNAVAILABLE",
+        removedItems: removed,
+      };
+    }
+
+    if (!cart.items.length) {
+      return { error: "Your cart is empty", status: 400 };
+    }
+
     itemsToProcess = cart.items;
   }
 
@@ -225,7 +288,6 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   }
 
   const { orderItems, subtotal } = built;
-  const cart = await populateCart(Cart.findOne({ user: userId }));
 
   const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const total = subtotal + deliveryCharges;

@@ -1,0 +1,55 @@
+import 'package:bulk_mobile_mart/core/utils/product_pricing.dart';
+import 'package:bulk_mobile_mart/models/product.dart';
+import 'package:bulk_mobile_mart/models/product_pricing_models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('Product pricing', () {
+    test('uses bulk MOQ from API instead of hardcoded default', () {
+      final product = Product.fromJson({
+        'id': 'bulk1',
+        'name': 'Bulk Cable',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 200,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'bulkPricing': {
+          'minOrderQuantity': 25,
+          'slabs': [
+            {'minQuantity': 25, 'maxQuantity': 49, 'pricePerUnit': 90},
+            {'minQuantity': 50, 'maxQuantity': null, 'pricePerUnit': 80},
+          ],
+        },
+      });
+
+      expect(getMinOrderQuantity(product), 25);
+      expect(getUnitPriceForQuantity(product, 25), 90);
+      expect(getUnitPriceForQuantity(product, 50), 80);
+      expect(getBulkTierRows(product).length, 2);
+    });
+
+    test('single pricing defaults MOQ to 1', () {
+      final product = Product.fromJson({
+        'id': 'single1',
+        'name': 'Single Item',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 12,
+        'productImages': [],
+        'pricingType': 'single',
+      });
+
+      expect(getMinOrderQuantity(product), defaultSingleMoq);
+      expect(getMaxOrderQuantity(product, ''), 12);
+    });
+  });
+}

@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 /// Asks the user to pick camera or gallery for image upload flows.
-Future<ImageSource?> showImageSourceSheet(BuildContext context) {
+Future<ImageSource?> showImageSourceSheet(
+  BuildContext context, {
+  bool useRootNavigator = true,
+}) {
   return showModalBottomSheet<ImageSource>(
     context: context,
+    useRootNavigator: useRootNavigator,
     builder: (context) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

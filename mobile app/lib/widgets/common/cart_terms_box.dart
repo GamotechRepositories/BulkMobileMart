@@ -9,53 +9,48 @@ class CartTermsBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Terms & Conditions',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          const SizedBox(height: 12),
-          const _TermItem('Minimum order quantity is 10 units unless stated otherwise.'),
-          const _TermItem('Orders are subject to stock availability and confirmation.'),
-          const _TermItem('Prices include GST where applicable; invoices are GST-compliant.'),
-          const _TermItem('Delivery timelines vary by location and order size.'),
-          const _TermItem('Returns for defective goods must be reported within the specified timeframe.'),
-          const SizedBox(height: 12),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              const Text(
-                'By placing an order, you agree to our ',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
-              ),
-              GestureDetector(
-                onTap: () => context.push(RoutePaths.terms),
-                child: const Text(
-                  'Terms & Conditions',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 24),
+        const Text(
+          'Terms & Conditions',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
+        const SizedBox(height: 10),
+        const _TermItem('Minimum order quantity is 10 units unless stated otherwise.'),
+        const _TermItem('Orders are subject to stock availability and confirmation.'),
+        const _TermItem('Prices include GST where applicable; invoices are GST-compliant.'),
+        const _TermItem('Delivery timelines vary by location and order size.'),
+        const _TermItem(
+          'Returns for defective goods must be reported within the specified timeframe.',
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              'By placing an order, you agree to our ',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+            ),
+            GestureDetector(
+              onTap: () => context.push(RoutePaths.terms),
+              child: const Text(
+                'Terms & Conditions',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
               ),
-              const Text(
-                '.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+            const Text(
+              '.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

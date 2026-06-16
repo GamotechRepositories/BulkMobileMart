@@ -13,11 +13,15 @@ class PendingCartAction {
     required this.product,
     required this.quantity,
     this.buyNow = false,
+    this.variantName = '',
+    this.colorName = '',
   });
 
   final Product product;
   final int quantity;
   final bool buyNow;
+  final String variantName;
+  final String colorName;
 }
 
 class CartState {
@@ -90,6 +94,8 @@ class CartController extends Notifier<CartState> {
       pending.product,
       pending.quantity,
       buyNow: pending.buyNow,
+      variantName: pending.variantName,
+      colorName: pending.colorName,
     );
 
     if (result == AddToCartResult.success && pending.buyNow) {
@@ -120,6 +126,8 @@ class CartController extends Notifier<CartState> {
     Product product,
     int quantity, {
     bool buyNow = false,
+    String variantName = '',
+    String colorName = '',
   }) async {
     if (quantity < 1) return AddToCartResult.failed;
 
@@ -130,12 +138,17 @@ class CartController extends Notifier<CartState> {
       return AddToCartResult.failed;
     }
 
+    final effectiveVariant = variantName.trim();
+    final effectiveColor = colorName.trim();
+
     final auth = ref.read(authControllerProvider);
     if (!auth.isLoggedIn) {
       _pending = PendingCartAction(
         product: product,
         quantity: quantity,
         buyNow: buyNow,
+        variantName: effectiveVariant,
+        colorName: effectiveColor,
       );
       ref.read(authControllerProvider.notifier).openAuthModal();
       return AddToCartResult.requiresLogin;
@@ -145,6 +158,8 @@ class CartController extends Notifier<CartState> {
       await ref.read(apiServiceProvider).addToCartItem({
         'productId': product.id,
         'quantity': quantity,
+        'variantName': effectiveVariant,
+        'colorName': effectiveColor,
       });
       await loadCart(silent: true);
 
@@ -177,41 +192,86 @@ class CartController extends Notifier<CartState> {
   }
 
   Future<void> removeFromCart(String productId) async {
+    await removeFromCartLine(productId: productId);
+  }
+
+  Future<void> removeFromCartLine({
+    required String productId,
+    String variantName = '',
+    String colorName = '',
+  }) async {
     final auth = ref.read(authControllerProvider);
     if (!auth.isLoggedIn) return;
 
     final previous = state.items;
+    final v = variantName.trim();
+    final c = colorName.trim();
     state = state.copyWith(
-      items: previous.where((item) => item.id != productId).toList(),
+      items: previous
+          .where(
+            (item) =>
+                item.id != productId ||
+                item.variantName.trim() != v ||
+                item.colorName.trim() != c,
+          )
+          .toList(),
     );
 
     try {
-      await ref.read(apiServiceProvider).removeFromCartItem(productId);
+      await ref.read(apiServiceProvider).removeFromCartItem(
+            productId,
+            variantName: variantName,
+            colorName: colorName,
+          );
     } catch (_) {
       state = state.copyWith(items: previous);
     }
   }
 
   Future<void> updateQuantity(String productId, int quantity) async {
+    await updateCartLineQuantity(productId: productId, quantity: quantity);
+  }
+
+  Future<void> updateCartLineQuantity({
+    required String productId,
+    required int quantity,
+    String variantName = '',
+    String colorName = '',
+  }) async {
     final auth = ref.read(authControllerProvider);
     if (!auth.isLoggedIn) return;
 
     if (quantity < 1) {
-      await removeFromCart(productId);
+      await removeFromCartLine(
+        productId: productId,
+        variantName: variantName,
+        colorName: colorName,
+      );
       return;
     }
 
     final previous = state.items;
+    final v = variantName.trim();
+    final c = colorName.trim();
     state = state.copyWith(
       items: previous
           .map(
-            (item) => item.id == productId ? item.copyWith(quantity: quantity) : item,
+            (item) => item.id == productId &&
+                    item.variantName.trim() == v &&
+                    item.colorName.trim() == c
+                ? item.copyWith(quantity: quantity)
+                : item,
           )
           .toList(),
     );
 
     try {
-      await ref.read(apiServiceProvider).updateCartItemQty(productId, quantity);
+      await ref.read(apiServiceProvider).updateCartItemQty(
+            productId,
+            quantity,
+            variantName: variantName,
+            colorName: colorName,
+          );
     } catch (_) {
       state = state.copyWith(items: previous);
     }
@@ -227,7 +287,11 @@ class CartController extends Notifier<CartState> {
     try {
       await Future.wait(
         items.map(
-          (item) => ref.read(apiServiceProvider).removeFromCartItem(item.id),
+          (item) => ref.read(apiServiceProvider).removeFromCartItem(
+                item.id,
+                variantName: item.variantName,
+                colorName: item.colorName,
+              ),
         ),
       );
     } catch (_) {

@@ -29,33 +29,29 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
   final _searchFocusNode = FocusNode();
 
   void _openMenu() {
-    ref.read(categoriesProvider.future).then((categories) {
-      if (!mounted) return;
-      showGeneralDialog(
-        context: context,
-        barrierDismissible: true,
-        barrierLabel: 'Menu',
-        barrierColor: Colors.black54,
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: _MobileMenuDrawer(
-              categories: categories,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-          );
-        },
-        transitionBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(-1, 0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-            child: child,
-          );
-        },
-      );
-    });
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Menu',
+      barrierColor: Colors.black54,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: _MobileMenuDrawer(
+            onClose: () => Navigator.of(context).pop(),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
+    );
   }
 
   @override
@@ -67,94 +63,59 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
   @override
   Widget build(BuildContext context) {
     final searchBottomPadding = widget.showSearchBar ? 12.0 : 0.0;
+    final topInset = MediaQuery.paddingOf(context).top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.storefrontHeaderOverlay,
-      child: Material(
-        color: Colors.white,
-        elevation: 0,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.headerPrimary,
-                    AppColors.headerPrimaryLight,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.headerPrimary,
+                  AppColors.headerPrimaryLight,
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                  child: Row(
-                    children: [
-                      _HeaderIconButton(
-                        icon: Icons.menu_rounded,
-                        onPressed: _openMenu,
-                        light: true,
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(top: topInset),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                child: Row(
+                  children: [
+                    _HeaderIconButton(
+                      icon: Icons.menu_rounded,
+                      onPressed: _openMenu,
+                      light: true,
+                    ),
+                    const Expanded(
+                      child: Center(
+                        child: AppLogo(height: 42),
                       ),
-                      const Expanded(
-                        child: Center(
-                          child: AppLogo(height: 42),
-                        ),
-                      ),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _HeaderIconButton(
-                            icon: Icons.notifications_none_rounded,
-                            onPressed: () => context.go(RoutePaths.orders),
-                            light: true,
-                          ),
-                          Positioned(
-                            right: 4,
-                            top: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade600,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: const Text(
-                                '3',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                    _HeaderIconButton(
+                      icon: Icons.favorite_border_rounded,
+                      onPressed: () => context.go(RoutePaths.wishlist),
+                      light: true,
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (widget.showSearchBar)
-              ColoredBox(
-                color: AppColors.headerSearchBg,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(12, 8, 12, searchBottomPadding),
-                  child: MobileSearchBar(focusNode: _searchFocusNode),
-                ),
+          ),
+          if (widget.showSearchBar)
+            ColoredBox(
+              color: AppColors.headerSearchBg,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12, 8, 12, searchBottomPadding),
+                child: MobileSearchBar(focusNode: _searchFocusNode),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -197,15 +158,15 @@ class _HeaderIconButton extends StatelessWidget {
 
 class _MobileMenuDrawer extends ConsumerWidget {
   const _MobileMenuDrawer({
-    required this.categories,
     required this.onClose,
   });
 
-  final List<Category> categories;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final categories = categoriesAsync.value ?? const <Category>[];
     final isLoggedIn = ref.watch(
       authControllerProvider.select((s) => s.isLoggedIn),
     );

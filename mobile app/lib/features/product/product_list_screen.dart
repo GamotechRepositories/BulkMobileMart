@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_search.dart';
 import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
@@ -93,8 +94,14 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   }
 
   Future<void> _handleAdd(Product product) async {
+    final defaults = resolveCartDefaults(product);
     final result =
-        await ref.read(cartControllerProvider.notifier).addToCart(product, 1);
+        await ref.read(cartControllerProvider.notifier).addToCart(
+              product,
+              defaults.quantity,
+              variantName: defaults.variantName,
+              colorName: defaults.colorName,
+            );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
     }

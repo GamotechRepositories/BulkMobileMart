@@ -18,7 +18,7 @@ const mapCartItems = (cart) => {
   if (!cart?.items?.length) return [];
 
   return cart.items
-    .filter((item) => item.product)
+    .filter((item) => item.product && item.product.isActive !== false)
     .map((item) => {
       const unitPrice = getUnitPriceForQuantity(
         item.product,

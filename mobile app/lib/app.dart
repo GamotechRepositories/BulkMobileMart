@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/theme.dart';
 import 'features/auth/auth_host.dart';
 import 'routes/app_router.dart';
+import 'widgets/cart/cart_feedback_overlay.dart';
 import 'widgets/deep_link_listener.dart';
 
 class BulkMobileMartApp extends ConsumerWidget {
@@ -20,7 +21,11 @@ class BulkMobileMartApp extends ConsumerWidget {
         theme: AppTheme.light,
         routerConfig: router,
         builder: (context, child) {
-          return AuthHost(child: child ?? const SizedBox.shrink());
+          return AuthHost(
+            child: CartFeedbackOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
         },
       ),
     );

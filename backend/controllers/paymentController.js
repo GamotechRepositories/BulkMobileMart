@@ -44,6 +44,8 @@ export const createRazorpayOrder = async (req, res) => {
       return res.status(result.status).json({
         success: false,
         message: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        ...(result.removedItems ? { removedItems: result.removedItems } : {}),
       });
     }
 
@@ -136,6 +138,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       return res.status(result.status).json({
         success: false,
         message: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        ...(result.removedItems ? { removedItems: result.removedItems } : {}),
       });
     }
 
@@ -230,6 +234,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       return res.status(result.status).json({
         success: false,
         message: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        ...(result.removedItems ? { removedItems: result.removedItems } : {}),
       });
     }
 

@@ -40,7 +40,8 @@ final heroBannersProvider = FutureProvider((ref) async {
   final api = ref.watch(apiServiceProvider);
   var banners = await api.fetchHeroBanners(device: 'mobile');
   if (banners.isEmpty) {
-    banners = await api.fetchHeroBanners(device: 'desktop');
+    final desktop = await api.fetchHeroBanners(device: 'desktop');
+    if (desktop.isNotEmpty) banners = desktop;
   }
   return banners.where((banner) => banner.isActive).toList();
 });

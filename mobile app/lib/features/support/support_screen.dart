@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
+import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../widgets/common/image_source_sheet.dart';
@@ -34,6 +36,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
   String? _issueType;
   String? _attachmentUrl;
+  String? _attachmentLocalPath;
   String? _attachmentName;
   bool _submitting = false;
   bool _uploadingAttachment = false;
@@ -66,10 +69,21 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   }
 
   Future<void> _pickAttachment() async {
-    final source = await showImageSourceSheet(context);
+    final source = await showImageSourceSheet(context, useRootNavigator: true);
     if (source == null) return;
 
-    final picked = await _picker.pickImage(source: source);
+    XFile? picked;
+    try {
+      picked = await _picker.pickImage(source: source, imageQuality: 92);
+    } on PlatformException {
+      if (!mounted) return;
+      setState(() => _error = 'Unable to open camera/gallery. Please allow permission.');
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Unable to pick image. Please try again.');
+      return;
+    }
     if (picked == null) return;
 
     final bytes = await File(picked.path).length();
@@ -81,6 +95,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     setState(() {
       _uploadingAttachment = true;
       _error = null;
+      _attachmentLocalPath = picked!.path;
+      _attachmentUrl = null;
+      _attachmentName = null;
     });
 
     try {
@@ -88,15 +105,18 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       if (!mounted) return;
       setState(() {
         _attachmentUrl = url;
-        _attachmentName = picked.name;
+        _attachmentName = picked!.name;
         _uploadingAttachment = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _uploadingAttachment = false;
-        _error = 'Failed to upload attachment';
+        _error = e is ApiException
+            ? e.message
+            : 'Failed to upload attachment. Please try again.';
         _attachmentUrl = null;
+        _attachmentLocalPath = null;
         _attachmentName = null;
       });
     }
@@ -134,6 +154,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         _orderIdController.clear();
         _issueType = null;
         _attachmentUrl = null;
+        _attachmentLocalPath = null;
         _attachmentName = null;
       });
       _prefillUser();
@@ -302,23 +323,42 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 const SizedBox(height: 10),
                 const Text('Upload Attachment (optional)', style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
-                if (_attachmentUrl != null)
+                if (_attachmentLocalPath != null || _attachmentUrl != null)
                   Column(
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: _attachmentUrl!,
-                          height: 72,
-                          width: double.infinity,
-                          fit: BoxFit.contain,
-                        ),
+                        child: _attachmentLocalPath != null
+                            ? Image.file(
+                                File(_attachmentLocalPath!),
+                                height: 120,
+                                width: double.infinity,
+                                fit: BoxFit.contain,
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: _attachmentUrl!,
+                                height: 120,
+                                width: double.infinity,
+                                fit: BoxFit.contain,
+                              ),
                       ),
+                      if (_uploadingAttachment)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Uploading attachment...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
                       TextButton(
-                        onPressed: _submitting
+                        onPressed: _submitting || _uploadingAttachment
                             ? null
                             : () => setState(() {
                                   _attachmentUrl = null;
+                                  _attachmentLocalPath = null;
                                   _attachmentName = null;
                                 }),
                         child: const Text('Remove', style: TextStyle(color: Colors.red)),

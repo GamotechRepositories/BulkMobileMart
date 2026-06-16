@@ -21,11 +21,22 @@ class HeroBannerCarousel extends ConsumerStatefulWidget {
 class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
   final _pageController = PageController(viewportFraction: 0.92);
   int _current = 0;
+  List<_Slide>? _slides;
+  int _slideSourceLength = -1;
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  List<_Slide> _slidesFor(List<HeroBanner> apiBanners) {
+    if (_slides != null && _slideSourceLength == apiBanners.length) {
+      return _slides!;
+    }
+    _slideSourceLength = apiBanners.length;
+    _slides = _buildSlides(apiBanners);
+    return _slides!;
   }
 
   List<_Slide> _buildSlides(List<HeroBanner> apiBanners) {
@@ -55,10 +66,10 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
           padding: EdgeInsets.only(top: 4, bottom: 12),
           child: SkeletonHeroBanner(),
         ),
-        error: (_, __) => _buildCarousel(_buildSlides(fallbackHeroBanners())),
+        error: (_, __) => _buildCarousel(_slidesFor(fallbackHeroBanners())),
         data: (banners) {
           final display = banners.isEmpty ? fallbackHeroBanners() : banners;
-          return _buildCarousel(_buildSlides(display));
+          return _buildCarousel(_slidesFor(display));
         },
       ),
     );
@@ -74,6 +85,7 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
             child: PageView.builder(
               controller: _pageController,
               itemCount: slides.length,
+              allowImplicitScrolling: false,
               onPageChanged: (index) => setState(() => _current = index),
               itemBuilder: (context, index) {
                 return Padding(

@@ -7,6 +7,7 @@ import {
   isMultiVariant,
   PRODUCT_PRICING_SELECT,
 } from "../utils/productPricing.js";
+import { pruneUnavailableCartItems } from "../utils/orderHelpers.js";
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -38,6 +39,11 @@ export const getCart = async (req, res) => {
           items: [],
         },
       });
+    }
+
+    const { changed } = await pruneUnavailableCartItems(cart);
+    if (changed) {
+      cart = await populateCart(Cart.findById(cart._id));
     }
 
     res.status(200).json({ success: true, data: cart });

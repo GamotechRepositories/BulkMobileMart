@@ -7,11 +7,14 @@ import '../../widgets/layout/mobile_search_bar.dart';
 import 'home_search_focus.dart';
 import 'widgets/best_deals_section.dart';
 import 'widgets/category_nav_section.dart';
+import 'widgets/deferred_home_section.dart';
 import 'widgets/hero_banner_carousel.dart';
 import 'widgets/home_quick_chips.dart';
+import 'widgets/testimonials_section.dart';
 import 'widgets/home_trust_strip.dart';
 import 'widgets/home_wholesale_banner.dart';
 import 'widgets/top_brands_section.dart';
+import 'widgets/why_choose_us_section.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -78,13 +81,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: RepaintBoundary(child: CategoryNavSection()),
             ),
             const SliverToBoxAdapter(
-              child: RepaintBoundary(child: BestDealsSection()),
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 80),
+                  placeholderHeight: 220,
+                  child: BestDealsSection(),
+                ),
+              ),
             ),
             const SliverToBoxAdapter(
-              child: RepaintBoundary(child: TopBrandsSection()),
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 160),
+                  placeholderHeight: 120,
+                  child: TopBrandsSection(),
+                ),
+              ),
             ),
-            const SliverToBoxAdapter(child: HomeWholesaleBanner()),
-            const SliverToBoxAdapter(child: HomeTrustStrip()),
+            const SliverToBoxAdapter(
+              child: DeferredHomeSection(
+                delay: Duration(milliseconds: 240),
+                placeholderHeight: 168,
+                child: HomeWholesaleBanner(),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 320),
+                  placeholderHeight: 280,
+                  child: WhyChooseUsSection(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: DeferredHomeSection(
+                delay: Duration(milliseconds: 400),
+                child: HomeTrustStrip(),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 480),
+                  placeholderHeight: 180,
+                  child: TestimonialsSection(),
+                ),
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 20)),
           ],
         ),

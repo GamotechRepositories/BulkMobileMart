@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
+import '../core/exceptions/api_exception.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_response_parser.dart';
 import '../core/utils/upload_folders.dart';
@@ -44,14 +47,33 @@ class ApiService {
   Future<Response<dynamic>> addToCartItem(Map<String, dynamic> data) =>
       _dio.post('/api/cart', data: data);
 
-  Future<Response<dynamic>> removeFromCartItem(String productId) =>
-      _dio.delete('/api/cart/$productId');
+  Future<Response<dynamic>> removeFromCartItem(
+    String productId, {
+    String variantName = '',
+    String colorName = '',
+  }) =>
+      _dio.delete(
+        '/api/cart/$productId',
+        queryParameters: {
+          'variantName': variantName,
+          'colorName': colorName,
+        },
+      );
 
   Future<Response<dynamic>> updateCartItemQty(
     String productId,
-    int quantity,
-  ) =>
-      _dio.put('/api/cart/$productId', data: {'quantity': quantity});
+    int quantity, {
+    String variantName = '',
+    String colorName = '',
+  }) =>
+      _dio.put(
+        '/api/cart/$productId',
+        data: {
+          'quantity': quantity,
+          'variantName': variantName,
+          'colorName': colorName,
+        },
+      );
 
   Future<Response<dynamic>> getWishlist() => _dio.get('/api/wishlist');
 
@@ -106,20 +128,87 @@ class ApiService {
   Future<Response<dynamic>> submitSupportMessage(Map<String, dynamic> data) =>
       _dio.post('/api/support', data: data);
 
-  Future<Response<dynamic>> uploadImageFile(
-    String filePath,
-    String folder,
-  ) async {
-    final formData = FormData.fromMap({
-      'image': await MultipartFile.fromFile(filePath),
-      'folder': folder,
-    });
+  /// Uploads via presigned S3 URL (same flow as admin panel).
+  Future<String> uploadImageFile(String filePath, String folder) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw ApiException('Image file not found');
+    }
 
-    return _dio.post(
-      '/api/upload/image',
-      data: formData,
-      options: Options(contentType: 'multipart/form-data'),
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw ApiException('Image must be under 5 MB');
+    }
+
+    final fileName = _fileNameFromPath(filePath);
+    final mimeType = _mimeTypeFromPath(filePath);
+
+    final presignRes = await _dio.post(
+      '/api/upload/presign',
+      data: {
+        'folder': folder,
+        'mimeType': mimeType,
+        'filename': fileName,
+      },
     );
+
+    final data = ApiResponseParser.getData(presignRes.data);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Invalid presign response');
+    }
+
+    final uploadUrl = data['uploadUrl']?.toString();
+    final cloudFrontUrl = data['cloudFrontUrl']?.toString();
+    if (uploadUrl == null ||
+        uploadUrl.isEmpty ||
+        cloudFrontUrl == null ||
+        cloudFrontUrl.isEmpty) {
+      throw const FormatException('Presign response missing URLs');
+    }
+
+    final s3Dio = Dio(
+      BaseOptions(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+
+    final putRes = await s3Dio.put<List<int>>(
+      uploadUrl,
+      data: bytes,
+      options: Options(
+        headers: {'Content-Type': mimeType},
+        responseType: ResponseType.bytes,
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
+
+    final status = putRes.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      throw ApiException(
+        'Failed to upload image to storage ($status)',
+        statusCode: status,
+      );
+    }
+
+    return cloudFrontUrl;
+  }
+
+  static String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final index = normalized.lastIndexOf('/');
+    return index >= 0 ? normalized.substring(index + 1) : normalized;
+  }
+
+  static String _mimeTypeFromPath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      _ => 'image/jpeg',
+    };
   }
 
   Future<List<HeroBanner>> fetchHeroBanners({String device = 'mobile'}) async {
@@ -163,6 +252,11 @@ class ApiService {
     return items
         .whereType<Map<String, dynamic>>()
         .where((item) => item['product'] != null)
+        .where((item) {
+          final product = item['product'];
+          if (product is! Map<String, dynamic>) return false;
+          return product['isActive'] as bool? ?? true;
+        })
         .map(CartItem.fromApiItem)
         .toList();
   }
@@ -222,23 +316,11 @@ class ApiService {
     await deleteAddress(id);
   }
 
-  Future<String> uploadPaymentProofImage(String filePath) async {
-    final response = await uploadImageFile(filePath, UploadFolders.paymentProofs);
-    final data = ApiResponseParser.getData(response.data);
-    if (data is Map<String, dynamic> && data['url'] != null) {
-      return data['url'].toString();
-    }
-    throw const FormatException('Upload response missing url');
-  }
+  Future<String> uploadPaymentProofImage(String filePath) =>
+      uploadImageFile(filePath, UploadFolders.paymentProofs);
 
-  Future<String> uploadSupportAttachment(String filePath) async {
-    final response = await uploadImageFile(filePath, UploadFolders.support);
-    final data = ApiResponseParser.getData(response.data);
-    if (data is Map<String, dynamic> && data['url'] != null) {
-      return data['url'].toString();
-    }
-    throw const FormatException('Upload response missing url');
-  }
+  Future<String> uploadSupportAttachment(String filePath) =>
+      uploadImageFile(filePath, UploadFolders.support);
 
   Future<List<Order>> fetchMyOrders() async {
     final response = await getMyOrders();

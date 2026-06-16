@@ -247,8 +247,8 @@ class SkeletonCategoryGrid extends StatelessWidget {
             itemCount: count,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              mainAxisSpacing: large ? 14 : 14,
-              crossAxisSpacing: large ? 12 : 8,
+              mainAxisSpacing: large ? 8 : 14,
+              crossAxisSpacing: large ? 8 : 8,
               childAspectRatio: aspectRatio,
             ),
             itemBuilder: (_, __) => Container(

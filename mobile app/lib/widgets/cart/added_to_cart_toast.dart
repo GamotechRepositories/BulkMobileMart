@@ -18,9 +18,9 @@ class AddedToCartToast extends ConsumerWidget {
     }
 
     return Positioned(
+      top: MediaQuery.paddingOf(context).top + 72,
       left: 16,
       right: 16,
-      bottom: 88,
       child: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(12),
@@ -36,6 +36,8 @@ class AddedToCartToast extends ConsumerWidget {
                   width: 48,
                   height: 48,
                   fit: BoxFit.cover,
+                  cacheWidth: 96,
+                  cacheHeight: 96,
                   errorIcon: Icons.image_outlined,
                 ),
               ),
