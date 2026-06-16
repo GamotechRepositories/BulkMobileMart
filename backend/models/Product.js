@@ -228,6 +228,11 @@ const productSchema = new mongoose.Schema(
         message: "At least one valid product image URL is required",
       },
     },
+    videoUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     description: {
       type: String,
       trim: true,

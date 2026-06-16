@@ -4,6 +4,7 @@ import {
   addProduct,
   getAllBrands,
   getAllCategories,
+  uploadVideoFile,
   updateProduct,
 } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
@@ -160,6 +161,8 @@ const EMPTY_FORM = {
   colors: [],
   ratings: "0",
   description: "",
+  videoUrl: "",
+  videoInputType: "url",
   specifications: [createEmptySpecification()],
   isActive: true,
 };
@@ -227,6 +230,8 @@ function AddProductSection() {
           : [],
         ratings: String(editProduct.ratings ?? 0),
         description: editProduct.description || "",
+        videoUrl: editProduct.videoUrl || "",
+        videoInputType: "url",
         specifications:
           Array.isArray(editProduct.specifications) &&
           editProduct.specifications.length > 0
@@ -344,6 +349,7 @@ function AddProductSection() {
                 })),
         ratings: Number(form.ratings) || 0,
         productImages: images,
+        videoUrl: form.videoUrl.trim(),
         description: form.description,
         specifications: form.specifications
           .map((spec) => {
@@ -464,6 +470,26 @@ function AddProductSection() {
           ? [createEmptySpecification()]
           : prev.specifications.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      setError("Please choose a valid video file");
+      return;
+    }
+
+    try {
+      setError("");
+      const { data } = await uploadVideoFile(file, UPLOAD_FOLDERS.PRODUCTS);
+      setField("videoUrl", data.data.url);
+      setField("videoInputType", "upload");
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Failed to upload video");
+    }
   };
 
   const persistCustomSpecification = (name) => {
@@ -830,6 +856,81 @@ function AddProductSection() {
           >
             + Add another image
           </button>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-border-light p-4">
+          <p className="text-sm font-semibold text-text-primary">Product video (optional)</p>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="videoInputType"
+                checked={form.videoInputType === "url"}
+                onChange={() => setField("videoInputType", "url")}
+                className="h-4 w-4 accent-primary"
+              />
+              Direct video URL
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="videoInputType"
+                checked={form.videoInputType === "upload"}
+                onChange={() => setField("videoInputType", "upload")}
+                className="h-4 w-4 accent-primary"
+              />
+              Upload to AWS S3
+            </label>
+          </div>
+
+          {form.videoInputType === "url" ? (
+            <div>
+              <label className={labelClass}>Video URL</label>
+              <input
+                type="url"
+                placeholder="https://cdn.example.com/product-video.mp4"
+                value={form.videoUrl}
+                onChange={(e) => setField("videoUrl", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className={labelClass}>Upload video</label>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v"
+                onChange={handleVideoUpload}
+                className={inputClass}
+              />
+              <p className="text-xs text-text-muted">
+                Uploads to S3 and stores the CloudFront URL in database.
+              </p>
+            </div>
+          )}
+
+          {form.videoUrl ? (
+            <div className="rounded-lg border border-border-light p-3">
+              <video src={form.videoUrl} controls className="max-h-52 w-full rounded" />
+              <div className="mt-2 flex flex-wrap gap-3">
+                <a
+                  href={form.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Open video URL
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setField("videoUrl", "")}
+                  className="text-xs font-medium text-red-600 hover:underline"
+                >
+                  Remove video
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div>

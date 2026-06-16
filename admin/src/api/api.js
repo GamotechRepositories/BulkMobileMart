@@ -116,4 +116,26 @@ export const uploadImageFile = async (file, folder) => {
   return { data: { data: { url: cloudFrontUrl } } };
 };
 
+export const uploadVideoFile = async (file, folder) => {
+  const { data: presignRes } = await api.post("/api/upload/presign", {
+    folder,
+    mimeType: file.type,
+    filename: file.name,
+  });
+
+  const { uploadUrl, cloudFrontUrl } = presignRes.data;
+
+  const s3Res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  if (!s3Res.ok) {
+    throw new Error(`S3 upload failed (${s3Res.status}). Check your S3 CORS configuration.`);
+  }
+
+  return { data: { data: { url: cloudFrontUrl } } };
+};
+
 export default api;

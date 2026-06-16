@@ -13,6 +13,11 @@ const MIME_TO_EXT = {
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/ogg": "ogv",
+  "video/quicktime": "mov",
+  "video/x-m4v": "m4v",
 };
 
 function getS3Client() {
@@ -42,7 +47,7 @@ export function buildCdnUrl(key) {
 }
 
 function extensionFromMime(mimeType) {
-  return MIME_TO_EXT[String(mimeType || "").toLowerCase()] || "jpg";
+  return MIME_TO_EXT[String(mimeType || "").toLowerCase()] || "";
 }
 
 function extensionFromName(name) {
@@ -60,7 +65,7 @@ export async function uploadBufferToS3({ buffer, mimeType, folder, originalName 
     throw new Error("Invalid upload folder");
   }
 
-  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "jpg";
+  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "bin";
   const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
   const key = buildS3ObjectKey(normalizedFolder, fileName);
 
@@ -70,7 +75,7 @@ export async function uploadBufferToS3({ buffer, mimeType, folder, originalName 
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: key,
       Body: buffer,
-      ContentType: mimeType || "image/jpeg",
+      ContentType: mimeType || "application/octet-stream",
     })
   );
 
@@ -116,7 +121,7 @@ export async function presignUpload({ mimeType, folder, originalName = "", expir
     throw new Error("Invalid upload folder");
   }
 
-  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "jpg";
+  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "bin";
   const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
   const key = buildS3ObjectKey(normalizedFolder, fileName);
 
@@ -124,7 +129,7 @@ export async function presignUpload({ mimeType, folder, originalName = "", expir
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: key,
-    ContentType: mimeType || "image/jpeg",
+    ContentType: mimeType || "application/octet-stream",
   });
 
   const uploadUrl = await getSignedUrl(client, command, { expiresIn });

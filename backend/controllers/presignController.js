@@ -12,6 +12,11 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
   "image/gif",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "video/x-m4v",
 ]);
 
 function canUploadToFolder(folder, user) {
@@ -26,7 +31,7 @@ export const getPresignedUploadUrl = async (req, res) => {
     if (!isS3Configured()) {
       return res.status(500).json({
         success: false,
-        message: "Image upload is not configured. Check AWS settings on the server.",
+        message: "File upload is not configured. Check AWS settings on the server.",
       });
     }
 
@@ -47,7 +52,8 @@ export const getPresignedUploadUrl = async (req, res) => {
     if (!mimeType || !ALLOWED_MIME_TYPES.has(String(mimeType).toLowerCase())) {
       return res.status(400).json({
         success: false,
-        message: "Unsupported file type. Allowed: JPG, PNG, WEBP, GIF",
+        message:
+          "Unsupported file type. Allowed: JPG, PNG, WEBP, GIF, MP4, WEBM, OGG, MOV, M4V",
       });
     }
 
