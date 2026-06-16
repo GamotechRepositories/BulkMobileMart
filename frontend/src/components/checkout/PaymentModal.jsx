@@ -18,6 +18,8 @@ const formatPrice = (amount) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+const safeTrim = (value) => String(value ?? "").trim();
+
 function PaymentModal({
   open,
   onClose,
@@ -117,7 +119,7 @@ function PaymentModal({
     await onSubmitUpiProof({
       screenshot: screenshot.url,
       screenshotName: screenshot.name,
-      upiTransactionRef: upiTransactionRef.trim(),
+      upiTransactionRef: safeTrim(upiTransactionRef),
     });
   };
 

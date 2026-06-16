@@ -29,6 +29,8 @@ const formatPrice = (amount, fractionDigits = 0) =>
     maximumFractionDigits: fractionDigits,
   }).format(amount);
 
+const safeTrim = (value) => String(value ?? "").trim();
+
 function StepSection({ title, children }) {
   return (
     <div className="rounded-xl border border-border-light bg-white p-3 shadow-sm sm:p-5 lg:p-6">
@@ -168,7 +170,7 @@ function Checkout() {
           await verifyRazorpayPayment({
             addressId: selectedAddressId,
             paymentMode,
-            customerMessage: messageRef.current.trim(),
+            customerMessage: safeTrim(messageRef.current),
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -216,7 +218,7 @@ function Checkout() {
       await submitUpiPaymentProof({
         addressId: selectedAddressId,
         paymentMode,
-        customerMessage: messageRef.current.trim(),
+        customerMessage: safeTrim(messageRef.current),
         screenshot,
         screenshotName,
         upiTransactionRef,
