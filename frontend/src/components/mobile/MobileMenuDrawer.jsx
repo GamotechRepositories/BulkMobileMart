@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getProducts } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -180,7 +180,8 @@ function MobileDrawerFilters({ categories, open }) {
 
 function MobileMenuDrawer({ open, onClose, categories }) {
   const { pathname } = useLocation();
-  const { user, openAuthModal } = useAuth();
+  const navigate = useNavigate();
+  const { user, openAuthModal, logout } = useAuth();
   const isProductPage = pathname === "/product";
 
   useEffect(() => {
@@ -210,6 +211,12 @@ function MobileMenuDrawer({ open, onClose, categories }) {
     } else {
       onClose();
     }
+  };
+
+  const handleLogout = () => {
+    onClose();
+    logout();
+    navigate("/");
   };
 
   return (
@@ -310,6 +317,25 @@ function MobileMenuDrawer({ open, onClose, categories }) {
             ))}
           </ul>
         </nav>
+
+        {user ? (
+          <div className="border-t border-border-light p-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              Logout
+            </button>
+          </div>
+        ) : null}
       </aside>
     </div>
   );

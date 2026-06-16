@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAddresses, addAddress, updateAddress, deleteAddress } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
@@ -17,7 +18,8 @@ function InfoField({ label, value }) {
 }
 
 function Profile() {
-  const { user, openAuthModal } = useAuth();
+  const navigate = useNavigate();
+  const { user, openAuthModal, logout } = useAuth();
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -217,6 +219,26 @@ function Profile() {
                 ))}
               </ul>
             )}
+
+            <div className="mt-8 lg:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  navigate("/");
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+                Logout
+              </button>
+            </div>
           </div>
         )}
       </div>
