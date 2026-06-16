@@ -1,5 +1,4 @@
-const MERCHANT_UPI_ID =
-  import.meta.env.VITE_MERCHANT_UPI_ID 
+const MERCHANT_UPI_ID = String(import.meta.env.VITE_MERCHANT_UPI_ID || "").trim();
 // Name on your UPI account — set VITE_MERCHANT_UPI_NAME in .env (omit pn if empty)
 const MERCHANT_NAME = (import.meta.env.VITE_MERCHANT_UPI_NAME || "").trim();
 
@@ -20,8 +19,9 @@ function sanitizeNote(note) {
 
 /** NPCI-style query string — encodeURIComponent (%20), not URLSearchParams (+) */
 function buildUpiQuery(amount, note) {
+  const payeeAddress = MERCHANT_UPI_ID || "bulkmobilemart@okaxis";
   const parts = [
-    `pa=${encodeURIComponent(MERCHANT_UPI_ID.trim())}`,
+    `pa=${encodeURIComponent(payeeAddress)}`,
     `am=${encodeURIComponent(amount.toFixed(2))}`,
     `cu=INR`,
   ];
