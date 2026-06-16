@@ -44,16 +44,15 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
     <div className="w-full max-w-3xl overflow-hidden rounded-xl border border-border-light bg-white text-text-primary shadow-sm">
       <div ref={ref} id="invoice-print-area">
       {/* Header banner */}
-      <div className="bg-slate-900 px-6 py-8 text-center text-white sm:px-10 sm:py-10">
+      <div className="border-b border-border-light bg-white px-6 py-8 text-center sm:px-10 sm:py-10">
         <img
           src={LOGO_URL}
           alt="BulkMobileMart"
-          className="invoice-logo mx-auto mb-4 h-16 w-auto object-contain sm:h-20"
+          className="invoice-logo mx-auto h-16 w-auto object-contain sm:h-20"
           crossOrigin="anonymous"
         />
-        <h1 className="text-2xl font-bold tracking-wide sm:text-3xl">BulkMobileMart</h1>
-        <p className="mt-2 text-sm text-white/80 sm:text-base">
-          Mobile Invoice | support@bulkmobilemart.com | 9876543210
+        <p className="mt-4 text-sm text-text-secondary sm:text-base">
+          support@bulkmobilemart.com | + 91 74002 22233
         </p>
       </div>
 

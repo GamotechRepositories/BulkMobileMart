@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getOrderById } from "../api/api";
 import InvoiceDocument from "../components/invoice/InvoiceDocument";
@@ -8,7 +8,6 @@ import { getOrderNumber } from "../utils/orderNumber";
 
 function OrderInvoice() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user, openAuthModal } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +53,7 @@ function OrderInvoice() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-100 px-4 py-16 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-16 text-center">
         <p className="mb-6 text-text-secondary">Please login to view invoice.</p>
         <button
           type="button"
@@ -69,7 +68,7 @@ function OrderInvoice() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 px-4 py-8">
+      <div className="min-h-screen bg-white px-4 py-8">
         <div className="mx-auto max-w-3xl animate-pulse rounded-xl bg-white p-12" />
       </div>
     );
@@ -77,7 +76,7 @@ function OrderInvoice() {
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-gray-100 px-4 py-16 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-16 text-center">
         <p className="mb-6 text-text-secondary">{error || "Order not found"}</p>
         <Link to="/orders" className="text-sm font-semibold text-primary hover:underline">
           ← Back to My Orders
@@ -87,20 +86,8 @@ function OrderInvoice() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="min-h-screen bg-white px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-6 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(`/orders/${id}`)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-light bg-white text-text-secondary transition hover:border-primary hover:text-primary"
-            aria-label="Back to order details"
-          >
-            ←
-          </button>
-          <h1 className="text-xl font-bold text-text-primary sm:text-2xl">Bill Invoice</h1>
-        </div>
-
         <InvoiceDocument
           order={order}
           user={user}

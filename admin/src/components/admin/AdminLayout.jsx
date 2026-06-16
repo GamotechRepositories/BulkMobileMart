@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { LOGO_URL } from "../../constants/brand";
+import { LOGO_URL, STORE_URL } from "../../constants/brand";
 import {
   IconBanner,
   IconBrand,
@@ -96,22 +96,30 @@ const subNavLinkClass = ({ isActive }) =>
       : "text-neutral-500 hover:bg-neutral-800 hover:text-white"
   }`;
 
-function NavGroup({ item, location, onNavigate, collapsed, onExpand }) {
+function NavGroup({
+  item,
+  location,
+  onNavigate,
+  collapsed,
+  onExpand,
+  openGroupKey,
+  setOpenGroupKey,
+}) {
   const isGroupActive = location.pathname.startsWith(item.basePath);
-  const [open, setOpen] = useState(isGroupActive);
+  const open = openGroupKey === item.basePath;
   const Icon = item.icon;
 
   useEffect(() => {
-    if (isGroupActive) setOpen(true);
-  }, [isGroupActive]);
+    if (isGroupActive) setOpenGroupKey(item.basePath);
+  }, [isGroupActive, item.basePath, setOpenGroupKey]);
 
   const handleToggle = () => {
     if (collapsed) {
       onExpand?.();
-      setOpen(true);
+      setOpenGroupKey(item.basePath);
       return;
     }
-    setOpen((prev) => !prev);
+    setOpenGroupKey((prev) => (prev === item.basePath ? "" : item.basePath));
   };
 
   if (collapsed) {
@@ -184,19 +192,27 @@ function SidebarContent({
   onCollapse,
   onExpand,
 }) {
+  const [openGroupKey, setOpenGroupKey] = useState("");
+
   return (
     <>
       <div
         className={`mb-6 ${collapsed ? "flex justify-center px-1" : "flex items-center justify-between gap-2 px-1"}`}
       >
         <div className={`relative ${collapsed ? "" : "flex w-full items-center justify-between gap-2"}`}>
-          <img
-            src={LOGO_URL}
-            alt="BulkMobileMart"
-            className={`object-contain brightness-0 invert ${
-              collapsed ? "h-10 w-10" : "h-14 w-auto"
+          <div
+            className={`flex items-center justify-center overflow-hidden rounded-lg bg-white ${
+              collapsed ? "h-10 w-10" : "min-h-[52px] flex-1 px-3 py-2"
             }`}
-          />
+          >
+            <img
+              src={LOGO_URL}
+              alt="BulkMobileMart"
+              className={`object-contain ${
+                collapsed ? "h-8 w-8" : "h-10 w-full max-w-[210px]"
+              }`}
+            />
+          </div>
           {!collapsed ? (
             <button
               type="button"
@@ -234,6 +250,8 @@ function SidebarContent({
                 onNavigate={onNavigate}
                 collapsed={collapsed}
                 onExpand={onExpand}
+                openGroupKey={openGroupKey}
+                setOpenGroupKey={setOpenGroupKey}
               />
             );
           }
@@ -349,12 +367,14 @@ function AdminLayout() {
 
           {isDashboard && (
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <Link
-                to="/"
+              <a
+                href={STORE_URL}
+                target="_blank"
+                rel="noreferrer"
                 className="rounded-lg border border-neutral-200 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-neutral-700 transition hover:border-accent hover:text-accent"
               >
-                ← Back to Site
-              </Link>
+                Visit Site
+              </a>
               {adminUser ? (
                 <>
                   <span className="hidden md:inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700 max-w-[140px] truncate">

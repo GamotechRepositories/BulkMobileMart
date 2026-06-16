@@ -7,27 +7,33 @@ import {
   labelClass,
 } from "./adminStyles";
 
-function UserEditModal({ user, onClose, onSave, saving }) {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-  });
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+};
+
+function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
+  const [form, setForm] = useState(emptyForm);
+  const open = isAdd || Boolean(user);
 
   useEffect(() => {
-    if (user) {
-      setForm({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        password: "",
-      });
+    if (!open) return;
+    if (isAdd) {
+      setForm(emptyForm);
+      return;
     }
-  }, [user]);
+    setForm({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      password: "",
+    });
+  }, [user, isAdd, open]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!open) return;
     const handleEscape = (e) => {
       if (e.key === "Escape") onClose();
     };
@@ -37,9 +43,9 @@ function UserEditModal({ user, onClose, onSave, saving }) {
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "";
     };
-  }, [user, onClose]);
+  }, [open, onClose]);
 
-  if (!user) return null;
+  if (!open) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -51,7 +57,7 @@ function UserEditModal({ user, onClose, onSave, saving }) {
     if (form.password.trim()) {
       payload.password = form.password;
     }
-    onSave(user._id, payload);
+    onSave(isAdd ? null : user._id, payload);
   };
 
   return createPortal(
@@ -64,7 +70,9 @@ function UserEditModal({ user, onClose, onSave, saving }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border-light px-5 py-4">
-          <h2 className="text-lg font-bold text-text-primary">Edit User</h2>
+          <h2 className="text-lg font-bold text-text-primary">
+            {isAdd ? "Add User" : "Edit User"}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -110,10 +118,13 @@ function UserEditModal({ user, onClose, onSave, saving }) {
             />
           </div>
           <div>
-            <label className={labelClass}>New password</label>
+            <label className={labelClass}>
+              {isAdd ? "Password *" : "New password"}
+            </label>
             <input
               type="password"
-              placeholder="Leave blank to keep current password"
+              required={isAdd}
+              placeholder={isAdd ? "Minimum 6 characters" : "Leave blank to keep current password"}
               value={form.password}
               onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
               className={inputClass}
@@ -126,7 +137,7 @@ function UserEditModal({ user, onClose, onSave, saving }) {
               Cancel
             </button>
             <button type="submit" className={btnPrimary} disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : isAdd ? "Add User" : "Save Changes"}
             </button>
           </div>
         </form>

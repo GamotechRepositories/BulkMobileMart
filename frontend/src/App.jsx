@@ -71,11 +71,7 @@ function App() {
           />
           <Route
             path="/orders/:id/invoice"
-            element={
-              <MobileLayout>
-                <OrderInvoice />
-              </MobileLayout>
-            }
+            element={<OrderInvoice />}
           />
           <Route
             path="/profile"

@@ -258,7 +258,7 @@ function OrderSummary({ items }) {
         }`}
         aria-disabled={!hasItems}
       >
-        Place Order
+        Proceed to Checkout
       </Link>
 
       <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -339,9 +339,10 @@ function Cart() {
     if (!items.length || clearing) return;
     setClearing(true);
     try {
-      await Promise.all(
-        items.map((item) => removeFromCart(item._id, item.variantName, item.colorName))
-      );
+      // Delete sequentially to avoid concurrent cart document writes on backend.
+      for (const item of items) {
+        await removeFromCart(item._id, item.variantName, item.colorName);
+      }
     } finally {
       setClearing(false);
     }

@@ -38,19 +38,14 @@ export function downloadInvoicePdf(order, user, filename) {
   const paymentStatus = (order.paymentStatus || "unpaid") === "paid" ? "Paid" : "Unpaid";
 
   // Header
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, pageW, 42, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text("BulkMobileMart", pageW / 2, 16, { align: "center" });
+  doc.setTextColor(102, 102, 102);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text("Mobile Invoice | support@bulkmobilemart.com | 9876543210", pageW / 2, 26, {
+  doc.text("Mobile Invoice | support@bulkmobilemart.com | 9876543210", pageW / 2, 16, {
     align: "center",
   });
 
-  let y = 50;
+  let y = 24;
   const colW = (pageW - margin * 2 - 4) / 2;
 
   doc.setDrawColor(229, 229, 229);

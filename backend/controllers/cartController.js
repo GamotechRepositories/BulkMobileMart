@@ -2,7 +2,6 @@ import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import {
   getAvailableColors,
-  getMinOrderQuantity,
   getVariant,
   getVariantStock,
   isMultiVariant,
@@ -16,7 +15,7 @@ const normalizeColorName = (value) =>
   typeof value === "string" ? value.trim() : "";
 
 const matchesCartItem = (item, productId, variantName, colorName) =>
-  item.product.toString() === productId &&
+  String(item?.product || "") === String(productId || "") &&
   normalizeVariantName(item.variantName) === normalizeVariantName(variantName) &&
   normalizeColorName(item.colorName) === normalizeColorName(colorName);
 
@@ -120,14 +119,6 @@ export const addToCart = async (req, res) => {
       }
     }
 
-    const minQty = getMinOrderQuantity(product, normalizedVariantName);
-    if (qty < minQty) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum order quantity is ${minQty}`,
-      });
-    }
-
     const availableStock = getVariantStock(product, normalizedVariantName);
     if (qty > availableStock) {
       return res.status(400).json({
@@ -204,6 +195,11 @@ export const removeFromCart = async (req, res) => {
       });
     }
 
+    // Keep legacy carts valid if email field was missing previously.
+    if (!cart.email && req.user?.email) {
+      cart.email = req.user.email;
+    }
+
     cart.items = cart.items.filter(
       (item) => !matchesCartItem(item, productId, variantName, colorName)
     );
@@ -244,6 +240,11 @@ export const updateCartItem = async (req, res) => {
       });
     }
 
+    // Keep legacy carts valid if email field was missing previously.
+    if (!cart.email && req.user?.email) {
+      cart.email = req.user.email;
+    }
+
     const itemIndex = cart.items.findIndex((item) =>
       matchesCartItem(item, productId, normalizedVariantName, normalizedColorName)
     );
@@ -261,14 +262,6 @@ export const updateCartItem = async (req, res) => {
         return res.status(404).json({
           success: false,
           message: "Product not found",
-        });
-      }
-
-      const minQty = getMinOrderQuantity(product, normalizedVariantName);
-      if (qty < minQty) {
-        return res.status(400).json({
-          success: false,
-          message: `Minimum order quantity is ${minQty}`,
         });
       }
 

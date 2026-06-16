@@ -10,6 +10,9 @@ import CategoryProductLayout, {
 } from "../components/product/CategoryProductLayout";
 import {
   formatProductPriceLabel,
+  getAvailableColors,
+  getMinOrderQuantity,
+  isMultiVariant,
   isProductInStock,
 } from "../utils/productPricing";
 import WishlistButton from "../components/product/WishlistButton";
@@ -91,7 +94,7 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
   );
 }
 
-function MobileProductCard({ product, onAdd }) {
+function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
   const inStock = isProductInStock(product);
   const discount = product.discountedPercent ?? 0;
 
@@ -132,14 +135,39 @@ function MobileProductCard({ product, onAdd }) {
           <p className={`text-sm font-semibold ${inStock ? "text-green-600" : "text-red-500"}`}>
             {inStock ? "In Stock" : "Out of Stock"}
           </p>
-          <button
-            type="button"
-            onClick={() => onAdd(product)}
-            disabled={!inStock}
-            className="shrink-0 rounded-md bg-primary px-4 py-1.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Add
-          </button>
+          {cartQuantity > 0 ? (
+            <div className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border-light bg-white">
+              <button
+                type="button"
+                onClick={() => onDecrease(product)}
+                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary"
+                aria-label="Decrease quantity"
+              >
+                −
+              </button>
+              <span className="flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-1 text-sm font-bold text-text-primary">
+                {cartQuantity}
+              </span>
+              <button
+                type="button"
+                onClick={() => onIncrease(product)}
+                disabled={!inStock}
+                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Increase quantity"
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onIncrease(product)}
+              disabled={!inStock}
+              className="shrink-0 rounded-md bg-primary px-4 py-1.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Add
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -155,7 +183,9 @@ function SearchResultsView({
   showSort,
   onToggleSort,
   onSortChange,
-  onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
 }) {
   const sortedProducts = useMemo(() => {
     const list = [...products];
@@ -215,7 +245,13 @@ function SearchResultsView({
             <p className="py-12 text-center text-sm text-text-secondary">{emptyMessage}</p>
           ) : (
             sortedProducts.map((product) => (
-              <MobileProductCard key={product._id} product={product} onAdd={onAdd} />
+              <MobileProductCard
+                key={product._id}
+                product={product}
+                cartQuantity={onGetCartQuantity(product)}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+              />
             ))
           )}
         </div>
@@ -240,7 +276,13 @@ function SearchResultsView({
             ) : (
               <div className="grid grid-cols-4 gap-4">
                 {sortedProducts.map((product) => (
-                  <MobileProductCard key={product._id} product={product} onAdd={onAdd} />
+                  <MobileProductCard
+                    key={product._id}
+                    product={product}
+                    cartQuantity={onGetCartQuantity(product)}
+                    onIncrease={onIncrease}
+                    onDecrease={onDecrease}
+                  />
                 ))}
               </div>
             )}
@@ -262,8 +304,24 @@ function Product() {
   const [sortBy, setSortBy] = useState("default");
   const [showSort, setShowSort] = useState(false);
 
-  const { addToCart } = useCart();
+  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { openAuthModal } = useAuth();
+
+  const resolveCartDefaults = (product) => {
+    let variantName = "";
+    if (isMultiVariant(product)) {
+      const firstInStockVariant = product.variants.find((variant) =>
+        isProductInStock(product, variant.name)
+      );
+      variantName = firstInStockVariant?.name || product.variants?.[0]?.name || "";
+    }
+
+    const availableColors = getAvailableColors(product, variantName);
+    const colorName = availableColors[0]?.name || "";
+    const quantity = getMinOrderQuantity(product, variantName, 1);
+
+    return { variantName, colorName, quantity };
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -291,12 +349,46 @@ function Product() {
     fetchData();
   }, [categoryName, searchQuery]);
 
-  const handleAdd = async (product) => {
+  const getCartLine = (product) => {
+    if (!product?._id) return null;
+    const { variantName, colorName } = resolveCartDefaults(product);
+    return (
+      items.find(
+        (item) =>
+          item._id === product._id &&
+          (item.variantName || "") === variantName &&
+          (item.colorName || "") === colorName
+      ) || null
+    );
+  };
+
+  const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
+
+  const handleIncrease = async (product) => {
     if (!product._id) return;
-    const result = await addToCart(product, 1);
+    const { variantName, colorName } = resolveCartDefaults(product);
+    const result = await addToCart(product, 1, {
+      variantName,
+      colorName,
+    });
     if (result?.requiresLogin) {
       openAuthModal("login");
     }
+  };
+
+  const handleDecrease = async (product) => {
+    const line = getCartLine(product);
+    if (!line) return;
+    if (line.quantity <= 1) {
+      await removeFromCart(line._id, line.variantName || "", line.colorName || "");
+      return;
+    }
+    await updateQuantity(
+      line._id,
+      line.quantity - 1,
+      line.variantName || "",
+      line.colorName || ""
+    );
   };
 
   if (searchQuery && !categoryName) {
@@ -313,7 +405,9 @@ function Product() {
           setSortBy(id);
           setShowSort(false);
         }}
-        onAdd={handleAdd}
+        onGetCartQuantity={getCartQuantity}
+        onIncrease={handleIncrease}
+        onDecrease={handleDecrease}
       />
     );
   }
@@ -326,7 +420,10 @@ function Product() {
           categoryName={categoryName}
           products={products}
           loading={loading}
-          onAdd={handleAdd}
+          onAdd={handleIncrease}
+          onGetCartQuantity={getCartQuantity}
+          onIncrease={handleIncrease}
+          onDecrease={handleDecrease}
           emptyMessage="No products found in this category yet."
         />
 
@@ -336,7 +433,10 @@ function Product() {
           categoryName={categoryName}
           products={products}
           loading={loading}
-          onAdd={handleAdd}
+          onAdd={handleIncrease}
+          onGetCartQuantity={getCartQuantity}
+          onIncrease={handleIncrease}
+          onDecrease={handleDecrease}
           emptyMessage="No products found in this category yet."
         />
       </div>
@@ -349,7 +449,10 @@ function Product() {
         categories={categories}
         products={products}
         loading={loading}
-        onAdd={handleAdd}
+        onAdd={handleIncrease}
+        onGetCartQuantity={getCartQuantity}
+        onIncrease={handleIncrease}
+        onDecrease={handleDecrease}
         emptyMessage="No products available yet."
       />
     </div>

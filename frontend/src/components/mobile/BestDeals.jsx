@@ -7,6 +7,11 @@ import { getProducts } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 
 import { useCart } from "../../context/CartContext";
+import {
+  getAvailableColors,
+  isMultiVariant,
+  isProductInStock,
+} from "../../utils/productPricing";
 
 import SectionHeader from "./SectionHeader";
 
@@ -54,9 +59,24 @@ function BestDeals() {
 
   const [loading, setLoading] = useState(true);
 
-  const { addToCart } = useCart();
+  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
 
   const { openAuthModal } = useAuth();
+
+  const resolveCartDefaults = (product) => {
+    let variantName = "";
+    if (isMultiVariant(product)) {
+      const firstInStockVariant = product.variants.find((variant) =>
+        isProductInStock(product, variant.name)
+      );
+      variantName = firstInStockVariant?.name || product.variants?.[0]?.name || "";
+    }
+
+    const availableColors = getAvailableColors(product, variantName);
+    const colorName = availableColors[0]?.name || "";
+
+    return { variantName, colorName };
+  };
 
 
 
@@ -96,7 +116,11 @@ function BestDeals() {
 
     if (!product._id || product._id.length < 10) return;
 
-    const result = await addToCart(product, 1);
+    const { variantName, colorName } = resolveCartDefaults(product);
+    const result = await addToCart(product, 1, {
+      variantName,
+      colorName,
+    });
 
     if (result?.requiresLogin) {
 
@@ -104,6 +128,48 @@ function BestDeals() {
 
     }
 
+  };
+
+  const getCartLine = (product) => {
+    if (!product?._id) return null;
+    const { variantName, colorName } = resolveCartDefaults(product);
+    return (
+      items.find(
+        (item) =>
+          item._id === product._id &&
+          (item.variantName || "") === variantName &&
+          (item.colorName || "") === colorName
+      ) || null
+    );
+  };
+
+  const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
+
+  const handleIncrease = async (product) => {
+    if (!product._id || product._id.length < 10) return;
+    const { variantName, colorName } = resolveCartDefaults(product);
+    const result = await addToCart(product, 1, {
+      variantName,
+      colorName,
+    });
+    if (result?.requiresLogin) {
+      openAuthModal("login");
+    }
+  };
+
+  const handleDecrease = async (product) => {
+    const line = getCartLine(product);
+    if (!line) return;
+    if (line.quantity <= 1) {
+      await removeFromCart(line._id, line.variantName || "", line.colorName || "");
+      return;
+    }
+    await updateQuantity(
+      line._id,
+      line.quantity - 1,
+      line.variantName || "",
+      line.colorName || ""
+    );
   };
 
 
@@ -124,7 +190,15 @@ function BestDeals() {
 
         {displayProducts.map((product) => (
 
-          <DealProductCard key={product._id} product={product} onAdd={handleAdd} layout="scroll" />
+          <DealProductCard
+            key={product._id}
+            product={product}
+            onAdd={handleAdd}
+            onIncrease={handleIncrease}
+            onDecrease={handleDecrease}
+            cartQuantity={getCartQuantity(product)}
+            layout="scroll"
+          />
 
         ))}
 
@@ -143,6 +217,9 @@ function BestDeals() {
             product={product}
 
             onAdd={handleAdd}
+            onIncrease={handleIncrease}
+            onDecrease={handleDecrease}
+            cartQuantity={getCartQuantity(product)}
 
             layout="grid"
 

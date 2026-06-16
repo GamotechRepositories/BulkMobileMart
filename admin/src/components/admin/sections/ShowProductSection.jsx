@@ -10,14 +10,11 @@ import {
   adminCompactThClass,
   adminTableHeaderClass,
   adminTableWrapperClass,
+  iconBtnClass,
+  iconBtnDangerClass,
 } from "../adminStyles";
 import ProductListFilters from "./ProductListFilters";
 import { filterAndSortProducts } from "./productListUtils";
-
-const iconBtnClass =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900";
-const iconBtnDangerClass =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition hover:border-red-500 hover:bg-red-50 hover:text-red-600";
 
 function ShowProductSection() {
   const navigate = useNavigate();

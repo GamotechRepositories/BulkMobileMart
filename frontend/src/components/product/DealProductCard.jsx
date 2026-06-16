@@ -10,7 +10,15 @@ const formatPrice = (amount) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
-function DealProductCard({ product, onAdd, layout = "scroll", addDisabled = false }) {
+function DealProductCard({
+  product,
+  onAdd,
+  onIncrease,
+  onDecrease,
+  cartQuantity = 0,
+  layout = "scroll",
+  addDisabled = false,
+}) {
   const image = product.productImages?.[0];
   const subtitle =
     product.subcategory ||
@@ -55,14 +63,39 @@ function DealProductCard({ product, onAdd, layout = "scroll", addDisabled = fals
           </p>
         </Link>
       </div>
-      <button
-        type="button"
-        onClick={() => onAdd(product)}
-        disabled={disabled}
-        className="mt-2 w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2 sm:text-sm"
-      >
-        ADD
-      </button>
+      {cartQuantity > 0 ? (
+        <div className="mt-2 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
+          <button
+            type="button"
+            onClick={() => onDecrease?.(product)}
+            className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:h-9 sm:w-10"
+            aria-label="Decrease quantity"
+          >
+            −
+          </button>
+          <span className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary sm:h-9">
+            {cartQuantity}
+          </span>
+          <button
+            type="button"
+            onClick={() => onIncrease?.(product)}
+            disabled={disabled}
+            className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-10"
+            aria-label="Increase quantity"
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => (onIncrease ? onIncrease(product) : onAdd(product))}
+          disabled={disabled}
+          className="mt-2 w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2 sm:text-sm"
+        >
+          ADD
+        </button>
+      )}
     </div>
   );
 }

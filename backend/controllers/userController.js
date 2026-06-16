@@ -128,6 +128,62 @@ export const getMe = async (req, res) => {
   }
 };
 
+export const createUser = async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, phone, and password are required",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ email: email.trim().toLowerCase() }, { phone: phone.trim() }],
+    });
+
+    if (existingUser) {
+      const field =
+        existingUser.email === email.trim().toLowerCase() ? "Email" : "Phone";
+      return res.status(409).json({
+        success: false,
+        message: `${field} is already registered`,
+      });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      password,
+      role: "user",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "User created",
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getUsers = async (req, res) => {
   try {
     const users = await User.find({ role: { $ne: "admin" } })

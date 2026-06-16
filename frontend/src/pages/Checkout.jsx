@@ -15,7 +15,6 @@ import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressF
 import {
   formatAddressLine,
   getAddressFullName,
-  mapAddressToForm,
 } from "../utils/addressDisplay";
 
 const FREE_DELIVERY_THRESHOLD = 999;
@@ -43,14 +42,13 @@ function StepSection({ title, children }) {
 
 function Checkout() {
   const navigate = useNavigate();
-  const { user, openAuthModal } = useAuth();
+  const { user, loading: authLoading, openAuthModal } = useAuth();
   const { items, loading: cartLoading, loadCart } = useCart();
 
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [formError, setFormError] = useState("");
@@ -58,6 +56,7 @@ function Checkout() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [message, setMessage] = useState("");
@@ -79,8 +78,6 @@ function Checkout() {
     return sum + diff * item.quantity;
   }, 0);
 
-  const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId);
-
   const loadAddresses = async () => {
     setAddressesLoading(true);
     try {
@@ -97,17 +94,38 @@ function Checkout() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadCart();
-      loadAddresses();
+    if (authLoading) {
+      setBootstrapping(true);
+      return;
     }
-  }, [user, loadCart]);
+
+    if (user) {
+      const bootstrap = async () => {
+        setBootstrapping(true);
+        try {
+          await Promise.all([loadCart(), loadAddresses()]);
+        } finally {
+          setBootstrapping(false);
+        }
+      };
+      bootstrap();
+    } else {
+      setBootstrapping(false);
+    }
+  }, [user, authLoading, loadCart]);
 
   useEffect(() => {
-    if (user && !cartLoading && items.length === 0 && !orderPlaced) {
+    if (
+      !authLoading &&
+      user &&
+      !bootstrapping &&
+      !cartLoading &&
+      items.length === 0 &&
+      !orderPlaced
+    ) {
       navigate("/cart", { replace: true });
     }
-  }, [user, cartLoading, items.length, navigate, orderPlaced]);
+  }, [authLoading, user, bootstrapping, cartLoading, items.length, navigate, orderPlaced]);
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
@@ -225,7 +243,6 @@ function Checkout() {
       setAddresses((prev) => [newAddress, ...prev]);
       setSelectedAddressId(newAddress._id);
       setShowAddressForm(false);
-      setShowAddressPicker(false);
     } catch (err) {
       setFormError(err.response?.data?.message || "Failed to save address");
     } finally {
@@ -388,80 +405,43 @@ function Checkout() {
                         </p>
                       )}
 
-                      {selectedAddress && !showAddressForm && !showAddressPicker && (
-                        <div className="rounded-xl border border-border-light bg-mobile-surface/30 p-4 sm:p-5">
-                          <div className="mb-3 flex items-start justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-bold text-text-primary">{getAddressFullName(selectedAddress)}</p>
-                              {selectedAddress.isDefault && (
-                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            {addresses.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => setShowAddressPicker(true)}
-                                className="shrink-0 text-sm font-semibold text-primary hover:underline"
+                      {addresses.length > 0 && !showAddressForm && (
+                        <ul className="space-y-2">
+                          {addresses.map((addr) => (
+                            <li key={addr._id}>
+                              <label
+                                className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
+                                  selectedAddressId === addr._id
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border-light hover:border-primary/40"
+                                }`}
                               >
-                                Change
-                              </button>
-                            )}
-                          </div>
-                          <p className="text-sm leading-relaxed text-text-secondary">
-                            {formatAddressLine(selectedAddress)}
-                          </p>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            +91 {selectedAddress.number}
-                          </p>
-                        </div>
-                      )}
-
-                      {showAddressPicker && !showAddressForm && (
-                        <div className="space-y-3">
-                          <ul className="space-y-2">
-                            {addresses.map((addr) => (
-                              <li key={addr._id}>
-                                <label
-                                  className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
-                                    selectedAddressId === addr._id
-                                      ? "border-primary bg-primary/5"
-                                      : "border-border-light hover:border-primary/40"
-                                  }`}
-                                >
-                                  <input
-                                    type="radio"
-                                    name="address"
-                                    value={addr._id}
-                                    checked={selectedAddressId === addr._id}
-                                    onChange={() => setSelectedAddressId(addr._id)}
-                                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                                  />
-                                  <div className="min-w-0 flex-1 text-sm">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="font-semibold text-text-primary">{getAddressFullName(addr)}</p>
-                                      {addr.isDefault && (
-                                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                          Default
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="mt-1 text-text-secondary">{formatAddressLine(addr)}</p>
-                                    <p className="text-text-secondary">+91 {addr.number}</p>
+                                <input
+                                  type="radio"
+                                  name="address"
+                                  value={addr._id}
+                                  checked={selectedAddressId === addr._id}
+                                  onChange={() => setSelectedAddressId(addr._id)}
+                                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                                />
+                                <div className="min-w-0 flex-1 text-sm">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="font-semibold text-text-primary">
+                                      {getAddressFullName(addr)}
+                                    </p>
+                                    {addr.isDefault && (
+                                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                        Default
+                                      </span>
+                                    )}
                                   </div>
-                                </label>
-                              </li>
-                            ))}
-                          </ul>
-                          <button
-                            type="button"
-                            onClick={() => setShowAddressPicker(false)}
-                            className="text-sm font-semibold text-primary hover:underline"
-                          >
-                            Done
-                          </button>
-                        </div>
+                                  <p className="mt-1 text-text-secondary">{formatAddressLine(addr)}</p>
+                                  <p className="text-text-secondary">+91 {addr.number}</p>
+                                </div>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
                       )}
 
                       {showAddressForm ? (
@@ -489,10 +469,7 @@ function Checkout() {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => {
-                            setShowAddressForm(true);
-                            setShowAddressPicker(false);
-                          }}
+                          onClick={() => setShowAddressForm(true)}
                           className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
                         >
                           <span className="text-base leading-none">+</span>

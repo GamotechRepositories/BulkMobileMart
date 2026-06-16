@@ -251,7 +251,15 @@ function AllProductsFilterToolbar({
   );
 }
 
-function ProductResultsGrid({ products, loading, onAdd, emptyMessage }) {
+function ProductResultsGrid({
+  products,
+  loading,
+  onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
+  emptyMessage,
+}) {
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -272,7 +280,15 @@ function ProductResultsGrid({ products, loading, onAdd, emptyMessage }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {products.map((product) => (
-        <DealProductCard key={product._id} product={product} onAdd={onAdd} layout="grid" />
+        <DealProductCard
+          key={product._id}
+          product={product}
+          onAdd={onAdd}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
+          cartQuantity={onGetCartQuantity ? onGetCartQuantity(product) : 0}
+          layout="grid"
+        />
       ))}
     </div>
   );
@@ -368,6 +384,9 @@ function CategoryProductMain({
   products,
   loading,
   onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
   emptyMessage,
 }) {
   const filters = useCategoryFilters(products, categoryName);
@@ -399,6 +418,9 @@ function CategoryProductMain({
           products={filters.sortedProducts}
           loading={loading}
           onAdd={onAdd}
+          onGetCartQuantity={onGetCartQuantity}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
           emptyMessage={emptyMessage}
         />
       </div>
@@ -406,7 +428,15 @@ function CategoryProductMain({
   );
 }
 
-function AllProductsMain({ products, loading, onAdd, emptyMessage }) {
+function AllProductsMain({
+  products,
+  loading,
+  onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
+  emptyMessage,
+}) {
   const filters = useAllProductsFilters(products);
 
   return (
@@ -425,6 +455,9 @@ function AllProductsMain({ products, loading, onAdd, emptyMessage }) {
           products={filters.sortedProducts}
           loading={loading}
           onAdd={onAdd}
+          onGetCartQuantity={onGetCartQuantity}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
           emptyMessage={emptyMessage}
         />
       </div>
@@ -456,6 +489,9 @@ export default function CategoryProductLayout({
   products,
   loading,
   onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
   emptyMessage,
 }) {
   return (
@@ -468,6 +504,9 @@ export default function CategoryProductLayout({
           products={products}
           loading={loading}
           onAdd={onAdd}
+          onGetCartQuantity={onGetCartQuantity}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
           emptyMessage={emptyMessage}
         />
       </ProductPageTwoBoxLayout>
@@ -475,7 +514,16 @@ export default function CategoryProductLayout({
   );
 }
 
-export function AllProductsLayout({ categories, products, loading, onAdd, emptyMessage }) {
+export function AllProductsLayout({
+  categories,
+  products,
+  loading,
+  onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
+  emptyMessage,
+}) {
   return (
     <>
       <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
@@ -484,6 +532,9 @@ export function AllProductsLayout({ categories, products, loading, onAdd, emptyM
             products={products}
             loading={loading}
             onAdd={onAdd}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
             emptyMessage={emptyMessage}
           />
         </ProductPageTwoBoxLayout>
@@ -495,6 +546,9 @@ export function AllProductsLayout({ categories, products, loading, onAdd, emptyM
             products={products}
             loading={loading}
             onAdd={onAdd}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
             emptyMessage={emptyMessage}
           />
         </div>
@@ -509,6 +563,9 @@ export function MobileCategoryProductLayout({
   products,
   loading,
   onAdd,
+  onGetCartQuantity,
+  onIncrease,
+  onDecrease,
   emptyMessage,
 }) {
   return (
@@ -521,6 +578,9 @@ export function MobileCategoryProductLayout({
           products={products}
           loading={loading}
           onAdd={onAdd}
+          onGetCartQuantity={onGetCartQuantity}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
           emptyMessage={emptyMessage}
         />
       </div>

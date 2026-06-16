@@ -9,8 +9,8 @@ const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 1000;
 
 const SUPPORT_CONTACT = {
-  phone: "+91 98765 43210",
-  phoneHref: "tel:+919876543210",
+  phone: "+91 74002 22233",
+  phoneHref: "tel:+917400222233",
   whatsapp: "+91 74002 22233",
   whatsappHref:
     "https://wa.me/917400222233?text=Hi%2C%20I%20need%20support%20with%20my%20order.",
@@ -292,7 +292,7 @@ function Support() {
                   }
                 >
                   <p className="mt-1 text-xs font-semibold text-primary sm:text-sm">{SUPPORT_CONTACT.phone}</p>
-                  <p className="mt-0.5 hidden text-xs text-text-secondary sm:block">Mon – Sat · 10 AM – 7 PM</p>
+                  <p className="mt-0.5 hidden text-xs text-text-secondary sm:block">Mon – Sat · 10 AM – 10 PM</p>
                 </ContactCard>
 
                 <ContactCard

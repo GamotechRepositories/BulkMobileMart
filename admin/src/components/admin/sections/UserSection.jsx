@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
-import { deleteUser, getUsers, updateUser } from "../../../api/api";
+import { createUser, deleteUser, getUsers, updateUser } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import { IconEdit, IconTrash } from "../AdminIcons";
 import UserEditModal from "../UserEditModal";
-import { btnDanger, btnSecondary, compactTableClass, tableClass, tdClass, thClass } from "../adminStyles";
+import {
+  adminCompactTableClass,
+  adminCompactTdClass,
+  adminCompactThClass,
+  adminTableHeaderClass,
+  adminTableWrapperClass,
+  btnPrimary,
+  iconBtnClass,
+  iconBtnDangerClass,
+} from "../adminStyles";
 
 function UserSection() {
   const [users, setUsers] = useState([]);
@@ -10,6 +20,7 @@ function UserSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editingUser, setEditingUser] = useState(null);
+  const [showAddUser, setShowAddUser] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchUsers = async () => {
@@ -32,17 +43,31 @@ function UserSection() {
     fetchUsers();
   }, []);
 
+  const closeModal = () => {
+    setEditingUser(null);
+    setShowAddUser(false);
+  };
+
   const handleSave = async (id, payload) => {
     try {
       setSaving(true);
       setError("");
       setSuccess("");
-      await updateUser(id, payload);
-      setSuccess("User updated successfully");
-      setEditingUser(null);
+      if (id) {
+        await updateUser(id, payload);
+        setSuccess("User updated successfully");
+      } else {
+        if (!payload.password) {
+          setError("Password is required for new users");
+          return;
+        }
+        await createUser(payload);
+        setSuccess("User added successfully");
+      }
+      closeModal();
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to update user");
+      setError(err.response?.data?.message || (id ? "Failed to update user" : "Failed to add user"));
     } finally {
       setSaving(false);
     }
@@ -73,10 +98,17 @@ function UserSection() {
         }}
       />
 
-      <div className="mb-4">
-        <p className="text-sm text-text-secondary">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-neutral-700">
           All users ({users.length})
         </p>
+        <button
+          type="button"
+          onClick={() => setShowAddUser(true)}
+          className={btnPrimary}
+        >
+          Add User
+        </button>
       </div>
 
       {loading ? (
@@ -86,8 +118,8 @@ function UserSection() {
           {error ? "Could not load users." : "No registered users yet."}
         </p>
       ) : (
-        <div className={tableClass}>
-          <table className={compactTableClass}>
+        <div className={adminTableWrapperClass}>
+          <table className={adminCompactTableClass}>
             <colgroup>
               <col className="w-[18%]" />
               <col className="w-[28%]" />
@@ -96,51 +128,55 @@ function UserSection() {
               <col className="w-[26%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-border-light bg-mobile-surface">
-                <th className={thClass}>Name</th>
-                <th className={thClass}>Email</th>
-                <th className={thClass}>Phone</th>
-                <th className={thClass}>Joined</th>
-                <th className={`${thClass} text-right`}>Actions</th>
+              <tr className={adminTableHeaderClass}>
+                <th className={adminCompactThClass}>Name</th>
+                <th className={adminCompactThClass}>Email</th>
+                <th className={adminCompactThClass}>Phone</th>
+                <th className={adminCompactThClass}>Joined</th>
+                <th className={adminCompactThClass}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr
                   key={user._id}
-                  className="border-b border-border-light last:border-0"
+                  className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                 >
-                  <td className={`${tdClass} font-medium`}>
+                  <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                     <span className="block truncate">{user.name}</span>
                   </td>
-                  <td className={`${tdClass} text-text-secondary`}>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
                     <span className="block truncate">{user.email}</span>
                   </td>
-                  <td className={`${tdClass} text-text-secondary`}>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
                     <span className="block truncate">{user.phone}</span>
                   </td>
-                  <td className={`${tdClass} text-text-secondary`}>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
                     <span className="block truncate">
                       {user.createdAt
                         ? new Date(user.createdAt).toLocaleDateString("en-IN")
                         : "—"}
                     </span>
                   </td>
-                  <td className={tdClass}>
-                    <div className="flex flex-wrap justify-end gap-1.5">
+                  <td className={adminCompactTdClass}>
+                    <div className="flex flex-nowrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => setEditingUser(user)}
-                        className={btnSecondary}
+                        className={iconBtnClass}
+                        title="Edit"
+                        aria-label="Edit user"
                       >
-                        Edit
+                        <IconEdit />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(user._id)}
-                        className={btnDanger}
+                        className={iconBtnDangerClass}
+                        title="Delete"
+                        aria-label="Delete user"
                       >
-                        Delete
+                        <IconTrash />
                       </button>
                     </div>
                   </td>
@@ -153,7 +189,8 @@ function UserSection() {
 
       <UserEditModal
         user={editingUser}
-        onClose={() => setEditingUser(null)}
+        isAdd={showAddUser}
+        onClose={closeModal}
         onSave={handleSave}
         saving={saving}
       />

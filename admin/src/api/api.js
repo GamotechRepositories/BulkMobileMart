@@ -66,6 +66,7 @@ export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
 export const loginUser = (data) => api.post("/api/users/login", data);
 export const getUsers = () => api.get("/api/users");
+export const createUser = (data) => api.post("/api/users", data);
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 
