@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import AddToCartButton from "./AddToCartButton";
 import WishlistButton from "./WishlistButton";
 import { formatProductPriceLabel, getTotalProductStock } from "../../utils/productPricing";
 
@@ -87,14 +88,11 @@ function DealProductCard({
           </button>
         </div>
       ) : (
-        <button
-          type="button"
+        <AddToCartButton
           onClick={() => (onIncrease ? onIncrease(product) : onAdd(product))}
           disabled={disabled}
-          className="mt-2 w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2 sm:text-sm"
-        >
-          ADD
-        </button>
+          className="mt-2 w-full"
+        />
       )}
     </div>
   );

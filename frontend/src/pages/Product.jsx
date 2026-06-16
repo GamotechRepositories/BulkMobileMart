@@ -15,6 +15,7 @@ import {
   isMultiVariant,
   isProductInStock,
 } from "../utils/productPricing";
+import AddToCartButton from "../components/product/AddToCartButton";
 import WishlistButton from "../components/product/WishlistButton";
 import ProductThumb from "../components/product/ProductThumb";
 
@@ -159,14 +160,11 @@ function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
               </button>
             </div>
           ) : (
-            <button
-              type="button"
+            <AddToCartButton
               onClick={() => onIncrease(product)}
               disabled={!inStock}
-              className="shrink-0 rounded-md bg-primary px-4 py-1.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Add
-            </button>
+              className="shrink-0"
+            />
           )}
         </div>
       </div>
