@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, getUsers, updateUser } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import { IconEdit, IconTrash } from "../AdminIcons";
 import UserEditModal from "../UserEditModal";
 import {
@@ -24,13 +25,28 @@ function UserSection() {
   const [editingUser, setEditingUser] = useState(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getUsers();
+      const { data } = await getUsers({ page, limit: ADMIN_PAGE_SIZE });
       setUsers(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -39,11 +55,11 @@ function UserSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const closeModal = () => {
     setEditingUser(null);
@@ -83,7 +99,9 @@ function UserSection() {
       await deleteUser(id);
       setSuccess("User deleted");
       if (editingUser?._id === id) setEditingUser(null);
-      fetchUsers();
+      const nextPage = users.length === 1 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else fetchUsers();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete user");
     }
@@ -102,7 +120,7 @@ function UserSection() {
 
       <div className={pageHeaderClass}>
         <p className="text-sm font-medium text-neutral-700">
-          All users ({users.length})
+          All users ({pagination.total})
         </p>
         <div className={pageHeaderActionsClass}>
         <button
@@ -188,6 +206,13 @@ function UserSection() {
               ))}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

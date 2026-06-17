@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAdminOrders, getAdminPaymentProofs } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
@@ -63,6 +64,17 @@ function PaymentSection() {
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedProofId, setSelectedProofId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [startDate, endDate, orderStatus, paymentStatus]);
 
   const proofByOrderId = useMemo(() => {
     const map = new Map();
@@ -79,18 +91,29 @@ function PaymentSection() {
     try {
       setLoading(true);
       setError("");
-      const params = {};
+      const params = { page, limit: ADMIN_PAGE_SIZE };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
 
-      const [ordersRes, proofsRes] = await Promise.all([
-        getAdminOrders(params),
-        getAdminPaymentProofs(),
-      ]);
+      const ordersRes = await getAdminOrders(params);
+      const loadedOrders = ordersRes.data.data || [];
+      setOrders(loadedOrders);
+      setPagination(
+        ordersRes.data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: loadedOrders.length,
+          totalPages: 1,
+        }
+      );
 
-      setOrders(ordersRes.data.data || []);
+      const orderIds = loadedOrders.map((order) => order._id).join(",");
+      const proofsRes = await getAdminPaymentProofs(
+        orderIds ? { orderIds, limit: ADMIN_PAGE_SIZE } : { limit: 1 }
+      );
+
       setProofs(proofsRes.data.data || []);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load payments"));
@@ -99,19 +122,25 @@ function PaymentSection() {
     } finally {
       setLoading(false);
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus]);
+  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, page]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const sortedOrders = useMemo(
-    () =>
-      [...orders].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [orders]
-  );
+  const handleDownload = async () => {
+    try {
+      const params = { limit: 10000 };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (orderStatus !== "all") params.status = orderStatus;
+      if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      const { data } = await getAdminOrders(params);
+      downloadPaymentsCsv(data.data || [], "payments.csv");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to download payments"));
+    }
+  };
 
   const handleView = (order) => {
     const proof = proofByOrderId.get(String(order._id));
@@ -136,7 +165,7 @@ function PaymentSection() {
       />
 
       <p className="mb-4 text-sm font-medium text-neutral-700">
-        {sortedOrders.length} payment{sortedOrders.length === 1 ? "" : "s"}
+        {pagination.total} payment{pagination.total === 1 ? "" : "s"}
       </p>
 
       <AdminOrderFilters
@@ -148,12 +177,12 @@ function PaymentSection() {
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}
         onPaymentStatusChange={setPaymentStatus}
-        onDownload={() => downloadPaymentsCsv(sortedOrders, "payments.csv")}
+        onDownload={handleDownload}
       />
 
       {loading ? (
         <p className="mt-4 text-text-secondary">Loading payments...</p>
-      ) : sortedOrders.length === 0 ? (
+      ) : orders.length === 0 ? (
         <p className="mt-4 text-text-secondary">No payments found.</p>
       ) : (
         <div className={adminTableWrapperClass}>
@@ -170,7 +199,7 @@ function PaymentSection() {
               </tr>
             </thead>
             <tbody>
-              {sortedOrders.map((order) => {
+              {orders.map((order) => {
                 const proof = proofByOrderId.get(String(order._id));
                 const status = getRowStatus(order, proof);
 
@@ -222,6 +251,13 @@ function PaymentSection() {
               })}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

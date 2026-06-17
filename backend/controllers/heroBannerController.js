@@ -1,4 +1,5 @@
 import HeroBanner from "../models/HeroBanner.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const normalizeDevice = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
@@ -31,8 +32,22 @@ export const getHeroBanners = async (req, res) => {
 
 export const getAllHeroBanners = async (req, res) => {
   try {
-    const banners = await HeroBanner.find().sort({ order: 1, createdAt: -1 });
-    res.status(200).json({ success: true, data: banners });
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const device = req.query.device;
+    const filter = {};
+
+    if (device === "mobile") {
+      filter.device = "mobile";
+    } else if (device === "desktop") {
+      Object.assign(filter, buildDeviceFilter("desktop"));
+    }
+
+    const [total, banners] = await Promise.all([
+      HeroBanner.countDocuments(filter),
+      HeroBanner.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(banners, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

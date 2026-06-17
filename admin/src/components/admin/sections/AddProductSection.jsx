@@ -186,10 +186,10 @@ function AddProductSection() {
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-    getAllCategories()
+    getAllCategories({ limit: 500 })
       .then(({ data }) => setCategories(data.data || []))
       .catch(() => setCategories([]));
-    getAllBrands()
+    getAllBrands({ limit: 500 })
       .then(({ data }) => setBrands(data.data || []))
       .catch(() => setBrands([]));
   }, []);

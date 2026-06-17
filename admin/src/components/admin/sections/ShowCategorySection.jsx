@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteCategory, getAllCategories } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
-import { btnDanger, btnSecondary, compactTableClass, pageHeaderClass, tableClass, tdClass, thClass } from "../adminStyles";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import { IconEdit, IconTrash } from "../AdminIcons";
+import {
+  adminCompactTableClass,
+  adminCompactTdClass,
+  adminCompactThClass,
+  adminTableHeaderClass,
+  adminTableWrapperClass,
+  iconBtnClass,
+  iconBtnDangerClass,
+  pageHeaderClass,
+} from "../adminStyles";
 
 function ShowCategorySection() {
   const navigate = useNavigate();
@@ -10,23 +21,38 @@ function ShowCategorySection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAllCategories();
+      const { data } = await getAllCategories({ page, limit: ADMIN_PAGE_SIZE });
       setCategories(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load categories");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   const handleEdit = (cat) => {
     navigate("/categories/add", { state: { editCategory: cat } });
@@ -39,7 +65,9 @@ function ShowCategorySection() {
       setSuccess("");
       await deleteCategory(id);
       setSuccess("Category deleted");
-      fetchCategories();
+      const nextPage = categories.length === 1 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else fetchCategories();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete category");
     }
@@ -50,8 +78,8 @@ function ShowCategorySection() {
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
       <div className={pageHeaderClass}>
-        <p className="text-sm text-text-secondary">
-          All categories ({categories.length})
+        <p className="text-sm font-medium text-neutral-700">
+          All categories ({pagination.total})
         </p>
       </div>
 
@@ -60,8 +88,8 @@ function ShowCategorySection() {
       ) : categories.length === 0 ? (
         <p className="text-text-secondary">No categories yet.</p>
       ) : (
-        <div className={tableClass}>
-          <table className={compactTableClass}>
+        <div className={adminTableWrapperClass}>
+          <table className={adminCompactTableClass}>
             <colgroup>
               <col className="w-[10%]" />
               <col className="w-[22%]" />
@@ -70,22 +98,22 @@ function ShowCategorySection() {
               <col className="w-[18%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-border-light bg-mobile-surface">
-                <th className={thClass}>Image</th>
-                <th className={thClass}>Category Name</th>
-                <th className={thClass}>Subcategories</th>
-                <th className={thClass}>Status</th>
-                <th className={`${thClass} text-right`}>Actions</th>
+              <tr className={adminTableHeaderClass}>
+                <th className={adminCompactThClass}>Image</th>
+                <th className={adminCompactThClass}>Category Name</th>
+                <th className={adminCompactThClass}>Subcategories</th>
+                <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {categories.map((cat) => (
                 <tr
                   key={cat._id}
-                  className="border-b border-border-light last:border-0"
+                  className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                 >
-                  <td className={tdClass}>
-                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border-light bg-white">
+                  <td className={adminCompactTdClass}>
+                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white">
                       <img
                         src={cat.categoryImage}
                         alt={cat.categoryName}
@@ -93,38 +121,44 @@ function ShowCategorySection() {
                       />
                     </div>
                   </td>
-                  <td className={`${tdClass} font-medium`}>
+                  <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                     <span className="block truncate">{cat.categoryName}</span>
                   </td>
-                  <td className={`${tdClass} text-text-secondary`}>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
                     <span className="block truncate">
                       {(cat.subcategories || []).join(", ") || "—"}
                     </span>
                   </td>
-                  <td className={tdClass}>
+                  <td className={adminCompactTdClass}>
                     <span
-                      className={
-                        cat.isActive ? "text-green-600" : "text-red-500"
-                      }
+                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        cat.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-neutral-100 text-neutral-700"
+                      }`}
                     >
                       {cat.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className={tdClass}>
-                    <div className="flex flex-wrap justify-end gap-1.5">
+                  <td className={adminCompactTdClass}>
+                    <div className="flex flex-nowrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleEdit(cat)}
-                        className={btnSecondary}
+                        className={iconBtnClass}
+                        title="Edit category"
+                        aria-label="Edit category"
                       >
-                        Edit
+                        <IconEdit />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(cat._id)}
-                        className={btnDanger}
+                        className={iconBtnDangerClass}
+                        title="Delete category"
+                        aria-label="Delete category"
                       >
-                        Delete
+                        <IconTrash />
                       </button>
                     </div>
                   </td>
@@ -132,6 +166,13 @@ function ShowCategorySection() {
               ))}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

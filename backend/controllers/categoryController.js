@@ -1,4 +1,5 @@
 import Category from "../models/Category.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const normalizeSubcategories = (subcategories) => {
   if (!Array.isArray(subcategories)) return [];
@@ -22,11 +23,14 @@ export const getCategories = async (req, res) => {
 
 export const getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({
-      categoryName: 1,
-      createdAt: -1,
-    });
-    res.status(200).json({ success: true, data: categories });
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const filter = {};
+    const [total, categories] = await Promise.all([
+      Category.countDocuments(filter),
+      Category.find(filter).sort({ categoryName: 1, createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(categories, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

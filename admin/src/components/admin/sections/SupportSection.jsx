@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getAdminSupportMessage,
   getAdminSupportMessages,
@@ -6,6 +6,7 @@ import {
 } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
@@ -116,6 +117,17 @@ function SupportSection() {
   const [success, setSuccess] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   const fetchMessages = useCallback(async () => {
     if (adminUser?.role !== "admin") return;
@@ -123,24 +135,31 @@ function SupportSection() {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAdminSupportMessages();
+      const params = { page, limit: ADMIN_PAGE_SIZE };
+      if (statusFilter !== "all") params.status = statusFilter;
+      const { data } = await getAdminSupportMessages(params);
       setMessages(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load support messages"));
       setMessages([]);
     } finally {
       setLoading(false);
     }
-  }, [adminUser]);
+  }, [adminUser, page, statusFilter]);
 
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
 
-  const filteredMessages = useMemo(() => {
-    if (statusFilter === "all") return messages;
-    return messages.filter((message) => message.status === statusFilter);
-  }, [messages, statusFilter]);
+  const filteredMessages = messages;
 
   const handleStatusChange = async (id, status) => {
     try {
@@ -169,7 +188,7 @@ function SupportSection() {
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-medium text-neutral-700">
-          {filteredMessages.length} message{filteredMessages.length === 1 ? "" : "s"}
+          {pagination.total} message{pagination.total === 1 ? "" : "s"}
         </p>
         <select
           value={statusFilter}
@@ -273,6 +292,13 @@ function SupportSection() {
               ))}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

@@ -191,6 +191,7 @@ function SidebarContent({
   collapsed,
   onCollapse,
   onExpand,
+  showLogout,
 }) {
   const [openGroupKey, setOpenGroupKey] = useState("");
 
@@ -281,7 +282,7 @@ function SidebarContent({
         })}
       </nav>
 
-      {user && (
+      {user && showLogout && (
         <div className={`mt-6 border-t border-neutral-800 pt-4 ${collapsed ? "space-y-2" : ""}`}>
           {!collapsed && (
             <p className="mb-2 truncate px-3 text-xs text-neutral-500">{user.email}</p>
@@ -350,6 +351,7 @@ function AdminLayout() {
           collapsed={sidebarCollapsed && !sidebarOpen}
           onCollapse={collapseSidebar}
           onExpand={expandSidebar}
+          showLogout={isDashboard}
         />
       </aside>
 
@@ -377,35 +379,37 @@ function AdminLayout() {
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {isDashboard ? (
-              <a
-                href={STORE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="hidden rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-accent hover:text-accent sm:inline-flex sm:px-4 sm:text-sm"
-              >
-                Visit Site
-              </a>
-            ) : null}
-            {adminUser ? (
               <>
-                <span className="hidden md:inline-flex max-w-[140px] items-center gap-2 truncate rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700">
-                  <IconUser className="h-4 w-4 shrink-0" />
-                  {adminUser.name.split(" ")[0]}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:px-4 sm:text-sm"
+                <a
+                  href={STORE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-accent hover:text-accent sm:inline-flex sm:px-4 sm:text-sm"
                 >
-                  Logout
-                </button>
+                  Visit Site
+                </a>
+                {adminUser ? (
+                  <>
+                    <span className="hidden md:inline-flex max-w-[140px] items-center gap-2 truncate rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700">
+                      <IconUser className="h-4 w-4 shrink-0" />
+                      {adminUser.name.split(" ")[0]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:px-4 sm:text-sm"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <span className="hidden items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 sm:inline-flex">
+                    <IconUser className="h-4 w-4" />
+                    Admin
+                  </span>
+                )}
               </>
-            ) : (
-              <span className="hidden items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 sm:inline-flex">
-                <IconUser className="h-4 w-4" />
-                Admin
-              </span>
-            )}
+            ) : null}
           </div>
         </header>
 

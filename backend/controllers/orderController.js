@@ -8,6 +8,7 @@ import {
   populateOrderItems,
   prepareOrderData,
 } from "../utils/orderHelpers.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -266,11 +267,18 @@ export const getAllOrders = async (req, res) => {
       }
     }
 
-    const orders = await Order.find(filter)
-      .populate("user", "name email phone")
-      .sort({ createdAt: -1 });
+    const { page, limit, skip } = getPaginationParams(req.query);
 
-    res.status(200).json({ success: true, data: orders });
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(filter),
+      Order.find(filter)
+        .populate("user", "name email phone")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(orders, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

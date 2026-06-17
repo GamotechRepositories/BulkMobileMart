@@ -1,12 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAdminOrders, getAllCategories, getAllProducts } from "../../../api/api";
-import {
-  buildMonthlySales,
-  buildTodayStats,
-  getOrderYears,
-  getRecentTodayOrders,
-} from "../dashboardUtils";
+import { getDashboardStats } from "../../../api/api";
 import MonthlySalesChart from "../MonthlySalesChart";
 import RecentTodayOrders from "../RecentTodayOrders";
 import { cardClass } from "../adminStyles";
@@ -54,7 +48,14 @@ function OverviewSection() {
   const [year, setYear] = useState(currentYear);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [orders, setOrders] = useState([]);
+  const [today, setToday] = useState({
+    orders: 0,
+    pending: 0,
+    delivered: 0,
+    cancelled: 0,
+  });
+  const [recentTodayOrders, setRecentTodayOrders] = useState([]);
+  const [monthlySales, setMonthlySales] = useState([]);
   const [years, setYears] = useState([currentYear]);
   const [totals, setTotals] = useState({ products: 0, categories: 0 });
 
@@ -64,41 +65,24 @@ function OverviewSection() {
         setLoading(true);
         setError("");
 
-        const [ordersRes, productsRes, categoriesRes] = await Promise.all([
-          getAdminOrders(),
-          getAllProducts(),
-          getAllCategories(),
-        ]);
+        const { data } = await getDashboardStats({ year });
+        const stats = data.data || {};
 
-        const allOrders = ordersRes.data.data || [];
-        const orderYears = getOrderYears(allOrders, currentYear);
-
-        setOrders(allOrders);
-        setYears(orderYears);
-        setTotals({
-          products: productsRes.data.data?.length || 0,
-          categories: categoriesRes.data.data?.length || 0,
-        });
-
-        if (orderYears.includes(currentYear)) {
-          setYear(currentYear);
-        } else if (orderYears.length > 0) {
-          setYear(orderYears[0]);
-        }
+        setToday(stats.today || { orders: 0, pending: 0, delivered: 0, cancelled: 0 });
+        setRecentTodayOrders(stats.recentTodayOrders || []);
+        setMonthlySales(stats.monthlySales || []);
+        setYears(stats.years?.length ? stats.years : [currentYear]);
+        setTotals(stats.totals || { products: 0, categories: 0 });
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
-        setOrders([]);
+        setRecentTodayOrders([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadDashboard();
-  }, [currentYear]);
-
-  const monthlySales = useMemo(() => buildMonthlySales(orders, year), [orders, year]);
-  const today = useMemo(() => buildTodayStats(orders), [orders]);
-  const recentTodayOrders = useMemo(() => getRecentTodayOrders(orders), [orders]);
+  }, [year, currentYear]);
 
   return (
     <div className="min-w-0 space-y-6">

@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import { resolvePricingFields } from "../utils/productPricing.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -452,8 +453,41 @@ export const getProducts = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort(sortOptions);
-    res.status(200).json({ success: true, data: products });
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const { search, category, sortBy, sortDir } = req.query;
+    const filter = {};
+
+    if (category && category !== "all") {
+      filter.categories = category;
+    }
+
+    const query = typeof search === "string" ? search.trim() : "";
+    if (query) {
+      const pattern = new RegExp(escapeRegex(query), "i");
+      filter.$or = [
+        { name: pattern },
+        { brandName: pattern },
+        { subcategory: pattern },
+        { subcategories: pattern },
+        { categories: pattern },
+      ];
+    }
+
+    const sortMap = {
+      name: "name",
+      price: "discountedPrice",
+      stock: "inStock",
+      brand: "brandName",
+    };
+    const sortField = sortMap[sortBy] || "name";
+    const sortOrder = sortDir === "desc" ? -1 : 1;
+
+    const [total, products] = await Promise.all([
+      Product.countDocuments(filter),
+      Product.find(filter).sort({ [sortField]: sortOrder }).skip(skip).limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(products, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

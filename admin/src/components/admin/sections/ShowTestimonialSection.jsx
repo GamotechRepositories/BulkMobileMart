@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteTestimonial, getAllTestimonials } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import { IconEdit, IconTrash } from "../AdminIcons";
 import {
-  btnDanger,
+  adminCompactTableClass,
+  adminCompactTdClass,
+  adminCompactThClass,
+  adminTableHeaderClass,
+  adminTableWrapperClass,
   btnPrimary,
-  btnSecondary,
-  compactTableClass,
+  iconBtnClass,
+  iconBtnDangerClass,
   pageHeaderActionsClass,
   pageHeaderClass,
-  tableClass,
-  tdClass,
-  thClass,
 } from "../adminStyles";
 
 function ShowTestimonialSection() {
@@ -20,23 +23,38 @@ function ShowTestimonialSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const fetchTestimonials = async () => {
+  const fetchTestimonials = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAllTestimonials();
+      const { data } = await getAllTestimonials({ page, limit: ADMIN_PAGE_SIZE });
       setTestimonials(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load testimonials");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchTestimonials();
-  }, []);
+  }, [fetchTestimonials]);
 
   const handleEdit = (item) => {
     navigate("/testimonials/add", { state: { editTestimonial: item } });
@@ -49,7 +67,9 @@ function ShowTestimonialSection() {
       setSuccess("");
       await deleteTestimonial(id);
       setSuccess("Testimonial deleted");
-      fetchTestimonials();
+      const nextPage = testimonials.length === 1 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else fetchTestimonials();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete testimonial");
     }
@@ -60,17 +80,17 @@ function ShowTestimonialSection() {
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
       <div className={pageHeaderClass}>
-        <p className="text-sm text-text-secondary">
-          All testimonials ({testimonials.length})
+        <p className="text-sm font-medium text-neutral-700">
+          All testimonials ({pagination.total})
         </p>
         <div className={pageHeaderActionsClass}>
-        <button
-          type="button"
-          onClick={() => navigate("/testimonials/add")}
-          className={btnPrimary}
-        >
-          Add Testimonial
-        </button>
+          <button
+            type="button"
+            onClick={() => navigate("/testimonials/add")}
+            className={btnPrimary}
+          >
+            Add Testimonial
+          </button>
         </div>
       </div>
 
@@ -79,8 +99,8 @@ function ShowTestimonialSection() {
       ) : testimonials.length === 0 ? (
         <p className="text-text-secondary">No testimonials yet.</p>
       ) : (
-        <div className={tableClass}>
-          <table className={compactTableClass}>
+        <div className={adminTableWrapperClass}>
+          <table className={adminCompactTableClass}>
             <colgroup>
               <col className="w-[22%]" />
               <col className="w-[44%]" />
@@ -89,54 +109,64 @@ function ShowTestimonialSection() {
               <col className="w-[14%]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-border-light bg-mobile-surface">
-                <th className={thClass}>Name</th>
-                <th className={thClass}>Text</th>
-                <th className={thClass}>Order</th>
-                <th className={thClass}>Status</th>
-                <th className={`${thClass} text-right`}>Actions</th>
+              <tr className={adminTableHeaderClass}>
+                <th className={adminCompactThClass}>Name</th>
+                <th className={adminCompactThClass}>Text</th>
+                <th className={adminCompactThClass}>Order</th>
+                <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {testimonials.map((item) => (
                 <tr
                   key={item._id}
-                  className="border-b border-border-light last:border-0"
+                  className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                 >
-                  <td className={`${tdClass} font-medium`}>
-                    <span className="block truncate">{item.name}</span>
-                    <span className="block truncate text-xs text-text-secondary">
+                  <td className={adminCompactTdClass}>
+                    <p className="truncate font-semibold text-neutral-900">{item.name}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-neutral-500">
                       {item.role || "—"}
+                    </p>
+                  </td>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
+                    <span className="line-clamp-2 break-words text-[10px] sm:text-[11px]">
+                      {item.text}
                     </span>
                   </td>
-                  <td className={`${tdClass} text-text-secondary`}>
-                    <span className="line-clamp-2 text-xs">{item.text}</span>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
+                    {item.order ?? 0}
                   </td>
-                  <td className={tdClass}>{item.order ?? 0}</td>
-                  <td className={tdClass}>
+                  <td className={adminCompactTdClass}>
                     <span
-                      className={
-                        item.isActive ? "text-green-600" : "text-red-500"
-                      }
+                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        item.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-neutral-100 text-neutral-700"
+                      }`}
                     >
                       {item.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className={tdClass}>
-                    <div className="flex flex-wrap justify-end gap-1.5">
+                  <td className={adminCompactTdClass}>
+                    <div className="flex flex-nowrap items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleEdit(item)}
-                        className={btnSecondary}
+                        className={iconBtnClass}
+                        title="Edit testimonial"
+                        aria-label="Edit testimonial"
                       >
-                        Edit
+                        <IconEdit />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item._id)}
-                        className={btnDanger}
+                        className={iconBtnDangerClass}
+                        title="Delete testimonial"
+                        aria-label="Delete testimonial"
                       >
-                        Delete
+                        <IconTrash />
                       </button>
                     </div>
                   </td>
@@ -144,6 +174,13 @@ function ShowTestimonialSection() {
               ))}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

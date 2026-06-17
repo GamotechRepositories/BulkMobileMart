@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   addHeroBanner,
   deleteHeroBanner,
@@ -6,9 +6,11 @@ import {
   updateHeroBanner,
 } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import ImagePicker from "../ImagePicker";
+import { IconTrash } from "../AdminIcons";
 import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
-import { btnDanger, btnPrimary, cardClass, inputClass, labelClass } from "../adminStyles";
+import { btnPrimary, cardClass, iconBtnDangerClass, inputClass, labelClass } from "../adminStyles";
 
 const DEVICE_LABELS = {
   desktop: "Desktop",
@@ -21,30 +23,36 @@ function getBannerDevice(banner) {
 
 function BannerCard({ banner, onDelete, onDeviceChange }) {
   return (
-    <div className={`${cardClass} overflow-hidden p-0`}>
+    <div className="w-44 overflow-hidden rounded-xl border border-border-light bg-white shadow-sm sm:w-52">
       <img
         src={banner.imageUrl}
         alt={banner.alt}
-        className="h-36 w-full object-cover"
+        className="block w-full object-contain"
       />
-      <div className="space-y-3 p-4">
-        <div className="min-w-0 text-sm">
-          <p className="font-medium truncate">{banner.alt || "Banner"}</p>
-          <p className="mt-1 text-xs text-text-secondary">
-            {DEVICE_LABELS[getBannerDevice(banner)]} · Order: {banner.order}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-0.5 border-t border-border-light p-1">
+        <p className="truncate text-[10px] font-medium text-text-primary" title={banner.alt}>
+          {banner.alt || "Banner"}
+        </p>
+        <p className="text-[9px] text-text-secondary">
+          {DEVICE_LABELS[getBannerDevice(banner)]} · {banner.order}
+        </p>
+        <div className="flex items-center gap-1">
           <select
             value={getBannerDevice(banner)}
             onChange={(e) => onDeviceChange(banner._id, e.target.value)}
-            className={`${inputClass} max-w-[140px] py-2 text-sm`}
+            className={`${inputClass} min-w-0 flex-1 py-0.5 text-[10px]`}
           >
             <option value="desktop">Desktop</option>
             <option value="mobile">Phone</option>
           </select>
-          <button type="button" onClick={() => onDelete(banner._id)} className={btnDanger}>
-            Delete
+          <button
+            type="button"
+            onClick={() => onDelete(banner._id)}
+            className={`${iconBtnDangerClass} h-5 w-5 shrink-0`}
+            title="Delete banner"
+            aria-label="Delete banner"
+          >
+            <IconTrash className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -139,27 +147,63 @@ function AddBannerForm({ deviceType, onAdded }) {
 }
 
 function BannerSection() {
-  const [banners, setBanners] = useState([]);
+  const [desktopBanners, setDesktopBanners] = useState([]);
+  const [mobileBanners, setMobileBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [desktopPage, setDesktopPage] = useState(1);
+  const [mobilePage, setMobilePage] = useState(1);
+  const [desktopPagination, setDesktopPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+  const [mobilePagination, setMobilePagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const fetchBanners = async () => {
+  const fetchBanners = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAllHeroBanners();
-      setBanners(data.data || []);
+      const [desktopRes, mobileRes] = await Promise.all([
+        getAllHeroBanners({ device: "desktop", page: desktopPage, limit: ADMIN_PAGE_SIZE }),
+        getAllHeroBanners({ device: "mobile", page: mobilePage, limit: ADMIN_PAGE_SIZE }),
+      ]);
+
+      setDesktopBanners(desktopRes.data.data || []);
+      setMobileBanners(mobileRes.data.data || []);
+      setDesktopPagination(
+        desktopRes.data.pagination || {
+          page: desktopPage,
+          limit: ADMIN_PAGE_SIZE,
+          total: desktopRes.data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
+      setMobilePagination(
+        mobileRes.data.pagination || {
+          page: mobilePage,
+          limit: ADMIN_PAGE_SIZE,
+          total: mobileRes.data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load banners");
     } finally {
       setLoading(false);
     }
-  };
+  }, [desktopPage, mobilePage]);
 
   useEffect(() => {
     fetchBanners();
-  }, []);
+  }, [fetchBanners]);
 
   const handleDeviceChange = async (id, device) => {
     try {
@@ -186,25 +230,34 @@ function BannerSection() {
     }
   };
 
-  const desktopBanners = banners.filter((banner) => getBannerDevice(banner) === "desktop");
-  const mobileBanners = banners.filter((banner) => getBannerDevice(banner) === "mobile");
+  const desktopBannersList = desktopBanners;
+  const mobileBannersList = mobileBanners;
 
-  const renderBannerGrid = (items, emptyMessage) => {
+  const renderBannerGrid = (items, emptyMessage, pagination, onPageChange) => {
     if (loading) return <p className="text-text-secondary">Loading...</p>;
     if (items.length === 0) {
       return <p className="text-text-secondary">{emptyMessage}</p>;
     }
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        {items.map((banner) => (
-          <BannerCard
-            key={banner._id}
-            banner={banner}
-            onDelete={handleDelete}
-            onDeviceChange={handleDeviceChange}
-          />
-        ))}
-      </div>
+      <>
+        <div className="flex flex-wrap gap-3">
+          {items.map((banner) => (
+            <BannerCard
+              key={banner._id}
+              banner={banner}
+              onDelete={handleDelete}
+              onDeviceChange={handleDeviceChange}
+            />
+          ))}
+        </div>
+        <AdminPagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          loading={loading}
+          onPageChange={onPageChange}
+        />
+      </>
     );
   };
 
@@ -231,13 +284,23 @@ function BannerSection() {
 
       <div className="space-y-8">
         <section>
-          <h3 className="mb-3 font-semibold">Desktop Banners ({desktopBanners.length})</h3>
-          {renderBannerGrid(desktopBanners, "No desktop banners yet.")}
+          <h3 className="mb-3 font-semibold">Desktop Banners ({desktopPagination.total})</h3>
+          {renderBannerGrid(
+            desktopBannersList,
+            "No desktop banners yet.",
+            desktopPagination,
+            setDesktopPage
+          )}
         </section>
 
         <section>
-          <h3 className="mb-3 font-semibold">Phone Banners ({mobileBanners.length})</h3>
-          {renderBannerGrid(mobileBanners, "No phone banners yet.")}
+          <h3 className="mb-3 font-semibold">Phone Banners ({mobilePagination.total})</h3>
+          {renderBannerGrid(
+            mobileBannersList,
+            "No phone banners yet.",
+            mobilePagination,
+            setMobilePage
+          )}
         </section>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import Brand from "../models/Brand.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 export const getBrands = async (req, res) => {
   try {
@@ -14,8 +15,14 @@ export const getBrands = async (req, res) => {
 
 export const getAllBrands = async (req, res) => {
   try {
-    const brands = await Brand.find().sort({ order: 1, createdAt: -1 });
-    res.status(200).json({ success: true, data: brands });
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const filter = {};
+    const [total, brands] = await Promise.all([
+      Brand.countDocuments(filter),
+      Brand.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(brands, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

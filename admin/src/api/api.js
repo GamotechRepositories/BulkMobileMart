@@ -32,7 +32,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const getAllHeroBanners = () => api.get("/api/herobanners/all");
+export const getAllHeroBanners = (params) => api.get("/api/herobanners/all", { params });
 export const addHeroBanner = (data) =>
   api.post("/api/herobanners", data, {
     params: { device: data.bannerFor || data.device },
@@ -43,29 +43,29 @@ export const updateHeroBanner = (id, data) =>
   });
 export const deleteHeroBanner = (id) => api.delete(`/api/herobanners/${id}`);
 
-export const getAllCategories = () => api.get("/api/categories/all");
+export const getAllCategories = (params) => api.get("/api/categories/all", { params });
 export const addCategory = (data) => api.post("/api/categories", data);
 export const updateCategory = (id, data) => api.put(`/api/categories/${id}`, data);
 export const deleteCategory = (id) => api.delete(`/api/categories/${id}`);
 
-export const getAllBrands = () => api.get("/api/brands/all");
+export const getAllBrands = (params) => api.get("/api/brands/all", { params });
 export const addBrand = (data) => api.post("/api/brands", data);
 export const updateBrand = (id, data) => api.put(`/api/brands/${id}`, data);
 export const deleteBrand = (id) => api.delete(`/api/brands/${id}`);
 
-export const getAllTestimonials = () => api.get("/api/testimonials/all");
+export const getAllTestimonials = (params) => api.get("/api/testimonials/all", { params });
 export const addTestimonial = (data) => api.post("/api/testimonials", data);
 export const updateTestimonial = (id, data) =>
   api.put(`/api/testimonials/${id}`, data);
 export const deleteTestimonial = (id) => api.delete(`/api/testimonials/${id}`);
 
-export const getAllProducts = () => api.get("/api/products/all");
+export const getAllProducts = (params) => api.get("/api/products/all", { params });
 export const addProduct = (data) => api.post("/api/products", data);
 export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
 export const loginUser = (data) => api.post("/api/users/login", data);
-export const getUsers = () => api.get("/api/users");
+export const getUsers = (params) => api.get("/api/users", { params });
 export const createUser = (data) => api.post("/api/users", data);
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
@@ -81,7 +81,7 @@ export const getAdminPaymentProof = (id) => api.get(`/api/payments/admin/${id}`)
 export const updateAdminPaymentProof = (id, data) =>
   api.patch(`/api/payments/admin/${id}`, data);
 
-export const getAdminSupportMessages = () => api.get("/api/support/admin");
+export const getAdminSupportMessages = (params) => api.get("/api/support/admin", { params });
 export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
 export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);

@@ -1,6 +1,7 @@
 import SupportMessage, { SUPPORT_ISSUE_TYPES } from "../models/support/SupportMessage.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,17 +72,30 @@ export const submitSupportMessage = async (req, res) => {
 
 export const getAllSupportMessages = async (req, res) => {
   try {
-    const messages = await SupportMessage.find()
-      .sort({ createdAt: -1 })
-      .select("name email phone orderId issueType message attachmentName status createdAt attachment")
-      .lean();
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const { status } = req.query;
+    const filter = {};
+
+    if (status && status !== "all" && ["open", "resolved"].includes(status)) {
+      filter.status = status;
+    }
+
+    const [total, messages] = await Promise.all([
+      SupportMessage.countDocuments(filter),
+      SupportMessage.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select("name email phone orderId issueType message attachmentName status createdAt attachment")
+        .lean(),
+    ]);
 
     const data = messages.map(({ attachment, ...rest }) => ({
       ...rest,
       hasAttachment: Boolean(attachment),
     }));
 
-    return res.json({ success: true, data });
+    return res.json(buildPaginatedResponse(data, total, page, limit));
   } catch (error) {
     return res.status(500).json({
       success: false,

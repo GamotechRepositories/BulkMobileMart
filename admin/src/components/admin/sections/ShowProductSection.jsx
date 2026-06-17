@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteProduct, getAllProducts } from "../../../api/api";
+import { deleteProduct, getAllCategories, getAllProducts } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import ProductDetailModal from "../ProductDetailModal";
 import { IconEdit, IconTrash } from "../AdminIcons";
 import {
@@ -14,11 +15,11 @@ import {
   iconBtnDangerClass,
 } from "../adminStyles";
 import ProductListFilters from "./ProductListFilters";
-import { filterAndSortProducts } from "./productListUtils";
 
 function ShowProductSection() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -27,23 +28,59 @@ function ShowProductSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    getAllCategories({ limit: 500 })
+      .then(({ data }) => {
+        setCategoryOptions((data.data || []).map((category) => category.categoryName));
+      })
+      .catch(() => setCategoryOptions([]));
+  }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, searchQuery, sortBy, sortDir]);
+
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAllProducts();
+      const params = {
+        page,
+        limit: ADMIN_PAGE_SIZE,
+        sortBy,
+        sortDir,
+      };
+      if (selectedCategory !== "all") params.category = selectedCategory;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+
+      const { data } = await getAllProducts(params);
       setProducts(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, selectedCategory, searchQuery, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   useEffect(() => {
     if (!selectedProduct) return;
@@ -58,17 +95,6 @@ function ShowProductSection() {
     };
   }, [selectedProduct]);
 
-  const displayedProducts = useMemo(
-    () =>
-      filterAndSortProducts(products, {
-        selectedCategory,
-        searchQuery,
-        sortBy,
-        sortDir,
-      }),
-    [products, selectedCategory, searchQuery, sortBy, sortDir]
-  );
-
   const handleEdit = (product) => {
     navigate("/products/add", { state: { editProduct: product } });
   };
@@ -82,7 +108,9 @@ function ShowProductSection() {
       await deleteProduct(id);
       setSuccess("Product deleted");
       if (selectedProduct?._id === id) setSelectedProduct(null);
-      fetchProducts();
+      const nextPage = products.length === 1 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete product");
     }
@@ -97,7 +125,8 @@ function ShowProductSection() {
       ) : (
         <>
           <ProductListFilters
-            products={products}
+            categories={categoryOptions}
+            totalCount={pagination.total}
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
             searchQuery={searchQuery}
@@ -109,15 +138,14 @@ function ShowProductSection() {
           />
 
           <p className="mb-4 mt-4 text-sm font-medium text-neutral-700">
-            {displayedProducts.length} product{displayedProducts.length === 1 ? "" : "s"}
-            {displayedProducts.length !== products.length && ` of ${products.length}`} · Click a
-            row to view full details
+            {pagination.total} product{pagination.total === 1 ? "" : "s"} · Click a row to view full
+            details
           </p>
 
-          {products.length === 0 ? (
+          {pagination.total === 0 ? (
             <p className="text-text-secondary">No products found.</p>
-          ) : displayedProducts.length === 0 ? (
-            <p className="text-text-secondary">No products match your filters.</p>
+          ) : products.length === 0 ? (
+            <p className="text-text-secondary">No products on this page.</p>
           ) : (
             <div className={adminTableWrapperClass}>
               <table className={adminCompactTableClass}>
@@ -144,7 +172,7 @@ function ShowProductSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedProducts.map((product) => (
+                  {products.map((product) => (
                     <tr
                       key={product._id}
                       onClick={() => setSelectedProduct(product)}
@@ -231,6 +259,13 @@ function ShowProductSection() {
                   ))}
                 </tbody>
               </table>
+              <AdminPagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                total={pagination.total}
+                loading={loading}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </>

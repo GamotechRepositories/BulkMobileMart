@@ -9,6 +9,7 @@ import {
 } from "../utils/orderHelpers.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
@@ -299,23 +300,36 @@ export const submitUpiPaymentProof = async (req, res) => {
 
 export const getAdminPayments = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const { status, orderIds } = req.query;
     const filter = {};
 
     if (status && ["pending", "verified", "rejected"].includes(status)) {
       filter.status = status;
     }
 
-    const payments = await Payment.find(filter)
-      .sort({ createdAt: -1 })
-      .populate("user", "name email phone")
-      .populate("order", "orderNumber status paymentStatus total")
-      .lean();
+    if (orderIds) {
+      const ids = String(orderIds)
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+      if (ids.length > 0) {
+        filter.order = { $in: ids };
+      }
+    }
 
-    res.status(200).json({
-      success: true,
-      data: payments,
-    });
+    const [total, payments] = await Promise.all([
+      Payment.countDocuments(filter),
+      Payment.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("user", "name email phone")
+        .populate("order", "orderNumber status paymentStatus total")
+        .lean(),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(payments, total, page, limit));
   } catch (error) {
     res.status(500).json({
       success: false,

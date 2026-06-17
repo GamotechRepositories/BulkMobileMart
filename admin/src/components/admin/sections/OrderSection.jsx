@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
+import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
@@ -43,6 +44,17 @@ function OrderSection() {
   const [endDate, setEndDate] = useState("");
   const [orderStatus, setOrderStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: ADMIN_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+
+  useEffect(() => {
+    setPage(1);
+  }, [startDate, endDate, orderStatus, paymentStatus]);
 
   const fetchOrders = useCallback(async () => {
     if (adminUser?.role !== "admin") return;
@@ -50,7 +62,7 @@ function OrderSection() {
     try {
       setLoading(true);
       setError("");
-      const params = {};
+      const params = { page, limit: ADMIN_PAGE_SIZE };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
@@ -58,25 +70,39 @@ function OrderSection() {
 
       const { data } = await getAdminOrders(params);
       setOrders(data.data || []);
+      setPagination(
+        data.pagination || {
+          page,
+          limit: ADMIN_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        }
+      );
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load orders"));
       setOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus]);
+  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, page]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const sortedOrders = useMemo(
-    () =>
-      [...orders].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
-    [orders]
-  );
+  const handleDownload = async () => {
+    try {
+      const params = { limit: 10000 };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (orderStatus !== "all") params.status = orderStatus;
+      if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      const { data } = await getAdminOrders(params);
+      downloadOrdersCsv(data.data || [], "orders.csv");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to download orders"));
+    }
+  };
 
   return (
     <div className="min-w-0">
@@ -90,7 +116,7 @@ function OrderSection() {
       />
 
       <p className="mb-4 text-sm font-medium text-neutral-700">
-        {sortedOrders.length} order{sortedOrders.length === 1 ? "" : "s"}
+        {pagination.total} order{pagination.total === 1 ? "" : "s"}
       </p>
 
       <AdminOrderFilters
@@ -102,12 +128,12 @@ function OrderSection() {
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}
         onPaymentStatusChange={setPaymentStatus}
-        onDownload={() => downloadOrdersCsv(sortedOrders, "orders.csv")}
+        onDownload={handleDownload}
       />
 
       {loading ? (
         <p className="mt-4 text-text-secondary">Loading orders...</p>
-      ) : sortedOrders.length === 0 ? (
+      ) : orders.length === 0 ? (
         <p className="mt-4 text-text-secondary">No orders found.</p>
       ) : (
         <div className={adminTableWrapperClass}>
@@ -139,7 +165,7 @@ function OrderSection() {
               </tr>
             </thead>
             <tbody>
-              {sortedOrders.map((order) => {
+              {orders.map((order) => {
                 const payment = getPaymentStatus(order);
                 const transactionId = getTransactionId(order);
 
@@ -201,6 +227,13 @@ function OrderSection() {
               })}
             </tbody>
           </table>
+          <AdminPagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            loading={loading}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

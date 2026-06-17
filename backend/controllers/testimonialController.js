@@ -1,4 +1,5 @@
 import Testimonial from "../models/Testimonial.js";
+import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 export const getTestimonials = async (req, res) => {
   try {
@@ -14,11 +15,14 @@ export const getTestimonials = async (req, res) => {
 
 export const getAllTestimonials = async (req, res) => {
   try {
-    const testimonials = await Testimonial.find().sort({
-      order: 1,
-      createdAt: -1,
-    });
-    res.status(200).json({ success: true, data: testimonials });
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const filter = {};
+    const [total, testimonials] = await Promise.all([
+      Testimonial.countDocuments(filter),
+      Testimonial.find(filter).sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(testimonials, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
