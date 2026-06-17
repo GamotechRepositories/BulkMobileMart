@@ -15,6 +15,9 @@ import {
   isMultiVariant,
 } from "../utils/productPricing";
 import {
+  getDecreasedCartQuantity,
+} from "../utils/cartDefaults";
+import {
   buildBuyNowCheckoutItem,
   setBuyNowCheckout,
 } from "../utils/checkoutSession";
@@ -509,7 +512,7 @@ function ActionButtons({ inStock, onAddToCart, onBuyNow, className = "" }) {
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, items: cartItems, updateQuantity, removeFromCart } = useCart();
   const { user, openAuthModal } = useAuth();
   const buyNowPendingRef = useRef(false);
   const [product, setProduct] = useState(null);
@@ -540,7 +543,6 @@ function ProductDetail() {
         setSelectedColor(initialColors[0]?.name || "");
         setActiveImage(0);
         setActiveTab("description");
-        setQuantity(getMinOrderQuantity(nextProduct, initialVariant, DEFAULT_MOQ));
       } catch {
         setProduct(null);
         setSelectedVariant("");
@@ -559,7 +561,6 @@ function ProductDetail() {
     if (product) {
       const colors = getAvailableColors(product, variantName);
       setSelectedColor(colors[0]?.name || "");
-      setQuantity(getMinOrderQuantity(product, variantName, DEFAULT_MOQ));
     }
   };
 
@@ -608,6 +609,36 @@ function ProductDetail() {
   const minOrderQuantity = product
     ? getMinOrderQuantity(product, activeVariantName, DEFAULT_MOQ)
     : DEFAULT_MOQ;
+
+  const getCartLine = () => {
+    if (!product?._id) return null;
+    return (
+      cartItems.find(
+        (item) =>
+          item._id === product._id &&
+          (item.variantName || "") === activeVariantName &&
+          (item.colorName || "") === selectedColor
+      ) || null
+    );
+  };
+
+  const cartLineQuantity = useMemo(() => {
+    if (!product?._id) return null;
+    const line = cartItems.find(
+      (item) =>
+        item._id === product._id &&
+        (item.variantName || "") === activeVariantName &&
+        (item.colorName || "") === selectedColor
+    );
+    return line?.quantity ?? null;
+  }, [cartItems, product?._id, activeVariantName, selectedColor]);
+
+  useEffect(() => {
+    if (!product) return;
+    const moq = getMinOrderQuantity(product, activeVariantName, DEFAULT_MOQ);
+    setQuantity(cartLineQuantity ?? moq);
+  }, [product, activeVariantName, selectedColor, cartLineQuantity]);
+
   const currentUnitPrice = product
     ? getUnitPriceForQuantity(product, quantity, activeVariantName)
     : 0;
@@ -615,6 +646,17 @@ function ProductDetail() {
   const handleAddToCart = async () => {
     if (!product) return;
     if (availableColors.length > 0 && !selectedColor) return;
+
+    const line = getCartLine();
+    if (line) {
+      if (!user) {
+        openAuthModal("login");
+        return;
+      }
+      await updateQuantity(product._id, quantity, activeVariantName, selectedColor);
+      return;
+    }
+
     const result = await addToCart(product, quantity, {
       variantName: activeVariantName,
       colorName: selectedColor,
@@ -622,6 +664,43 @@ function ProductDetail() {
     if (result?.requiresLogin) {
       openAuthModal("login");
     }
+  };
+
+  const handleQuantityDecrease = async () => {
+    if (!product) return;
+    const line = getCartLine();
+    const step = minOrderQuantity;
+
+    if (line) {
+      const nextQty = getDecreasedCartQuantity(line.quantity, step);
+      if (nextQty <= 0) {
+        await removeFromCart(product._id, activeVariantName, selectedColor);
+      } else {
+        await updateQuantity(product._id, nextQty, activeVariantName, selectedColor);
+      }
+      return;
+    }
+
+    setQuantity((prev) => Math.max(minOrderQuantity, prev - step));
+  };
+
+  const handleQuantityIncrease = async () => {
+    if (!product) return;
+    const line = getCartLine();
+    const step = minOrderQuantity;
+    const variantStock = getVariantStock(product, activeVariantName);
+    const maxQty =
+      variantStock > 0
+        ? Math.max(variantStock, minOrderQuantity)
+        : minOrderQuantity;
+
+    if (line) {
+      const nextQty = Math.min(maxQty, line.quantity + step);
+      await updateQuantity(product._id, nextQty, activeVariantName, selectedColor);
+      return;
+    }
+
+    setQuantity((prev) => Math.min(maxQty, prev + step));
   };
 
   const handleBuyNow = async () => {
@@ -851,12 +930,8 @@ function ProductDetail() {
                 min={minOrderQuantity}
                 max={maxQuantity}
                 disabled={!inStock}
-                onDecrease={() =>
-                  setQuantity((prev) => Math.max(minOrderQuantity, prev - minOrderQuantity))
-                }
-                onIncrease={() =>
-                  setQuantity((prev) => Math.min(maxQuantity, prev + minOrderQuantity))
-                }
+                onDecrease={handleQuantityDecrease}
+                onIncrease={handleQuantityIncrease}
               />
             </div>
 

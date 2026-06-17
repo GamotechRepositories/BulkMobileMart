@@ -48,9 +48,11 @@ function Wishlist() {
 
   const handleIncrease = async (product) => {
     if (!product._id || product._id.length < 10) return;
-    const { variantName, colorName } = resolveCartDefaults(product);
+    const { variantName, colorName, quantity } = resolveCartDefaults(product);
     const step = getCartStepForProduct(product, variantName);
-    const result = await addToCart(product, step, {
+    const line = getCartLine(product);
+    const addQty = line ? step : quantity;
+    const result = await addToCart(product, addQty, {
       variantName,
       colorName,
     });

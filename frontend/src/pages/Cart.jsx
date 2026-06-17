@@ -20,7 +20,14 @@ const formatPrice = (amount, fractionDigits = 2) =>
     maximumFractionDigits: fractionDigits,
   }).format(amount);
 
-function QuantityControl({ quantity, onDecrease, onIncrease, disabled }) {
+function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact = false }) {
+  const btnClass = compact
+    ? "flex h-6 w-6 items-center justify-center text-sm text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
+    : "flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40";
+  const qtyClass = compact
+    ? "flex h-6 min-w-[1.5rem] items-center justify-center border-x border-border-light px-1 text-xs font-semibold text-text-primary"
+    : "flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-2 text-sm font-semibold text-text-primary";
+
   return (
     <div className="inline-flex items-center overflow-hidden rounded-md border border-border-light bg-white">
       <button
@@ -28,19 +35,17 @@ function QuantityControl({ quantity, onDecrease, onIncrease, disabled }) {
         onClick={onDecrease}
         disabled={disabled}
         aria-label="Decrease quantity"
-        className="flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
+        className={btnClass}
       >
         −
       </button>
-      <span className="flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-2 text-sm font-semibold text-text-primary">
-        {quantity}
-      </span>
+      <span className={qtyClass}>{quantity}</span>
       <button
         type="button"
         onClick={onIncrease}
         disabled={disabled}
         aria-label="Increase quantity"
-        className="flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
+        className={btnClass}
       >
         +
       </button>
@@ -52,58 +57,78 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
   const lineTotal = item.discountedPrice * item.quantity;
 
   return (
-    <article className="rounded-xl border border-border-light bg-white p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <Link
-          to={`/product/${item._id}`}
-          className="w-14 shrink-0 overflow-hidden rounded-lg border border-border-light"
-        >
-          <ProductImageFrame src={item.productImages?.[0]} alt={item.name} />
-        </Link>
-
+    <article className="min-h-[9rem] rounded-xl border border-border-light bg-white p-3 shadow-sm sm:min-h-[10rem] sm:p-4">
+      <div className="relative flex items-stretch gap-3 sm:gap-4">
         <button
           type="button"
           onClick={() => onRemove(item._id, item.variantName, item.colorName)}
-          className="flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
+          className="absolute right-0 top-0 z-10 flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
           aria-label="Remove item"
         >
           ×
         </button>
-      </div>
 
-      <Link
-        to={`/product/${item._id}`}
-        className="mt-2 block text-sm font-bold leading-snug text-text-primary"
-      >
-        {item.name}
-        {item.variantName ? (
-          <span className="mt-1 block text-xs font-medium text-text-secondary">
-            Variant: {item.variantName}
-          </span>
-        ) : null}
-        {item.colorName ? (
-          <span className="mt-1 block text-xs font-medium text-text-secondary">
-            Color: {item.colorName}
-          </span>
-        ) : null}
-      </Link>
+        <Link
+          to={`/product/${item._id}`}
+          className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32"
+        >
+          {item.productImages?.[0] ? (
+            <img
+              src={item.productImages[0]}
+              alt={item.name}
+              className="max-h-full max-w-full object-contain"
+            />
+          ) : (
+            <div className="h-full w-full rounded-md bg-mobile-surface" />
+          )}
+        </Link>
 
-      <div className="mt-3 flex items-center justify-between">
-        <QuantityControl
-          quantity={item.quantity}
-          disabled={loading}
-          onDecrease={() => {
-            const step = getCartStepForItem(item);
-            const nextQty = getDecreasedCartQuantity(item.quantity, step);
-            if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
-            else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
-          }}
-          onIncrease={() => {
-            const step = getCartStepForItem(item);
-            onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
-          }}
-        />
-        <p className="text-base font-bold text-text-primary">{formatPrice(lineTotal)}</p>
+        <div className="flex min-w-0 flex-1 flex-col justify-center pr-6">
+          <Link to={`/product/${item._id}`} className="block">
+            <p className="line-clamp-2 text-base font-bold leading-snug text-text-primary">
+              {item.name}
+            </p>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {item.quantity} × {formatPrice(item.discountedPrice)}
+            </p>
+          </Link>
+
+          {item.variantName || item.colorName ? (
+            <div className="mt-1">
+              {item.variantName ? (
+                <span className="block text-xs font-medium text-text-secondary">
+                  Variant: {item.variantName}
+                </span>
+              ) : null}
+              {item.colorName ? (
+                <span className="block text-xs font-medium text-text-secondary">
+                  Color: {item.colorName}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <QuantityControl
+              quantity={item.quantity}
+              disabled={loading}
+              compact
+              onDecrease={() => {
+                const step = getCartStepForItem(item);
+                const nextQty = getDecreasedCartQuantity(item.quantity, step);
+                if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
+                else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
+              }}
+              onIncrease={() => {
+                const step = getCartStepForItem(item);
+                onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
+              }}
+            />
+            <p className="shrink-0 text-base font-bold text-text-primary">
+              {formatPrice(lineTotal)}
+            </p>
+          </div>
+        </div>
       </div>
     </article>
   );
@@ -134,19 +159,22 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
         <div className="min-w-0 flex-1">
           <Link
             to={`/product/${item._id}`}
-            className="line-clamp-2 text-base font-bold text-text-primary transition hover:text-primary"
+            className="block transition hover:text-primary"
           >
-            {item.name}
-        {item.variantName ? (
-          <span className="mt-1 block text-xs font-medium text-text-secondary">
-            Variant: {item.variantName}
-          </span>
-        ) : null}
-        {item.colorName ? (
-          <span className="mt-1 block text-xs font-medium text-text-secondary">
-            Color: {item.colorName}
-          </span>
-        ) : null}
+            <p className="line-clamp-2 text-base font-bold text-text-primary">{item.name}</p>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {item.quantity} × {formatPrice(item.discountedPrice)}
+            </p>
+            {item.variantName ? (
+              <span className="mt-1 block text-xs font-medium text-text-secondary">
+                Variant: {item.variantName}
+              </span>
+            ) : null}
+            {item.colorName ? (
+              <span className="mt-1 block text-xs font-medium text-text-secondary">
+                Color: {item.colorName}
+              </span>
+            ) : null}
           </Link>
         </div>
 

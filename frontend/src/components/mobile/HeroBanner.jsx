@@ -134,23 +134,6 @@ function HeroBanner() {
                 />
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() => goTo(current - 1)}
-              aria-label="Previous slide"
-              className="absolute left-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-lg text-white transition hover:bg-black/55 sm:left-3"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => goTo(current + 1)}
-              aria-label="Next slide"
-              className="absolute right-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-lg text-white transition hover:bg-black/55 sm:right-3"
-            >
-              ›
-            </button>
           </>
         )}
       </div>

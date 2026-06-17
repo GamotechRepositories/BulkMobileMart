@@ -35,6 +35,11 @@ const mapWishlistItems = (wishlist) => {
       productImages: item.product.productImages,
       stock: item.product.stock ?? 0,
       subcategory: item.product.subcategory,
+      pricingType: item.product.pricingType,
+      bulkPricing: item.product.bulkPricing,
+      variantType: item.product.variantType,
+      variants: item.product.variants,
+      colors: item.product.colors,
     }));
 };
 
@@ -48,6 +53,11 @@ const mapToggleProduct = (product) => ({
   productImages: product.productImages,
   stock: product.stock ?? 0,
   subcategory: product.subcategory,
+  pricingType: product.pricingType,
+  bulkPricing: product.bulkPricing,
+  variantType: product.variantType,
+  variants: product.variants,
+  colors: product.colors,
 });
 
 export function WishlistProvider({ children }) {

@@ -36,10 +36,6 @@ function Hero() {
     [slides.length]
   );
 
-  const next = useCallback(() => {
-    goTo(current + 1);
-  }, [current, goTo]);
-
   useEffect(() => {
     if (slides.length <= 1) return;
     const timer = setInterval(() => {
@@ -103,23 +99,6 @@ function Hero() {
                 />
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() => goTo(current - 1)}
-              aria-label="Previous slide"
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              aria-label="Next slide"
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition"
-            >
-              ›
-            </button>
           </>
         )}
       </div>

@@ -61,38 +61,37 @@ function DealProductCard({
             {formatProductPriceLabel(product, formatPrice)}
           </p>
         </Link>
-
-        {cartQuantity > 0 ? (
-          <div className="mt-2 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
-            <button
-              type="button"
-              onClick={() => onDecrease?.(product)}
-              className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:h-9 sm:w-10"
-              aria-label="Decrease quantity"
-            >
-              −
-            </button>
-            <span className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary sm:h-9">
-              {cartQuantity}
-            </span>
-            <button
-              type="button"
-              onClick={() => onIncrease?.(product)}
-              disabled={disabled}
-              className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-10"
-              aria-label="Increase quantity"
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <AddToCartButton
-            onClick={() => (onIncrease ? onIncrease(product) : onAdd(product))}
-            disabled={disabled}
-            className="mt-2 w-full"
-          />
-        )}
       </div>
+      {cartQuantity > 0 ? (
+        <div className="mt-2 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
+          <button
+            type="button"
+            onClick={() => onDecrease?.(product)}
+            className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:h-9 sm:w-10"
+            aria-label="Decrease quantity"
+          >
+            −
+          </button>
+          <span className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary sm:h-9">
+            {cartQuantity}
+          </span>
+          <button
+            type="button"
+            onClick={() => onIncrease?.(product)}
+            disabled={disabled}
+            className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-10"
+            aria-label="Increase quantity"
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        <AddToCartButton
+          onClick={() => onAdd?.(product)}
+          disabled={disabled}
+          className="mt-2 w-full"
+        />
+      )}
     </div>
   );
 }

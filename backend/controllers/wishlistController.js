@@ -1,11 +1,11 @@
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
+import { PRODUCT_PRICING_SELECT } from "../utils/productPricing.js";
 
 const populateWishlist = (query) =>
   query.populate({
     path: "items.product",
-    select:
-      "name brandName price discountedPrice discountedPercent productImages stock subcategory isActive",
+    select: `${PRODUCT_PRICING_SELECT} subcategory`,
   });
 
 export const getWishlist = async (req, res) => {
