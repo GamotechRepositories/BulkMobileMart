@@ -1,5 +1,4 @@
 import { isS3Configured, presignUpload } from "../utils/s3Upload.js";
-import { isProductUploadFolder } from "../utils/productImageProcessing.js";
 import {
   ADMIN_UPLOAD_FOLDERS,
   PUBLIC_UPLOAD_FOLDERS,
@@ -47,14 +46,6 @@ export const getPresignedUploadUrl = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: "You are not allowed to upload to this folder",
-      });
-    }
-
-    if (isProductUploadFolder(normalizedFolder)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Product images must use the product upload endpoint so they can be auto-resized to 1000×1000 px.",
       });
     }
 

@@ -1,6 +1,5 @@
 import axios from "axios";
 import { ADMIN_STORAGE_KEY } from "../utils/authStorage";
-import { isProductImageFolder } from "../utils/productImageUpload";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
@@ -88,19 +87,9 @@ export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);
 
 /**
- * Upload image: product folder goes through server processing (1000×1000),
- * other folders use presigned direct-to-S3 upload.
+ * Upload an image directly to S3 via a presigned URL.
  */
 export const uploadImageFile = async (file, folder) => {
-  if (isProductImageFolder(folder)) {
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("folder", folder);
-    return api.post("/api/upload/image", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-  }
-
   const { data: presignRes } = await api.post("/api/upload/presign", {
     folder,
     mimeType: file.type,

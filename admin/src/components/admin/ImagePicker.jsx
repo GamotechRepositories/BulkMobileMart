@@ -1,18 +1,10 @@
 import { useState } from "react";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDER_LABELS } from "../../utils/uploadFolders";
-import {
-  isProductImageFolder,
-  PRODUCT_IMAGE_ACCEPT,
-  PRODUCT_IMAGE_HINT,
-  PRODUCT_IMAGE_MIN_SIZE,
-  readImageDimensions,
-  validateProductImageFile,
-} from "../../utils/productImageUpload";
 import { labelClass } from "./adminStyles";
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const DEFAULT_HINT = "JPG, PNG, WEBP or GIF · Max 5 MB";
+const HINT = "JPG, PNG, WEBP or GIF · Max 5 MB";
 
 function ImagePicker({
   label,
@@ -20,52 +12,25 @@ function ImagePicker({
   onChange,
   folder,
   required = false,
-  hint,
+  hint = HINT,
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const folderLabel = UPLOAD_FOLDER_LABELS[folder] || folder;
-  const isProduct = isProductImageFolder(folder);
-  const displayHint = hint || (isProduct ? PRODUCT_IMAGE_HINT : DEFAULT_HINT);
-  const accept = isProduct ? PRODUCT_IMAGE_ACCEPT : "image/*";
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    if (isProduct) {
-      const validationError = validateProductImageFile(file);
-      if (validationError) {
-        setError(validationError);
-        setNotice("");
-        return;
-      }
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file");
+      return;
+    }
 
-      try {
-        const { width, height } = await readImageDimensions(file);
-        if (width < PRODUCT_IMAGE_MIN_SIZE || height < PRODUCT_IMAGE_MIN_SIZE) {
-          setNotice(
-            `Image is ${width}×${height}px. It will be padded to ${PRODUCT_IMAGE_MIN_SIZE}×${PRODUCT_IMAGE_MIN_SIZE}px with a white background.`
-          );
-        } else {
-          setNotice("");
-        }
-      } catch {
-        setNotice("");
-      }
-    } else {
-      if (!file.type.startsWith("image/")) {
-        setError("Please choose an image file");
-        return;
-      }
-
-      if (file.size > MAX_BYTES) {
-        setError("Image must be under 5 MB");
-        return;
-      }
-      setNotice("");
+    if (file.size > MAX_BYTES) {
+      setError("Image must be under 5 MB");
+      return;
     }
 
     setUploading(true);
@@ -104,7 +69,7 @@ function ImagePicker({
               {uploading ? "Uploading..." : "Change image"}
               <input
                 type="file"
-                accept={accept}
+                accept="image/*"
                 className="hidden"
                 disabled={uploading}
                 onChange={handleFile}
@@ -126,27 +91,15 @@ function ImagePicker({
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
           <span className="mt-2 text-sm font-medium text-text-primary">
-            {uploading
-              ? isProduct
-                ? "Processing & uploading..."
-                : "Uploading to S3..."
-              : "Choose from gallery"}
+            {uploading ? "Uploading to S3..." : "Choose from gallery"}
           </span>
           <span className="mt-1 text-center text-xs text-text-muted">
-            {displayHint}
-            {isProduct ? null : (
-              <>
-                {" "}
-                · Saves to <span className="font-medium">{folder}/</span>
-              </>
-            )}
+            {hint} · Saves to <span className="font-medium">{folder}/</span>
           </span>
-          {!isProduct && (
-            <span className="mt-0.5 text-[10px] text-text-muted">{folderLabel}</span>
-          )}
+          <span className="mt-0.5 text-[10px] text-text-muted">{folderLabel}</span>
           <input
             type="file"
-            accept={accept}
+            accept="image/*"
             className="hidden"
             disabled={uploading}
             onChange={handleFile}
@@ -154,7 +107,6 @@ function ImagePicker({
         </label>
       )}
 
-      {notice && <p className="mt-2 text-xs text-amber-700">{notice}</p>}
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
       {required && !value && (
         <p className="mt-1 text-xs text-text-muted">Upload an image to continue</p>
