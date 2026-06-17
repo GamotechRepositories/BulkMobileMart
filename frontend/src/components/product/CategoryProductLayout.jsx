@@ -299,7 +299,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
 
   if (variant === "mobile") {
     return (
-      <div className="mx-3 mt-2 bg-white p-2.5">
+      <div className="mt-2 bg-white p-2.5">
         <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
           <Link
             to="/product"
@@ -396,7 +396,7 @@ function CategoryProductMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-3 pt-2 sm:px-4 sm:pt-3">
+      <div className="shrink-0 px-0 pt-2 lg:px-3 lg:pt-3">
         <CategoryHeaderSection
           category={activeCategoryDoc}
           categoryName={categoryName}
@@ -413,7 +413,7 @@ function CategoryProductMain({
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
       />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-0 py-3 lg:px-3 lg:py-4">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -450,7 +450,7 @@ function AllProductsMain({
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
       />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-0 py-3 lg:px-3 lg:py-4">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -541,7 +541,7 @@ export function AllProductsLayout({
       </div>
       <div className="lg:hidden">
         <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
-        <div className="mx-3 mb-3 overflow-hidden bg-white">
+        <div className="mb-3 overflow-hidden bg-white">
           <AllProductsMain
             products={products}
             loading={loading}
@@ -571,7 +571,7 @@ export function MobileCategoryProductLayout({
   return (
     <div className="lg:hidden">
       <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
-      <div className="mx-3 mb-3 overflow-hidden bg-white">
+      <div className="mb-3 overflow-hidden bg-white">
         <CategoryProductMain
           categories={categories}
           categoryName={categoryName}

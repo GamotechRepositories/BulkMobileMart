@@ -41,7 +41,7 @@ function WishlistButton({ product, className = "", size = "sm" }) {
       onClick={handleClick}
       aria-label={active ? "Remove from wishlist" : "Add to wishlist"}
       aria-pressed={active}
-      className={`flex items-center justify-center rounded-full border border-primary/40 bg-white/95 text-primary shadow-sm transition hover:border-primary-dark hover:text-primary-dark ${sizeClass} ${
+      className={`flex items-center justify-center rounded-full border border-primary/40 bg-white/95 text-primary transition hover:border-primary-dark hover:text-primary-dark ${sizeClass} ${
         active ? "border-primary bg-primary/5" : ""
       } ${className}`}
     >

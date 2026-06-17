@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
+
+const BATCH_SIZE = 12;
 
 const DEFAULT_CATEGORIES = [
   { name: "Chargers", icon: "charger" },
@@ -27,6 +29,14 @@ const ICON_TYPES = [
   "glass",
   "adapter",
 ];
+
+function chunkCategories(items, size) {
+  const batches = [];
+  for (let index = 0; index < items.length; index += size) {
+    batches.push(items.slice(index, index + size));
+  }
+  return batches;
+}
 
 function CategoryIcon({ type, className = "h-10 w-10" }) {
   const icons = {
@@ -147,27 +157,65 @@ function CategoryCard({ category }) {
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-      className="group flex min-h-[108px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[160px] lg:min-h-[180px]"
+      className="group flex min-h-[96px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[120px] lg:min-h-[180px]"
     >
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-3 pb-1 sm:px-4 sm:pt-5 lg:pt-6">
-        <div className="flex h-14 w-14 items-center justify-center sm:h-24 sm:w-24 lg:h-28 lg:w-28">
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-2 pb-1 sm:px-3 sm:pt-3 lg:px-4 lg:pt-6">
+        <div className="flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16 lg:h-28 lg:w-28">
           <CategoryImage
             src={category.image}
             name={category.name}
             icon={category.icon}
-            className="h-10 w-10 sm:h-16 sm:w-16 lg:h-20 lg:w-20"
+            className="h-9 w-9 sm:h-12 sm:w-12 lg:h-20 lg:w-20"
           />
         </div>
       </div>
-      <p className="px-2 pb-2 text-center text-[10px] font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-4 sm:pb-4 sm:text-left sm:text-sm lg:text-base">
+      <p className="px-2 pb-2 text-center text-[10px] font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:pb-3 sm:text-xs lg:px-4 lg:pb-4 lg:text-left lg:text-base">
         {category.name}
       </p>
     </Link>
   );
 }
 
+function CategoryGrid({ categories, compact = false, className = "" }) {
+  const gridClass = compact
+    ? "grid grid-cols-3 gap-2 sm:gap-3"
+    : "grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6 lg:gap-4";
+
+  return (
+    <div className={`${gridClass} ${className}`}>
+      {categories.map((category) => (
+        <CategoryCard key={category.name} category={category} />
+      ))}
+    </div>
+  );
+}
+
+function CategoryBatchCarousel({ batches }) {
+  return (
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+      <div className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth scroll-px-4 sm:scroll-px-6 lg:scroll-px-8">
+        {batches.map((batch, batchIndex) => (
+          <div
+            key={`category-batch-${batchIndex}`}
+            className="w-full shrink-0 snap-start px-4 sm:px-6 lg:px-8"
+          >
+            <CategoryGrid categories={batch} compact />
+          </div>
+        ))}
+      </div>
+
+      {batches.length > 1 ? (
+        <p className="mt-3 text-center text-xs text-text-muted">
+          Swipe for more categories · {batches.length} pages
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function CategoryNav() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -196,16 +244,54 @@ function CategoryNav() {
     fetchCategories();
   }, []);
 
+  const batches = useMemo(
+    () => chunkCategories(categories, BATCH_SIZE),
+    [categories]
+  );
+
+  const hasMultipleBatches = batches.length > 1;
+
   return (
     <section className="bg-mobile-bg px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-[1600px]">
-        <h2 className="mb-4 text-lg font-bold text-text-primary sm:mb-5 sm:text-xl lg:mb-6 lg:text-2xl">
-          Explore Our Categories
-        </h2>
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 md:grid-cols-4 lg:grid-cols-6 lg:gap-5">
-          {categories.map((category) => (
-            <CategoryCard key={category.name} category={category} />
-          ))}
+        <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5 lg:mb-6">
+          <h2 className="text-lg font-bold text-text-primary sm:text-xl lg:text-2xl">
+            Explore Our Categories
+          </h2>
+          <Link
+            to="/product"
+            className="hidden shrink-0 text-sm font-semibold text-primary transition hover:underline lg:inline-flex"
+          >
+            View All
+          </Link>
+          {hasMultipleBatches ? (
+            <button
+              type="button"
+              onClick={() => setShowAll((prev) => !prev)}
+              className="shrink-0 text-sm font-semibold text-primary transition hover:underline lg:hidden"
+            >
+              {showAll ? "Show Less" : "View All"}
+            </button>
+          ) : (
+            <Link
+              to="/product"
+              className="shrink-0 text-sm font-semibold text-primary transition hover:underline lg:hidden"
+            >
+              View All
+            </Link>
+          )}
+        </div>
+
+        <div className="hidden lg:block">
+          <CategoryGrid categories={categories} />
+        </div>
+
+        <div className="lg:hidden">
+          {showAll ? (
+            <CategoryGrid categories={categories} />
+          ) : (
+            <CategoryBatchCarousel batches={batches} />
+          )}
         </div>
       </div>
     </section>

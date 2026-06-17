@@ -812,7 +812,7 @@ function ProductDetail() {
                       setDownloadingImage(false);
                     }
                   }}
-                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary shadow-sm transition hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
+                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary transition hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
                   aria-label="Save image to gallery"
                 >
                   <DownloadIcon />

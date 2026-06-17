@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 
-function SectionHeader({ title, viewAllTo = "/product" }) {
+function SectionHeader({ title, viewAllTo = "/product", className = "mb-3 sm:mb-4" }) {
   return (
-    <div className="mb-3 flex items-center justify-between sm:mb-4">
+    <div className={`flex items-center justify-between ${className}`}>
       <h2 className="text-base font-bold text-text-primary sm:text-lg md:text-xl">
         {title}
       </h2>

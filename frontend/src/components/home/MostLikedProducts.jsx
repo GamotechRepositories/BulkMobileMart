@@ -24,7 +24,7 @@ function ProductCard({ product }) {
   return (
     <Link
       to={`/product/${product._id}`}
-      className="group flex flex-col rounded-2xl border border-neutral-700 bg-neutral-900 overflow-hidden hover:border-accent/50 hover:shadow-lg transition-all h-full"
+      className="group flex flex-col rounded-2xl border border-neutral-700 bg-neutral-900 overflow-hidden hover:border-accent/50 transition-all h-full"
     >
       <div className="relative overflow-hidden bg-neutral-800">
         {product.ratings >= 4.5 && (

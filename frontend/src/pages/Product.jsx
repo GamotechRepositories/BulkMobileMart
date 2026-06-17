@@ -233,7 +233,7 @@ function SearchResultsView({
             ))}
           </div>
         )}
-        <div className="space-y-2.5 bg-mobile-bg px-4 py-3">
+        <div className="space-y-2.5 bg-mobile-bg px-0 py-3">
           {loading ? (
             [...Array(4)].map((_, i) => (
               <div

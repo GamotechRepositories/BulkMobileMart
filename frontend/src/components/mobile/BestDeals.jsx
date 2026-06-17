@@ -168,11 +168,9 @@ function BestDeals() {
 
   return (
 
-    <section className="bg-white px-4 py-4 pb-6 sm:px-6 md:px-8 md:pb-8">
+    <section className="bg-white px-4 sm:px-6 md:px-8">
 
-      <SectionHeader title="Best Prices Unbeatable Deals" viewAllTo="/product" />
-
-
+      <SectionHeader title="Best Prices Unbeatable Deals" viewAllTo="/product" className="mb-2" />
 
       <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 md:hidden">
 
