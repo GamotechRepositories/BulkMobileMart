@@ -5,6 +5,7 @@ import {
   updateAdminSupportStatus,
 } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
+import { useSupportNotification } from "../../../context/SupportNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
@@ -111,6 +112,7 @@ function SupportDetailModal({ messageId, onClose }) {
 
 function SupportSection() {
   const { adminUser } = useAuth();
+  const { markSupportAsSeen } = useSupportNotification();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -128,6 +130,10 @@ function SupportSection() {
   useEffect(() => {
     setPage(1);
   }, [statusFilter]);
+
+  useEffect(() => {
+    markSupportAsSeen();
+  }, [markSupportAsSeen]);
 
   const fetchMessages = useCallback(async () => {
     if (adminUser?.role !== "admin") return;

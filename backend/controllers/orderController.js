@@ -189,6 +189,7 @@ export const getDashboardStats = async (req, res) => {
           $group: {
             _id: { $month: { date: "$createdAt", timezone: INDIA_TZ } },
             revenue: { $sum: "$total" },
+            orders: { $sum: 1 },
           },
         },
         { $sort: { _id: 1 } },
@@ -215,7 +216,11 @@ export const getDashboardStats = async (req, res) => {
     const monthlySales = Array.from({ length: 12 }, (_, index) => {
       const month = index + 1;
       const found = monthlyAgg.find((entry) => entry._id === month);
-      return { month, revenue: Number(found?.revenue) || 0 };
+      return {
+        month,
+        revenue: Number(found?.revenue) || 0,
+        orders: Number(found?.orders) || 0,
+      };
     });
 
     const years = yearsAgg.map((entry) => entry._id);

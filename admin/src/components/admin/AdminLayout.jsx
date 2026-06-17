@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useSupportNotification } from "../../context/SupportNotificationContext";
 import { LOGO_URL, STORE_URL } from "../../constants/brand";
 import {
   IconBanner,
@@ -95,6 +96,20 @@ const subNavLinkClass = ({ isActive }) =>
       ? "bg-neutral-800 text-accent font-medium"
       : "text-neutral-500 hover:bg-neutral-800 hover:text-white"
   }`;
+
+function NavIconWithBadge({ showBadge, children }) {
+  return (
+    <span className="relative shrink-0">
+      {children}
+      {showBadge ? (
+        <span
+          className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-neutral-950"
+          aria-hidden="true"
+        />
+      ) : null}
+    </span>
+  );
+}
 
 function NavGroup({
   item,
@@ -192,6 +207,7 @@ function SidebarContent({
   onCollapse,
   onExpand,
   showLogout,
+  hasUnreadSupport,
 }) {
   const [openGroupKey, setOpenGroupKey] = useState("");
 
@@ -258,6 +274,7 @@ function SidebarContent({
           }
 
           const Icon = item.icon;
+          const showSupportBadge = item.to === "/support" && hasUnreadSupport;
           return (
             <NavLink
               key={item.to}
@@ -275,7 +292,9 @@ function SidebarContent({
                   : navLinkClass({ isActive })
               }
             >
-              <Icon className="w-5 h-5 shrink-0" />
+              <NavIconWithBadge showBadge={showSupportBadge}>
+                <Icon className="w-5 h-5 shrink-0" />
+              </NavIconWithBadge>
               {!collapsed && item.label}
             </NavLink>
           );
@@ -310,6 +329,7 @@ function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { adminUser, adminLogout } = useAuth();
+  const { hasUnread, markSupportAsSeen } = useSupportNotification();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -318,6 +338,13 @@ function AdminLayout() {
     : PAGE_TITLES[location.pathname] || "Dashboard";
 
   const isDashboard = location.pathname === "/" || location.pathname === "";
+  const isSupportPage = location.pathname === "/support";
+
+  useEffect(() => {
+    if (isSupportPage) {
+      markSupportAsSeen();
+    }
+  }, [isSupportPage, markSupportAsSeen]);
 
   const handleLogout = () => {
     adminLogout();
@@ -352,6 +379,7 @@ function AdminLayout() {
           onCollapse={collapseSidebar}
           onExpand={expandSidebar}
           showLogout={isDashboard}
+          hasUnreadSupport={hasUnread && !isSupportPage}
         />
       </aside>
 

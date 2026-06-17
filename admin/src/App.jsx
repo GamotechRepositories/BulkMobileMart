@@ -1,12 +1,15 @@
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { SupportNotificationProvider } from "./context/SupportNotificationContext";
 import Admin from "./pages/Admin";
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Admin />
+        <SupportNotificationProvider>
+          <Admin />
+        </SupportNotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

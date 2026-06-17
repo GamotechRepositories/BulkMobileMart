@@ -83,6 +83,8 @@ export const updateAdminPaymentProof = (id, data) =>
   api.patch(`/api/payments/admin/${id}`, data);
 
 export const getAdminSupportMessages = (params) => api.get("/api/support/admin", { params });
+export const getAdminSupportUnreadCount = (params) =>
+  api.get("/api/support/admin/unread-count", { params });
 export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
 export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);

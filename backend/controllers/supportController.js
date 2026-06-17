@@ -104,6 +104,33 @@ export const getAllSupportMessages = async (req, res) => {
   }
 };
 
+export const getSupportUnreadCount = async (req, res) => {
+  try {
+    const { since } = req.query;
+    const filter = {};
+
+    if (since) {
+      const sinceDate = new Date(since);
+      if (Number.isNaN(sinceDate.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid since date" });
+      }
+      filter.createdAt = { $gt: sinceDate };
+    }
+
+    const count = await SupportMessage.countDocuments(filter);
+
+    return res.json({
+      success: true,
+      data: { count },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load unread support count",
+    });
+  }
+};
+
 export const getSupportMessageById = async (req, res) => {
   try {
     const message = await SupportMessage.findById(req.params.id).lean();
