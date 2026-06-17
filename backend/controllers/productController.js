@@ -209,9 +209,11 @@ const validateCategoriesAndSubcategories = async (categories, subcategories) => 
 const buildProductPayload = (body) => {
   const variantType = body.variantType === "multi" ? "multi" : "single";
   const pricingType = body.pricingType === "bulk" ? "bulk" : "single";
+  const sku = body.sku?.trim().toUpperCase() ?? "";
 
   return {
     name: body.name?.trim(),
+    sku,
     categories: normalizeCategories(
       body.categories,
       body.categoryName,
@@ -410,6 +412,7 @@ export const getProducts = async (req, res) => {
         { subcategory: regex },
         { categories: regex },
         { description: regex },
+        { sku: regex },
       ];
     }
 
@@ -470,6 +473,7 @@ export const getAllProducts = async (req, res) => {
         { subcategory: pattern },
         { subcategories: pattern },
         { categories: pattern },
+        { sku: pattern },
       ];
     }
 
@@ -478,6 +482,7 @@ export const getAllProducts = async (req, res) => {
       price: "discountedPrice",
       stock: "inStock",
       brand: "brandName",
+      sku: "sku",
     };
     const sortField = sortMap[sortBy] || "name";
     const sortOrder = sortDir === "desc" ? -1 : 1;
@@ -536,6 +541,7 @@ export const addProduct = async (req, res) => {
 
     const product = await Product.create({
       name: payload.name,
+      sku: payload.sku,
       categories: categoryCheck.categories,
       subcategory: categoryCheck.subcategory,
       subcategories: categoryCheck.subcategories,
@@ -562,6 +568,11 @@ export const addProduct = async (req, res) => {
 
     res.status(201).json({ success: true, data: product });
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.sku) {
+      return res
+        .status(400)
+        .json({ success: false, message: "A product with this SKU already exists" });
+    }
     if (error.name === "ValidationError") {
       const message = Object.values(error.errors)
         .map((err) => err.message)
@@ -616,6 +627,7 @@ export const updateProduct = async (req, res) => {
       specifications: req.body.specifications ?? existing.specifications,
       warranty: req.body.warranty ?? existing.warranty,
       isActive: req.body.isActive ?? existing.isActive,
+      sku: req.body.sku ?? existing.sku,
     });
 
     const requiredError = validateRequiredFields(payload);
@@ -644,6 +656,7 @@ export const updateProduct = async (req, res) => {
       req.params.id,
       {
         name: payload.name,
+        sku: payload.sku,
         categories: categoryCheck.categories,
         subcategory: categoryCheck.subcategory,
         subcategories: categoryCheck.subcategories,
@@ -672,6 +685,11 @@ export const updateProduct = async (req, res) => {
 
     res.status(200).json({ success: true, data: product });
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.sku) {
+      return res
+        .status(400)
+        .json({ success: false, message: "A product with this SKU already exists" });
+    }
     if (error.name === "ValidationError") {
       const message = Object.values(error.errors)
         .map((err) => err.message)

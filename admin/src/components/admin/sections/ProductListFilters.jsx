@@ -5,6 +5,7 @@ import {
 
 const SORT_OPTIONS = [
   { value: "name", label: "Sort by Name" },
+  { value: "sku", label: "Sort by SKU" },
   { value: "price", label: "Sort by Price" },
   { value: "stock", label: "Sort by availability" },
   { value: "brand", label: "Sort by Brand" },
@@ -61,7 +62,7 @@ function ProductListFilters({
             type="search"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search products..."
+            placeholder="Search products by name, brand, or SKU..."
             className={`${adminFilterInputClass} min-w-0 flex-1`}
           />
           <div className="flex shrink-0 items-center gap-2">

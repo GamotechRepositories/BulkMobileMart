@@ -151,9 +151,10 @@ function ShowProductSection() {
               <table className={adminCompactTableClass}>
                 <colgroup>
                   <col className="w-[7%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[14%]" />
                   <col className="w-[10%]" />
                   <col className="w-[7%]" />
                   <col className="w-[8%]" />
@@ -163,6 +164,7 @@ function ShowProductSection() {
                   <tr className={adminTableHeaderClass}>
                     <th className={adminCompactThClass}>Image</th>
                     <th className={adminCompactThClass}>Product Name</th>
+                    <th className={adminCompactThClass}>SKU</th>
                     <th className={adminCompactThClass}>Brand</th>
                     <th className={adminCompactThClass}>Categories</th>
                     <th className={adminCompactThClass}>Price</th>
@@ -191,6 +193,9 @@ function ShowProductSection() {
                       </td>
                       <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                         <span className="line-clamp-2 break-words">{product.name}</span>
+                      </td>
+                      <td className={`${adminCompactTdClass} font-mono text-[10px] text-neutral-600`}>
+                        <span className="block truncate">{product.sku || "—"}</span>
                       </td>
                       <td className={`${adminCompactTdClass} text-neutral-600`}>
                         <span className="block truncate">{product.brandName}</span>

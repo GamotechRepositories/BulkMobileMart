@@ -20,7 +20,10 @@ import {
 } from "../adminStyles";
 
 import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
-import ProductSpecificationsField from "../ProductSpecificationsField";
+import ProductSpecificationsField, {
+  SPEC_CUSTOM_NAME,
+  SPEC_CUSTOM_VALUE,
+} from "../ProductSpecificationsField";
 import UploadProgressBar from "../UploadProgressBar";
 
 function deriveDiscountPercent(price, discountedPrice) {
@@ -51,7 +54,11 @@ const createEmptyVariant = () => ({
 const SPECIFICATION_LIBRARY = [
   { name: "Model", options: [] },
   { name: "Material", options: ["PVC", "Metal", "Rubber"] },
-  { name: "Connectivity", options: ["Android", "iPhone", "Type-C"] },
+  {
+    name: "Connectivity",
+    options: ["Android", "iPhone", "Type-C"],
+    allowCustomValue: true,
+  },
   { name: "Power Output (Watt)", options: [] },
   { name: "Cable Length", options: ["15cm", "1m", "1mtr", "2mtr", "3mtr"] },
   {
@@ -69,6 +76,13 @@ const createEmptySpecification = () => ({
   customName: "",
   value: "",
 });
+
+const createDefaultSpecifications = () =>
+  SPECIFICATION_LIBRARY.map((item) => ({
+    name: item.name,
+    customName: "",
+    value: "",
+  }));
 
 const SPEC_LIBRARY_STORAGE_KEY = "admin.productSpecificationLibrary";
 
@@ -152,6 +166,7 @@ function mapVariantToPayload(variant) {
 
 const EMPTY_FORM = {
   name: "",
+  sku: "",
   primaryCategory: "",
   subcategories: [],
   brandName: "",
@@ -166,7 +181,7 @@ const EMPTY_FORM = {
   description: "",
   videoUrl: "",
   videoInputType: "url",
-  specifications: [createEmptySpecification()],
+  specifications: createDefaultSpecifications(),
   isActive: true,
 };
 
@@ -215,6 +230,7 @@ function AddProductSection() {
       setEditingId(editProduct._id);
       setForm({
         name: editProduct.name,
+        sku: editProduct.sku || "",
         primaryCategory: editProduct.categories?.[0] || "",
         subcategories: Array.isArray(editProduct.subcategories)
           ? editProduct.subcategories
@@ -245,23 +261,7 @@ function AddProductSection() {
                 customName: "",
                 value: spec.value || "",
               }))
-            : [
-                ...(editProduct.warranty
-                  ? [
-                      {
-                        name: "Warranty",
-                        customName: "",
-                        value: editProduct.warranty,
-                      },
-                    ]
-                  : []),
-                ...((editProduct.features || []).map((feature, index) => ({
-                  name: "__custom__",
-                  customName: `Feature ${index + 1}`,
-                  value: feature,
-                })) || []),
-                createEmptySpecification(),
-              ],
+            : createDefaultSpecifications(),
         isActive: editProduct.isActive,
       });
       const slabs = editProduct.bulkPricing?.slabs || [];
@@ -338,6 +338,7 @@ function AddProductSection() {
       setSuccess("");
       const payload = {
         name: form.name,
+        sku: form.sku.trim().toUpperCase(),
         categories: [form.primaryCategory.trim()],
         subcategories: form.subcategories,
         brandName: form.brandName,
@@ -358,8 +359,8 @@ function AddProductSection() {
         description: form.description,
         specifications: form.specifications
           .map((spec) => {
-            const selectedName = spec.name === "__custom__" ? spec.customName : spec.name;
-            if (spec.name === "__custom__" && selectedName?.trim()) {
+            const selectedName = spec.name === SPEC_CUSTOM_NAME ? spec.customName : spec.name;
+            if (spec.name === SPEC_CUSTOM_NAME && selectedName?.trim()) {
               persistCustomSpecification(selectedName);
             }
             return {
@@ -367,7 +368,12 @@ function AddProductSection() {
               value: spec.value?.trim(),
             };
           })
-          .filter((spec) => spec.name && spec.value),
+          .filter(
+            (spec) =>
+              spec.name &&
+              spec.value?.trim() &&
+              spec.value !== SPEC_CUSTOM_VALUE
+          ),
         isActive: form.isActive,
       };
 
@@ -474,10 +480,7 @@ function AddProductSection() {
   const removeSpecification = (index) => {
     setForm((prev) => ({
       ...prev,
-      specifications:
-        prev.specifications.length === 1
-          ? [createEmptySpecification()]
-          : prev.specifications.filter((_, i) => i !== index),
+      specifications: prev.specifications.filter((_, i) => i !== index),
     }));
   };
 
@@ -566,6 +569,16 @@ function AddProductSection() {
               required
               value={form.name}
               onChange={(e) => setField("name", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>SKU</label>
+            <input
+              type="text"
+              value={form.sku}
+              onChange={(e) => setField("sku", e.target.value.toUpperCase())}
+              placeholder="e.g. BMM-CABLE-001"
               className={inputClass}
             />
           </div>

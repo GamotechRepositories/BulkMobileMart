@@ -42,10 +42,57 @@ const formatPrice = (amount) =>
   }).format(amount);
 
 function productSku(product) {
+  if (product.sku?.trim()) {
+    return product.sku.trim().toUpperCase();
+  }
   const code = (product.subcategory || product.brandName || "SKU")
     .replace(/\s+/g, "-")
     .toUpperCase();
   return `BMM-${code}`;
+}
+
+function ProductSkuRow({ product }) {
+  const [copied, setCopied] = useState(false);
+  const sku = productSku(product);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(sku);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <p className="text-sm text-text-secondary">
+        SKU: <span className="font-medium text-text-primary">{sku}</span>
+      </p>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex items-center gap-1 rounded-md border border-border-light px-2 py-0.5 text-xs font-medium text-text-secondary transition hover:border-primary/40 hover:text-primary"
+        aria-label="Copy SKU"
+      >
+        {copied ? (
+          "Copied"
+        ) : (
+          <>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            Copy
+          </>
+        )}
+      </button>
+    </div>
+  );
 }
 
 function getImageExtension(url) {
@@ -843,7 +890,7 @@ function ProductDetail() {
                 variantName={activeVariantName}
               />
             </div>
-            <p className="mt-1 text-sm text-text-secondary">{productSku(product)}</p>
+            <ProductSkuRow product={product} />
 
             <div className="mt-2">
               <StarRating rating={rating} reviewCount={REVIEW_COUNT} />

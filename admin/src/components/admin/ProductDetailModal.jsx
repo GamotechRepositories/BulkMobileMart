@@ -73,6 +73,7 @@ function ProductDetailModal({ product, onClose, onEdit }) {
 
           <div className="rounded-lg border border-border-light bg-mobile-surface/50 px-4">
             <DetailRow label="Product ID" value={product._id} />
+            <DetailRow label="SKU" value={product.sku || "—"} />
             <DetailRow label="Brand" value={product.brandName} />
             <DetailRow
               label="Subcategories"

@@ -129,6 +129,12 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product name is required"],
       trim: true,
     },
+    sku: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+    },
     categories: {
       type: [String],
       required: [true, "At least one category is required"],
@@ -261,6 +267,13 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ categories: 1, subcategory: 1 });
 productSchema.index({ subcategories: 1 });
+productSchema.index(
+  { sku: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { sku: { $type: "string", $gt: "" } },
+  }
+);
 
 const Product = mongoose.model(
   "BulkMobileMartProduct",

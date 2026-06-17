@@ -1,13 +1,7 @@
 import { useState } from "react";
 
-const REQUIRED_SPECS = new Set([
-  "Model",
-  "Material",
-  "Compatibility",
-  "Connectivity",
-  "Power Output (Watt)",
-  "Warranty",
-]);
+export const SPEC_CUSTOM_NAME = "__custom__";
+export const SPEC_CUSTOM_VALUE = "__other__";
 
 function SpecIcon({ name, className = "h-5 w-5" }) {
   const key = (name || "").toLowerCase();
@@ -92,13 +86,71 @@ function SpecIcon({ name, className = "h-5 w-5" }) {
 }
 
 function getSpecDisplayName(spec) {
-  if (spec.name === "__custom__") return spec.customName.trim() || "Custom";
+  if (spec.name === SPEC_CUSTOM_NAME) {
+    return spec.customName.trim() || "Custom specification";
+  }
   return spec.name.trim() || "Specification";
 }
 
 function isSpecComplete(spec) {
-  const name = spec.name === "__custom__" ? spec.customName.trim() : spec.name.trim();
-  return Boolean(name && spec.value.trim());
+  const name =
+    spec.name === SPEC_CUSTOM_NAME ? spec.customName.trim() : spec.name.trim();
+  const value = spec.value?.trim();
+  return Boolean(name && value && value !== SPEC_CUSTOM_VALUE);
+}
+
+function SpecificationValueField({ spec, index, valueOptions, allowCustomValue, onUpdate }) {
+  const inputClass =
+    "min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30";
+  const selectClass = `${inputClass} text-text-primary`;
+
+  if (valueOptions.length > 0) {
+    const isPreset = valueOptions.includes(spec.value);
+    const showCustomInput =
+      allowCustomValue &&
+      (spec.value === SPEC_CUSTOM_VALUE || (spec.value && !isPreset));
+
+    return (
+      <>
+        <select
+          value={showCustomInput && spec.value !== SPEC_CUSTOM_VALUE ? SPEC_CUSTOM_VALUE : spec.value}
+          onChange={(e) => onUpdate(index, "value", e.target.value)}
+          className={selectClass}
+        >
+          <option value="">Select value</option>
+          {valueOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+          {allowCustomValue ? (
+            <option value={SPEC_CUSTOM_VALUE}>Other (type custom)</option>
+          ) : null}
+        </select>
+        {showCustomInput ? (
+          <input
+            type="text"
+            placeholder="Type custom value"
+            value={spec.value === SPEC_CUSTOM_VALUE ? "" : spec.value}
+            onChange={(e) =>
+              onUpdate(index, "value", e.target.value.trim() || SPEC_CUSTOM_VALUE)
+            }
+            className={inputClass}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      placeholder="Enter value"
+      value={spec.value}
+      onChange={(e) => onUpdate(index, "value", e.target.value)}
+      className={inputClass}
+    />
+  );
 }
 
 function ProductSpecificationsField({
@@ -129,7 +181,7 @@ function ProductSpecificationsField({
               Product Specifications
             </h4>
             <p className="mt-1 text-xs text-text-muted sm:text-sm">
-              Add key product details to help buyers understand your product better.
+              All specifications are listed below. Fill what applies and delete the rest.
             </p>
           </div>
           <button
@@ -146,25 +198,23 @@ function ProductSpecificationsField({
 
         {showTips ? (
           <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/80 px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
-            Pick a specification name, then choose or type its value. Use presets for
-            faster entry. Completed rows appear in the product detail Specifications tab.
+            Every specification row is already added. Enter values for the ones you need,
+            remove rows you do not need, and use Connectivity&apos;s &quot;Other&quot; option
+            to type a custom value. Use &quot;+ Custom specification&quot; for extra fields.
           </div>
         ) : null}
       </div>
 
       <div className="divide-y divide-border-light">
         {specifications.map((spec, index) => {
+          const isCustom = spec.name === SPEC_CUSTOM_NAME;
+          const hasName = isCustom || Boolean(spec.name?.trim());
           const displayName = getSpecDisplayName(spec);
-          const selectedName =
-            spec.name === "__custom__" ? spec.customName.trim() : spec.name;
           const selectedConfig = specificationLibrary.find(
-            (item) => item.name === selectedName
+            (item) => item.name === (isCustom ? spec.customName.trim() : spec.name)
           );
-          const valueOptions = selectedConfig?.options || [];
-          const hasName = Boolean(
-            spec.name && (spec.name !== "__custom__" || spec.customName.trim())
-          );
-          const isRequired = REQUIRED_SPECS.has(selectedName);
+          const valueOptions = isCustom ? [] : selectedConfig?.options || [];
+          const allowCustomValue = Boolean(selectedConfig?.allowCustomValue);
 
           return (
             <div
@@ -210,7 +260,7 @@ function ProductSpecificationsField({
                       const nextName = e.target.value;
                       onUpdate(index, {
                         name: nextName,
-                        customName: nextName !== "__custom__" ? "" : spec.customName,
+                        customName: nextName !== SPEC_CUSTOM_NAME ? "" : spec.customName,
                         value: "",
                       });
                     }}
@@ -222,52 +272,34 @@ function ProductSpecificationsField({
                         {item.name}
                       </option>
                     ))}
-                    <option value="__custom__">+ Custom specification</option>
+                    <option value={SPEC_CUSTOM_NAME}>+ Custom specification</option>
                   </select>
                 ) : (
                   <>
-                    <div className="flex min-w-[88px] shrink-0 items-center gap-0.5 sm:min-w-[120px]">
-                      <span className="text-sm font-semibold text-text-primary">
-                        {displayName}
-                      </span>
-                      {isRequired ? (
-                        <span className="text-sm font-bold text-red-500">*</span>
-                      ) : null}
-                      <span className="text-sm text-text-muted">:</span>
-                    </div>
-
-                    {spec.name === "__custom__" ? (
+                    {isCustom ? (
                       <input
                         type="text"
                         placeholder="Specification name"
                         value={spec.customName}
                         onChange={(e) => onUpdate(index, "customName", e.target.value)}
-                        className="w-full min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:max-w-[140px]"
+                        className="w-full min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:max-w-[180px]"
                       />
-                    ) : null}
-
-                    {valueOptions.length > 0 ? (
-                      <select
-                        value={spec.value}
-                        onChange={(e) => onUpdate(index, "value", e.target.value)}
-                        className="min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                      >
-                        <option value="">Select value</option>
-                        {valueOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
                     ) : (
-                      <input
-                        type="text"
-                        placeholder="Enter value"
-                        value={spec.value}
-                        onChange={(e) => onUpdate(index, "value", e.target.value)}
-                        className="min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
-                      />
+                      <div className="flex min-w-[88px] shrink-0 items-center gap-0.5 sm:min-w-[120px]">
+                        <span className="text-sm font-semibold text-text-primary">
+                          {displayName}
+                        </span>
+                        <span className="text-sm text-text-muted">:</span>
+                      </div>
                     )}
+
+                    <SpecificationValueField
+                      spec={spec}
+                      index={index}
+                      valueOptions={valueOptions}
+                      allowCustomValue={allowCustomValue}
+                      onUpdate={onUpdate}
+                    />
                   </>
                 )}
               </div>
@@ -298,7 +330,7 @@ function ProductSpecificationsField({
             <p className="text-sm font-bold text-text-primary">
               {completedCount} Specification{completedCount === 1 ? "" : "s"} Added
             </p>
-            <p className="text-xs text-text-muted">Keep your product information accurate.</p>
+            <p className="text-xs text-text-muted">Only filled rows are saved on the product.</p>
           </div>
         </div>
         <button
