@@ -1,5 +1,6 @@
 import axios from "axios";
 import { ADMIN_STORAGE_KEY } from "../utils/authStorage";
+import { uploadFileWithProgress } from "../utils/presignedUpload.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
@@ -113,7 +114,7 @@ export const uploadImageFile = async (file, folder) => {
   return { data: { data: { url: cloudFrontUrl } } };
 };
 
-export const uploadVideoFile = async (file, folder) => {
+export const uploadVideoFile = async (file, folder, { onProgress } = {}) => {
   const { data: presignRes } = await api.post("/api/upload/presign", {
     folder,
     mimeType: file.type,
@@ -122,15 +123,12 @@ export const uploadVideoFile = async (file, folder) => {
 
   const { uploadUrl, cloudFrontUrl } = presignRes.data;
 
-  const s3Res = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
+  await uploadFileWithProgress({
+    url: uploadUrl,
+    file,
+    contentType: file.type,
+    onProgress,
   });
-
-  if (!s3Res.ok) {
-    throw new Error(`S3 upload failed (${s3Res.status}). Check your S3 CORS configuration.`);
-  }
 
   return { data: { data: { url: cloudFrontUrl } } };
 };

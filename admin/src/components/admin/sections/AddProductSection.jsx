@@ -21,6 +21,7 @@ import {
 
 import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
 import ProductSpecificationsField from "../ProductSpecificationsField";
+import UploadProgressBar from "../UploadProgressBar";
 
 function deriveDiscountPercent(price, discountedPrice) {
   const original = Number(price);
@@ -184,6 +185,8 @@ function AddProductSection() {
   const [variants, setVariants] = useState([createEmptyVariant(), createEmptyVariant()]);
   const [productImages, setProductImages] = useState([""]);
   const [editingId, setEditingId] = useState(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(null);
 
   useEffect(() => {
     getAllCategories({ limit: 500 })
@@ -497,13 +500,26 @@ function AddProductSection() {
       return;
     }
 
+    setVideoUploading(true);
+    setVideoUploadProgress({
+      percent: 0,
+      loaded: 0,
+      total: file.size,
+      speed: 0,
+    });
+    setError("");
+
     try {
-      setError("");
-      const { data } = await uploadVideoFile(file, UPLOAD_FOLDERS.PRODUCTS);
+      const { data } = await uploadVideoFile(file, UPLOAD_FOLDERS.PRODUCTS, {
+        onProgress: setVideoUploadProgress,
+      });
       setField("videoUrl", data.data.url);
       setField("videoInputType", "upload");
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Failed to upload video");
+    } finally {
+      setVideoUploading(false);
+      setVideoUploadProgress(null);
     }
   };
 
@@ -916,8 +932,18 @@ function AddProductSection() {
                 type="file"
                 accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v"
                 onChange={handleVideoUpload}
-                className={inputClass}
+                disabled={videoUploading}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               />
+              {videoUploadProgress ? (
+                <UploadProgressBar
+                  percent={videoUploadProgress.percent}
+                  loaded={videoUploadProgress.loaded}
+                  total={videoUploadProgress.total}
+                  speed={videoUploadProgress.speed}
+                  label="Uploading video to S3..."
+                />
+              ) : null}
               <p className="text-xs text-text-muted">
                 Uploads to S3 and stores the CloudFront URL in database.
               </p>
