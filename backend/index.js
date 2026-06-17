@@ -20,7 +20,8 @@ import testimonialRoutes from "./routes/testimonialRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+// Default 5001 — macOS AirPlay Receiver often occupies port 5000.
+const PORT = process.env.PORT || 5001;
 
 if (!process.env.JWT_SECRET) {
   console.warn(
@@ -28,7 +29,14 @@ if (!process.env.JWT_SECRET) {
   );
 }
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
+      : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get("/", (req, res) => {

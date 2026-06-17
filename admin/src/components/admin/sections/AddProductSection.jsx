@@ -20,6 +20,7 @@ import {
 } from "../adminStyles";
 
 import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
+import ProductSpecificationsField from "../ProductSpecificationsField";
 
 function deriveDiscountPercent(price, discountedPrice) {
   const original = Number(price);
@@ -49,12 +50,12 @@ const createEmptyVariant = () => ({
 const SPECIFICATION_LIBRARY = [
   { name: "Model", options: [] },
   { name: "Material", options: ["PVC", "Metal", "Rubber"] },
-  { name: "Compatibility", options: ["Android", "iPhone", "Type-C"] },
+  { name: "Connectivity", options: ["Android", "iPhone", "Type-C"] },
   { name: "Power Output (Watt)", options: [] },
-  { name: "Cable Length", options: ["15cm", "1mtr", "2mtr", "3mtr"] },
+  { name: "Cable Length", options: ["15cm", "1m", "1mtr", "2mtr", "3mtr"] },
   {
     name: "Warranty",
-    options: ["No warranty", "Testing warranty", "6 month", "12 month"],
+    options: ["No warranty", "Testing warranty", "6 month", "12 month", "12 Months"],
   },
   { name: "Packaging Type", options: ["Polly", "Box"] },
   { name: "Country of Origin", options: ["India", "China"] },
@@ -457,9 +458,13 @@ function AddProductSection() {
   const updateSpecification = (index, field, value) => {
     setForm((prev) => ({
       ...prev,
-      specifications: prev.specifications.map((spec, i) =>
-        i === index ? { ...spec, [field]: value } : spec
-      ),
+      specifications: prev.specifications.map((spec, i) => {
+        if (i !== index) return spec;
+        if (typeof field === "object" && field !== null) {
+          return { ...spec, ...field };
+        }
+        return { ...spec, [field]: value };
+      }),
     }));
   };
 
@@ -471,6 +476,15 @@ function AddProductSection() {
           ? [createEmptySpecification()]
           : prev.specifications.filter((_, i) => i !== index),
     }));
+  };
+
+  const reorderSpecification = (fromIndex, toIndex) => {
+    setForm((prev) => {
+      const specs = [...prev.specifications];
+      const [item] = specs.splice(fromIndex, 1);
+      specs.splice(toIndex, 0, item);
+      return { ...prev, specifications: specs };
+    });
   };
 
   const handleVideoUpload = async (event) => {
@@ -944,101 +958,14 @@ function AddProductSection() {
           />
         </div>
 
-        <div className="space-y-3 rounded-lg border border-border-light p-4">
-          <div className={formHeaderClass}>
-            <p className="text-sm font-semibold text-text-primary">Product Specifications</p>
-            <button
-              type="button"
-              onClick={addSpecification}
-              className="text-sm font-semibold text-accent hover:underline"
-            >
-              + Add new specification
-            </button>
-          </div>
-          {form.specifications.map((spec, index) => {
-            const selectedName =
-              spec.name === "__custom__" ? spec.customName.trim() : spec.name;
-            const selectedConfig = specificationLibrary.find(
-              (item) => item.name === selectedName
-            );
-            const valueOptions = selectedConfig?.options || [];
-            return (
-              <div
-                key={`${spec.name}-${index}`}
-                className="grid gap-3 rounded-lg border border-border-light p-3 sm:grid-cols-12"
-              >
-                <div className="sm:col-span-4">
-                  <label className={labelClass}>Specification</label>
-                  <select
-                    value={spec.name}
-                    onChange={(e) => {
-                      const nextName = e.target.value;
-                      updateSpecification(index, "name", nextName);
-                      if (nextName !== "__custom__") {
-                        updateSpecification(index, "customName", "");
-                      }
-                      updateSpecification(index, "value", "");
-                    }}
-                    className={inputClass}
-                  >
-                    <option value="">Select specification</option>
-                    {specificationLibrary.map((item) => (
-                      <option key={item.name} value={item.name}>
-                        {item.name}
-                      </option>
-                    ))}
-                    <option value="__custom__">+ Add custom specification</option>
-                  </select>
-                  {spec.name === "__custom__" ? (
-                    <input
-                      type="text"
-                      placeholder="Enter specification name"
-                      value={spec.customName}
-                      onChange={(e) =>
-                        updateSpecification(index, "customName", e.target.value)
-                      }
-                      className={`${inputClass} mt-2`}
-                    />
-                  ) : null}
-                </div>
-                <div className="sm:col-span-7">
-                  <label className={labelClass}>Value</label>
-                  {valueOptions.length > 0 ? (
-                    <select
-                      value={spec.value}
-                      onChange={(e) => updateSpecification(index, "value", e.target.value)}
-                      className={inputClass}
-                    >
-                      <option value="">Select value</option>
-                      {valueOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      placeholder="Enter value"
-                      value={spec.value}
-                      onChange={(e) => updateSpecification(index, "value", e.target.value)}
-                      className={inputClass}
-                    />
-                  )}
-                </div>
-                <div className="sm:col-span-12 sm:flex sm:items-end lg:col-span-1">
-                  <button
-                    type="button"
-                    onClick={() => removeSpecification(index)}
-                    className="w-full rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50 sm:w-auto"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <ProductSpecificationsField
+          specifications={form.specifications}
+          specificationLibrary={specificationLibrary}
+          onAdd={addSpecification}
+          onUpdate={updateSpecification}
+          onRemove={removeSpecification}
+          onReorder={reorderSpecification}
+        />
 
         <button type="submit" className={btnPrimary}>
           {editingId ? "Update Product" : "Add Product"}

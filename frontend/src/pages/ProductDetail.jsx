@@ -18,6 +18,7 @@ import {
   buildBuyNowCheckoutItem,
   setBuyNowCheckout,
 } from "../utils/checkoutSession";
+import ProductImageFrame from "../components/product/ProductImageFrame";
 import {
   buildProductShareContent,
   getShareableProductFile,
@@ -27,7 +28,7 @@ import {
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -411,32 +412,11 @@ function StarRating({ rating, reviewCount }) {
 }
 
 function ProductImage({ src, alt }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  if (!src || failed) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-mobile-surface text-text-muted">
-        <svg className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
-          />
-        </svg>
-      </div>
-    );
-  }
-
   return (
-    <img
+    <ProductImageFrame
       src={src}
       alt={alt}
-      onError={() => setFailed(true)}
-      className="h-full w-full object-contain p-2 sm:p-4"
+      className="max-h-[min(70vh,520px)]"
     />
   );
 }
@@ -458,11 +438,11 @@ function ThumbnailCarousel({ images, activeImage, onSelect }) {
           key={`${img}-${index}`}
           type="button"
           onClick={() => onSelect(index)}
-          className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-white lg:h-[72px] lg:w-[72px] ${
+          className={`product-image h-16 w-16 shrink-0 rounded-md border-2 lg:h-[72px] lg:w-[72px] ${
             activeImage === index ? "border-primary" : "border-border-light"
           }`}
         >
-          <img src={img} alt="" className="h-full w-full object-contain p-1" />
+          <img src={img} alt="" />
         </button>
       ))}
     </div>
@@ -678,7 +658,7 @@ function ProductDetail() {
           <div className="animate-pulse">
             <div className="mb-6 hidden h-4 w-64 rounded bg-mobile-surface lg:block" />
             <div className="grid gap-5 sm:gap-6 md:grid-cols-2 md:gap-8 lg:gap-10">
-              <div className="h-[260px] rounded-lg border border-border-light bg-mobile-surface sm:h-[290px] lg:h-[360px]" />
+              <div className="aspect-square max-h-[min(70vh,520px)] w-full animate-pulse rounded-lg border border-border-light bg-mobile-surface" />
               <div className="space-y-4">
                 <div className="h-7 w-3/4 rounded bg-mobile-surface sm:h-8" />
                 <div className="h-4 w-1/4 rounded bg-mobile-surface" />
@@ -732,7 +712,7 @@ function ProductDetail() {
 
         <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-2 lg:items-stretch lg:gap-8 xl:gap-10">
           <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
-            <div className="relative overflow-hidden rounded-lg border border-border-light bg-white">
+            <div className="relative overflow-hidden rounded-lg bg-white">
               <div className="absolute left-2 top-2 z-10">
                 <WishlistButton product={product} size="md" />
               </div>
@@ -758,7 +738,7 @@ function ProductDetail() {
                   <DownloadIcon />
                 </button>
               )}
-              <div className="flex h-[260px] w-full items-center justify-center sm:h-[290px] lg:h-[360px] xl:h-[380px]">
+              <div className="flex w-full items-center justify-center">
                 <ProductImage src={images[activeImage]} alt={product.name} />
               </div>
             </div>
@@ -882,25 +862,18 @@ function ProductDetail() {
             {bulkTiers.length > 0 ? (
               <div className="mt-3 lg:mt-4">
                 <h2 className="mb-2 text-base font-bold">Bulk Price (Per Piece)</h2>
-                <div className="overflow-hidden rounded-lg border border-border-light">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-mobile-surface">
-                      <tr>
-                        <th className="px-4 py-2.5 font-semibold text-text-primary">Qty (Pieces)</th>
-                        <th className="px-4 py-2.5 font-semibold text-text-primary">Price (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bulkTiers.map((tier) => (
-                        <tr key={tier.key || tier.qty} className="border-t border-border-light">
-                          <td className="px-4 py-2.5 text-text-secondary">{tier.qty}</td>
-                          <td className="px-4 py-2.5 font-medium text-text-primary">
-                            {formatPrice(tier.price)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-2 rounded-lg border border-border-light p-3">
+                  {bulkTiers.map((tier) => (
+                    <div
+                      key={tier.key}
+                      className="flex items-center justify-between gap-3 text-sm leading-relaxed text-text-secondary"
+                    >
+                      <span>Buy {tier.minQuantity} Pieces or more at</span>
+                      <span className="shrink-0 font-semibold text-text-primary">
+                        {formatPrice(tier.price)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}

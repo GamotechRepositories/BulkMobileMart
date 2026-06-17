@@ -1,7 +1,8 @@
 import axios from "axios";
 import { ADMIN_STORAGE_KEY } from "../utils/authStorage";
+import { isProductImageFolder } from "../utils/productImageUpload";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -87,13 +88,19 @@ export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);
 
 /**
- * Upload an image directly to S3 via a presigned URL.
- * The file never passes through the Express server, so there is no
- * body-size limit on the backend side.
- * Returns the CloudFront URL of the uploaded image.
+ * Upload image: product folder goes through server processing (1000×1000),
+ * other folders use presigned direct-to-S3 upload.
  */
 export const uploadImageFile = async (file, folder) => {
-  // 1. Ask the backend for a short-lived presigned PUT URL
+  if (isProductImageFolder(folder)) {
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("folder", folder);
+    return api.post("/api/upload/image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  }
+
   const { data: presignRes } = await api.post("/api/upload/presign", {
     folder,
     mimeType: file.type,

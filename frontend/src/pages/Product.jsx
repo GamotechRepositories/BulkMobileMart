@@ -109,7 +109,7 @@ function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
         </div>
         <Link
           to={`/product/${product._id}`}
-          className="flex h-[104px] w-[84px] items-center justify-center overflow-hidden rounded-lg border border-border-light bg-mobile-surface"
+          className="block w-[84px] shrink-0 overflow-hidden rounded-lg border border-border-light"
         >
           <ProductThumb src={product.productImages?.[0]} alt={product.name} />
         </Link>

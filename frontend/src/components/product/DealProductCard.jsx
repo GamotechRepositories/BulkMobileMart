@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import AddToCartButton from "./AddToCartButton";
 import WishlistButton from "./WishlistButton";
+import ProductImageFrame from "./ProductImageFrame";
 import { formatProductPriceLabel, getTotalProductStock } from "../../utils/productPricing";
 
 const formatPrice = (amount) =>
@@ -41,17 +42,8 @@ function DealProductCard({
           <WishlistButton product={product} />
         </div>
         <Link to={product._id?.length > 10 ? `/product/${product._id}` : "/product"}>
-          <div className="flex h-[100px] items-center justify-center overflow-hidden rounded-lg bg-mobile-surface sm:h-[110px] md:h-[130px] lg:h-[150px]">
-            {image ? (
-              <img
-                src={image}
-                alt={product.name}
-                className="h-full w-full object-contain p-2"
-                loading="lazy"
-              />
-            ) : (
-              <div className="h-16 w-16 rounded-lg bg-white shadow-inner" />
-            )}
+          <div className="overflow-hidden rounded-lg">
+            <ProductImageFrame src={image} alt={product.name} />
           </div>
           <h3 className="mt-2 line-clamp-1 text-sm font-bold text-text-primary sm:text-base">
             {product.name}

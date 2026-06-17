@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import {
@@ -545,16 +546,11 @@ function Checkout() {
                 <ul className="mb-3 max-h-40 space-y-3 overflow-y-auto sm:mb-5 sm:max-h-56 sm:space-y-4">
                   {checkoutItems.map((item) => (
                     <li key={`${item.productId || item._id}-${item.variantName || "default"}-${item.colorName || "default"}`} className="flex items-center gap-3">
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-mobile-surface">
-                        {item.productImages?.[0] ? (
-                          <img
-                            src={item.productImages[0]}
-                            alt={item.name}
-                            className="h-full w-full object-contain p-1"
-                          />
-                        ) : (
-                          <div className="h-full w-full bg-mobile-surface" />
-                        )}
+                      <div className="w-14 shrink-0 overflow-hidden rounded-lg border border-border-light">
+                        <ProductImageFrame
+                          src={item.productImages?.[0]}
+                          alt={item.name}
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-2 text-sm font-medium leading-snug text-text-primary">

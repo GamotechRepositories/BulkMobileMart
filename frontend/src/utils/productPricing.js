@@ -153,19 +153,13 @@ export function getBulkTierRows(product, variantName = "") {
 
   return source.bulkPricing.slabs.map((slab) => ({
     key: `${slab.minQuantity}-${slab.maxQuantity ?? "plus"}`,
-    qty: slab.maxQuantity
-      ? `${slab.minQuantity} - ${slab.maxQuantity}`
-      : `${slab.minQuantity}+`,
+    minQuantity: slab.minQuantity,
     price: slab.pricePerUnit,
   }));
 }
 
 export function formatProductPriceLabel(product, formatPrice, variantName = "") {
   const amount = getDisplayPrice(product, variantName);
-  if (isBulkPricing(product, variantName) || (isMultiVariant(product) && !variantName)) {
-    return `From ${formatPrice(amount)}`;
-  }
-
   return formatPrice(amount);
 }
 

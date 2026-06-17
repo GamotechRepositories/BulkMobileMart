@@ -1,7 +1,8 @@
 import html2canvas from "html2canvas";
 import { formatProductPriceLabel } from "./productPricing";
+import { clampImageAspectRatio, getDisplayHeightForWidth } from "./productImage";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 function getImageExtension(url) {
   const match = url?.match(/\.(jpe?g|png|webp|gif)(?:\?|$)/i);
@@ -102,7 +103,7 @@ export async function createShareCardImage({ productName, priceLabel, brandName,
   img.src = `${API_URL}/api/proxy/image?url=${encodeURIComponent(imageUrl)}`;
   img.alt = productName;
   img.style.cssText =
-    "display:block;width:100%;height:220px;object-fit:contain;background:#f8f8f8;padding:12px;box-sizing:border-box;";
+    "display:block;width:100%;object-fit:contain;background:#f8f8f8;padding:12px;box-sizing:border-box;";
 
   const body = document.createElement("div");
   body.style.padding = "14px 16px 16px";
@@ -132,6 +133,10 @@ export async function createShareCardImage({ productName, priceLabel, brandName,
 
   try {
     await waitForImage(img);
+    const aspectRatio = clampImageAspectRatio(img.naturalWidth, img.naturalHeight);
+    const imageHeight = getDisplayHeightForWidth(368, aspectRatio, 320);
+    img.style.height = `${imageHeight}px`;
+
     const canvas = await html2canvas(container, {
       useCORS: true,
       scale: 2,

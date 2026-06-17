@@ -5,6 +5,12 @@ import {
 } from "../utils/s3Upload.js";
 import { MAX_IMAGE_FILE_BYTES } from "../utils/imageValidation.js";
 import {
+  isAllowedProductImageMime,
+  isProductUploadFolder,
+  processProductImageBuffer,
+  PRODUCT_IMAGE_MIN_SIZE,
+} from "../utils/productImageProcessing.js";
+import {
   ADMIN_UPLOAD_FOLDERS,
   PUBLIC_UPLOAD_FOLDERS,
   USER_UPLOAD_FOLDERS,
@@ -70,16 +76,42 @@ export const uploadImage = async (req, res) => {
       });
     }
 
+    let uploadBuffer = req.file.buffer;
+    let mimeType = req.file.mimetype;
+
+    if (isProductUploadFolder(folder)) {
+      if (!isAllowedProductImageMime(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: "Product images must be JPG, PNG, or WEBP",
+        });
+      }
+
+      try {
+        uploadBuffer = await processProductImageBuffer(req.file.buffer);
+        mimeType = "image/jpeg";
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.message || "Failed to process product image",
+        });
+      }
+    }
+
     const uploaded = await uploadBufferToS3({
-      buffer: req.file.buffer,
-      mimeType: req.file.mimetype,
+      buffer: uploadBuffer,
+      mimeType,
       folder,
-      originalName: req.file.originalname,
+      originalName: isProductUploadFolder(folder)
+        ? req.file.originalname.replace(/\.\w+$/, ".jpg")
+        : req.file.originalname,
     });
 
     return res.status(201).json({
       success: true,
-      message: `Image uploaded to ${uploaded.folder}/`,
+      message: isProductUploadFolder(folder)
+        ? `Product image standardized to ${PRODUCT_IMAGE_MIN_SIZE}×${PRODUCT_IMAGE_MIN_SIZE}px and uploaded to ${uploaded.folder}/`
+        : `Image uploaded to ${uploaded.folder}/`,
       data: uploaded,
     });
   } catch (error) {

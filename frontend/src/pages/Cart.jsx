@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { clearBuyNowCheckout } from "../utils/checkoutSession";
@@ -55,17 +56,9 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
       <div className="flex items-start justify-between gap-3">
         <Link
           to={`/product/${item._id}`}
-          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border-light bg-white"
+          className="w-14 shrink-0 overflow-hidden rounded-lg border border-border-light"
         >
-          {item.productImages?.[0] ? (
-            <img
-              src={item.productImages[0]}
-              alt={item.name}
-              className="h-full w-full object-contain p-1"
-            />
-          ) : (
-            <div className="h-full w-full bg-mobile-surface" />
-          )}
+          <ProductImageFrame src={item.productImages?.[0]} alt={item.name} />
         </Link>
 
         <button
@@ -133,17 +126,9 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
       <div className="flex items-center gap-4 pr-10">
         <Link
           to={`/product/${item._id}`}
-          className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border-light bg-white"
+          className="w-20 shrink-0 overflow-hidden rounded-lg border border-border-light"
         >
-          {item.productImages?.[0] ? (
-            <img
-              src={item.productImages[0]}
-              alt={item.name}
-              className="h-full w-full object-contain p-1"
-            />
-          ) : (
-            <div className="h-full w-full bg-mobile-surface" />
-          )}
+          <ProductImageFrame src={item.productImages?.[0]} alt={item.name} />
         </Link>
 
         <div className="min-w-0 flex-1">

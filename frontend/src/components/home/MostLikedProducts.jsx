@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProducts } from "../../api/api";
+import ProductImageFrame from "../product/ProductImageFrame";
 
 const MAX_DISPLAY = 15;
 const GRID_COLS = 5;
@@ -25,22 +26,13 @@ function ProductCard({ product }) {
       to={`/product/${product._id}`}
       className="group flex flex-col rounded-2xl border border-neutral-700 bg-neutral-900 overflow-hidden hover:border-accent/50 hover:shadow-lg transition-all h-full"
     >
-      <div className="relative bg-neutral-800 h-[140px] sm:h-[160px] md:h-[180px] overflow-hidden">
+      <div className="relative overflow-hidden bg-neutral-800">
         {product.ratings >= 4.5 && (
           <span className="absolute top-2 left-2 z-10 rounded bg-black text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5">
             Bestseller
           </span>
         )}
-        {image ? (
-          <img
-            src={image}
-            alt={product.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-          />
-        ) : (
-          <div className="h-full w-full bg-neutral-700" />
-        )}
+        <ProductImageFrame src={image} alt={product.name} />
       </div>
 
       <div className="flex items-center justify-between gap-2 bg-[#facc15] px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-black">
@@ -134,7 +126,7 @@ function MostLikedProducts() {
                 key={i}
                 className="rounded-2xl border border-neutral-700 bg-neutral-900 animate-pulse"
               >
-                <div className="h-[140px] sm:h-[160px] bg-neutral-800" />
+                <div className="product-image animate-pulse bg-mobile-surface" />
                 <div className="h-8 bg-yellow-500/30" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 bg-neutral-800 rounded w-3/4" />
