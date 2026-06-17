@@ -416,6 +416,7 @@ function ProductImage({ src, alt }) {
     <ProductImageFrame
       src={src}
       alt={alt}
+      fit="contain"
       className="max-h-[min(70vh,520px)]"
     />
   );
@@ -438,7 +439,7 @@ function ThumbnailCarousel({ images, activeImage, onSelect }) {
           key={`${img}-${index}`}
           type="button"
           onClick={() => onSelect(index)}
-          className={`product-image h-16 w-16 shrink-0 rounded-md border-2 lg:h-[72px] lg:w-[72px] ${
+          className={`product-image product-image--contain h-16 w-16 shrink-0 rounded-md border-2 lg:h-[72px] lg:w-[72px] ${
             activeImage === index ? "border-primary" : "border-border-light"
           }`}
         >

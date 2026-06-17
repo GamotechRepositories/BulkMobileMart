@@ -96,7 +96,7 @@ function ImagePicker({
 
       {value ? (
         <div className="mt-2 space-y-2">
-          <div className="product-image mx-auto max-w-sm overflow-hidden rounded-lg border border-border-light">
+          <div className="product-image product-image--contain mx-auto max-w-sm overflow-hidden rounded-lg border border-border-light">
             <img src={value} alt="Uploaded preview" />
           </div>
           <div className="flex flex-wrap gap-2">

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 function ProductImagePlaceholder({ className = "" }) {
   return (
-    <div className={`product-image ${className}`}>
+    <div className={`product-image product-image--cover ${className}`}>
       <svg
         className="h-10 w-10 text-text-muted"
         fill="none"
@@ -21,15 +21,23 @@ function ProductImagePlaceholder({ className = "" }) {
   );
 }
 
-function ProductImageFrame({ src, alt = "", className = "" }) {
+const FIT_CLASS = {
+  cover: "product-image--cover",
+  contain: "product-image--contain",
+  fill: "product-image--fill",
+  stretch: "product-image--stretch",
+};
+
+function ProductImageFrame({ src, alt = "", className = "", fit = "cover" }) {
   const [error, setError] = useState(false);
+  const fitClass = FIT_CLASS[fit] || FIT_CLASS.cover;
 
   if (!src || error) {
-    return <ProductImagePlaceholder className={className} />;
+    return <ProductImagePlaceholder className={`${fitClass} ${className}`} />;
   }
 
   return (
-    <div className={`product-image ${className}`}>
+    <div className={`product-image ${fitClass} ${className}`}>
       <img
         src={src}
         alt={alt}
