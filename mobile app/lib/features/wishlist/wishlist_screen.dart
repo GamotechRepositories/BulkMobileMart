@@ -7,6 +7,7 @@ import '../../core/utils/product_pricing.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/wishlist/wishlist_controller.dart';
+import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/refreshable_body.dart';
@@ -27,6 +28,17 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     Future.microtask(() => ref.read(wishlistControllerProvider.notifier).loadWishlist());
   }
 
+  CartItem? _cartLine(Product product) {
+    final defaults = resolveCartDefaults(product);
+    for (final item in ref.read(cartControllerProvider).items) {
+      if (item.id != product.id) continue;
+      if (item.variantName.trim() != defaults.variantName.trim()) continue;
+      if (item.colorName.trim() != defaults.colorName.trim()) continue;
+      return item;
+    }
+    return null;
+  }
+
   Future<void> _handleAdd(Product product, BuildContext context) async {
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
@@ -39,6 +51,51 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
     }
+  }
+
+  Future<void> _handleIncrease(Product product) async {
+    final line = _cartLine(product);
+    if (line == null) {
+      final defaults = resolveCartDefaults(product);
+      final result = await ref.read(cartControllerProvider.notifier).addToCart(
+            product,
+            defaults.quantity,
+            variantName: defaults.variantName,
+            colorName: defaults.colorName,
+          );
+      if (result == AddToCartResult.requiresLogin && mounted) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+      }
+      return;
+    }
+
+    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+          productId: product.id,
+          quantity: line.quantity + 1,
+          variantName: line.variantName,
+          colorName: line.colorName,
+        );
+  }
+
+  Future<void> _handleDecrease(Product product) async {
+    final line = _cartLine(product);
+    if (line == null) return;
+
+    if (line.quantity <= 1) {
+      await ref.read(cartControllerProvider.notifier).removeFromCartLine(
+            productId: product.id,
+            variantName: line.variantName,
+            colorName: line.colorName,
+          );
+      return;
+    }
+
+    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+          productId: product.id,
+          quantity: line.quantity - 1,
+          variantName: line.variantName,
+          colorName: line.colorName,
+        );
   }
 
   Future<void> _loadWishlist() async {
@@ -68,20 +125,23 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     } else {
       body = RefreshIndicator(
         onRefresh: _loadWishlist,
-        child: ListView.separated(
+        child: GridView.builder(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 10,
+            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+          ),
           itemCount: wishlist.items.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final product = wishlist.items[index];
-            return SizedBox(
-              width: DealProductCardDimensions.width,
-              height: DealProductCardDimensions.height,
-              child: DealProductCard(
-                product: product,
-                onAdd: (context) => _handleAdd(product, context),
-              ),
+            return _WishlistDealCard(
+              product: product,
+              onAdd: (context) => _handleAdd(product, context),
+              onIncrease: () => _handleIncrease(product),
+              onDecrease: () => _handleDecrease(product),
             );
           },
         ),
@@ -97,6 +157,34 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
         title: const Text('My Wishlist'),
       ),
       body: body,
+    );
+  }
+}
+
+class _WishlistDealCard extends ConsumerWidget {
+  const _WishlistDealCard({
+    required this.product,
+    required this.onAdd,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  final Product product;
+  final void Function(BuildContext context) onAdd;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qty = ref.watch(cartProductQuantityProvider(product));
+
+    return DealProductCard(
+      product: product,
+      fillCell: true,
+      cartQuantity: qty,
+      onAdd: onAdd,
+      onIncrease: onIncrease,
+      onDecrease: onDecrease,
     );
   }
 }

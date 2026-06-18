@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../config/theme.dart';
 import '../../../core/utils/product_search.dart';
 import '../../../models/category.dart';
 import '../../../routes/route_paths.dart';
@@ -13,14 +12,32 @@ import '../../../widgets/common/skeleton_loaders.dart';
 import '../home_providers.dart';
 import 'home_section_card.dart';
 
-const _itemsPerPage = 9;
-const _gridColumns = 3;
-const _gridRows = 3;
+const _mobileItemsPerSlide = 6;
+const _desktopItemsPerSlide = 12;
+const _gridColumnsMobile = 3;
+const _gridColumnsDesktop = 6;
+const _gridRows = 2;
 const _gridSpacing = 10.0;
-/// Width / height — tuned for flat circular category icons.
-const _tileAspectRatio = 0.72;
 
-/// Home landing — 3×3 category grid per page, swipe horizontally for more.
+List<Category> sortCategories(List<Category> categories, {required bool ascending}) {
+  final sorted = [...categories];
+  sorted.sort((a, b) {
+    final result = a.categoryName.toLowerCase().compareTo(b.categoryName.toLowerCase());
+    return ascending ? result : -result;
+  });
+  return sorted;
+}
+
+List<List<T>> chunkItems<T>(List<T> items, int size) {
+  final batches = <List<T>>[];
+  for (var index = 0; index < items.length; index += size) {
+    final end = (index + size > items.length) ? items.length : index + size;
+    batches.add(items.sublist(index, end));
+  }
+  return batches;
+}
+
+/// Home landing — two 2-row category sliders (A→Z and Z→A).
 class CategoryNavSection extends ConsumerWidget {
   const CategoryNavSection({super.key});
 
@@ -32,7 +49,7 @@ class CategoryNavSection extends ConsumerWidget {
       loading: () => const HomeSectionCard(
         margin: EdgeInsets.fromLTRB(0, 8, 0, 4),
         padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
-        child: SkeletonCategoryGridPage(),
+        child: SkeletonCategoryTwoRowSliders(),
       ),
       error: (_, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -45,6 +62,9 @@ class CategoryNavSection extends ConsumerWidget {
         final filtered = filterShopCategories(categories);
         if (filtered.isEmpty) return const SizedBox.shrink();
 
+        final categoriesAZ = sortCategories(filtered, ascending: true);
+        final categoriesZA = sortCategories(filtered, ascending: false);
+
         return HomeSectionCard(
           margin: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -52,11 +72,13 @@ class CategoryNavSection extends ConsumerWidget {
           child: Column(
             children: [
               SectionHeader(
-                title: 'Shop by Category',
+                title: 'Explore Our Categories',
                 dense: true,
                 onViewAll: () => context.go(RoutePaths.categories),
               ),
-              _CategoryPagedGrid(categories: filtered),
+              CategoryTwoRowSlider(categories: categoriesAZ, sectionKey: 'az'),
+              const SizedBox(height: 12),
+              CategoryTwoRowSlider(categories: categoriesZA, sectionKey: 'za'),
             ],
           ),
         );
@@ -65,191 +87,136 @@ class CategoryNavSection extends ConsumerWidget {
   }
 }
 
-enum _CategoryCellKind { category, viewAll, empty }
-
-class _CategoryCell {
-  const _CategoryCell.category(this.category)
-      : kind = _CategoryCellKind.category;
-
-  const _CategoryCell.viewAll()
-      : kind = _CategoryCellKind.viewAll,
-        category = null;
-
-  const _CategoryCell.empty()
-      : kind = _CategoryCellKind.empty,
-        category = null;
-
-  final _CategoryCellKind kind;
-  final Category? category;
-}
-
-class _CategoryPagedGrid extends StatefulWidget {
-  const _CategoryPagedGrid({required this.categories});
+class CategoryTwoRowSlider extends StatelessWidget {
+  const CategoryTwoRowSlider({
+    super.key,
+    required this.categories,
+    required this.sectionKey,
+  });
 
   final List<Category> categories;
+  final String sectionKey;
 
-  @override
-  State<_CategoryPagedGrid> createState() => _CategoryPagedGridState();
-}
-
-class _CategoryPagedGridState extends State<_CategoryPagedGrid> {
-  final _pageController = PageController();
-  int _currentPage = 0;
-  List<List<_CategoryCell>>? _cachedPages;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  int _itemsPerSlide(double width) {
+    return width >= 1024 ? _desktopItemsPerSlide : _mobileItemsPerSlide;
   }
 
-  @override
-  void didUpdateWidget(covariant _CategoryPagedGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.categories != widget.categories) {
-      _cachedPages = null;
-    }
+  int _columnsForWidth(double width) {
+    return width >= 1024 ? _gridColumnsDesktop : _gridColumnsMobile;
   }
 
-  List<List<_CategoryCell>> get _pages {
-    return _cachedPages ??= _buildPages();
-  }
-
-  List<List<_CategoryCell>> _buildPages() {
-    final cells = <_CategoryCell>[
-      ...widget.categories.map(_CategoryCell.category),
-      const _CategoryCell.viewAll(),
-    ];
-
-    final pages = <List<_CategoryCell>>[];
-    for (var i = 0; i < cells.length; i += _itemsPerPage) {
-      final end = (i + _itemsPerPage).clamp(0, cells.length);
-      final page = List<_CategoryCell>.from(cells.sublist(i, end));
-      while (page.length < _itemsPerPage) {
-        page.add(const _CategoryCell.empty());
-      }
-      pages.add(page);
-    }
-    return pages;
-  }
-
-  double _tileHeight(double width) {
-    final tileWidth =
-        (width - _gridSpacing * (_gridColumns - 1)) / _gridColumns;
-    return tileWidth / _tileAspectRatio;
-  }
-
-  double _gridHeight(double width) {
-    final tileHeight = _tileHeight(width);
+  double _gridHeight(double pageWidth, int columns) {
+    final tileWidth = (pageWidth - _gridSpacing * (columns - 1)) / columns;
+    final tileHeight = tileWidth / 0.78;
     return tileHeight * _gridRows + _gridSpacing * (_gridRows - 1);
-  }
-
-  Widget _buildCell(_CategoryCell cell, int globalIndex) {
-    switch (cell.kind) {
-      case _CategoryCellKind.empty:
-        return const SizedBox.shrink();
-      case _CategoryCellKind.viewAll:
-        return CategoryGridTile.more(
-          onTap: () => context.go(RoutePaths.categories),
-          style: CategoryTileStyle.flat,
-        );
-      case _CategoryCellKind.category:
-        final category = cell.category!;
-        return CategoryGridTile.fromCategory(
-          category: category,
-          icon: categoryIconTypes[globalIndex % categoryIconTypes.length],
-          style: CategoryTileStyle.flat,
-          onTap: () {
-            context.go(
-              ProductSearch.buildPath(categoryName: category.categoryName),
-            );
-          },
-        );
-    }
-  }
-
-  Widget _buildGridPage(List<_CategoryCell> page, int pageIndex, double width) {
-    final tileHeight = _tileHeight(width);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(_gridRows, (row) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: row < _gridRows - 1 ? _gridSpacing : 0),
-          child: Row(
-            children: List.generate(_gridColumns, (col) {
-              final index = row * _gridColumns + col;
-              final globalIndex = pageIndex * _itemsPerPage + index;
-
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: col < _gridColumns - 1 ? _gridSpacing : 0,
-                  ),
-                  child: SizedBox(
-                    height: tileHeight,
-                    child: _buildCell(page[index], globalIndex),
-                  ),
-                ),
-              );
-            }),
-          ),
-        );
-      }),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = _pages;
+    if (categories.isEmpty) return const SizedBox.shrink();
 
-    return RepaintBoundary(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final gridHeight = _gridHeight(constraints.maxWidth);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pageWidth = constraints.maxWidth;
+        final itemsPerSlide = _itemsPerSlide(pageWidth);
+        final columns = _columnsForWidth(pageWidth);
+        final batches = chunkItems(categories, itemsPerSlide);
+        final gridHeight = _gridHeight(pageWidth, columns);
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: gridHeight,
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: pages.length,
-                  onPageChanged: (index) => setState(() => _currentPage = index),
-                  itemBuilder: (context, pageIndex) {
-                    return _buildGridPage(
-                      pages[pageIndex],
-                      pageIndex,
-                      constraints.maxWidth,
-                    );
-                  },
-                ),
-              ),
-              if (pages.length > 1) ...[
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(pages.length, (index) {
-                    final active = index == _currentPage;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: active ? 18 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color:
-                            active ? AppColors.primary : AppColors.borderLight,
-                        borderRadius: BorderRadius.circular(999),
+        return SizedBox(
+          height: gridHeight,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const PageScrollPhysics(),
+            itemCount: batches.length,
+            itemBuilder: (context, pageIndex) {
+              final batch = batches[pageIndex];
+              return SizedBox(
+                width: pageWidth,
+                child: Column(
+                  children: List.generate(_gridRows, (row) {
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: row < _gridRows - 1 ? _gridSpacing : 0),
+                      child: Row(
+                        children: List.generate(columns, (col) {
+                          final index = row * columns + col;
+                          if (index >= batch.length) {
+                            return Expanded(child: SizedBox(height: gridHeight / _gridRows));
+                          }
+
+                          final category = batch[index];
+                          final globalIndex =
+                              categories.indexWhere((c) => c.id == category.id);
+
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: col < columns - 1 ? _gridSpacing : 0,
+                              ),
+                              child: SizedBox(
+                                height: (gridHeight - _gridSpacing) / _gridRows,
+                                child: CategoryGridTile.fromCategory(
+                                  category: category,
+                                  icon: categoryIconTypes[
+                                      globalIndex % categoryIconTypes.length],
+                                  style: CategoryTileStyle.card,
+                                  onTap: () {
+                                    context.go(
+                                      ProductSearch.buildPath(
+                                        categoryName: category.categoryName,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                       ),
                     );
                   }),
                 ),
-              ],
-            ],
-          );
-        },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class SkeletonCategoryTwoRowSliders extends StatelessWidget {
+  const SkeletonCategoryTwoRowSliders({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        SizedBox(height: 16),
+        SkeletonCategoryTwoRowPage(),
+        SizedBox(height: 12),
+        SkeletonCategoryTwoRowPage(),
+      ],
+    );
+  }
+}
+
+class SkeletonCategoryTwoRowPage extends StatelessWidget {
+  const SkeletonCategoryTwoRowPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.78,
       ),
+      itemBuilder: (_, _) => SkeletonBox(borderRadius: 12),
     );
   }
 }

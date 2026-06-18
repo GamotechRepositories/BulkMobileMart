@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
 
@@ -205,25 +205,7 @@ function CategoryCard({ category }) {
   );
 }
 
-function SliderArrow({ direction, onClick, disabled }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={direction === "left" ? "Previous categories" : "Next categories"}
-      className="absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6e6e6] bg-white text-xl font-bold leading-none text-text-primary shadow-md transition hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-25 sm:h-10 sm:w-10"
-      style={direction === "left" ? { left: "-0.5rem" } : { right: "-0.5rem" }}
-    >
-      {direction === "left" ? "‹" : "›"}
-    </button>
-  );
-}
-
 function CategoryTwoRowSlider({ sectionKey, categories }) {
-  const scrollRef = useRef(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
   const itemsPerSlide = useItemsPerSlide();
 
   const batches = useMemo(
@@ -231,59 +213,12 @@ function CategoryTwoRowSlider({ sectionKey, categories }) {
     [categories, itemsPerSlide]
   );
 
-  const updateScrollState = () => {
-    const node = scrollRef.current;
-    if (!node) return;
-    setCanScrollLeft(node.scrollLeft > 4);
-    setCanScrollRight(node.scrollLeft + node.clientWidth < node.scrollWidth - 4);
-  };
-
-  useEffect(() => {
-    updateScrollState();
-    const node = scrollRef.current;
-    if (!node) return undefined;
-
-    node.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-
-    return () => {
-      node.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-    };
-  }, [batches]);
-
-  const scrollByPage = (direction) => {
-    const node = scrollRef.current;
-    if (!node) return;
-    node.scrollBy({ left: direction * node.clientWidth, behavior: "smooth" });
-  };
-
   if (categories.length === 0) return null;
-
-  const showArrows = batches.length > 1;
 
   return (
     <div className="mb-6 last:mb-0 sm:mb-8">
-      <div className="relative px-3 sm:px-4">
-        {showArrows ? (
-          <>
-            <SliderArrow
-              direction="left"
-              onClick={() => scrollByPage(-1)}
-              disabled={!canScrollLeft}
-            />
-            <SliderArrow
-              direction="right"
-              onClick={() => scrollByPage(1)}
-              disabled={!canScrollRight}
-            />
-          </>
-        ) : null}
-
-        <div
-          ref={scrollRef}
-          className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
-        >
+      <div className="px-1 sm:px-2">
+        <div className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth">
           {batches.map((batch, batchIndex) => (
             <div
               key={`${sectionKey}-batch-${batchIndex}`}

@@ -160,6 +160,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final rating = product.ratings > 0 ? product.ratings : 4.5;
     final availableColors = getAvailableColors(product, activeVariantName);
     final specifications = getResolvedSpecifications(product);
+    final inCart = cartLineQuantity != null;
 
     return Column(
       children: [
@@ -427,9 +428,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 child: Builder(
                   builder: (btnContext) => ElevatedButton(
                     onPressed: inStock
-                        ? () => _addToCart(product, activeVariantName, btnContext)
+                        ? () {
+                            if (inCart) {
+                              context.go(RoutePaths.cart);
+                              return;
+                            }
+                            _addToCart(product, activeVariantName, btnContext);
+                          }
                         : null,
-                    child: const Text('Add to Cart'),
+                    child: Text(inCart ? 'Go to Cart' : 'Add to Cart'),
                   ),
                 ),
               ),
@@ -620,28 +627,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   ) async {
     final availableColors = getAvailableColors(product, activeVariantName);
     if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
-
-    final line = findCartLine(
-      ref.read(cartControllerProvider).items,
-      product.id,
-      activeVariantName,
-      _selectedColor,
-    );
-
-    if (line != null) {
-      final auth = ref.read(authControllerProvider);
-      if (!auth.isLoggedIn) {
-        ref.read(authControllerProvider.notifier).openAuthModal();
-        return;
-      }
-      await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-            productId: product.id,
-            quantity: _quantity,
-            variantName: activeVariantName,
-            colorName: _selectedColor,
-          );
-      return;
-    }
 
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,

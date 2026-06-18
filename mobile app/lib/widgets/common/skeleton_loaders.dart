@@ -44,18 +44,26 @@ class SkeletonDealRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 272,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 4,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, _) => const SizedBox(
-          width: 168,
-          child: SkeletonBox(height: 272, borderRadius: 12),
-        ),
+    return const SkeletonDealGridPage();
+  }
+}
+
+class SkeletonDealGridPage extends StatelessWidget {
+  const SkeletonDealGridPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.61,
       ),
+      itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
     );
   }
 }
@@ -84,17 +92,22 @@ class SkeletonOrderList extends StatelessWidget {
 }
 
 class SkeletonWishlistList extends StatelessWidget {
-  const SkeletonWishlistList({super.key, this.count = 4});
+  const SkeletonWishlistList({super.key, this.count = 6});
 
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.61,
+      ),
       itemCount: count,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (_, _) => const SkeletonBox(height: 250, borderRadius: 12),
+      itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
     );
   }
 }

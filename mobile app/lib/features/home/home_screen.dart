@@ -84,7 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: RepaintBoundary(
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 80),
-                  placeholderHeight: 220,
+                  placeholderHeight: 520,
                   child: BestDealsSection(),
                 ),
               ),
@@ -93,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: RepaintBoundary(
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 160),
-                  placeholderHeight: 120,
+                  placeholderHeight: 140,
                   child: TopBrandsSection(),
                 ),
               ),

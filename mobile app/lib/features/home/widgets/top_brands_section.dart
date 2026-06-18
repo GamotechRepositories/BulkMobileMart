@@ -15,9 +15,9 @@ import 'home_section_card.dart';
 class TopBrandsSection extends ConsumerWidget {
   const TopBrandsSection({super.key});
 
-  static const _tileWidth = 116.0;
-  static const _logoHeight = 92.0;
-  static const _rowHeight = 132.0;
+  static const _tileWidth = 132.0;
+  static const _logoHeight = 108.0;
+  static const _rowHeight = 124.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +31,7 @@ class TopBrandsSection extends ConsumerWidget {
           children: [
             SkeletonBox(width: 120, height: 20, borderRadius: 6),
             SizedBox(height: 12),
-            SkeletonBox(height: 132, borderRadius: 12),
+            SkeletonBox(height: 124, borderRadius: 12),
           ],
         ),
       ),
@@ -47,7 +47,6 @@ class TopBrandsSection extends ConsumerWidget {
             children: [
               SectionHeader(
                 title: 'Top Brands',
-                subtitle: 'Trusted accessory brands',
                 dense: true,
                 onViewAll: () => context.go(RoutePaths.product),
               ),
