@@ -120,34 +120,32 @@ function ShowProductSection() {
     <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
+      <ProductListFilters
+        categories={categoryOptions}
+        totalCount={pagination.total}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        sortDir={sortDir}
+        onSortDirToggle={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
+      />
+
+      <p className="mb-4 mt-4 text-sm font-medium text-neutral-700">
+        {pagination.total} product{pagination.total === 1 ? "" : "s"} · Click a row to view full
+        details
+      </p>
+
       {loading ? (
-        <p className="mt-4 text-text-secondary">Loading products...</p>
+        <p className="text-text-secondary">Loading products...</p>
+      ) : pagination.total === 0 ? (
+        <p className="text-text-secondary">No products found.</p>
+      ) : products.length === 0 ? (
+        <p className="text-text-secondary">No products on this page.</p>
       ) : (
-        <>
-          <ProductListFilters
-            categories={categoryOptions}
-            totalCount={pagination.total}
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            sortBy={sortBy}
-            onSortByChange={setSortBy}
-            sortDir={sortDir}
-            onSortDirToggle={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
-          />
-
-          <p className="mb-4 mt-4 text-sm font-medium text-neutral-700">
-            {pagination.total} product{pagination.total === 1 ? "" : "s"} · Click a row to view full
-            details
-          </p>
-
-          {pagination.total === 0 ? (
-            <p className="text-text-secondary">No products found.</p>
-          ) : products.length === 0 ? (
-            <p className="text-text-secondary">No products on this page.</p>
-          ) : (
-            <div className={adminTableWrapperClass}>
+        <div className={adminTableWrapperClass}>
               <table className={adminCompactTableClass}>
                 <colgroup>
                   <col className="w-[7%]" />
@@ -270,10 +268,8 @@ function ShowProductSection() {
                 total={pagination.total}
                 loading={loading}
                 onPageChange={setPage}
-              />
-            </div>
-          )}
-        </>
+            />
+        </div>
       )}
 
       <ProductDetailModal
