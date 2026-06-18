@@ -46,7 +46,7 @@ function Wishlist() {
 
   const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
 
-  const handleIncrease = async (product) => {
+  const handleIncrease = async (product, flySource) => {
     if (!product._id || product._id.length < 10) return;
     const { variantName, colorName, quantity } = resolveCartDefaults(product);
     const step = getCartStepForProduct(product, variantName);
@@ -55,6 +55,7 @@ function Wishlist() {
     const result = await addToCart(product, addQty, {
       variantName,
       colorName,
+      flySource: line ? undefined : flySource,
     });
     if (result?.requiresLogin) {
       openAuthModal("login");

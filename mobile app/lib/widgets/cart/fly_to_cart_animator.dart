@@ -1,0 +1,165 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../common/app_network_image.dart';
+import 'cart_nav_icon_key.dart';
+
+class FlyToCartRequest {
+  const FlyToCartRequest({
+    required this.start,
+    required this.end,
+    required this.imageUrl,
+  });
+
+  final Offset start;
+  final Offset end;
+  final String imageUrl;
+}
+
+void Function(FlyToCartRequest request)? _flyToCartTrigger;
+
+void triggerFlyToCart({
+  required BuildContext sourceContext,
+  required String? imageUrl,
+}) {
+  if (imageUrl == null || imageUrl.isEmpty) return;
+
+  final sourceBox = sourceContext.findRenderObject() as RenderBox?;
+  final cartContext = cartNavIconKey.currentContext;
+  final cartBox = cartContext?.findRenderObject() as RenderBox?;
+  if (sourceBox == null || cartBox == null || _flyToCartTrigger == null) return;
+
+  final start = sourceBox.localToGlobal(sourceBox.size.center(Offset.zero));
+  final end = cartBox.localToGlobal(cartBox.size.center(Offset.zero));
+
+  _flyToCartTrigger!(
+    FlyToCartRequest(start: start, end: end, imageUrl: imageUrl),
+  );
+}
+
+class FlyToCartAnimator extends StatefulWidget {
+  const FlyToCartAnimator({super.key});
+
+  @override
+  State<FlyToCartAnimator> createState() => _FlyToCartAnimatorState();
+}
+
+class _FlyToCartAnimatorState extends State<FlyToCartAnimator>
+    with SingleTickerProviderStateMixin {
+  static const double _size = 40;
+
+  FlyToCartRequest? _request;
+  late final AnimationController _controller;
+  Animation<double>? _progress;
+  Animation<double>? _scale;
+  Animation<double>? _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _flyToCartTrigger = _startAnimation;
+  }
+
+  @override
+  void dispose() {
+    if (_flyToCartTrigger == _startAnimation) {
+      _flyToCartTrigger = null;
+    }
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _startAnimation(FlyToCartRequest request) {
+    if (!mounted) return;
+
+    _progress = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.78), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.78, end: 0.36), weight: 37),
+      TweenSequenceItem(tween: Tween(begin: 0.36, end: 0.1), weight: 18),
+    ]).animate(_controller);
+
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 0.82), weight: 37),
+      TweenSequenceItem(tween: Tween(begin: 0.82, end: 0.0), weight: 18),
+    ]).animate(_controller);
+
+    setState(() => _request = request);
+    _controller.forward(from: 0).whenComplete(() {
+      if (!mounted) return;
+      setState(() => _request = null);
+    });
+  }
+
+  Offset _positionAt(FlyToCartRequest request, double t) {
+    final eased = Curves.easeInOutCubic.transform(t);
+    final linear = Offset.lerp(request.start, request.end, eased)!;
+    final arcLift = -72 * math.sin(math.pi * eased);
+    return Offset(linear.dx, linear.dy + arcLift);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final request = _request;
+    final progress = _progress;
+    final scale = _scale;
+    final opacity = _opacity;
+    if (request == null || progress == null || scale == null || opacity == null) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final currentScale = scale.value;
+        final position = _positionAt(request, progress.value);
+        return Positioned(
+          left: position.dx - (_size * currentScale) / 2,
+          top: position.dy - (_size * currentScale) / 2,
+          child: Opacity(
+            opacity: opacity.value,
+            child: Transform.scale(
+              scale: currentScale,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: AppNetworkImage(
+            imageUrl: request.imageUrl,
+            width: _size,
+            height: _size,
+            fit: BoxFit.contain,
+            cacheWidth: 80,
+            cacheHeight: 80,
+            errorIcon: Icons.image_outlined,
+          ),
+        ),
+      ),
+    );
+  }
+}

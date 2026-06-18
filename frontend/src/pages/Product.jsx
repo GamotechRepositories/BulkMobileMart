@@ -8,26 +8,16 @@ import CategoryProductLayout, {
   DesktopCategorySidebar,
   MobileCategoryProductLayout,
 } from "../components/product/CategoryProductLayout";
-import {
-  formatProductPriceLabel,
-  isProductInStock,
-} from "../utils/productPricing";
+import AddToCartButton from "../components/product/AddToCartButton";
+import ProductPriceDisplay from "../components/product/ProductPriceDisplay";
+import WishlistButton from "../components/product/WishlistButton";
+import ProductThumb from "../components/product/ProductThumb";
+import { isProductInStock } from "../utils/productPricing";
 import {
   getCartStepForProduct,
   getDecreasedCartQuantity,
   resolveCartDefaults,
 } from "../utils/cartDefaults";
-import AddToCartButton from "../components/product/AddToCartButton";
-import WishlistButton from "../components/product/WishlistButton";
-import ProductThumb from "../components/product/ProductThumb";
-
-const formatPrice = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 
 function FilterIcon() {
   return (
@@ -99,7 +89,6 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
 
 function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
   const inStock = isProductInStock(product);
-  const discount = product.discountedPercent ?? 0;
 
   return (
     <article className="flex items-center gap-2.5 rounded-xl border border-border-light bg-white p-2.5">
@@ -122,17 +111,7 @@ function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
           </h2>
         </Link>
 
-        <p className="text-xs leading-tight text-text-muted line-through">
-          {formatPrice(product.price)}
-        </p>
-        <p className="text-lg font-bold leading-tight text-primary">
-          {formatPrice(product.discountedPrice ?? product.price)}
-        </p>
-        {discount > 0 && (
-          <p className="text-xs font-bold uppercase leading-tight text-green-600">
-            Save {discount}%
-          </p>
-        )}
+        <ProductPriceDisplay product={product} size="md" className="mt-0.5" />
 
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <p className={`text-sm font-semibold ${inStock ? "text-green-600" : "text-red-500"}`}>
@@ -163,7 +142,7 @@ function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
             </div>
           ) : (
             <AddToCartButton
-              onClick={() => onIncrease(product)}
+              onClick={(e) => onIncrease(product, e.currentTarget)}
               disabled={!inStock}
               className="shrink-0"
             />
@@ -348,7 +327,7 @@ function Product() {
 
   const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
 
-  const handleIncrease = async (product) => {
+  const handleIncrease = async (product, flySource) => {
     if (!product._id) return;
     const { variantName, colorName, quantity } = resolveCartDefaults(product);
     const step = getCartStepForProduct(product, variantName);
@@ -357,6 +336,7 @@ function Product() {
     const result = await addToCart(product, addQty, {
       variantName,
       colorName,
+      flySource: line ? undefined : flySource,
     });
     if (result?.requiresLogin) {
       openAuthModal("login");

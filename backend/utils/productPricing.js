@@ -7,7 +7,17 @@ export function normalizeBulkSlabInput(slabs = []) {
         slab.maxQuantity === "" || slab.maxQuantity == null
           ? null
           : Number(slab.maxQuantity),
-      pricePerUnit: Number(slab.pricePerUnit),
+      pricePerUnit: Number(
+        slab.discountedPrice ?? slab.pricePerUnit ?? slab.discounted_price
+      ),
+      originalPricePerUnit:
+        slab.price !== undefined && slab.price !== null && slab.price !== ""
+          ? Number(slab.price)
+          : slab.originalPricePerUnit !== undefined &&
+              slab.originalPricePerUnit !== null &&
+              slab.originalPricePerUnit !== ""
+            ? Number(slab.originalPricePerUnit)
+            : null,
     }))
     .filter(
       (slab) => Number.isFinite(slab.pricePerUnit) && slab.pricePerUnit >= 0
@@ -47,6 +57,9 @@ export function buildBulkSlabs(minOrderQuantity, rawSlabs = []) {
       minQuantity: nextMin,
       maxQuantity: entry.maxQuantity,
       pricePerUnit: entry.pricePerUnit,
+      ...(Number.isFinite(entry.originalPricePerUnit) && entry.originalPricePerUnit > 0
+        ? { originalPricePerUnit: entry.originalPricePerUnit }
+        : {}),
     });
 
     if (Number.isFinite(entry.maxQuantity)) {
@@ -237,13 +250,31 @@ export function resolvePricingFields(payload) {
     }
 
     const derived = deriveSinglePriceFieldsFromBulk(bulkCheck.bulkPricing);
+    const price =
+      payload.price !== undefined && payload.price !== null && payload.price !== ""
+        ? Number(payload.price)
+        : derived.price;
+    const discountedPrice =
+      payload.discountedPrice !== undefined &&
+      payload.discountedPrice !== null &&
+      payload.discountedPrice !== ""
+        ? Number(payload.discountedPrice)
+        : derived.discountedPrice;
+    const discountedPercent =
+      payload.discountedPercent !== undefined &&
+      payload.discountedPercent !== null &&
+      payload.discountedPercent !== ""
+        ? Number(payload.discountedPercent)
+        : price > 0
+          ? Math.round(((price - discountedPrice) / price) * 100)
+          : 0;
 
     return {
       pricingType: "bulk",
       bulkPricing: bulkCheck.bulkPricing,
-      price: derived.price,
-      discountedPrice: derived.discountedPrice,
-      discountedPercent: derived.discountedPercent,
+      price,
+      discountedPrice,
+      discountedPercent: Math.max(0, Math.min(100, discountedPercent)),
     };
   }
 

@@ -12,6 +12,7 @@ import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/upi_payment.dart';
+import '../../models/store_settings.dart';
 import '../../widgets/common/image_source_sheet.dart';
 
 class PaymentModal extends StatefulWidget {
@@ -24,6 +25,7 @@ class PaymentModal extends StatefulWidget {
     required this.onUploadScreenshot,
     this.merchantUpiId,
     this.merchantUpiName,
+    this.merchantUpiAccounts = const [],
     this.processing = false,
     this.error = '',
   });
@@ -32,6 +34,7 @@ class PaymentModal extends StatefulWidget {
   final double orderTotal;
   final String? merchantUpiId;
   final String? merchantUpiName;
+  final List<MerchantUpiAccount> merchantUpiAccounts;
   final VoidCallback onPayWithRazorpay;
   final Future<String?> Function({
     required String screenshotUrl,
@@ -59,6 +62,7 @@ class _PaymentModalState extends State<PaymentModal> {
   bool _submittingProof = false;
   bool _chooserOpened = false;
   bool _paymentStarted = false;
+  int _selectedUpiIndex = 0;
 
   bool get _isCod => widget.paymentMethod == 'cod';
 
@@ -67,13 +71,45 @@ class _PaymentModalState extends State<PaymentModal> {
 
   String get _paymentNote => _isCod ? 'COD Advance' : 'Order Payment';
 
-  String get _resolvedUpiId {
-    final configured = widget.merchantUpiId?.trim() ?? '';
+  List<MerchantUpiAccount> get _enabledUpiAccounts {
+    final configured = widget.merchantUpiAccounts
+        .where((account) => account.enabled && account.upiId.isNotEmpty)
+        .toList();
     if (configured.isNotEmpty) return configured;
-    return Env.merchantUpiId.trim();
+
+    final legacyUpiId = widget.merchantUpiId?.trim() ?? '';
+    if (legacyUpiId.isNotEmpty) {
+      return [
+        MerchantUpiAccount(
+          upiId: legacyUpiId,
+          label: widget.merchantUpiName?.trim() ?? 'BulkMobileMart',
+          enabled: true,
+        ),
+      ];
+    }
+
+    final envUpiId = Env.merchantUpiId.trim();
+    if (envUpiId.isNotEmpty) {
+      return [
+        MerchantUpiAccount(
+          upiId: envUpiId,
+          label: Env.merchantUpiName.trim(),
+          enabled: true,
+        ),
+      ];
+    }
+
+    return const [];
   }
 
-  bool get _hasUpiId => _resolvedUpiId.isNotEmpty;
+  MerchantUpiAccount? get _selectedUpiAccount {
+    final accounts = _enabledUpiAccounts;
+    if (accounts.isEmpty) return null;
+    if (_selectedUpiIndex >= accounts.length) return accounts.first;
+    return accounts[_selectedUpiIndex];
+  }
+
+  bool get _hasUpiId => _selectedUpiAccount != null;
 
   bool get _showMobileUpiOptions => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
@@ -98,14 +134,17 @@ class _PaymentModalState extends State<PaymentModal> {
   Future<void> _openUpiChooser({bool auto = false}) async {
     if (!_hasUpiId) return;
 
+    final account = _selectedUpiAccount;
+    if (account == null) return;
+
     if (auto && _chooserOpened) return;
     _chooserOpened = true;
 
     final launched = await UpiPayment.openUpiChooser(
       amount: _payableAmount,
       note: _paymentNote,
-      merchantUpiId: widget.merchantUpiId,
-      merchantUpiName: widget.merchantUpiName,
+      merchantUpiId: account.upiId,
+      merchantUpiName: account.label,
     );
 
     if (!mounted) return;
@@ -212,12 +251,15 @@ class _PaymentModalState extends State<PaymentModal> {
 
   @override
   Widget build(BuildContext context) {
-    final qrUrl = UpiPayment.getQrCodeImageUrl(
-      _payableAmount,
-      note: _paymentNote,
-      merchantUpiId: widget.merchantUpiId,
-      merchantUpiName: widget.merchantUpiName,
-    );
+    final selectedAccount = _selectedUpiAccount;
+    final qrUrl = selectedAccount == null
+        ? ''
+        : UpiPayment.getQrCodeImageUrl(
+            _payableAmount,
+            note: _paymentNote,
+            merchantUpiId: selectedAccount.upiId,
+            merchantUpiName: selectedAccount.label,
+          );
     final displayError =
         widget.error.isNotEmpty ? widget.error : (_uploadError ?? '');
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -291,7 +333,10 @@ class _PaymentModalState extends State<PaymentModal> {
                       _PayStepCard(
                         hasUpiId: _hasUpiId,
                         qrUrl: qrUrl,
-                        upiId: _resolvedUpiId,
+                        upiId: selectedAccount?.upiId ?? '',
+                        upiAccounts: _enabledUpiAccounts,
+                        selectedUpiIndex: _selectedUpiIndex,
+                        onSelectUpi: (index) => setState(() => _selectedUpiIndex = index),
                         showMobileOptions: _showMobileUpiOptions,
                         busy: _busy,
                         onPay: () => _openUpiChooser(),
@@ -560,6 +605,9 @@ class _PayStepCard extends StatelessWidget {
     required this.hasUpiId,
     required this.qrUrl,
     required this.upiId,
+    required this.upiAccounts,
+    required this.selectedUpiIndex,
+    required this.onSelectUpi,
     required this.showMobileOptions,
     required this.busy,
     required this.onPay,
@@ -568,6 +616,9 @@ class _PayStepCard extends StatelessWidget {
   final bool hasUpiId;
   final String qrUrl;
   final String upiId;
+  final List<MerchantUpiAccount> upiAccounts;
+  final int selectedUpiIndex;
+  final ValueChanged<int> onSelectUpi;
   final bool showMobileOptions;
   final bool busy;
   final VoidCallback onPay;
@@ -590,6 +641,46 @@ class _PayStepCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (upiAccounts.length > 1) ...[
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Select UPI ID',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(upiAccounts.length, (index) {
+                final account = upiAccounts[index];
+                final selected = selectedUpiIndex == index;
+                return ChoiceChip(
+                  label: Text(
+                    account.upiId,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? AppColors.primary : AppColors.textSecondary,
+                    ),
+                  ),
+                  selected: selected,
+                  onSelected: busy ? null : (_) => onSelectUpi(index),
+                  selectedColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: AppColors.mobileSurface,
+                  side: BorderSide(
+                    color: selected ? AppColors.primary : AppColors.borderLight,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (showMobileOptions && hasUpiId) ...[
             SizedBox(
               width: double.infinity,

@@ -1,14 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
+import { useAuth } from "../../context/AuthContext";
+import { useWishlist } from "../../context/WishlistContext";
 import { LOGO_URL } from "../layout/Header";
 import MobileMenuDrawer from "./MobileMenuDrawer";
 import MobileSearchBar from "./MobileSearchBar";
 
+function NavIconWrap({ children, badge }) {
+  return (
+    <span className="relative inline-flex shrink-0 text-text-primary">
+      {children}
+      {badge > 0 ? (
+        <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function MobileHeader() {
+  const { user, openAuthModal } = useAuth();
+  const { wishlistCount } = useWishlist();
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(72);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [categories, setCategories] = useState([]);
+
+  useLayoutEffect(() => {
+    const node = headerRef.current;
+    if (!node) return undefined;
+
+    const updateHeight = () => {
+      setHeaderHeight(node.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [searchOpen]);
 
   useEffect(() => {
     let active = true;
@@ -42,9 +75,19 @@ function MobileHeader() {
     setMenuOpen(true);
   };
 
+  const handleWishlistClick = (e) => {
+    if (!user) {
+      e.preventDefault();
+      openAuthModal("login");
+    }
+  };
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white px-4 pt-3 pb-3 sm:px-6 md:px-8 lg:hidden">
+      <header
+        ref={headerRef}
+        className="fixed top-0 left-0 right-0 z-50 border-b border-border-light bg-white px-4 pt-3 pb-3 shadow-sm sm:px-6 md:px-8 lg:hidden"
+      >
         <div className="flex items-center justify-between gap-3">
           <Link to="/" className="shrink-0">
             <img
@@ -73,6 +116,23 @@ function MobileHeader() {
               </svg>
             </button>
 
+            <Link
+              to="/wishlist"
+              onClick={handleWishlistClick}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
+              aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
+            >
+              <NavIconWrap badge={wishlistCount}>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                  />
+                </svg>
+              </NavIconWrap>
+            </Link>
+
             <button
               type="button"
               onClick={openMenu}
@@ -98,6 +158,12 @@ function MobileHeader() {
           </div>
         ) : null}
       </header>
+
+      <div
+        className="shrink-0 lg:hidden"
+        style={{ height: headerHeight }}
+        aria-hidden="true"
+      />
 
       <MobileMenuDrawer
         open={menuOpen}

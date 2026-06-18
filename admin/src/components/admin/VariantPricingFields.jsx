@@ -3,7 +3,8 @@ import { inputClass, labelClass } from "./adminStyles";
 
 const EMPTY_SLAB = {
   maxQuantity: "",
-  pricePerUnit: "",
+  price: "",
+  discountedPrice: "",
 };
 
 function getSlabStartQuantity(minOrderQuantity, slabs, index) {
@@ -139,6 +140,30 @@ function VariantPricingFields({
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Price (₹) *</label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={variant.price}
+                onChange={(e) => updateField("price", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Discounted price (₹) *</label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={variant.discountedPrice}
+                onChange={(e) => updateField("discountedPrice", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
           <div>
             <label className={labelClass}>Pricing slabs *</label>
             <div className="space-y-3">
@@ -153,7 +178,7 @@ function VariantPricingFields({
                 return (
                   <div
                     key={index}
-                    className="grid gap-3 rounded-lg border border-border-light p-3 sm:grid-cols-2 lg:grid-cols-4"
+                    className="grid gap-3 rounded-lg border border-border-light p-3 sm:grid-cols-2 lg:grid-cols-5"
                   >
                     <div>
                       <label className="mb-1 block text-xs font-medium text-text-secondary">
@@ -179,14 +204,27 @@ function VariantPricingFields({
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-text-secondary">
-                        Price per unit (₹) *
+                        Price (₹) *
                       </label>
                       <input
                         type="number"
                         required
                         min="0"
-                        value={slab.pricePerUnit}
-                        onChange={(e) => updateSlab(index, "pricePerUnit", e.target.value)}
+                        value={slab.price}
+                        onChange={(e) => updateSlab(index, "price", e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-text-secondary">
+                        Discounted price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={slab.discountedPrice}
+                        onChange={(e) => updateSlab(index, "discountedPrice", e.target.value)}
                         className={inputClass}
                       />
                     </div>

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
@@ -6,6 +7,7 @@ import '../../features/home/home_fallback_data.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../auth/auth_controller.dart';
+import '../../widgets/cart/fly_to_cart_animator.dart';
 
 enum AddToCartResult { success, requiresLogin, failed }
 
@@ -149,6 +151,7 @@ class CartController extends Notifier<CartState> {
     bool buyNow = false,
     String variantName = '',
     String colorName = '',
+    BuildContext? flySourceContext,
   }) async {
     if (quantity < 1) return AddToCartResult.failed;
 
@@ -185,10 +188,17 @@ class CartController extends Notifier<CartState> {
       await loadCart(silent: true);
 
       if (!buyNow) {
-        state = state.copyWith(toastImage: product.primaryImage, clearError: true);
-        Future.delayed(const Duration(milliseconds: 2600), () {
-          if (ref.mounted) clearToast();
-        });
+        if (flySourceContext != null) {
+          triggerFlyToCart(
+            sourceContext: flySourceContext,
+            imageUrl: product.primaryImage,
+          );
+        } else {
+          state = state.copyWith(toastImage: product.primaryImage, clearError: true);
+          Future.delayed(const Duration(milliseconds: 2600), () {
+            if (ref.mounted) clearToast();
+          });
+        }
       } else {
         state = state.copyWith(navigateToCheckout: true, clearError: true);
       }

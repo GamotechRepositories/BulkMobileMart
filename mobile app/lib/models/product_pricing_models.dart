@@ -3,11 +3,13 @@ class BulkPricingSlab {
     required this.minQuantity,
     this.maxQuantity,
     required this.pricePerUnit,
+    this.originalPricePerUnit,
   });
 
   final int minQuantity;
   final int? maxQuantity;
   final double pricePerUnit;
+  final double? originalPricePerUnit;
 
   factory BulkPricingSlab.fromJson(Map<String, dynamic> json) {
     return BulkPricingSlab(
@@ -16,6 +18,9 @@ class BulkPricingSlab {
           ? null
           : _toInt(json['maxQuantity'], fallback: 1),
       pricePerUnit: _toDouble(json['pricePerUnit']),
+      originalPricePerUnit: json['originalPricePerUnit'] == null
+          ? null
+          : _toDouble(json['originalPricePerUnit']),
     );
   }
 }

@@ -2,16 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getProducts } from "../../api/api";
 import ProductImageFrame from "../product/ProductImageFrame";
+import ProductPriceDisplay from "../product/ProductPriceDisplay";
 
 const MAX_DISPLAY = 15;
 const GRID_COLS = 5;
-
-const formatPrice = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
 
 function ProductCard({ product }) {
   const feature =
@@ -48,17 +42,11 @@ function ProductCard({ product }) {
           {product.name}
         </h3>
 
-        <div className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-base sm:text-lg font-bold text-white">
-            {formatPrice(product.discountedPrice)}
-          </span>
-          <span className="text-xs text-neutral-500 line-through">
-            {formatPrice(product.price)}
-          </span>
-          <span className="text-xs font-semibold text-green-400">
-            {product.discountedPercent}% off
-          </span>
-        </div>
+        <ProductPriceDisplay
+          product={product}
+          size="md"
+          className="mt-auto [&_span:last-child]:text-white"
+        />
       </div>
     </Link>
   );

@@ -93,7 +93,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     context.go(path);
   }
 
-  Future<void> _handleAdd(Product product) async {
+  Future<void> _handleAdd(Product product, BuildContext context) async {
     final defaults = resolveCartDefaults(product);
     final result =
         await ref.read(cartControllerProvider.notifier).addToCart(
@@ -101,6 +101,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
               defaults.quantity,
               variantName: defaults.variantName,
               colorName: defaults.colorName,
+              flySourceContext: context,
             );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
@@ -227,7 +228,7 @@ class _ProductResultsView extends StatefulWidget {
   final String? minPrice;
   final String? maxPrice;
   final ProductSortOption sort;
-  final Future<void> Function(Product) onAdd;
+  final Future<void> Function(Product, BuildContext) onAdd;
 
   @override
   State<_ProductResultsView> createState() => _ProductResultsViewState();
@@ -293,7 +294,7 @@ class _ProductResultsViewState extends State<_ProductResultsView> {
           final product = _filtered[index];
           return MobileProductCard(
             product: product,
-            onAdd: () => widget.onAdd(product),
+            onAdd: (context) => widget.onAdd(product, context),
           );
         },
       );
@@ -309,14 +310,15 @@ class _ProductResultsViewState extends State<_ProductResultsView> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.62,
+              childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final product = _filtered[index];
                 return DealProductCard(
                   product: product,
-                  onAdd: () => widget.onAdd(product),
+                  fillCell: true,
+                  onAdd: (context) => widget.onAdd(product, context),
                 );
               },
               childCount: _filtered.length,

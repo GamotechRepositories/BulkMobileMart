@@ -22,6 +22,11 @@ const bulkPricingSlabSchema = new mongoose.Schema(
       required: [true, "Slab price per unit is required"],
       min: [0, "Slab price cannot be negative"],
     },
+    originalPricePerUnit: {
+      type: Number,
+      min: [0, "Original slab price cannot be negative"],
+      default: null,
+    },
   },
   { _id: false }
 );

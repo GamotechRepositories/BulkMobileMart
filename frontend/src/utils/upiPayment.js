@@ -16,13 +16,59 @@ function sanitizeNote(note) {
     .slice(0, 40);
 }
 
-export function resolveMerchantUpiConfig(config = {}) {
+function resolveLegacyMerchantUpiConfig(config = {}) {
   const upiId = String(config.merchantUpiId || config.upiId || ENV_UPI_ID || "").trim();
   const upiName = String(
     config.merchantUpiName || config.upiName || ENV_UPI_NAME || "BulkMobileMart"
   ).trim();
 
   return { upiId, upiName };
+}
+
+export function buildMerchantUpiConfig(account = {}) {
+  return {
+    upiId: String(account?.upiId || "").trim(),
+    upiName: String(account?.label || account?.upiName || "").trim() || "BulkMobileMart",
+  };
+}
+
+export function pickEnabledMerchantUpiAccounts(config = {}) {
+  const accounts = Array.isArray(config.merchantUpiAccounts)
+    ? config.merchantUpiAccounts
+        .map((account) => ({
+          upiId: String(account?.upiId || "").trim(),
+          label: String(account?.label || "").trim() || "BulkMobileMart",
+          enabled: account?.enabled !== false,
+        }))
+        .filter((account) => account.upiId && account.enabled)
+    : [];
+
+  if (accounts.length > 0) {
+    return accounts;
+  }
+
+  const legacy = resolveLegacyMerchantUpiConfig(config);
+  if (!legacy.upiId) {
+    return [];
+  }
+
+  return [
+    {
+      upiId: legacy.upiId,
+      label: legacy.upiName,
+      enabled: true,
+    },
+  ];
+}
+
+export function resolveMerchantUpiConfig(config = {}, accountIndex = 0) {
+  const accounts = pickEnabledMerchantUpiAccounts(config);
+  if (accounts.length > 0) {
+    const account = accounts[accountIndex] || accounts[0];
+    return buildMerchantUpiConfig(account);
+  }
+
+  return resolveLegacyMerchantUpiConfig(config);
 }
 
 /** NPCI-style query string — encodeURIComponent (%20), not URLSearchParams (+) */

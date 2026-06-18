@@ -4,8 +4,8 @@ import { getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
+import ProductPriceDisplay from "../components/product/ProductPriceDisplay";
 import {
-  formatProductPriceLabel,
   getAvailableColors,
   getBulkTierRows,
   getMinOrderQuantity,
@@ -533,16 +533,16 @@ function QuantitySelector({ quantity, min, max, onDecrease, onIncrease, disabled
   );
 }
 
-function ActionButtons({ inStock, onAddToCart, onBuyNow, className = "" }) {
+function ActionButtons({ inStock, inCart, onAddToCart, onGoToCart, onBuyNow, className = "" }) {
   return (
     <div className={className}>
       <button
         type="button"
-        onClick={onAddToCart}
+        onClick={inCart ? onGoToCart : (e) => onAddToCart(e.currentTarget)}
         disabled={!inStock}
         className="flex-1 rounded-md bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Add to Cart
+        {inCart ? "Go to Cart" : "Add to Cart"}
       </button>
       <button
         type="button"
@@ -690,23 +690,14 @@ function ProductDetail() {
     ? getUnitPriceForQuantity(product, quantity, activeVariantName)
     : 0;
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (flySource) => {
     if (!product) return;
     if (availableColors.length > 0 && !selectedColor) return;
-
-    const line = getCartLine();
-    if (line) {
-      if (!user) {
-        openAuthModal("login");
-        return;
-      }
-      await updateQuantity(product._id, quantity, activeVariantName, selectedColor);
-      return;
-    }
 
     const result = await addToCart(product, quantity, {
       variantName: activeVariantName,
       colorName: selectedColor,
+      flySource,
     });
     if (result?.requiresLogin) {
       openAuthModal("login");
@@ -896,9 +887,13 @@ function ProductDetail() {
               <StarRating rating={rating} reviewCount={REVIEW_COUNT} />
             </div>
 
-            <p className="mt-3 text-3xl font-bold text-primary lg:mt-4 lg:text-[2rem] xl:text-4xl">
-              {formatProductPriceLabel(product, formatPrice, activeVariantName)}
-            </p>
+            <div className="mt-3">
+              <ProductPriceDisplay
+                product={product}
+                variantName={activeVariantName}
+                size="lg"
+              />
+            </div>
 
             {isMultiVariant(product) ? (
               <div className="mt-3">
@@ -992,9 +987,16 @@ function ProductDetail() {
                       className="flex items-center justify-between gap-3 text-sm leading-relaxed text-text-secondary"
                     >
                       <span>Buy {tier.minQuantity} Pieces or more at</span>
-                      <span className="shrink-0 font-semibold text-text-primary">
-                        {formatPrice(tier.price)}
-                      </span>
+                      <div className="flex shrink-0 items-baseline gap-2">
+                        {tier.hasDiscount ? (
+                          <span className="text-xs text-neutral-400 line-through">
+                            {formatPrice(tier.originalPrice)}
+                          </span>
+                        ) : null}
+                        <span className="font-semibold text-text-primary">
+                          {formatPrice(tier.price)}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1003,7 +1005,9 @@ function ProductDetail() {
 
             <ActionButtons
               inStock={inStock}
+              inCart={cartLineQuantity != null}
               onAddToCart={handleAddToCart}
+              onGoToCart={() => navigate("/cart")}
               onBuyNow={handleBuyNow}
               className="mt-5 flex w-full gap-3 lg:mt-auto lg:pt-4"
             />

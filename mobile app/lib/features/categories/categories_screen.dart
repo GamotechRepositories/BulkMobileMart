@@ -47,7 +47,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         .toList();
   }
 
-  Future<void> _handleAdd(Product product) async {
+  Future<void> _handleAdd(Product product, BuildContext context) async {
     final defaults = resolveCartDefaults(product);
     final result =
         await ref.read(cartControllerProvider.notifier).addToCart(
@@ -55,6 +55,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               defaults.quantity,
               variantName: defaults.variantName,
               colorName: defaults.colorName,
+              flySourceContext: context,
             );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
@@ -76,7 +77,16 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLineForProduct(cartItems, product);
     if (line == null) {
-      await _handleAdd(product);
+      final defaults = resolveCartDefaults(product);
+      final result = await ref.read(cartControllerProvider.notifier).addToCart(
+            product,
+            defaults.quantity,
+            variantName: defaults.variantName,
+            colorName: defaults.colorName,
+          );
+      if (result == AddToCartResult.requiresLogin && mounted) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+      }
       return;
     }
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
@@ -206,7 +216,7 @@ class _CategoriesProductLayout extends StatelessWidget {
   final Category? activeCategory;
   final ValueChanged<String?> onCategorySelected;
   final ValueChanged<String?> onSubcategorySelected;
-  final Future<void> Function(Product) onAdd;
+  final Future<void> Function(Product, BuildContext) onAdd;
   final Future<void> Function(Product) onIncrease;
   final Future<void> Function(Product) onDecrease;
   final Future<void> Function() onRefresh;
@@ -291,14 +301,14 @@ class _CategoriesProductLayout extends StatelessWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 8,
-                    childAspectRatio: 0.64,
+                    childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final product = filtered[index];
                       return _CategoryDealCard(
                         product: product,
-                        onAdd: () => onAdd(product),
+                        onAdd: (context) => onAdd(product, context),
                         onIncrease: () => onIncrease(product),
                         onDecrease: () => onDecrease(product),
                       );
@@ -324,7 +334,7 @@ class _CategoryDealCard extends ConsumerWidget {
   });
 
   final Product product;
-  final VoidCallback onAdd;
+  final void Function(BuildContext context) onAdd;
   final VoidCallback onIncrease;
   final VoidCallback onDecrease;
 
@@ -334,7 +344,7 @@ class _CategoryDealCard extends ConsumerWidget {
 
     return DealProductCard(
       product: product,
-      flat: true,
+      fillCell: true,
       cartQuantity: qty,
       onAdd: onAdd,
       onIncrease: onIncrease,

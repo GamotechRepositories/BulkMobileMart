@@ -2,15 +2,8 @@ import { Link } from "react-router-dom";
 import AddToCartButton from "./AddToCartButton";
 import WishlistButton from "./WishlistButton";
 import ProductImageFrame from "./ProductImageFrame";
-import { formatProductPriceLabel, getTotalProductStock } from "../../utils/productPricing";
-
-const formatPrice = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+import ProductPriceDisplay from "./ProductPriceDisplay";
+import { getTotalProductStock } from "../../utils/productPricing";
 
 function DealProductCard({
   product,
@@ -58,9 +51,7 @@ function DealProductCard({
           <p className="line-clamp-1 text-[11px] text-text-secondary sm:text-xs">
             {subtitle}
           </p>
-          <p className="mt-0.5 text-sm font-bold text-primary sm:text-base">
-            {formatProductPriceLabel(product, formatPrice)}
-          </p>
+          <ProductPriceDisplay product={product} size="sm" className="mt-0.5" />
         </Link>
 
         {cartQuantity > 0 ? (
@@ -88,7 +79,7 @@ function DealProductCard({
           </div>
         ) : (
           <AddToCartButton
-            onClick={() => handleAdd?.(product)}
+            onClick={(e) => (onIncrease ?? onAdd)?.(product, e.currentTarget)}
             disabled={disabled}
             className="mt-1.5 w-full"
           />

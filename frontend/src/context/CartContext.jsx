@@ -9,6 +9,8 @@ import {
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
 import { useAuth } from "./AuthContext";
 import AddedToCartToast from "../components/cart/AddedToCartToast";
+import FlyToCartOverlay from "../components/cart/FlyToCartOverlay";
+import { buildFlyToCartAnimation } from "../utils/flyToCart";
 import { getUnitPriceForQuantity, getVariantStock } from "../utils/productPricing";
 
 const CartContext = createContext(null);
@@ -50,6 +52,7 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cartToast, setCartToast] = useState(null);
+  const [flyAnimation, setFlyAnimation] = useState(null);
   const [toastLeaving, setToastLeaving] = useState(false);
   const pendingAddRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -124,6 +127,22 @@ export function CartProvider({ children }) {
     }
   }, [user, authLoading, loadCart]);
 
+  const playFlyToCart = useCallback((product, flySource) => {
+    const animation = buildFlyToCartAnimation(
+      flySource,
+      product?.productImages?.[0] || ""
+    );
+    if (!animation) {
+      showAddedToCartToast(product);
+      return;
+    }
+    setFlyAnimation({ ...animation, id: Date.now() });
+  }, [showAddedToCartToast]);
+
+  const clearFlyAnimation = useCallback(() => {
+    setFlyAnimation(null);
+  }, []);
+
   const addToCart = useCallback(
     async (product, quantity, options = {}) => {
       const qty = Number(quantity);
@@ -137,6 +156,7 @@ export function CartProvider({ children }) {
           quantity: qty,
           variantName: options.variantName || "",
           colorName: options.colorName || "",
+          flySource: options.flySource || null,
         };
         openAuthModal("login");
         return { requiresLogin: true };
@@ -150,13 +170,17 @@ export function CartProvider({ children }) {
           colorName: options.colorName || "",
         });
         setItems(mapCartItems(data.data));
-        showAddedToCartToast(product);
+        if (options.flySource) {
+          playFlyToCart(product, options.flySource);
+        } else {
+          showAddedToCartToast(product);
+        }
         return { success: true };
       } catch {
         return { success: false };
       }
     },
-    [user, openAuthModal, showAddedToCartToast]
+    [user, openAuthModal, playFlyToCart, showAddedToCartToast]
   );
 
   useEffect(() => {
@@ -168,6 +192,7 @@ export function CartProvider({ children }) {
     addToCart(pending.product, pending.quantity, {
       variantName: pending.variantName,
       colorName: pending.colorName,
+      flySource: pending.flySource || undefined,
     });
   }, [user, addToCart]);
 
@@ -219,6 +244,7 @@ export function CartProvider({ children }) {
       }}
     >
       {children}
+      <FlyToCartOverlay animation={flyAnimation} onComplete={clearFlyAnimation} />
       <AddedToCartToast
         visible={Boolean(cartToast)}
         productImage={cartToast?.productImage}

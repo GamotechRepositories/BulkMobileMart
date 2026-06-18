@@ -14,6 +14,7 @@ import '../../models/product_pricing_models.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../widgets/product/product_price_display.dart';
 import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
 
@@ -214,17 +215,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(
-                formatProductPriceLabel(
-                  product,
-                  (amount) => formatInr(amount, withDecimals: true),
-                  activeVariantName,
-                ),
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
+              ProductPriceDisplay(
+                product: product,
+                variantName: activeVariantName,
+                size: ProductPriceSize.lg,
               ),
               if (isMultiVariant(product)) ...[
                 const SizedBox(height: 16),
@@ -346,9 +340,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(child: Text(tier.qtyLabel)),
-                              Text(
-                                formatInr(tier.price, withDecimals: true),
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (tier.hasDiscount && tier.originalPrice != null) ...[
+                                    Text(
+                                      formatInr(tier.originalPrice!, withDecimals: true),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textMuted,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Text(
+                                    formatInr(tier.price, withDecimals: true),
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -414,11 +424,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           child: Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: inStock
-                      ? () => _addToCart(product, activeVariantName)
-                      : null,
-                  child: const Text('Add to Cart'),
+                child: Builder(
+                  builder: (btnContext) => ElevatedButton(
+                    onPressed: inStock
+                        ? () => _addToCart(product, activeVariantName, btnContext)
+                        : null,
+                    child: const Text('Add to Cart'),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -601,7 +613,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     });
   }
 
-  Future<void> _addToCart(Product product, String activeVariantName) async {
+  Future<void> _addToCart(
+    Product product,
+    String activeVariantName,
+    BuildContext flySourceContext,
+  ) async {
     final availableColors = getAvailableColors(product, activeVariantName);
     if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
 
@@ -632,6 +648,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           _quantity,
           variantName: activeVariantName,
           colorName: _selectedColor,
+          flySourceContext: flySourceContext,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();

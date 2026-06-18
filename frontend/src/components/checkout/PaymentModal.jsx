@@ -3,11 +3,12 @@ import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import {
+  buildMerchantUpiConfig,
   getPayableAmount,
   getQrCodeImageUrl,
   isMobileDevice,
   openUpiAppChooser,
-  resolveMerchantUpiConfig,
+  pickEnabledMerchantUpiAccounts,
 } from "../../utils/upiPayment";
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
@@ -29,6 +30,7 @@ function PaymentModal({
   orderTotal,
   merchantUpiId = "",
   merchantUpiName = "",
+  merchantUpiAccounts = [],
   onPayWithRazorpay,
   onSubmitUpiProof,
   processing,
@@ -40,13 +42,25 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [selectedUpiIndex, setSelectedUpiIndex] = useState(0);
 
   const payableAmount = getPayableAmount(orderTotal, paymentMethod);
   const isCod = paymentMethod === "cod";
   const paymentNote = isCod ? "COD Advance" : "Order Payment";
+  const enabledUpiAccounts = useMemo(
+    () =>
+      pickEnabledMerchantUpiAccounts({
+        merchantUpiAccounts,
+        merchantUpiId,
+        merchantUpiName,
+      }),
+    [merchantUpiAccounts, merchantUpiId, merchantUpiName]
+  );
+  const selectedUpiAccount =
+    enabledUpiAccounts[selectedUpiIndex] || enabledUpiAccounts[0] || null;
   const upiConfig = useMemo(
-    () => resolveMerchantUpiConfig({ merchantUpiId, merchantUpiName }),
-    [merchantUpiId, merchantUpiName]
+    () => buildMerchantUpiConfig(selectedUpiAccount),
+    [selectedUpiAccount]
   );
   const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote, upiConfig);
   const hasUpiId = Boolean(upiConfig.upiId);
@@ -80,6 +94,7 @@ function PaymentModal({
       setScreenshotPreview("");
       setUpiTransactionRef("");
       setUploadError("");
+      setSelectedUpiIndex(0);
       return undefined;
     }
 
@@ -90,6 +105,12 @@ function PaymentModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (selectedUpiIndex >= enabledUpiAccounts.length) {
+      setSelectedUpiIndex(0);
+    }
+  }, [enabledUpiAccounts.length, selectedUpiIndex]);
 
   if (!open) return null;
 
@@ -209,6 +230,31 @@ function PaymentModal({
 
             <div className="flex flex-col items-center rounded-lg border border-border-light p-2">
               <p className="text-[11px] font-semibold text-text-primary">Scan QR to pay</p>
+
+              {enabledUpiAccounts.length > 1 ? (
+                <div className="mt-2 w-full">
+                  <p className="mb-1.5 text-left text-[10px] font-medium text-text-secondary">
+                    Select UPI ID
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {enabledUpiAccounts.map((account, index) => (
+                      <button
+                        key={`${account.upiId}-${index}`}
+                        type="button"
+                        onClick={() => setSelectedUpiIndex(index)}
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold transition ${
+                          selectedUpiIndex === index
+                            ? "border-primary bg-orange-50 text-primary"
+                            : "border-border-light bg-white text-text-secondary"
+                        }`}
+                      >
+                        {account.upiId}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {hasUpiId ? (
                 <div className="mt-1.5 rounded-md border border-border-light bg-white p-1">
                   <img

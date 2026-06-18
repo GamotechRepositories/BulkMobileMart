@@ -95,7 +95,7 @@ function BestDeals() {
 
 
 
-  const handleAdd = async (product) => {
+  const handleAdd = async (product, flySource) => {
 
     if (!product._id || product._id.length < 10) return;
 
@@ -103,6 +103,7 @@ function BestDeals() {
     const result = await addToCart(product, quantity, {
       variantName,
       colorName,
+      flySource,
     });
 
     if (result?.requiresLogin) {
@@ -128,7 +129,7 @@ function BestDeals() {
 
   const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
 
-  const handleIncrease = async (product) => {
+  const handleIncrease = async (product, flySource) => {
     if (!product._id || product._id.length < 10) return;
     const { variantName, colorName, quantity } = resolveCartDefaults(product);
     const step = getCartStepForProduct(product, variantName);
@@ -137,6 +138,7 @@ function BestDeals() {
     const result = await addToCart(product, addQty, {
       variantName,
       colorName,
+      flySource: line ? undefined : flySource,
     });
     if (result?.requiresLogin) {
       openAuthModal("login");

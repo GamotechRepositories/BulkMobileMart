@@ -133,6 +133,7 @@ function TopNav() {
 
           <Link
             to="/cart"
+            data-cart-target="desktop"
             onClick={handleCartClick}
             className="flex h-10 items-center gap-1.5 rounded-lg px-2 text-text-primary transition hover:text-primary"
             aria-label={`Cart, ${cartCount} items, ${formatPrice(cartTotal)}`}

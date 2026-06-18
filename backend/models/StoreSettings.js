@@ -16,6 +16,28 @@ const shippingSlabSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const merchantUpiAccountSchema = new mongoose.Schema(
+  {
+    upiId: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    label: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 100,
+    },
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: false }
+);
+
 const storeSettingsSchema = new mongoose.Schema(
   {
     key: {
@@ -54,6 +76,10 @@ const storeSettingsSchema = new mongoose.Schema(
       default: "BulkMobileMart",
       trim: true,
       maxlength: 100,
+    },
+    merchantUpiAccounts: {
+      type: [merchantUpiAccountSchema],
+      default: () => [],
     },
     cartNoticeEn: {
       type: [String],

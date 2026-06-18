@@ -57,7 +57,7 @@ class _DealsContent extends ConsumerWidget {
     return null;
   }
 
-  Future<void> _handleAdd(WidgetRef ref, Product product) async {
+  Future<void> _handleAdd(WidgetRef ref, Product product, BuildContext context) async {
     if (isFallbackProductId(product.id)) return;
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
@@ -65,6 +65,7 @@ class _DealsContent extends ConsumerWidget {
           defaults.quantity,
           variantName: defaults.variantName,
           colorName: defaults.colorName,
+          flySourceContext: context,
         );
     if (result == AddToCartResult.requiresLogin) {
       ref.read(authControllerProvider.notifier).openAuthModal();
@@ -76,7 +77,16 @@ class _DealsContent extends ConsumerWidget {
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems, product);
     if (line == null) {
-      await _handleAdd(ref, product);
+      final defaults = resolveCartDefaults(product);
+      final result = await ref.read(cartControllerProvider.notifier).addToCart(
+            product,
+            defaults.quantity,
+            variantName: defaults.variantName,
+            colorName: defaults.colorName,
+          );
+      if (result == AddToCartResult.requiresLogin) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+      }
       return;
     }
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
@@ -124,7 +134,7 @@ class _DealsContent extends ConsumerWidget {
             trailing: const DealsCountdownTimer(),
           ),
           SizedBox(
-            height: 262,
+            height: DealProductCardDimensions.height,
             child: ListView.separated(
               primary: false,
               scrollDirection: Axis.horizontal,
@@ -139,7 +149,7 @@ class _DealsContent extends ConsumerWidget {
                   alignment: Alignment.topCenter,
                   child: _DealCardWithCart(
                     product: product,
-                    onAdd: () => _handleAdd(ref, product),
+                    onAdd: (context) => _handleAdd(ref, product, context),
                     onIncrease: () => _handleIncrease(ref, product),
                     onDecrease: () => _handleDecrease(ref, product),
                   ),
@@ -162,7 +172,7 @@ class _DealCardWithCart extends ConsumerWidget {
   });
 
   final Product product;
-  final VoidCallback onAdd;
+  final void Function(BuildContext context) onAdd;
   final VoidCallback onIncrease;
   final VoidCallback onDecrease;
 

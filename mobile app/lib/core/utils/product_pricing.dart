@@ -22,11 +22,15 @@ class BulkTierRow {
     required this.key,
     required this.qtyLabel,
     required this.price,
+    this.originalPrice,
+    this.hasDiscount = false,
   });
 
   final String key;
   final String qtyLabel;
   final double price;
+  final double? originalPrice;
+  final bool hasDiscount;
 }
 
 class CartDefaults {
@@ -171,6 +175,48 @@ double getDisplayPrice(Product product, [String variantName = '']) {
   return getDisplayPriceForSource(source);
 }
 
+class ProductListPriceInfo {
+  const ProductListPriceInfo({
+    required this.originalPrice,
+    required this.salePrice,
+    required this.hasDiscount,
+    required this.isBulk,
+  });
+
+  final double originalPrice;
+  final double salePrice;
+  final bool hasDiscount;
+  final bool isBulk;
+}
+
+ProductListPriceInfo getProductListPriceInfo(Product product, [String variantName = '']) {
+  final source = getPricingSource(product, variantName);
+  if (source == null) {
+    return const ProductListPriceInfo(
+      originalPrice: 0,
+      salePrice: 0,
+      hasDiscount: false,
+      isBulk: false,
+    );
+  }
+
+  final isBulk = source.pricingType == 'bulk' && source.bulkPricing.slabs.isNotEmpty;
+  final salePrice = isBulk
+      ? (source.discountedPrice > 0
+          ? source.discountedPrice
+          : getDisplayPriceForSource(source))
+      : getDisplayPriceForSource(source);
+  final originalPrice = source.price > 0 ? source.price : salePrice;
+  final hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+  return ProductListPriceInfo(
+    originalPrice: originalPrice,
+    salePrice: salePrice,
+    hasDiscount: hasDiscount,
+    isBulk: isBulk,
+  );
+}
+
 bool isBulkPricing(Product product, [String variantName = '']) {
   final source = getPricingSource(product, variantName);
   return source?.pricingType == 'bulk' && source!.bulkPricing.slabs.isNotEmpty;
@@ -188,10 +234,15 @@ List<BulkTierRow> getBulkTierRows(Product product, [String variantName = '']) {
     final qtyLabel = slab.maxQuantity != null
         ? '${slab.minQuantity} - ${slab.maxQuantity}'
         : '${slab.minQuantity}+';
+    final originalPrice = slab.originalPricePerUnit ?? slab.pricePerUnit;
+    final hasDiscount =
+        (slab.originalPricePerUnit ?? 0) > slab.pricePerUnit && slab.pricePerUnit > 0;
     return BulkTierRow(
       key: '${slab.minQuantity}-${slab.maxQuantity ?? 'plus'}',
       qtyLabel: qtyLabel,
       price: slab.pricePerUnit,
+      originalPrice: originalPrice,
+      hasDiscount: hasDiscount,
     );
   }).toList();
 }
@@ -202,10 +253,6 @@ String formatProductPriceLabel(
   String variantName = '',
 ]) {
   final amount = getDisplayPrice(product, variantName);
-  if (isBulkPricing(product, variantName) ||
-      (isMultiVariant(product) && variantName.trim().isEmpty)) {
-    return 'From ${formatPrice(amount)}';
-  }
   return formatPrice(amount);
 }
 

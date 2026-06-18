@@ -140,6 +140,24 @@ export function getDisplayPrice(product, variantName = "") {
   return getDisplayPriceForSource(getPricingSource(product, variantName));
 }
 
+export function getProductListPriceInfo(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source) {
+    return { originalPrice: 0, salePrice: 0, hasDiscount: false, isBulk: false };
+  }
+
+  const isBulk = source.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
+  const salePrice = isBulk
+    ? Number(source.discountedPrice) > 0
+      ? Number(source.discountedPrice)
+      : getDisplayPriceForSource(source)
+    : getDisplayPriceForSource(source);
+  const originalPrice = Number(source.price) || salePrice;
+  const hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+  return { originalPrice, salePrice, hasDiscount, isBulk };
+}
+
 export function isBulkPricing(product, variantName = "") {
   const source = getPricingSource(product, variantName);
   return source?.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
@@ -155,6 +173,10 @@ export function getBulkTierRows(product, variantName = "") {
     key: `${slab.minQuantity}-${slab.maxQuantity ?? "plus"}`,
     minQuantity: slab.minQuantity,
     price: slab.pricePerUnit,
+    originalPrice: slab.originalPricePerUnit ?? slab.pricePerUnit,
+    hasDiscount:
+      Number(slab.originalPricePerUnit) > Number(slab.pricePerUnit) &&
+      Number(slab.pricePerUnit) > 0,
   }));
 }
 

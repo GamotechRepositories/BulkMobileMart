@@ -27,13 +27,14 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     Future.microtask(() => ref.read(wishlistControllerProvider.notifier).loadWishlist());
   }
 
-  Future<void> _handleAdd(Product product) async {
+  Future<void> _handleAdd(Product product, BuildContext context) async {
     final defaults = resolveCartDefaults(product);
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
           defaults.quantity,
           variantName: defaults.variantName,
           colorName: defaults.colorName,
+          flySourceContext: context,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
@@ -75,10 +76,11 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
           itemBuilder: (context, index) {
             final product = wishlist.items[index];
             return SizedBox(
-              height: 250,
+              width: DealProductCardDimensions.width,
+              height: DealProductCardDimensions.height,
               child: DealProductCard(
                 product: product,
-                onAdd: () => _handleAdd(product),
+                onAdd: (context) => _handleAdd(product, context),
               ),
             );
           },

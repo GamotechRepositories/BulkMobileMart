@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
+import '../cart/cart_nav_icon_key.dart';
 
 /// Flipkart-style bottom bar — flat white strip, hairline top border, icon + label tabs.
 class FlipkartBottomNav extends StatelessWidget {
@@ -90,6 +91,7 @@ class _FlipkartNavTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
+              key: item.showBadge ? cartNavIconKey : null,
               height: 26,
               child: Stack(
                 clipBehavior: Clip.none,

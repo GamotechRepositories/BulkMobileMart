@@ -153,6 +153,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final storeSettings = ref.read(storeSettingsProvider).value;
     final merchantUpiId = storeSettings?.merchantUpiId;
     final merchantUpiName = storeSettings?.merchantUpiName;
+    final merchantUpiAccounts = storeSettings?.merchantUpiAccounts ?? const [];
 
     showModalBottomSheet<void>(
       context: context,
@@ -166,6 +167,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         orderTotal: calculateCartSummary(ref.read(cartControllerProvider).items).total,
         merchantUpiId: merchantUpiId,
         merchantUpiName: merchantUpiName,
+        merchantUpiAccounts: merchantUpiAccounts,
         processing: _placingOrder,
         error: _orderError,
         onUploadScreenshot: (path) =>

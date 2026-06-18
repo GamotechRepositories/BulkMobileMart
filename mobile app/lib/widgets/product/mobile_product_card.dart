@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../core/utils/currency_formatter.dart';
 import '../../models/product.dart';
 import '../common/app_network_image.dart';
+import 'product_price_display.dart';
 import 'wishlist_button.dart';
 
 class MobileProductCard extends StatelessWidget {
@@ -15,19 +15,17 @@ class MobileProductCard extends StatelessWidget {
   });
 
   final Product product;
-  final VoidCallback onAdd;
+  final void Function(BuildContext context) onAdd;
 
   @override
   Widget build(BuildContext context) {
     final inStock = product.stock > 0;
-    final discount = product.discountedPercent;
 
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
       ),
       child: Row(
         children: [
@@ -41,7 +39,6 @@ class MobileProductCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.mobileSurface,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.borderLight),
                   ),
                   child: product.primaryImage != null
                       ? AppNetworkImage(
@@ -80,31 +77,8 @@ class MobileProductCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  formatInr(product.price, withDecimals: true),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                ),
-                Text(
-                  formatInr(product.discountedPrice, withDecimals: true),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-                if (discount > 0)
-                  Text(
-                    'SAVE ${discount.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
+                const SizedBox(height: 2),
+                ProductPriceDisplay(product: product, size: ProductPriceSize.md),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -117,17 +91,19 @@ class MobileProductCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    ElevatedButton(
-                      onPressed: inStock ? onAdd : null,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(72, 34),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                    Builder(
+                      builder: (btnContext) => ElevatedButton(
+                        onPressed: inStock ? () => onAdd(btnContext) : null,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(72, 34),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
+                        child: const Text('Add'),
                       ),
-                      child: const Text('Add'),
                     ),
                   ],
                 ),

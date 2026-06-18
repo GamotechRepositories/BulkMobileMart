@@ -11,6 +11,7 @@ export const DEFAULT_STORE_SETTINGS = {
   ],
   merchantUpiId: "",
   merchantUpiName: "BulkMobileMart",
+  merchantUpiAccounts: [],
   cartNoticeEn: [
     "Please Verify Your Address Before Placing Your Order.",
     "Minimum order value ₹{{minOrder}}",
@@ -47,7 +48,49 @@ export function normalizeShippingSlabs(slabs = []) {
     .sort((a, b) => a.orderAmount - b.orderAmount);
 }
 
-export function serializeStoreSettings(doc) {
+export function normalizeMerchantUpiAccounts(source = {}) {
+  const rawAccounts = Array.isArray(source.merchantUpiAccounts)
+    ? source.merchantUpiAccounts
+    : [];
+
+  const accounts = rawAccounts
+    .map((account) => ({
+      upiId: String(account?.upiId || "").trim(),
+      label: String(account?.label || "").trim(),
+      enabled: account?.enabled !== false,
+    }))
+    .filter((account) => account.upiId);
+
+  let normalizedAccounts = accounts;
+
+  if (accounts.length === 0) {
+    const legacyUpiId = String(source.merchantUpiId || "").trim();
+    if (!legacyUpiId) {
+      return [];
+    }
+
+    normalizedAccounts = [
+      {
+        upiId: legacyUpiId,
+        label:
+          String(source.merchantUpiName || "").trim() ||
+          DEFAULT_STORE_SETTINGS.merchantUpiName,
+        enabled: true,
+      },
+    ];
+  }
+
+  let activeAssigned = false;
+  return normalizedAccounts.map((account) => {
+    if (account.enabled && !activeAssigned) {
+      activeAssigned = true;
+      return account;
+    }
+    return { ...account, enabled: false };
+  });
+}
+
+export function serializeStoreSettings(doc, { admin = false } = {}) {
   const source = doc?.toObject ? doc.toObject() : doc || {};
   const minimumOrderValue =
     Number(source.minimumOrderValue) || DEFAULT_STORE_SETTINGS.minimumOrderValue;
@@ -59,15 +102,21 @@ export function serializeStoreSettings(doc) {
       ? source.shippingSlabs
       : DEFAULT_STORE_SETTINGS.shippingSlabs
   );
+  const allAccounts = normalizeMerchantUpiAccounts(source);
+  const enabledAccounts = allAccounts.filter((account) => account.enabled);
+  const primaryAccount = enabledAccounts[0] || allAccounts[0] || null;
+  const defaultPayeeName =
+    String(source.merchantUpiName || "").trim() ||
+    DEFAULT_STORE_SETTINGS.merchantUpiName;
 
   return {
     minimumOrderValue,
     minimumShippingCharge,
     shippingSlabs,
-    merchantUpiId: String(source.merchantUpiId || "").trim(),
+    merchantUpiAccounts: admin ? allAccounts : enabledAccounts,
+    merchantUpiId: primaryAccount?.upiId || "",
     merchantUpiName:
-      String(source.merchantUpiName || "").trim() ||
-      DEFAULT_STORE_SETTINGS.merchantUpiName,
+      primaryAccount?.label || defaultPayeeName,
     cartNoticeEn:
       source.cartNoticeEn?.length > 0
         ? source.cartNoticeEn

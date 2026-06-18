@@ -71,6 +71,7 @@ function BottomNav() {
             key={item.to}
             to={item.to}
             end={item.end}
+            data-cart-target={item.to === "/cart" ? "mobile" : undefined}
             onClick={(e) => handleNavClick(e, item)}
             className={({ isActive }) =>
               `relative flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] font-medium transition sm:gap-1 sm:text-xs ${

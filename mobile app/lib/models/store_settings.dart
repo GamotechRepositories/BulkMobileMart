@@ -1,3 +1,23 @@
+class MerchantUpiAccount {
+  const MerchantUpiAccount({
+    required this.upiId,
+    required this.label,
+    this.enabled = true,
+  });
+
+  final String upiId;
+  final String label;
+  final bool enabled;
+
+  factory MerchantUpiAccount.fromJson(Map<String, dynamic> json) {
+    return MerchantUpiAccount(
+      upiId: (json['upiId'] as String? ?? '').trim(),
+      label: (json['label'] as String? ?? 'BulkMobileMart').trim(),
+      enabled: json['enabled'] != false,
+    );
+  }
+}
+
 class StoreSettings {
   const StoreSettings({
     required this.minimumOrderValue,
@@ -5,6 +25,7 @@ class StoreSettings {
     required this.shippingSlabs,
     required this.merchantUpiId,
     required this.merchantUpiName,
+    required this.merchantUpiAccounts,
     this.cartNoticeEn = const [],
     this.cartNoticeHi = const [],
   });
@@ -14,22 +35,47 @@ class StoreSettings {
   final List<StoreShippingSlab> shippingSlabs;
   final String merchantUpiId;
   final String merchantUpiName;
+  final List<MerchantUpiAccount> merchantUpiAccounts;
   final List<String> cartNoticeEn;
   final List<String> cartNoticeHi;
+
+  List<MerchantUpiAccount> get enabledMerchantUpiAccounts =>
+      merchantUpiAccounts.where((account) => account.enabled && account.upiId.isNotEmpty).toList();
 
   factory StoreSettings.fromJson(Map<String, dynamic> json) {
     final slabs = (json['shippingSlabs'] as List<dynamic>? ?? [])
         .map((item) => StoreShippingSlab.fromJson(item as Map<String, dynamic>))
         .toList();
 
+    final accounts = (json['merchantUpiAccounts'] as List<dynamic>? ?? [])
+        .map((item) => MerchantUpiAccount.fromJson(item as Map<String, dynamic>))
+        .where((account) => account.upiId.isNotEmpty)
+        .toList();
+
+    final legacyUpiId = (json['merchantUpiId'] as String? ?? '').trim();
+    final legacyUpiName =
+        (json['merchantUpiName'] as String? ?? 'BulkMobileMart').trim();
+
+    final resolvedAccounts = accounts.isNotEmpty
+        ? accounts
+        : legacyUpiId.isNotEmpty
+            ? [
+                MerchantUpiAccount(
+                  upiId: legacyUpiId,
+                  label: legacyUpiName,
+                  enabled: true,
+                ),
+              ]
+            : <MerchantUpiAccount>[];
+
     return StoreSettings(
       minimumOrderValue: (json['minimumOrderValue'] as num?)?.toDouble() ?? 3000,
       minimumShippingCharge:
           (json['minimumShippingCharge'] as num?)?.toDouble() ?? 280,
       shippingSlabs: slabs,
-      merchantUpiId: (json['merchantUpiId'] as String? ?? '').trim(),
-      merchantUpiName:
-          (json['merchantUpiName'] as String? ?? 'BulkMobileMart').trim(),
+      merchantUpiId: legacyUpiId,
+      merchantUpiName: legacyUpiName,
+      merchantUpiAccounts: resolvedAccounts,
       cartNoticeEn: (json['cartNoticeEn'] as List<dynamic>? ?? [])
           .map((item) => item.toString())
           .toList(),

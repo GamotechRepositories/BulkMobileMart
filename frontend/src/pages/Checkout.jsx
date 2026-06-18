@@ -665,6 +665,7 @@ function Checkout() {
         orderTotal={orderTotal}
         merchantUpiId={storeSettings?.merchantUpiId}
         merchantUpiName={storeSettings?.merchantUpiName}
+        merchantUpiAccounts={storeSettings?.merchantUpiAccounts}
         onPayWithRazorpay={handlePayWithRazorpay}
         onSubmitUpiProof={handleSubmitUpiProof}
         processing={placingOrder}
