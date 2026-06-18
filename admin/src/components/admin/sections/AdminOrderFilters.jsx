@@ -3,6 +3,7 @@ import {
   adminFilterInputClass,
   adminFilterLabelClass,
 } from "../adminStyles";
+import AdminSearchBar from "../AdminSearchBar";
 import { ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from "./adminOrderUtils";
 
 function AdminOrderFilters({
@@ -10,6 +11,9 @@ function AdminOrderFilters({
   endDate,
   orderStatus,
   paymentStatus,
+  searchQuery = "",
+  onSearchChange,
+  searchPlaceholder = "Search by order ID, product, or customer...",
   onStartDateChange,
   onEndDateChange,
   onOrderStatusChange,
@@ -20,6 +24,15 @@ function AdminOrderFilters({
 }) {
   return (
     <div className={adminFilterCardClass}>
+      {onSearchChange ? (
+        <div className="mb-4">
+          <AdminSearchBar
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder={searchPlaceholder}
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="min-w-0">

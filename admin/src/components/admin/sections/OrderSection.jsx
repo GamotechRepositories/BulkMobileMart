@@ -27,6 +27,7 @@ import {
   getProductSummary,
   getTotalQty,
   getTransactionId,
+  normalizeAdminSearchQuery,
 } from "./adminOrderUtils";
 
 
@@ -46,6 +47,7 @@ function OrderSection() {
   const [endDate, setEndDate] = useState("");
   const [orderStatus, setOrderStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -56,7 +58,7 @@ function OrderSection() {
 
   useEffect(() => {
     setPage(1);
-  }, [startDate, endDate, orderStatus, paymentStatus]);
+  }, [startDate, endDate, orderStatus, paymentStatus, searchQuery]);
 
   useEffect(() => {
     markOrdersAsSeen();
@@ -73,6 +75,7 @@ function OrderSection() {
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
 
       const { data } = await getAdminOrders(params);
       setOrders(data.data || []);
@@ -90,7 +93,7 @@ function OrderSection() {
     } finally {
       setLoading(false);
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, page]);
+  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
 
   useEffect(() => {
     fetchOrders();
@@ -103,6 +106,7 @@ function OrderSection() {
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
       const { data } = await getAdminOrders(params);
       downloadOrdersCsv(data.data || [], "orders.csv");
     } catch (err) {
@@ -130,6 +134,8 @@ function OrderSection() {
         endDate={endDate}
         orderStatus={orderStatus}
         paymentStatus={paymentStatus}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         onStartDateChange={setStartDate}
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}

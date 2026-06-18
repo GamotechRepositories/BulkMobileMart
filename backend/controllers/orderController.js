@@ -10,6 +10,7 @@ import {
   prepareOrderData,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -512,8 +513,9 @@ export const getOrderUnreadCount = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
-    const { startDate, endDate, status, paymentStatus } = req.query;
+    const { startDate, endDate, status, paymentStatus, search } = req.query;
     const filter = {};
+    const andClauses = [];
 
     if (status && status !== "all") {
       filter.status = status;
@@ -521,7 +523,9 @@ export const getAllOrders = async (req, res) => {
 
     if (paymentStatus && paymentStatus !== "all") {
       if (paymentStatus === "unpaid") {
-        filter.$or = [{ paymentStatus: "unpaid" }, { paymentStatus: { $exists: false } }];
+        andClauses.push({
+          $or: [{ paymentStatus: "unpaid" }, { paymentStatus: { $exists: false } }],
+        });
       } else {
         filter.paymentStatus = paymentStatus;
       }
@@ -537,6 +541,15 @@ export const getAllOrders = async (req, res) => {
         end.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = end;
       }
+    }
+
+    const searchClause = await buildOrderSearchFilter(search);
+    if (searchClause) andClauses.push(searchClause);
+
+    if (andClauses.length) {
+      const rootClauses = Object.entries(filter).map(([key, value]) => ({ [key]: value }));
+      Object.keys(filter).forEach((key) => delete filter[key]);
+      filter.$and = [...rootClauses, ...andClauses];
     }
 
     const { page, limit, skip } = getPaginationParams(req.query);

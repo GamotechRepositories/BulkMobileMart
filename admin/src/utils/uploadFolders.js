@@ -5,6 +5,19 @@ export const UPLOAD_FOLDERS = {
   BRANDS: "brands",
 };
 
+export const DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES_BY_FOLDER = {
+  [UPLOAD_FOLDERS.HERO_BANNERS]: 15 * 1024 * 1024,
+};
+
+export function getMaxUploadBytes(folder) {
+  return MAX_UPLOAD_BYTES_BY_FOLDER[folder] || DEFAULT_MAX_UPLOAD_BYTES;
+}
+
+export function formatMaxUploadMb(bytes) {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
 export const UPLOAD_FOLDER_LABELS = {
   [UPLOAD_FOLDERS.HERO_BANNERS]: "Hero banners",
   [UPLOAD_FOLDERS.CATEGORIES]: "Categories",

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { deleteCategory, getAllCategories } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import AdminSearchBar from "../AdminSearchBar";
 import { IconEdit, IconTrash } from "../AdminIcons";
 import {
   adminCompactTableClass,
@@ -21,6 +22,7 @@ function ShowCategorySection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -33,7 +35,9 @@ function ShowCategorySection() {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getAllCategories({ page, limit: ADMIN_PAGE_SIZE });
+      const params = { page, limit: ADMIN_PAGE_SIZE };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      const { data } = await getAllCategories(params);
       setCategories(data.data || []);
       setPagination(
         data.pagination || {
@@ -48,7 +52,11 @@ function ShowCategorySection() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchCategories();
@@ -81,6 +89,14 @@ function ShowCategorySection() {
         <p className="text-sm font-medium text-neutral-700">
           All categories ({pagination.total})
         </p>
+      </div>
+
+      <div className="mb-4">
+        <AdminSearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search categories or subcategories..."
+        />
       </div>
 
       {loading ? (

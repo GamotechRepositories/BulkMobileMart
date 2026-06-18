@@ -20,6 +20,13 @@ export const PAYMENT_STATUS_OPTIONS = [
   { value: "refundable", label: "Refundable" },
 ];
 
+export function normalizeAdminSearchQuery(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^#+/, "")
+    .trim();
+}
+
 export const ADMIN_DETAIL_ORDER_STATUS_OPTIONS = [
   { value: "confirm", label: "confirm" },
   { value: "processing", label: "processing" },

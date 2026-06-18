@@ -3,7 +3,7 @@ import {
   uploadBufferToS3,
   isS3Configured,
 } from "../utils/s3Upload.js";
-import { MAX_IMAGE_FILE_BYTES } from "../utils/imageValidation.js";
+import { getMaxUploadBytesForFolder } from "../utils/imageValidation.js";
 import {
   ADMIN_UPLOAD_FOLDERS,
   PUBLIC_UPLOAD_FOLDERS,
@@ -63,10 +63,10 @@ export const uploadImage = async (req, res) => {
       });
     }
 
-    if (req.file.size > MAX_IMAGE_FILE_BYTES) {
+    if (req.file.size > getMaxUploadBytesForFolder(folder)) {
       return res.status(400).json({
         success: false,
-        message: "Image must be under 5 MB",
+        message: `Image must be under ${Math.round(getMaxUploadBytesForFolder(folder) / (1024 * 1024))} MB`,
       });
     }
 

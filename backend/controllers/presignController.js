@@ -1,3 +1,4 @@
+import { getMaxUploadBytesForFolder, formatMaxUploadMb } from "../utils/imageValidation.js";
 import { isS3Configured, presignUpload } from "../utils/s3Upload.js";
 import {
   ADMIN_UPLOAD_FOLDERS,
@@ -35,7 +36,7 @@ export const getPresignedUploadUrl = async (req, res) => {
       });
     }
 
-    const { folder, mimeType, filename } = req.body;
+    const { folder, mimeType, filename, fileSize } = req.body;
 
     const normalizedFolder = normalizeUploadFolder(folder || "");
     if (!normalizedFolder) {
@@ -54,6 +55,15 @@ export const getPresignedUploadUrl = async (req, res) => {
         success: false,
         message:
           "Unsupported file type. Allowed: JPG, PNG, WEBP, GIF, MP4, WEBM, OGG, MOV, M4V",
+      });
+    }
+
+    const maxBytes = getMaxUploadBytesForFolder(normalizedFolder);
+    const size = Number(fileSize);
+    if (Number.isFinite(size) && size > maxBytes) {
+      return res.status(400).json({
+        success: false,
+        message: `Image must be under ${formatMaxUploadMb(maxBytes)}`,
       });
     }
 

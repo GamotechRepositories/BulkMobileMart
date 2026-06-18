@@ -22,6 +22,7 @@ import {
   getPaymentMethodLabel,
   getPaymentStatus,
   getProductSummary,
+  normalizeAdminSearchQuery,
 } from "./adminOrderUtils";
 
 function getErrorMessage(err, fallback) {
@@ -64,6 +65,7 @@ function PaymentSection() {
   const [endDate, setEndDate] = useState("");
   const [orderStatus, setOrderStatus] = useState("all");
   const [paymentStatus, setPaymentStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedProofId, setSelectedProofId] = useState(null);
   const [page, setPage] = useState(1);
@@ -76,7 +78,7 @@ function PaymentSection() {
 
   useEffect(() => {
     setPage(1);
-  }, [startDate, endDate, orderStatus, paymentStatus]);
+  }, [startDate, endDate, orderStatus, paymentStatus, searchQuery]);
 
   useEffect(() => {
     markPaymentsAsSeen();
@@ -102,6 +104,7 @@ function PaymentSection() {
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
 
       const ordersRes = await getAdminOrders(params);
       const loadedOrders = ordersRes.data.data || [];
@@ -128,7 +131,7 @@ function PaymentSection() {
     } finally {
       setLoading(false);
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, page]);
+  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
 
   useEffect(() => {
     fetchData();
@@ -141,6 +144,7 @@ function PaymentSection() {
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+      if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
       const { data } = await getAdminOrders(params);
       downloadPaymentsCsv(data.data || [], "payments.csv");
     } catch (err) {
@@ -179,6 +183,8 @@ function PaymentSection() {
         endDate={endDate}
         orderStatus={orderStatus}
         paymentStatus={paymentStatus}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         onStartDateChange={setStartDate}
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}

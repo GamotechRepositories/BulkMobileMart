@@ -8,6 +8,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useSupportNotification } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import AdminSearchBar from "../AdminSearchBar";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
@@ -119,6 +120,7 @@ function SupportSection() {
   const [success, setSuccess] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -129,7 +131,7 @@ function SupportSection() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, searchQuery]);
 
   useEffect(() => {
     markSupportAsSeen();
@@ -143,6 +145,7 @@ function SupportSection() {
       setError("");
       const params = { page, limit: ADMIN_PAGE_SIZE };
       if (statusFilter !== "all") params.status = statusFilter;
+      if (searchQuery.trim()) params.search = searchQuery.trim();
       const { data } = await getAdminSupportMessages(params);
       setMessages(data.data || []);
       setPagination(
@@ -159,7 +162,7 @@ function SupportSection() {
     } finally {
       setLoading(false);
     }
-  }, [adminUser, page, statusFilter]);
+  }, [adminUser, page, statusFilter, searchQuery]);
 
   useEffect(() => {
     fetchMessages();
@@ -192,19 +195,26 @@ function SupportSection() {
         }}
       />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-neutral-700">
-          {pagination.total} message{pagination.total === 1 ? "" : "s"}
-        </p>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none"
-        >
-          <option value="all">All statuses</option>
-          <option value="open">Open</option>
-          <option value="resolved">Resolved</option>
-        </select>
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-neutral-700">
+            {pagination.total} message{pagination.total === 1 ? "" : "s"}
+          </p>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none"
+          >
+            <option value="all">All statuses</option>
+            <option value="open">Open</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <AdminSearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by name, email, phone, order ID, or message..."
+        />
       </div>
 
       {loading ? (

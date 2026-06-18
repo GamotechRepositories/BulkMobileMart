@@ -3,6 +3,18 @@ import { normalizeUploadFolder } from "./uploadFolders.js";
 
 export const MAX_IMAGE_DATA_URL_LENGTH = 2_500_000;
 export const MAX_IMAGE_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_HERO_BANNER_BYTES = 15 * 1024 * 1024;
+
+export function getMaxUploadBytesForFolder(folder) {
+  if (folder === "hero-banners") {
+    return MAX_HERO_BANNER_BYTES;
+  }
+  return MAX_IMAGE_FILE_BYTES;
+}
+
+export function formatMaxUploadMb(bytes) {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
 
 const IMAGE_URL_REGEX = /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i;
 

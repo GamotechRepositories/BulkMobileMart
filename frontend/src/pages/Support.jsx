@@ -392,11 +392,6 @@ function Support() {
                   {error}
                 </div>
               )}
-              {success && (
-                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                  {success}
-                </div>
-              )}
 
               <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -566,6 +561,12 @@ function Support() {
                     )}
                   </div>
                 </div>
+
+                {success && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    {success}
+                  </div>
+                )}
 
                 <button
                   type="submit"

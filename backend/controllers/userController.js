@@ -122,9 +122,60 @@ export const getMe = async (req, res) => {
         email: req.user.email,
         phone: req.user.phone,
         role: req.user.role,
+        createdAt: req.user.createdAt,
+        updatedAt: req.user.updatedAt,
       },
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const changeMyPassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isCurrentValid = await user.comparePassword(currentPassword);
+    if (!isCurrentValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -2,6 +2,7 @@ import SupportMessage, { SUPPORT_ISSUE_TYPES } from "../models/support/SupportMe
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { buildSupportSearchFilter } from "../utils/adminSearch.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -74,11 +75,16 @@ export const getAllSupportMessages = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
     const { status } = req.query;
-    const filter = {};
+    const andClauses = [];
 
     if (status && status !== "all" && ["open", "resolved"].includes(status)) {
-      filter.status = status;
+      andClauses.push({ status });
     }
+
+    const searchClause = buildSupportSearchFilter(req.query.search);
+    if (searchClause) andClauses.push(searchClause);
+
+    const filter = andClauses.length ? { $and: andClauses } : {};
 
     const [total, messages] = await Promise.all([
       SupportMessage.countDocuments(filter),

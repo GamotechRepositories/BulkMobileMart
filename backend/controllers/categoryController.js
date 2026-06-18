@@ -1,5 +1,6 @@
 import Category from "../models/Category.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { buildCategorySearchFilter } from "../utils/adminSearch.js";
 
 const normalizeSubcategories = (subcategories) => {
   if (!Array.isArray(subcategories)) return [];
@@ -24,7 +25,11 @@ export const getCategories = async (req, res) => {
 export const getAllCategories = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
-    const filter = {};
+    const andClauses = [];
+    const searchClause = buildCategorySearchFilter(req.query.search);
+    if (searchClause) andClauses.push(searchClause);
+
+    const filter = andClauses.length ? { $and: andClauses } : {};
     const [total, categories] = await Promise.all([
       Category.countDocuments(filter),
       Category.find(filter).sort({ categoryName: 1, createdAt: -1 }).skip(skip).limit(limit),
