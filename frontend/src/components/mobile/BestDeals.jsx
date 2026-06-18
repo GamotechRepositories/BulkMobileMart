@@ -11,7 +11,7 @@ import SectionHeader from "./SectionHeader";
 import DealProductCard from "../product/DealProductCard";
 
 const HOME_PRODUCT_LIMIT = 12;
-const MOBILE_ITEMS_PER_SLIDE = 6;
+const MOBILE_ITEMS_PER_SLIDE = 4;
 
 const FALLBACK_PRODUCTS = [
   { _id: "1", name: "Fast Charger", sub: "20W", price: 165, discountedPrice: 165 },
@@ -145,7 +145,7 @@ function BestDeals() {
               key={`deals-batch-${batchIndex}`}
               className="w-full shrink-0 snap-start"
             >
-              <div className="grid grid-cols-3 grid-rows-2 gap-2.5">
+              <div className="grid grid-cols-2 grid-rows-2 gap-2.5">
                 {batch.map((product) => (
                   <DealProductCard key={product._id} {...cardProps(product)} />
                 ))}
