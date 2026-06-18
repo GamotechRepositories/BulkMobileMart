@@ -15,6 +15,7 @@ import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/settings/store_settings_provider.dart';
 import '../../features/checkout/payment_modal.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
@@ -58,6 +59,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     Future.microtask(() {
+      ref.read(storeSettingsProvider.notifier).refresh();
       final cart = ref.read(cartControllerProvider);
       if (cart.items.isEmpty && !cart.loading) {
         ref.read(cartControllerProvider.notifier).loadCart(silent: true);
@@ -148,12 +150,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    final storeSettings = ref.read(storeSettingsProvider).value;
+    final merchantUpiId = storeSettings?.merchantUpiId;
+    final merchantUpiName = storeSettings?.merchantUpiName;
+
     showDialog<void>(
       context: context,
       barrierDismissible: !_placingOrder,
       builder: (context) => PaymentModal(
         paymentMethod: _paymentMethod,
         orderTotal: calculateCartSummary(ref.read(cartControllerProvider).items).total,
+        merchantUpiId: merchantUpiId,
+        merchantUpiName: merchantUpiName,
         processing: _placingOrder,
         error: _orderError,
         onUploadScreenshot: (path) =>

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/orders/orders_controller.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 
 /// Loads user-specific data after login or on app resume.
@@ -11,4 +12,5 @@ void bootstrapUserSession(WidgetRef ref) {
 
   ref.read(cartControllerProvider.notifier).loadCart();
   ref.read(wishlistControllerProvider.notifier).loadWishlist();
+  ref.read(ordersControllerProvider.notifier).loadOrders();
 }

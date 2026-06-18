@@ -17,6 +17,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import proxyRoutes from "./routes/proxyRoutes.js";
 import brandRoutes from "./routes/brandRoutes.js";
 import testimonialRoutes from "./routes/testimonialRoutes.js";
+import storeSettingsRoutes from "./routes/storeSettingsRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 
 const app = express();
@@ -57,6 +58,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/proxy", proxyRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/testimonials", testimonialRoutes);
+app.use("/api/settings", storeSettingsRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
 connectDB().then(() => {

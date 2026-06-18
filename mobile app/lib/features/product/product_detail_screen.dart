@@ -10,6 +10,7 @@ import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/product/product_providers.dart';
 import '../../models/product.dart';
+import '../../models/product_pricing_models.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/skeleton_loaders.dart';
@@ -32,7 +33,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   String _selectedVariant = '';
   String _selectedColor = '';
   String? _quantitySyncedKey;
-  bool _isAddedToCart = false;
+
+  static const _tabs = [
+    _DetailTab(id: 'description', label: 'Description'),
+    _DetailTab(id: 'specifications', label: 'Specifications'),
+    _DetailTab(id: 'reviews', label: 'Reviews'),
+    _DetailTab(id: 'shipping', label: 'Shipping'),
+  ];
 
   @override
   void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
@@ -43,23 +50,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       _selectedColor = '';
       _quantity = defaultSingleMoq;
       _activeTab = 'description';
-      _isAddedToCart = false;
     }
   }
 
-  void _syncQuantityForProduct(Product product, String activeVariantName) {
-    final key = '${widget.productId}|$activeVariantName';
+  void _syncQuantityForProduct(
+    Product product,
+    String activeVariantName,
+    int? cartLineQuantity,
+  ) {
+    final key =
+        '${widget.productId}|$activeVariantName|$_selectedColor|${cartLineQuantity ?? 'local'}';
     if (_quantitySyncedKey == key) return;
     _quantitySyncedKey = key;
 
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
-    final nextQuantity = minOrderQuantity.clamp(minOrderQuantity, maxQuantity);
+    final nextQuantity = cartLineQuantity ?? minOrderQuantity;
+    final clamped = nextQuantity.clamp(minOrderQuantity, maxQuantity);
 
-    if (_quantity != nextQuantity) {
+    if (_quantity != clamped) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        setState(() => _quantity = nextQuantity);
+        setState(() => _quantity = clamped);
       });
     }
   }
@@ -72,13 +84,36 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       _quantity = minOrderQuantity;
       final colors = getAvailableColors(product, variantName);
       _selectedColor = colors.isNotEmpty ? colors.first.name : '';
-      _isAddedToCart = false;
     });
+  }
+
+  void _initSelectionsForProduct(Product product) {
+    if (!mounted) return;
+
+    var changed = false;
+    if (isMultiVariant(product) && _selectedVariant.isEmpty) {
+      _selectedVariant = product.variants.first.name;
+      changed = true;
+    }
+
+    final activeVariant =
+        resolveActiveVariantName(product, _selectedVariant);
+    final colors = getAvailableColors(product, activeVariant);
+    if (_selectedColor.isEmpty && colors.isNotEmpty) {
+      _selectedColor = colors.first.name;
+      changed = true;
+    }
+
+    if (changed) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productDetailProvider(widget.productId));
+
+    ref.listen(productDetailProvider(widget.productId), (previous, next) {
+      next.whenData(_initSelectionsForProduct);
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -98,13 +133,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildContent(BuildContext context, Product product) {
     final activeVariantName = resolveActiveVariantName(product, _selectedVariant);
-    if (isMultiVariant(product) && _selectedVariant.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _selectedVariant.isNotEmpty) return;
-        _handleVariantChange(product, product.variants.first.name);
-      });
-    }
-    _syncQuantityForProduct(product, activeVariantName);
+    final cartLineQuantity = ref.watch(
+      cartControllerProvider.select(
+        (state) => findCartLine(
+          state.items,
+          product.id,
+          activeVariantName,
+          _selectedColor,
+        )?.quantity,
+      ),
+    );
+    _syncQuantityForProduct(product, activeVariantName, cartLineQuantity);
 
     final variantStock = getVariantStock(product, activeVariantName);
     final inStock = variantStock > 0;
@@ -114,16 +153,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         getUnitPriceForQuantity(product, _quantity, activeVariantName);
     final bulkTiers = getBulkTierRows(product, activeVariantName);
     final showBulkSection = isBulkPricing(product, activeVariantName);
-    final images = product.productImages;
-    final category = product.categories.isNotEmpty ? product.categories.first : 'Products';
+    final images = product.productImages
+        .where((image) => image.trim().isNotEmpty)
+        .toList();
     final rating = product.ratings > 0 ? product.ratings : 4.5;
     final availableColors = getAvailableColors(product, activeVariantName);
-    if (_selectedColor.isEmpty && availableColors.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _selectedColor.isNotEmpty) return;
-        setState(() => _selectedColor = availableColors.first.name);
-      });
-    }
+    final specifications = getResolvedSpecifications(product);
 
     return Column(
       children: [
@@ -131,7 +166,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _ProductImageGallery(images: images),
+              _ProductImageGallery(
+                images: images,
+                product: product,
+              ),
               const SizedBox(height: 16),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,8 +192,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ],
                     ),
                   ),
-                  WishlistButton(product: product, size: 40),
-                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: () => showProductShareSheet(context, product),
                     icon: const Icon(Icons.share_outlined),
@@ -190,42 +226,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   color: AppColors.primary,
                 ),
               ),
-              if (showBulkSection)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Current selection: ${formatInr(currentUnitPrice, withDecimals: true)} / piece',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              if (!showBulkSection &&
-                  product.price > product.discountedPrice &&
-                  !isMultiVariant(product))
-                Text(
-                  formatInr(product.price, withDecimals: true),
-                  style: const TextStyle(
-                    decoration: TextDecoration.lineThrough,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Text(
-                inStock ? 'In Stock ($variantStock available)' : 'Out of Stock',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: inStock ? Colors.green.shade700 : Colors.red,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Pan-India delivery available for bulk orders.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
               if (isMultiVariant(product)) ...[
+                const SizedBox(height: 16),
                 const Text(
                   'Select variant',
                   style: TextStyle(fontWeight: FontWeight.w700),
@@ -248,11 +250,53 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 16),
               ],
+              if (availableColors.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Select color',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: availableColors
+                      .map(
+                        (color) => ChoiceChip(
+                          label: Text(color.name),
+                          selected: _selectedColor == color.name,
+                          onSelected: (_) => setState(() {
+                            _selectedColor = color.name;
+                            _quantitySyncedKey = null;
+                          }),
+                          selectedColor: AppColors.primary.withValues(alpha: 0.12),
+                          backgroundColor: AppColors.mobileSurface,
+                          labelStyle: TextStyle(
+                            color: _selectedColor == color.name
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (showBulkSection)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    'Current selection: ${formatInr(currentUnitPrice, withDecimals: true)} / piece',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
               if (showBulkSection || isMultiVariant(product))
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     [
                       if (showBulkSection) 'MOQ: $minOrderQuantity Pieces',
@@ -264,11 +308,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                 ),
-              if (bulkTiers.isNotEmpty)
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
+                  _QuantitySelector(
+                    quantity: _quantity,
+                    min: minOrderQuantity,
+                    max: maxQuantity,
+                    disabled: !inStock,
+                    onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
+                    onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
+                  ),
+                ],
+              ),
+              if (bulkTiers.isNotEmpty) ...[
+                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.mobileSurface,
+                    border: Border.all(color: AppColors.borderLight),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -285,7 +345,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(tier.qtyLabel),
+                              Expanded(child: Text(tier.qtyLabel)),
                               Text(
                                 formatInr(tier.price, withDecimals: true),
                                 style: const TextStyle(fontWeight: FontWeight.w600),
@@ -297,86 +357,50 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ],
                   ),
                 ),
-              if (bulkTiers.isNotEmpty) const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
-                  _QuantitySelector(
-                    quantity: _quantity,
-                    min: minOrderQuantity,
-                    max: maxQuantity,
-                    disabled: !inStock,
-                    onDecrease: () => setState(() {
-                      if (_quantity > minOrderQuantity) _quantity--;
-                      _isAddedToCart = false;
-                    }),
-                    onIncrease: () => setState(() {
-                      if (_quantity < maxQuantity) _quantity++;
-                      _isAddedToCart = false;
-                    }),
-                  ),
-                ],
-              ),
-              if (availableColors.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'Select color',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: availableColors
-                      .map(
-                        (color) => ChoiceChip(
-                          label: Text(color.name),
-                          selected: _selectedColor == color.name,
-                          onSelected: (_) =>
-                              setState(() => _selectedColor = color.name),
-                          selectedColor: AppColors.primary.withValues(alpha: 0.12),
-                          backgroundColor: AppColors.mobileSurface,
-                        ),
-                      )
-                      .toList(),
-                ),
               ],
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _TabChip(
-                    label: 'Description',
-                    selected: _activeTab == 'description',
-                    onTap: () => setState(() => _activeTab = 'description'),
-                  ),
-                  _TabChip(
-                    label: 'Specifications',
-                    selected: _activeTab == 'specifications',
-                    onTap: () => setState(() => _activeTab = 'specifications'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (_activeTab == 'description')
-                Text(
-                  product.description.isNotEmpty
-                      ? product.description
-                      : 'No description available.',
-                  style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _specRow('Brand', product.brandName),
-                    _specRow('Category', category),
-                    _specRow('Subcategory', product.subcategory),
-                    if (product.warranty.isNotEmpty) _specRow('Warranty', product.warranty),
-                    ...product.features.map((f) => _specRow('Feature', f)),
-                  ],
+              const SizedBox(height: 24),
+              const Divider(height: 1, color: AppColors.borderLight),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _tabs.map((tab) {
+                    final selected = _activeTab == tab.id;
+                    final label = tab.id == 'reviews'
+                        ? 'Reviews ($defaultReviewCount)'
+                        : tab.label;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 20),
+                      child: InkWell(
+                        onTap: () => setState(() => _activeTab = tab.id),
+                        child: Container(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: selected ? AppColors.primary : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
+              ),
+              const SizedBox(height: 16),
+              _buildTabContent(product, rating, specifications),
               const SizedBox(height: 100),
             ],
           ),
@@ -392,21 +416,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: inStock
-                      ? () {
-                          if (_isAddedToCart) {
-                            context.go(RoutePaths.cart);
-                            return;
-                          }
-                          _addToCart(product);
-                        }
+                      ? () => _addToCart(product, activeVariantName)
                       : null,
-                  child: Text(_isAddedToCart ? 'Go to Cart' : 'Add to Cart'),
+                  child: const Text('Add to Cart'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: inStock ? () => _buyNow(product) : null,
+                  onPressed: inStock ? () => _buyNow(product, activeVariantName) : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary, width: 2),
@@ -422,52 +440,226 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _specRow(String label, String value) {
-    if (value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 110,
-            child: Text(label, style: const TextStyle(color: AppColors.textMuted)),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
+  Widget _buildTabContent(
+    Product product,
+    double rating,
+    List<ProductSpecification> specifications,
+  ) {
+    switch (_activeTab) {
+      case 'specifications':
+        if (specifications.isEmpty) {
+          return const Text(
+            'No specifications added.',
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: specifications
+              .map(
+                (spec) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        height: 1.5,
+                        fontSize: 14,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: '${spec.name}: ',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        TextSpan(text: spec.value),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      case 'reviews':
+        return Text(
+          'Rated ${rating.toStringAsFixed(1)} out of 5 based on $defaultReviewCount dealer reviews.',
+          style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+        );
+      case 'shipping':
+        return const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pan-India delivery available for bulk orders.',
+              style: TextStyle(color: AppColors.textPrimary, height: 1.5),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'GST invoice provided with every order.',
+              style: TextStyle(color: AppColors.textPrimary, height: 1.5),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Standard delivery: 3–7 business days across major cities.',
+              style: TextStyle(color: AppColors.textPrimary, height: 1.5),
+            ),
+          ],
+        );
+      case 'description':
+      default:
+        final description = product.description.trim().isNotEmpty
+            ? product.description
+            : '${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              description,
+              style: const TextStyle(color: AppColors.textPrimary, height: 1.5),
+            ),
+            if (product.features.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ...product.features.map(
+                (feature) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6, left: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ', style: TextStyle(fontWeight: FontWeight.w700)),
+                      Expanded(child: Text(feature)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+    }
   }
 
-  Future<void> _addToCart(Product product) async {
-    final result = await ref
-        .read(cartControllerProvider.notifier)
-        .addToCart(
+  Future<void> _handleQuantityDecrease(
+    Product product,
+    String activeVariantName,
+  ) async {
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final line = findCartLine(
+      ref.read(cartControllerProvider).items,
+      product.id,
+      activeVariantName,
+      _selectedColor,
+    );
+
+    if (line != null) {
+      final nextQty = getDecreasedCartQuantity(line.quantity, minOrderQuantity);
+      if (nextQty <= 0) {
+        await ref.read(cartControllerProvider.notifier).removeFromCartLine(
+              productId: product.id,
+              variantName: activeVariantName,
+              colorName: _selectedColor,
+            );
+      } else {
+        await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+              productId: product.id,
+              quantity: nextQty,
+              variantName: activeVariantName,
+              colorName: _selectedColor,
+            );
+      }
+      return;
+    }
+
+    setState(() {
+      _quantity = (_quantity - minOrderQuantity).clamp(minOrderQuantity, _quantity);
+    });
+  }
+
+  Future<void> _handleQuantityIncrease(
+    Product product,
+    String activeVariantName,
+  ) async {
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
+    final line = findCartLine(
+      ref.read(cartControllerProvider).items,
+      product.id,
+      activeVariantName,
+      _selectedColor,
+    );
+
+    if (line != null) {
+      final nextQty = (line.quantity + minOrderQuantity).clamp(minOrderQuantity, maxQuantity);
+      await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+            productId: product.id,
+            quantity: nextQty,
+            variantName: activeVariantName,
+            colorName: _selectedColor,
+          );
+      return;
+    }
+
+    setState(() {
+      _quantity = (_quantity + minOrderQuantity).clamp(minOrderQuantity, maxQuantity);
+    });
+  }
+
+  Future<void> _addToCart(Product product, String activeVariantName) async {
+    final availableColors = getAvailableColors(product, activeVariantName);
+    if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
+
+    final line = findCartLine(
+      ref.read(cartControllerProvider).items,
+      product.id,
+      activeVariantName,
+      _selectedColor,
+    );
+
+    if (line != null) {
+      final auth = ref.read(authControllerProvider);
+      if (!auth.isLoggedIn) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+        return;
+      }
+      await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+            productId: product.id,
+            quantity: _quantity,
+            variantName: activeVariantName,
+            colorName: _selectedColor,
+          );
+      return;
+    }
+
+    final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
           _quantity,
-          variantName: _selectedVariant,
+          variantName: activeVariantName,
           colorName: _selectedColor,
         );
-    if (result == AddToCartResult.success && mounted) {
-      setState(() => _isAddedToCart = true);
-    }
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
     }
   }
 
-  Future<void> _buyNow(Product product) async {
+  Future<void> _buyNow(Product product, String activeVariantName) async {
+    final availableColors = getAvailableColors(product, activeVariantName);
+    if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
+
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
           _quantity,
           buyNow: true,
-          variantName: _selectedVariant,
+          variantName: activeVariantName,
           colorName: _selectedColor,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
     }
   }
+}
+
+class _DetailTab {
+  const _DetailTab({required this.id, required this.label});
+
+  final String id;
+  final String label;
 }
 
 class _QuantitySelector extends StatelessWidget {
@@ -521,53 +713,14 @@ class _QuantitySelector extends StatelessWidget {
   }
 }
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+class _ProductImageGallery extends StatefulWidget {
+  const _ProductImageGallery({
+    required this.images,
+    required this.product,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      selectedColor: AppColors.primary.withValues(alpha: 0.15),
-      checkmarkColor: AppColors.primary,
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Product not found.'),
-          const SizedBox(height: 12),
-          TextButton(onPressed: onBack, child: const Text('Back to products')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProductImageGallery extends StatefulWidget {
-  const _ProductImageGallery({required this.images});
-
   final List<String> images;
+  final Product product;
 
   @override
   State<_ProductImageGallery> createState() => _ProductImageGalleryState();
@@ -583,23 +736,32 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
     return RepaintBoundary(
       child: Column(
         children: [
-          Container(
-            height: 280,
-            decoration: BoxDecoration(
-              color: AppColors.mobileSurface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderLight),
-            ),
-            child: images.isNotEmpty
-                ? AppNetworkImage(
-                    imageUrl: images[_activeImage.clamp(0, images.length - 1)],
-                    fit: BoxFit.contain,
-                    cacheWidth: 560,
-                    cacheHeight: 560,
-                    errorIcon: Icons.image_outlined,
-                    errorIconSize: 64,
-                  )
-                : const Icon(Icons.image_outlined, size: 64, color: AppColors.textMuted),
+          Stack(
+            children: [
+              Container(
+                height: 280,
+                decoration: BoxDecoration(
+                  color: AppColors.mobileSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: images.isNotEmpty
+                    ? AppNetworkImage(
+                        imageUrl: images[_activeImage.clamp(0, images.length - 1)],
+                        fit: BoxFit.contain,
+                        cacheWidth: 560,
+                        cacheHeight: 560,
+                        errorIcon: Icons.image_outlined,
+                        errorIconSize: 64,
+                      )
+                    : const Icon(Icons.image_outlined, size: 64, color: AppColors.textMuted),
+              ),
+              Positioned(
+                left: 8,
+                top: 8,
+                child: WishlistButton(product: widget.product, size: 40),
+              ),
+            ],
           ),
           if (images.length > 1) ...[
             const SizedBox(height: 12),
@@ -608,7 +770,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: images.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
                   final selected = index == _activeImage;
                   return GestureDetector(
@@ -637,6 +799,26 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Product not found.'),
+          const SizedBox(height: 12),
+          TextButton(onPressed: onBack, child: const Text('Back to products')),
         ],
       ),
     );

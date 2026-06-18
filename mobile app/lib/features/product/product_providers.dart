@@ -6,7 +6,7 @@ import '../../models/product.dart';
 final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
   ref.keepAlive();
-  final params = <String, dynamic>{};
+  final params = <String, dynamic>{'limit': 50};
   if (query.categoryName != null && query.categoryName!.isNotEmpty) {
     params['categoryName'] = query.categoryName;
   }
@@ -14,16 +14,14 @@ final productListProvider =
     params['q'] = query.search;
   }
 
-  final products = await ref.watch(apiServiceProvider).fetchProducts(
-        params.isEmpty ? null : params,
-      );
+  final products = await ref.read(apiServiceProvider).fetchProducts(params);
   return products.where((product) => product.isActive).toList();
 });
 
 final productDetailProvider =
     FutureProvider.family<Product, String>((ref, id) async {
   ref.keepAlive();
-  return ref.watch(apiServiceProvider).fetchProductById(id);
+  return ref.read(apiServiceProvider).fetchProductById(id);
 });
 
 class ProductQuery {

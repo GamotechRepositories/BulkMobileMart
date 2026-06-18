@@ -68,13 +68,15 @@ class SkeletonOrderList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
       children: [
-        const SkeletonBox(width: 140, height: 28, borderRadius: 6),
-        const SizedBox(height: 16),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(8, 4, 8, 12),
+          child: SkeletonBox(width: 140, height: 28, borderRadius: 6),
+        ),
         for (var i = 0; i < count; i++) ...[
-          const SkeletonBox(height: 112, borderRadius: 12),
-          const SizedBox(height: 12),
+          const SkeletonBox(height: 220, borderRadius: 4),
+          const SizedBox(height: 10),
         ],
       ],
     );
@@ -292,17 +294,29 @@ class SkeletonOrderDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.zero,
       children: const [
-        SkeletonBox(width: 100, height: 14, borderRadius: 4),
-        SizedBox(height: 12),
-        SkeletonBox(height: 200, borderRadius: 12),
-        SizedBox(height: 12),
-        SkeletonBox(height: 80, borderRadius: 12),
-        SizedBox(height: 12),
-        SkeletonBox(height: 100, borderRadius: 12),
-        SizedBox(height: 12),
-        SkeletonBox(height: 140, borderRadius: 12),
+        SkeletonBox(height: 130, borderRadius: 0),
+        SizedBox(height: 8),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: SkeletonBox(height: 88, borderRadius: 4),
+        ),
+        SizedBox(height: 8),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: SkeletonBox(height: 160, borderRadius: 4),
+        ),
+        SizedBox(height: 8),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: SkeletonBox(height: 120, borderRadius: 4),
+        ),
+        SizedBox(height: 8),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          child: SkeletonBox(height: 140, borderRadius: 4),
+        ),
       ],
     );
   }

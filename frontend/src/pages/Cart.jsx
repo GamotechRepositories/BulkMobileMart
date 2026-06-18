@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
+import ImportantMessageCards from "../components/cart/ImportantMessageCards";
+import { getStoreSettings } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { clearBuyNowCheckout } from "../utils/checkoutSession";
@@ -8,9 +10,12 @@ import {
   getCartStepForItem,
   getDecreasedCartQuantity,
 } from "../utils/cartDefaults";
-
-const FREE_DELIVERY_THRESHOLD = 999;
-const SHIPPING_CHARGE = 49;
+import {
+  calculateShippingCharge,
+  getMinimumOrderShortfall,
+  meetsMinimumOrder,
+  mergeStoreSettings,
+} from "../utils/orderSettings";
 
 const formatPrice = (amount, fractionDigits = 2) =>
   new Intl.NumberFormat("en-IN", {
@@ -239,16 +244,18 @@ function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
   );
 }
 
-function OrderSummary({ items }) {
+function OrderSummary({ items, storeSettings }) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
-  const shippingFree = subtotal >= FREE_DELIVERY_THRESHOLD;
-  const shipping = shippingFree ? 0 : SHIPPING_CHARGE;
+  const shipping = calculateShippingCharge(subtotal, storeSettings);
   const total = subtotal + shipping;
   const hasItems = items.length > 0;
+  const canCheckout = hasItems && meetsMinimumOrder(subtotal, storeSettings);
+  const shortfall = getMinimumOrderShortfall(subtotal, storeSettings);
+  const minimumOrderValue = mergeStoreSettings(storeSettings).minimumOrderValue;
 
   return (
     <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-5">
@@ -261,11 +268,15 @@ function OrderSummary({ items }) {
         </div>
         <div className="flex items-center justify-between text-text-secondary">
           <span>Shipping Charges</span>
-          <span className="font-medium text-text-primary">
-            {shippingFree ? "FREE" : formatPrice(shipping)}
-          </span>
+          <span className="font-medium text-text-primary">{formatPrice(shipping)}</span>
         </div>
         <p className="text-[11px] text-text-muted sm:text-xs">GST included in prices</p>
+        {!canCheckout && hasItems ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-800 sm:text-xs">
+            Add {formatPrice(shortfall, 0)} more to reach the minimum order of{" "}
+            {formatPrice(minimumOrderValue, 0)}.
+          </p>
+        ) : null}
       </div>
 
       <hr className="my-4 border-border-light" />
@@ -275,16 +286,23 @@ function OrderSummary({ items }) {
         <span className="text-lg font-bold text-text-primary sm:text-xl">{formatPrice(total)}</span>
       </div>
 
-      <Link
-        to="/checkout"
-        onClick={() => clearBuyNowCheckout()}
-        className={`mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm ${
-          !hasItems ? "pointer-events-none opacity-50" : ""
-        }`}
-        aria-disabled={!hasItems}
-      >
-        Proceed to Checkout
-      </Link>
+      {canCheckout ? (
+        <Link
+          to="/checkout"
+          onClick={() => clearBuyNowCheckout()}
+          className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
+        >
+          Proceed to Checkout
+        </Link>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="mt-4 flex w-full cursor-not-allowed items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white opacity-50 sm:text-sm"
+        >
+          Proceed to Checkout
+        </button>
+      )}
 
       <div className="mt-2 grid grid-cols-2 gap-1.5">
         <Link
@@ -320,33 +338,11 @@ function OrderSummary({ items }) {
   );
 }
 
-function TermsConditionsBox() {
-  return (
-    <div className="rounded-xl border border-border-light bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="text-sm font-bold text-text-primary sm:text-base">Terms & Conditions</h2>
-      <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-text-secondary sm:text-xs">
-        <li>Minimum order quantity is 10 units unless stated otherwise.</li>
-        <li>Orders are subject to stock availability and confirmation.</li>
-        <li>Prices include GST where applicable; invoices are GST-compliant.</li>
-        <li>Delivery timelines vary by location and order size.</li>
-        <li>Returns for defective goods must be reported within the specified timeframe.</li>
-      </ul>
-      <p className="mt-3 text-[11px] leading-relaxed text-text-secondary sm:text-xs">
-        By placing an order, you agree to our{" "}
-        <Link to="/terms-and-conditions" className="font-semibold text-primary hover:underline">
-          Terms & Conditions
-        </Link>
-        .
-      </p>
-    </div>
-  );
-}
-
-function CartSidebar({ items }) {
+function CartSidebar({ items, storeSettings }) {
   return (
     <div className="space-y-4 lg:sticky lg:top-24">
-      <OrderSummary items={items} />
-      <TermsConditionsBox />
+      <ImportantMessageCards settings={storeSettings} />
+      <OrderSummary items={items} storeSettings={storeSettings} />
     </div>
   );
 }
@@ -355,11 +351,26 @@ function Cart() {
   const { user, openAuthModal } = useAuth();
   const { items, removeFromCart, updateQuantity, loading, loadCart } = useCart();
   const [clearing, setClearing] = useState(false);
+  const [storeSettings, setStoreSettings] = useState(null);
 
   useEffect(() => {
     clearBuyNowCheckout();
     if (user) loadCart();
   }, [user, loadCart]);
+
+  useEffect(() => {
+    let active = true;
+    getStoreSettings()
+      .then(({ data }) => {
+        if (active) setStoreSettings(data.data);
+      })
+      .catch(() => {
+        if (active) setStoreSettings(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleClearCart = async () => {
     if (!items.length || clearing) return;
@@ -437,7 +448,7 @@ function Cart() {
                 onRemove={removeFromCart}
                 onUpdateQuantity={updateQuantity}
               />
-              <CartSidebar items={items} />
+              <CartSidebar items={items} storeSettings={storeSettings} />
             </div>
           )}
         </div>

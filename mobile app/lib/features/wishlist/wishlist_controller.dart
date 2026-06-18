@@ -7,15 +7,18 @@ import '../auth/auth_controller.dart';
 class WishlistState {
   const WishlistState({
     this.items = const [],
+    this.ids = const {},
     this.loading = false,
     this.toastImage,
   });
 
   final List<Product> items;
+  final Set<String> ids;
   final bool loading;
   final String? toastImage;
 
-  Set<String> get ids => items.map((item) => item.id).toSet();
+  static Set<String> _idsFromItems(List<Product> items) =>
+      items.map((item) => item.id).toSet();
 
   WishlistState copyWith({
     List<Product>? items,
@@ -23,8 +26,10 @@ class WishlistState {
     String? toastImage,
     bool clearToast = false,
   }) {
+    final nextItems = items ?? this.items;
     return WishlistState(
-      items: items ?? this.items,
+      items: nextItems,
+      ids: items != null ? _idsFromItems(nextItems) : this.ids,
       loading: loading ?? this.loading,
       toastImage: clearToast ? null : (toastImage ?? this.toastImage),
     );

@@ -111,8 +111,6 @@ class _DealsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartItems = ref.watch(cartControllerProvider).items;
-
     return HomeSectionCard(
       margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -126,7 +124,7 @@ class _DealsContent extends ConsumerWidget {
             trailing: const DealsCountdownTimer(),
           ),
           SizedBox(
-            height: 272,
+            height: 262,
             child: ListView.separated(
               primary: false,
               scrollDirection: Axis.horizontal,
@@ -137,21 +135,47 @@ class _DealsContent extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final product = products[index];
-                final line = _cartLine(cartItems, product);
-                final qty = line?.quantity ?? 0;
-
-                return DealProductCard(
-                  product: product,
-                  cartQuantity: qty,
-                  onAdd: () => _handleAdd(ref, product),
-                  onIncrease: () => _handleIncrease(ref, product),
-                  onDecrease: () => _handleDecrease(ref, product),
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: _DealCardWithCart(
+                    product: product,
+                    onAdd: () => _handleAdd(ref, product),
+                    onIncrease: () => _handleIncrease(ref, product),
+                    onDecrease: () => _handleDecrease(ref, product),
+                  ),
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DealCardWithCart extends ConsumerWidget {
+  const _DealCardWithCart({
+    required this.product,
+    required this.onAdd,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  final Product product;
+  final VoidCallback onAdd;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qty = ref.watch(cartProductQuantityProvider(product));
+
+    return DealProductCard(
+      product: product,
+      cartQuantity: qty,
+      onAdd: onAdd,
+      onIncrease: onIncrease,
+      onDecrease: onDecrease,
     );
   }
 }

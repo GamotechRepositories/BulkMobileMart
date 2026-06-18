@@ -11,29 +11,80 @@ class UpiPayment {
     return (orderTotal * 100).round() / 100;
   }
 
-  static String buildUpiUri(double amount, {String note = 'Order'}) {
-    return 'upi://pay?${_buildUpiQuery(amount, note)}';
+  static String buildUpiUri(
+    double amount, {
+    String note = 'Order',
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) {
+    final query = _buildUpiQuery(
+      amount,
+      note,
+      merchantUpiId: merchantUpiId,
+      merchantUpiName: merchantUpiName,
+    );
+    return query.isEmpty ? '' : 'upi://pay?$query';
   }
 
-  static String getQrCodeImageUrl(double amount, {String note = 'Order'}) {
-    final uri = buildUpiUri(amount, note: note);
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=4&data=${Uri.encodeComponent(uri)}';
+  static String getQrCodeImageUrl(
+    double amount, {
+    String note = 'Order',
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) {
+    final uri = buildUpiUri(
+      amount,
+      note: note,
+      merchantUpiId: merchantUpiId,
+      merchantUpiName: merchantUpiName,
+    );
+    if (uri.isEmpty) return '';
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=4&data=${Uri.encodeComponent(uri)}';
   }
 
-  static String buildAndroidIntent(double amount, {String note = 'Order'}) {
-    final query = _buildUpiQuery(amount, note);
-    return 'intent://pay?$query#Intent;scheme=upi;end';
+  static String buildAndroidIntent(
+    double amount, {
+    String note = 'Order',
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) {
+    final query = _buildUpiQuery(
+      amount,
+      note,
+      merchantUpiId: merchantUpiId,
+      merchantUpiName: merchantUpiName,
+    );
+    return query.isEmpty ? '' : 'intent://pay?$query#Intent;scheme=upi;end';
   }
 
-  static String _buildUpiQuery(double amount, String note) {
-    final upiId = Env.merchantUpiId.trim();
+  static String _resolveUpiId(String? merchantUpiId) {
+    final configured = merchantUpiId?.trim() ?? '';
+    if (configured.isNotEmpty) return configured;
+    return Env.merchantUpiId.trim();
+  }
+
+  static String _resolveUpiName(String? merchantUpiName) {
+    final configured = merchantUpiName?.trim() ?? '';
+    if (configured.isNotEmpty) return configured;
+    return Env.merchantUpiName.trim();
+  }
+
+  static String _buildUpiQuery(
+    double amount,
+    String note, {
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) {
+    final upiId = _resolveUpiId(merchantUpiId);
+    if (upiId.isEmpty) return '';
+
     final parts = <String>[
       'pa=${Uri.encodeComponent(upiId)}',
       'am=${Uri.encodeComponent(amount.toStringAsFixed(2))}',
       'cu=INR',
     ];
 
-    final merchantName = Env.merchantUpiName.trim();
+    final merchantName = _resolveUpiName(merchantUpiName);
     if (merchantName.isNotEmpty) {
       parts.insert(1, 'pn=${Uri.encodeComponent(merchantName)}');
     }

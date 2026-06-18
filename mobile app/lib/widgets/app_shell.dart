@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/bootstrap/app_bootstrap.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
-import 'common/app_splash.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
 import 'layout/mobile_header.dart';
@@ -78,16 +77,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final authLoading = ref.watch(
-      authControllerProvider.select((s) => s.loading),
-    );
     final cartCount = ref.watch(
       cartControllerProvider.select((s) => s.cartCount),
     );
-
-    if (authLoading) {
-      return const AppSplash();
-    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
@@ -124,9 +116,7 @@ class _ShellSideEffects extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(authControllerProvider, (previous, next) {
-      if (previous?.loading == true && !next.loading) {
-        bootstrapUserSession(ref);
-      } else if (previous?.isLoggedIn != true && next.isLoggedIn) {
+      if (previous?.isLoggedIn != true && next.isLoggedIn) {
         bootstrapUserSession(ref);
       }
     });

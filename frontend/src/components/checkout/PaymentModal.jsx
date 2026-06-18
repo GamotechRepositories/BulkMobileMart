@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
@@ -6,6 +6,7 @@ import {
   getPayableAmount,
   getQrCodeImageUrl,
   openUpiAppChooser,
+  resolveMerchantUpiConfig,
 } from "../../utils/upiPayment";
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
@@ -25,6 +26,8 @@ function PaymentModal({
   onClose,
   paymentMethod,
   orderTotal,
+  merchantUpiId = "",
+  merchantUpiName = "",
   onPayWithRazorpay,
   onSubmitUpiProof,
   processing,
@@ -36,9 +39,23 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const autoOpenedRef = useRef(false);
+
+  const payableAmount = getPayableAmount(orderTotal, paymentMethod);
+  const isCod = paymentMethod === "cod";
+  const paymentNote = isCod ? "COD Advance" : "Order Payment";
+  const upiConfig = useMemo(
+    () => resolveMerchantUpiConfig({ merchantUpiId, merchantUpiName }),
+    [merchantUpiId, merchantUpiName]
+  );
+  const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote, upiConfig);
+  const hasUpiId = Boolean(upiConfig.upiId);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      autoOpenedRef.current = false;
+      return undefined;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -48,16 +65,35 @@ function PaymentModal({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !hasUpiId || autoOpenedRef.current) return undefined;
+
+    const timer = window.setTimeout(() => {
+      autoOpenedRef.current = true;
+      setUpiHint("");
+      const openedOnMobile = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
+
+      if (openedOnMobile) {
+        setUpiHint("Opening UPI app... Choose GPay, PhonePe, or Paytm.");
+        return;
+      }
+
+      setUpiHint("Scan the QR code or use Pay via App on your phone.");
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [open, hasUpiId, payableAmount, paymentNote, upiConfig]);
+
   if (!open) return null;
 
-  const payableAmount = getPayableAmount(orderTotal, paymentMethod);
-  const isCod = paymentMethod === "cod";
-  const paymentNote = isCod ? "COD Advance" : "Order Payment";
-  const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote);
-
   const handlePayViaApp = () => {
+    if (!hasUpiId) {
+      setUpiHint("UPI ID is not configured. Please contact support.");
+      return;
+    }
+
     setUpiHint("");
-    const openedOnMobile = openUpiAppChooser(payableAmount, paymentNote);
+    const openedOnMobile = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
 
     if (!openedOnMobile) {
       setUpiHint("Open on your phone or scan the QR code.");
@@ -163,6 +199,12 @@ function PaymentModal({
               </div>
             )}
 
+            {!hasUpiId && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+                UPI payment is not configured yet. Please contact the store admin.
+              </div>
+            )}
+
             <div className="rounded-lg bg-orange-50 px-2.5 py-1.5 text-center">
               <p className="text-[10px] font-medium text-text-secondary">
                 {isCod ? "COD advance (10%)" : "Amount to pay"}
@@ -177,17 +219,26 @@ function PaymentModal({
 
             <div className="flex flex-col items-center rounded-lg border border-border-light p-2">
               <p className="text-[11px] font-semibold text-text-primary">Scan QR to pay</p>
-              <div className="mt-1.5 rounded-md border border-border-light bg-white p-1">
-                <img
-                  src={qrUrl}
-                  alt="UPI payment QR code"
-                  className="h-24 w-24 object-contain sm:h-28 sm:w-28"
-                />
-              </div>
+              {hasUpiId ? (
+                <div className="mt-1.5 rounded-md border border-border-light bg-white p-1">
+                  <img
+                    src={qrUrl}
+                    alt="UPI payment QR code"
+                    className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+                  />
+                </div>
+              ) : (
+                <div className="mt-1.5 flex h-24 w-24 items-center justify-center rounded-md border border-dashed border-border-light bg-mobile-surface text-center text-[10px] text-text-muted sm:h-28 sm:w-28">
+                  QR unavailable
+                </div>
+              )}
+              {hasUpiId && upiConfig.upiId ? (
+                <p className="mt-1 text-[10px] text-text-muted">Pay to: {upiConfig.upiId}</p>
+              ) : null}
               <p className="mt-1 text-[10px] text-text-muted">Use any UPI app</p>
               <button
                 type="button"
-                disabled={processing}
+                disabled={processing || !hasUpiId}
                 onClick={handlePayViaApp}
                 className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-[#25D366] py-1.5 text-[11px] font-bold text-white transition hover:bg-[#20bd5a] disabled:opacity-50"
               >
@@ -256,7 +307,7 @@ function PaymentModal({
           <button
             type="button"
             onClick={handleSubmitProof}
-            disabled={processing || uploadingScreenshot || !screenshot}
+            disabled={processing || uploadingScreenshot || !screenshot || !hasUpiId}
             className="flex w-full items-center justify-center rounded-lg bg-primary py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
           >
             {processing ? "Sending..." : "Send screenshot"}

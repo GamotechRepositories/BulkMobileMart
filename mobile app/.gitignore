@@ -33,6 +33,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Build outputs
+*.apk
+*.aab
+*.ipa
+**/android/.gradle/
+
 # Symbolication related
 app.*.symbols
 

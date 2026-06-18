@@ -8,22 +8,26 @@ class OrdersState {
   const OrdersState({
     this.orders = const [],
     this.loading = false,
+    this.hasLoaded = false,
     this.error,
   });
 
   final List<Order> orders;
   final bool loading;
+  final bool hasLoaded;
   final String? error;
 
   OrdersState copyWith({
     List<Order>? orders,
     bool? loading,
+    bool? hasLoaded,
     String? error,
     bool clearError = false,
   }) {
     return OrdersState(
       orders: orders ?? this.orders,
       loading: loading ?? this.loading,
+      hasLoaded: hasLoaded ?? this.hasLoaded,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -42,6 +46,13 @@ class OrdersController extends Notifier<OrdersState> {
         loadOrders();
       }
     });
+
+    Future.microtask(() {
+      if (ref.read(authControllerProvider).isLoggedIn && !state.hasLoaded) {
+        loadOrders();
+      }
+    });
+
     return const OrdersState();
   }
 
@@ -55,11 +66,12 @@ class OrdersController extends Notifier<OrdersState> {
     state = state.copyWith(loading: true, clearError: true);
     try {
       final orders = await ref.read(apiServiceProvider).fetchMyOrders();
-      state = OrdersState(orders: orders, loading: false);
+      state = OrdersState(orders: orders, loading: false, hasLoaded: true);
     } catch (_) {
       state = const OrdersState(
         orders: [],
         loading: false,
+        hasLoaded: true,
         error: 'Failed to load orders',
       );
     }

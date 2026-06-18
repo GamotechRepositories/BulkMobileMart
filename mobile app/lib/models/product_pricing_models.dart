@@ -54,6 +54,20 @@ class ProductColor {
   }
 }
 
+class ProductSpecification {
+  const ProductSpecification({required this.name, required this.value});
+
+  final String name;
+  final String value;
+
+  factory ProductSpecification.fromJson(Map<String, dynamic> json) {
+    return ProductSpecification(
+      name: json['name']?.toString() ?? '',
+      value: json['value']?.toString() ?? '',
+    );
+  }
+}
+
 class ProductVariant {
   const ProductVariant({
     required this.name,

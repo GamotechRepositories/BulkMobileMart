@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../core/utils/product_pricing.dart';
 import '../../features/home/home_fallback_data.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
@@ -65,6 +66,26 @@ class CartState {
 
 final cartControllerProvider =
     NotifierProvider<CartController, CartState>(CartController.new);
+
+int cartLineQuantityForProduct(List<CartItem> items, Product product) {
+  final defaults = resolveCartDefaults(product);
+  for (final item in items) {
+    if (item.id != product.id) continue;
+    if (item.variantName.trim() != defaults.variantName.trim()) continue;
+    if (item.colorName.trim() != defaults.colorName.trim()) continue;
+    return item.quantity;
+  }
+  return 0;
+}
+
+/// Rebuilds only when this product's cart quantity changes.
+final cartProductQuantityProvider = Provider.family<int, Product>((ref, product) {
+  return ref.watch(
+    cartControllerProvider.select(
+      (state) => cartLineQuantityForProduct(state.items, product),
+    ),
+  );
+});
 
 class CartController extends Notifier<CartState> {
   PendingCartAction? _pending;

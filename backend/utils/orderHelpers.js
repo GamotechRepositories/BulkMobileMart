@@ -11,6 +11,11 @@ import {
   isMultiVariant,
   PRODUCT_PRICING_SELECT,
 } from "./productPricing.js";
+import {
+  calculateShippingCharge,
+  getStoreSettings,
+  meetsMinimumOrder,
+} from "./storeSettingsHelpers.js";
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -23,9 +28,6 @@ const matchesOrderedItem = (cartItem, orderItem) =>
   normalizeVariantName(cartItem.variantName) ===
     normalizeVariantName(orderItem.variantName) &&
   normalizeColorName(cartItem.colorName) === normalizeColorName(orderItem.colorName);
-
-const FREE_DELIVERY_THRESHOLD = 999;
-const DELIVERY_CHARGE = 49;
 
 export function normalizeOrderMessage(body = {}) {
   const raw = body.customerMessage ?? body.message ?? body.customerNote ?? "";
@@ -289,7 +291,17 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const { orderItems, subtotal } = built;
 
-  const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const storeSettings = await getStoreSettings();
+  if (!meetsMinimumOrder(subtotal, storeSettings)) {
+    return {
+      error: `Minimum order value is ₹${storeSettings.minimumOrderValue}. Please add more items to your cart.`,
+      status: 400,
+      code: "MINIMUM_ORDER_NOT_MET",
+      minimumOrderValue: storeSettings.minimumOrderValue,
+    };
+  }
+
+  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
   const total = subtotal + deliveryCharges;
 
   const deliveryAddress = addressToSnapshot(address);

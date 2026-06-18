@@ -60,6 +60,9 @@ export const updateTestimonial = (id, data) =>
   api.put(`/api/testimonials/${id}`, data);
 export const deleteTestimonial = (id) => api.delete(`/api/testimonials/${id}`);
 
+export const getStoreSettings = () => api.get("/api/settings/admin");
+export const updateStoreSettings = (data) => api.put("/api/settings", data);
+
 export const getAllProducts = (params) => api.get("/api/products/all", { params });
 export const addProduct = (data) => api.post("/api/products", data);
 export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);

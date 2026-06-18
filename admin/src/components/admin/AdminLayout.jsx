@@ -13,6 +13,7 @@ import {
   IconProduct,
   IconSupport,
   IconTestimonial,
+  IconSettings,
   IconUser,
   IconUsers,
 } from "./AdminIcons";
@@ -28,6 +29,7 @@ const PAGE_TITLES = {
   "/brands/show": "Show Brands",
   "/testimonials/add": "Add Testimonial",
   "/testimonials/show": "Testimonials",
+  "/settings": "Store Settings",
   "/users": "Users",
   "/orders": "Orders",
   "/payments": "Payments",
@@ -78,6 +80,7 @@ const NAV_ITEMS = [
     ],
   },
   { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
+  { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },

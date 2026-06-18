@@ -23,6 +23,7 @@ class Product {
     this.pricingType = 'single',
     this.bulkPricing = const BulkPricing(),
     this.colors = const [],
+    this.specifications = const [],
   });
 
   final String id;
@@ -45,6 +46,7 @@ class Product {
   final String pricingType;
   final BulkPricing bulkPricing;
   final List<ProductColor> colors;
+  final List<ProductSpecification> specifications;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -82,6 +84,10 @@ class Product {
       colors: (json['colors'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(ProductColor.fromJson)
+          .toList(),
+      specifications: (json['specifications'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProductSpecification.fromJson)
           .toList(),
     );
   }

@@ -1,6 +1,5 @@
-const MERCHANT_UPI_ID = String(import.meta.env.VITE_MERCHANT_UPI_ID || "").trim();
-// Name on your UPI account — set VITE_MERCHANT_UPI_NAME in .env (omit pn if empty)
-const MERCHANT_NAME = (import.meta.env.VITE_MERCHANT_UPI_NAME || "").trim();
+const ENV_UPI_ID = String(import.meta.env.VITE_MERCHANT_UPI_ID || "").trim();
+const ENV_UPI_NAME = (import.meta.env.VITE_MERCHANT_UPI_NAME || "").trim();
 
 export function getPayableAmount(orderTotal, paymentMethod) {
   if (paymentMethod === "cod") {
@@ -17,17 +16,30 @@ function sanitizeNote(note) {
     .slice(0, 40);
 }
 
+export function resolveMerchantUpiConfig(config = {}) {
+  const upiId = String(config.merchantUpiId || config.upiId || ENV_UPI_ID || "").trim();
+  const upiName = String(
+    config.merchantUpiName || config.upiName || ENV_UPI_NAME || "BulkMobileMart"
+  ).trim();
+
+  return { upiId, upiName };
+}
+
 /** NPCI-style query string — encodeURIComponent (%20), not URLSearchParams (+) */
-function buildUpiQuery(amount, note) {
-  const payeeAddress = MERCHANT_UPI_ID || "bulkmobilemart@okaxis";
+export function buildUpiQuery(amount, note, config = {}) {
+  const { upiId, upiName } = resolveMerchantUpiConfig(config);
+  if (!upiId) {
+    return "";
+  }
+
   const parts = [
-    `pa=${encodeURIComponent(payeeAddress)}`,
+    `pa=${encodeURIComponent(upiId)}`,
     `am=${encodeURIComponent(amount.toFixed(2))}`,
     `cu=INR`,
   ];
 
-  if (MERCHANT_NAME) {
-    parts.splice(1, 0, `pn=${encodeURIComponent(MERCHANT_NAME)}`);
+  if (upiName) {
+    parts.splice(1, 0, `pn=${encodeURIComponent(upiName)}`);
   }
 
   const safeNote = sanitizeNote(note);
@@ -38,13 +50,15 @@ function buildUpiQuery(amount, note) {
   return parts.join("&");
 }
 
-export function buildUpiUri(amount, note) {
-  return `upi://pay?${buildUpiQuery(amount, note)}`;
+export function buildUpiUri(amount, note, config = {}) {
+  const query = buildUpiQuery(amount, note, config);
+  return query ? `upi://pay?${query}` : "";
 }
 
-export function getQrCodeImageUrl(amount, note) {
-  const uri = buildUpiUri(amount, note);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=4&data=${encodeURIComponent(uri)}`;
+export function getQrCodeImageUrl(amount, note, config = {}) {
+  const uri = buildUpiUri(amount, note, config);
+  if (!uri) return "";
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=4&data=${encodeURIComponent(uri)}`;
 }
 
 export function isMobileDevice() {
@@ -57,10 +71,12 @@ export function isValidUpiId(value) {
 }
 
 /**
- * Opens the phone's native "Open with" sheet (GPay, PhonePe, Paytm, etc.)
+ * Opens the phone's native UPI app chooser (GPay, PhonePe, Paytm, etc.)
  */
-export function openUpiAppChooser(amount, note) {
-  const query = buildUpiQuery(amount, note);
+export function openUpiAppChooser(amount, note, config = {}) {
+  const query = buildUpiQuery(amount, note, config);
+  if (!query) return false;
+
   const upiUrl = `upi://pay?${query}`;
   const ua = navigator.userAgent || "";
   const isAndroid = /android/i.test(ua);

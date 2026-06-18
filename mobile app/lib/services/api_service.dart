@@ -13,6 +13,7 @@ import '../models/category.dart';
 import '../models/hero_banner.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import '../models/store_settings.dart';
 import '../models/testimonial.dart';
 import '../models/user.dart';
 
@@ -35,6 +36,8 @@ class ApiService {
   Future<Response<dynamic>> getBrands() => _dio.get('/api/brands');
 
   Future<Response<dynamic>> getTestimonials() => _dio.get('/api/testimonials');
+
+  Future<Response<dynamic>> getStoreSettings() => _dio.get('/api/settings');
 
   Future<Response<dynamic>> getProducts([Map<String, dynamic>? params]) =>
       _dio.get('/api/products', queryParameters: params);
@@ -229,6 +232,11 @@ class ApiService {
   Future<List<Testimonial>> fetchTestimonials() async {
     final response = await getTestimonials();
     return ApiResponseParser.parseList(response.data, Testimonial.fromJson);
+  }
+
+  Future<StoreSettings> fetchStoreSettings() async {
+    final response = await getStoreSettings();
+    return ApiResponseParser.parseObject(response.data, StoreSettings.fromJson);
   }
 
   Future<List<Product>> fetchProducts([Map<String, dynamic>? params]) async {

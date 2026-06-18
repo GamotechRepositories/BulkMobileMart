@@ -13,7 +13,7 @@ class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() {
     Future.microtask(_restoreSession);
-    return const AuthState(loading: true);
+    return const AuthState();
   }
 
   Future<void> _restoreSession() async {

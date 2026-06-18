@@ -9,6 +9,7 @@ import {
   createRazorpayOrder,
   submitUpiPaymentProof,
   verifyRazorpayPayment,
+  getStoreSettings,
 } from "../api/api";
 import PaymentModal from "../components/checkout/PaymentModal";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
@@ -21,9 +22,13 @@ import {
   formatAddressLine,
   getAddressFullName,
 } from "../utils/addressDisplay";
+import {
+  calculateShippingCharge,
+  getMinimumOrderShortfall,
+  meetsMinimumOrder,
+  mergeStoreSettings,
+} from "../utils/orderSettings";
 
-const FREE_DELIVERY_THRESHOLD = 999;
-const DELIVERY_CHARGE = 49;
 const MAX_ORDER_NOTE_LENGTH = 200;
 
 const formatPrice = (amount, fractionDigits = 0) =>
@@ -81,6 +86,7 @@ function Checkout() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [message, setMessage] = useState("");
+  const [storeSettings, setStoreSettings] = useState(null);
   const messageRef = useRef("");
 
   useEffect(() => {
@@ -91,8 +97,11 @@ function Checkout() {
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
-  const deliveryCharges = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
   const orderTotal = subtotal + deliveryCharges;
+  const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
+  const minimumOrderShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
+  const minimumOrderValue = mergeStoreSettings(storeSettings).minimumOrderValue;
   const savings = checkoutItems.reduce((sum, item) => {
     const original = item.price ?? item.discountedPrice;
     const diff = Math.max(0, original - item.discountedPrice);
@@ -113,6 +122,26 @@ function Checkout() {
       setAddressesLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (authLoading) {
+      setBootstrapping(true);
+      return;
+    }
+
+    let active = true;
+    getStoreSettings()
+      .then(({ data }) => {
+        if (active) setStoreSettings(data.data);
+      })
+      .catch(() => {
+        if (active) setStoreSettings(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading]);
 
   useEffect(() => {
     if (authLoading) {
@@ -224,7 +253,7 @@ function Checkout() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddressId || placingOrder) return;
+    if (!selectedAddressId || placingOrder || !minimumOrderMet) return;
     setOrderError("");
     await loadCart();
     setShowPaymentModal(true);
@@ -572,15 +601,17 @@ function Checkout() {
                   </div>
                   <div className="flex justify-between text-text-secondary">
                     <span>Delivery Charges</span>
-                    <span
-                      className={`font-semibold ${
-                        deliveryCharges === 0 ? "text-green-600" : "text-text-primary"
-                      }`}
-                    >
-                      {deliveryCharges === 0 ? "FREE" : formatPrice(deliveryCharges)}
+                    <span className="font-semibold text-text-primary">
+                      {formatPrice(deliveryCharges)}
                     </span>
                   </div>
                   <p className="text-xs text-text-muted">GST included in prices</p>
+                  {!minimumOrderMet ? (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                      Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}
+                      {formatPrice(minimumOrderValue)}.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between border-t border-border-light pt-3 sm:mt-4 sm:pt-4">
@@ -605,7 +636,7 @@ function Checkout() {
 
                 <button
                   type="button"
-                  disabled={!selectedAddressId || placingOrder}
+                  disabled={!selectedAddressId || placingOrder || !minimumOrderMet}
                   onClick={handlePlaceOrder}
                   className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-5 sm:px-6 sm:py-3.5"
                 >
@@ -632,6 +663,8 @@ function Checkout() {
         }}
         paymentMethod={paymentMethod}
         orderTotal={orderTotal}
+        merchantUpiId={storeSettings?.merchantUpiId}
+        merchantUpiName={storeSettings?.merchantUpiName}
         onPayWithRazorpay={handlePayWithRazorpay}
         onSubmitUpiProof={handleSubmitUpiProof}
         processing={placingOrder}

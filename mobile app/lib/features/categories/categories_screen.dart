@@ -118,7 +118,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           : null,
     );
     final productsAsync = ref.watch(productListProvider(productQuery));
-    final cartItems = ref.watch(cartControllerProvider).items;
 
     return ColoredBox(
       color: AppColors.mobileSurface,
@@ -129,7 +128,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           return _CategoriesProductLayout(
             categories: fallback,
             productsAsync: productsAsync,
-            cartItems: cartItems,
             selectedCategoryName: _selectedCategoryName,
             selectedSubcategory: _selectedSubcategory,
             activeCategory: _findCategory(fallback, _selectedCategoryName),
@@ -157,7 +155,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           return _CategoriesProductLayout(
             categories: displayCategories,
             productsAsync: productsAsync,
-            cartItems: cartItems,
             selectedCategoryName: _selectedCategoryName,
             selectedSubcategory: _selectedSubcategory,
             activeCategory:
@@ -190,7 +187,6 @@ class _CategoriesProductLayout extends StatelessWidget {
   const _CategoriesProductLayout({
     required this.categories,
     required this.productsAsync,
-    required this.cartItems,
     required this.selectedCategoryName,
     required this.selectedSubcategory,
     required this.activeCategory,
@@ -205,7 +201,6 @@ class _CategoriesProductLayout extends StatelessWidget {
 
   final List<Category> categories;
   final AsyncValue<List<Product>> productsAsync;
-  final List<CartItem> cartItems;
   final String? selectedCategoryName;
   final String? selectedSubcategory;
   final Category? activeCategory;
@@ -216,17 +211,6 @@ class _CategoriesProductLayout extends StatelessWidget {
   final Future<void> Function(Product) onDecrease;
   final Future<void> Function() onRefresh;
   final List<Product> Function(List<Product>, String?) filterBySubcategory;
-
-  CartItem? _cartLine(List<CartItem> items, Product product) {
-    final defaults = resolveCartDefaults(product);
-    for (final item in items) {
-      if (item.id != product.id) continue;
-      if (item.variantName.trim() != defaults.variantName.trim()) continue;
-      if (item.colorName.trim() != defaults.colorName.trim()) continue;
-      return item;
-    }
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -312,13 +296,8 @@ class _CategoriesProductLayout extends StatelessWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final product = filtered[index];
-                      final line = _cartLine(cartItems, product);
-                      final qty = line?.quantity ?? 0;
-
-                      return DealProductCard(
+                      return _CategoryDealCard(
                         product: product,
-                        flat: true,
-                        cartQuantity: qty,
                         onAdd: () => onAdd(product),
                         onIncrease: () => onIncrease(product),
                         onDecrease: () => onDecrease(product),
@@ -332,6 +311,34 @@ class _CategoriesProductLayout extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CategoryDealCard extends ConsumerWidget {
+  const _CategoryDealCard({
+    required this.product,
+    required this.onAdd,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  final Product product;
+  final VoidCallback onAdd;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qty = ref.watch(cartProductQuantityProvider(product));
+
+    return DealProductCard(
+      product: product,
+      flat: true,
+      cartQuantity: qty,
+      onAdd: onAdd,
+      onIncrease: onIncrease,
+      onDecrease: onDecrease,
     );
   }
 }

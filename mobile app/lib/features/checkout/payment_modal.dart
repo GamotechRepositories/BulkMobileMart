@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/env.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -20,12 +21,16 @@ class PaymentModal extends StatefulWidget {
     required this.onPayWithRazorpay,
     required this.onSubmitUpiProof,
     required this.onUploadScreenshot,
+    this.merchantUpiId,
+    this.merchantUpiName,
     this.processing = false,
     this.error = '',
   });
 
   final String paymentMethod;
   final double orderTotal;
+  final String? merchantUpiId;
+  final String? merchantUpiName;
   final VoidCallback onPayWithRazorpay;
   final Future<String?> Function({
     required String screenshotUrl,
@@ -52,6 +57,7 @@ class _PaymentModalState extends State<PaymentModal> {
   bool _uploadingScreenshot = false;
   bool _submittingProof = false;
   String _upiHint = '';
+  bool _autoOpenedUpi = false;
 
   bool get _isCod => widget.paymentMethod == 'cod';
 
@@ -59,6 +65,26 @@ class _PaymentModalState extends State<PaymentModal> {
       UpiPayment.getPayableAmount(widget.orderTotal, widget.paymentMethod);
 
   String get _paymentNote => _isCod ? 'COD Advance' : 'Order Payment';
+
+  String get _resolvedUpiId {
+    final configured = widget.merchantUpiId?.trim() ?? '';
+    if (configured.isNotEmpty) return configured;
+    return Env.merchantUpiId.trim();
+  }
+
+  bool get _hasUpiId => _resolvedUpiId.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenUpiApp());
+  }
+
+  Future<void> _autoOpenUpiApp() async {
+    if (_autoOpenedUpi || !_hasUpiId || widget.processing) return;
+    _autoOpenedUpi = true;
+    await _payViaApp(auto: true);
+  }
 
   Future<void> _pickScreenshot() async {
     final source = await showImageSourceSheet(context, useRootNavigator: true);
@@ -119,14 +145,37 @@ class _PaymentModalState extends State<PaymentModal> {
     }
   }
 
-  Future<void> _payViaApp() async {
-    setState(() => _upiHint = '');
-    final uri = Uri.parse(UpiPayment.buildUpiUri(_payableAmount, note: _paymentNote));
+  Future<void> _payViaApp({bool auto = false}) async {
+    if (!_hasUpiId) {
+      if (!mounted) return;
+      setState(() => _upiHint = 'UPI ID is not configured. Please contact support.');
+      return;
+    }
+
+    if (!auto) {
+      setState(() => _upiHint = '');
+    }
+
+    final uri = Uri.parse(
+      UpiPayment.buildUpiUri(
+        _payableAmount,
+        note: _paymentNote,
+        merchantUpiId: widget.merchantUpiId,
+        merchantUpiName: widget.merchantUpiName,
+      ),
+    );
+
+    if (uri.toString().isEmpty) {
+      if (!mounted) return;
+      setState(() => _upiHint = 'UPI payment is not available right now.');
+      return;
+    }
+
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted) return;
     setState(() {
       _upiHint = launched
-          ? 'Choose GPay, PhonePe, or Paytm.'
+          ? (auto ? 'Opening UPI app...' : 'Choose GPay, PhonePe, or Paytm.')
           : 'Could not open UPI app. Scan the QR code instead.';
     });
   }
@@ -159,7 +208,12 @@ class _PaymentModalState extends State<PaymentModal> {
 
   @override
   Widget build(BuildContext context) {
-    final qrUrl = UpiPayment.getQrCodeImageUrl(_payableAmount, note: _paymentNote);
+    final qrUrl = UpiPayment.getQrCodeImageUrl(
+      _payableAmount,
+      note: _paymentNote,
+      merchantUpiId: widget.merchantUpiId,
+      merchantUpiName: widget.merchantUpiName,
+    );
     final displayError = widget.error.isNotEmpty ? widget.error : (_uploadError ?? '');
     final busy = widget.processing || _uploadingScreenshot || _submittingProof;
 
@@ -208,6 +262,22 @@ class _PaymentModalState extends State<PaymentModal> {
                       ),
                       const SizedBox(height: 8),
                     ],
+                    if (!_hasUpiId) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Text(
+                          'UPI payment is not configured yet. Please contact the store admin.',
+                          style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
@@ -252,15 +322,39 @@ class _PaymentModalState extends State<PaymentModal> {
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                           ),
                           const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: CachedNetworkImage(
-                              imageUrl: qrUrl,
+                          if (_hasUpiId && qrUrl.isNotEmpty)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: CachedNetworkImage(
+                                imageUrl: qrUrl,
+                                width: 112,
+                                height: 112,
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          else
+                            Container(
                               width: 112,
                               height: 112,
-                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppColors.borderLight),
+                                borderRadius: BorderRadius.circular(8),
+                                color: AppColors.mobileSurface,
+                              ),
+                              child: const Text(
+                                'QR unavailable',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                              ),
                             ),
-                          ),
+                          if (_hasUpiId) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Pay to: $_resolvedUpiId',
+                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            ),
+                          ],
                           const SizedBox(height: 6),
                           const Text(
                             'Use any UPI app',
@@ -270,7 +364,7 @@ class _PaymentModalState extends State<PaymentModal> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: busy ? null : _payViaApp,
+                              onPressed: busy || !_hasUpiId ? null : _payViaApp,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF25D366),
                                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -392,7 +486,9 @@ class _PaymentModalState extends State<PaymentModal> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: busy || _uploadingScreenshot || _screenshotUrl == null ? null : _submitProof,
+                      onPressed: busy || _uploadingScreenshot || _screenshotUrl == null || !_hasUpiId
+                          ? null
+                          : _submitProof,
                       child: Text(_submittingProof ? 'Sending...' : 'Send screenshot'),
                     ),
                   ),
