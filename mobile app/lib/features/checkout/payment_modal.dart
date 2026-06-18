@@ -4,12 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/env.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/upi_app_launcher.dart';
 import '../../core/utils/upi_payment.dart';
 import '../../widgets/common/image_source_sheet.dart';
 
@@ -57,7 +57,8 @@ class _PaymentModalState extends State<PaymentModal> {
   bool _uploadingScreenshot = false;
   bool _submittingProof = false;
   String _upiHint = '';
-  bool _autoOpenedUpi = false;
+  List<UpiAppOption> _installedUpiApps = [];
+  bool _loadingUpiApps = true;
 
   bool get _isCod => widget.paymentMethod == 'cod';
 
@@ -77,13 +78,39 @@ class _PaymentModalState extends State<PaymentModal> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenUpiApp());
+    _loadInstalledUpiApps();
   }
 
-  Future<void> _autoOpenUpiApp() async {
-    if (_autoOpenedUpi || !_hasUpiId || widget.processing) return;
-    _autoOpenedUpi = true;
-    await _payViaApp(auto: true);
+  Future<void> _loadInstalledUpiApps() async {
+    final apps = await UpiAppLauncher.detectInstalledApps();
+    if (!mounted) return;
+    setState(() {
+      _installedUpiApps = apps;
+      _loadingUpiApps = false;
+    });
+  }
+
+  Future<void> _payWithApp(UpiAppOption app) async {
+    if (!_hasUpiId) {
+      setState(() => _upiHint = 'UPI ID is not configured. Please contact support.');
+      return;
+    }
+
+    setState(() => _upiHint = '');
+    final launched = await UpiAppLauncher.launchApp(
+      app: app,
+      amount: _payableAmount,
+      note: _paymentNote,
+      merchantUpiId: widget.merchantUpiId,
+      merchantUpiName: widget.merchantUpiName,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _upiHint = launched
+          ? 'Complete payment in ${app.label}, then upload screenshot.'
+          : 'Could not open ${app.label}. Try another app or scan QR.';
+    });
   }
 
   Future<void> _pickScreenshot() async {
@@ -143,41 +170,6 @@ class _PaymentModalState extends State<PaymentModal> {
         _uploadingScreenshot = false;
       });
     }
-  }
-
-  Future<void> _payViaApp({bool auto = false}) async {
-    if (!_hasUpiId) {
-      if (!mounted) return;
-      setState(() => _upiHint = 'UPI ID is not configured. Please contact support.');
-      return;
-    }
-
-    if (!auto) {
-      setState(() => _upiHint = '');
-    }
-
-    final uri = Uri.parse(
-      UpiPayment.buildUpiUri(
-        _payableAmount,
-        note: _paymentNote,
-        merchantUpiId: widget.merchantUpiId,
-        merchantUpiName: widget.merchantUpiName,
-      ),
-    );
-
-    if (uri.toString().isEmpty) {
-      if (!mounted) return;
-      setState(() => _upiHint = 'UPI payment is not available right now.');
-      return;
-    }
-
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!mounted) return;
-    setState(() {
-      _upiHint = launched
-          ? (auto ? 'Opening UPI app...' : 'Choose GPay, PhonePe, or Paytm.')
-          : 'Could not open UPI app. Scan the QR code instead.';
-    });
   }
 
   Future<void> _submitProof() async {
@@ -355,24 +347,90 @@ class _PaymentModalState extends State<PaymentModal> {
                               style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
                             ),
                           ],
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Use any UPI app',
-                            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: busy || !_hasUpiId ? null : _payViaApp,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF25D366),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                              ),
-                              icon: const Icon(Icons.chat, size: 16),
-                              label: const Text('Pay via App', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 10),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Pay with',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          if (_loadingUpiApps)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          else if (_installedUpiApps.isEmpty)
+                            Text(
+                              _hasUpiId
+                                  ? 'Scan the QR code to pay with any UPI app.'
+                                  : 'UPI apps not detected.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: _installedUpiApps.map((app) {
+                                return SizedBox(
+                                  width: 88,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: busy || !_hasUpiId ? null : () => _payWithApp(app),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Ink(
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: AppColors.borderLight),
+                                          borderRadius: BorderRadius.circular(10),
+                                          color: Colors.white,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                          horizontal: 6,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 16,
+                                              backgroundColor: app.color,
+                                              child: Text(
+                                                app.shortLabel,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              app.label,
+                                              textAlign: TextAlign.center,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           if (_upiHint.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text(

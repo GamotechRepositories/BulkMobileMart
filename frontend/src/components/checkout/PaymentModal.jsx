@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
+import { getUpiAppOptions, openUpiApp } from "../../utils/upiAppLauncher";
 import {
   getPayableAmount,
   getQrCodeImageUrl,
-  openUpiAppChooser,
+  isMobileDevice,
   resolveMerchantUpiConfig,
 } from "../../utils/upiPayment";
 
@@ -20,6 +21,27 @@ const formatPrice = (amount) =>
   }).format(amount);
 
 const safeTrim = (value) => String(value ?? "").trim();
+
+function UpiAppButton({ app, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex w-[5.5rem] flex-col items-center rounded-lg border border-border-light bg-white px-1.5 py-2.5 transition hover:border-primary/30 hover:bg-orange-50/40 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span
+        className="flex h-8 w-8 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+        style={{ backgroundColor: app.color }}
+      >
+        {app.shortLabel}
+      </span>
+      <span className="mt-1.5 text-center text-[10px] font-semibold leading-tight text-text-primary">
+        {app.label}
+      </span>
+    </button>
+  );
+}
 
 function PaymentModal({
   open,
@@ -39,7 +61,6 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
-  const autoOpenedRef = useRef(false);
 
   const payableAmount = getPayableAmount(orderTotal, paymentMethod);
   const isCod = paymentMethod === "cod";
@@ -50,12 +71,11 @@ function PaymentModal({
   );
   const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote, upiConfig);
   const hasUpiId = Boolean(upiConfig.upiId);
+  const upiApps = useMemo(() => getUpiAppOptions(), []);
+  const onMobile = isMobileDevice();
 
   useEffect(() => {
-    if (!open) {
-      autoOpenedRef.current = false;
-      return undefined;
-    }
+    if (!open) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -65,42 +85,23 @@ function PaymentModal({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open || !hasUpiId || autoOpenedRef.current) return undefined;
-
-    const timer = window.setTimeout(() => {
-      autoOpenedRef.current = true;
-      setUpiHint("");
-      const openedOnMobile = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
-
-      if (openedOnMobile) {
-        setUpiHint("Opening UPI app... Choose GPay, PhonePe, or Paytm.");
-        return;
-      }
-
-      setUpiHint("Scan the QR code or use Pay via App on your phone.");
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [open, hasUpiId, payableAmount, paymentNote, upiConfig]);
-
   if (!open) return null;
 
-  const handlePayViaApp = () => {
+  const handlePayWithApp = (app) => {
     if (!hasUpiId) {
       setUpiHint("UPI ID is not configured. Please contact support.");
       return;
     }
 
     setUpiHint("");
-    const openedOnMobile = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
+    const openedOnMobile = openUpiApp(app, payableAmount, paymentNote, upiConfig);
 
-    if (!openedOnMobile) {
-      setUpiHint("Open on your phone or scan the QR code.");
+    if (openedOnMobile) {
+      setUpiHint(`Complete payment in ${app.label}, then upload screenshot.`);
       return;
     }
 
-    setUpiHint("Choose GPay, PhonePe, or Paytm.");
+    setUpiHint("Open this page on your phone or scan the QR code to pay.");
   };
 
   const processScreenshot = async (file) => {
@@ -235,20 +236,28 @@ function PaymentModal({
               {hasUpiId && upiConfig.upiId ? (
                 <p className="mt-1 text-[10px] text-text-muted">Pay to: {upiConfig.upiId}</p>
               ) : null}
-              <p className="mt-1 text-[10px] text-text-muted">Use any UPI app</p>
-              <button
-                type="button"
-                disabled={processing || !hasUpiId}
-                onClick={handlePayViaApp}
-                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md bg-[#25D366] py-1.5 text-[11px] font-bold text-white transition hover:bg-[#20bd5a] disabled:opacity-50"
-              >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                </svg>
-                Pay via App
-              </button>
+
+              <div className="mt-3 w-full">
+                <p className="mb-2 text-left text-[11px] font-semibold text-text-primary">Pay with</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {upiApps.map((app) => (
+                    <UpiAppButton
+                      key={app.id}
+                      app={app}
+                      disabled={processing || !hasUpiId}
+                      onClick={() => handlePayWithApp(app)}
+                    />
+                  ))}
+                </div>
+                {!onMobile && hasUpiId ? (
+                  <p className="mt-2 text-center text-[10px] text-text-muted">
+                    On desktop, scan the QR code. On phone, tap an app above.
+                  </p>
+                ) : null}
+              </div>
+
               {upiHint && (
-                <p className="mt-1 text-center text-[10px] leading-snug text-text-secondary">{upiHint}</p>
+                <p className="mt-2 text-center text-[10px] leading-snug text-text-secondary">{upiHint}</p>
               )}
             </div>
 

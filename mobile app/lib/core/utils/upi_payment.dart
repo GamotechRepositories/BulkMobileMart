@@ -11,6 +11,20 @@ class UpiPayment {
     return (orderTotal * 100).round() / 100;
   }
 
+  static String buildPaymentQuery(
+    double amount,
+    String note, {
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) {
+    return _buildUpiQuery(
+      amount,
+      note,
+      merchantUpiId: merchantUpiId,
+      merchantUpiName: merchantUpiName,
+    );
+  }
+
   static String buildUpiUri(
     double amount, {
     String note = 'Order',
