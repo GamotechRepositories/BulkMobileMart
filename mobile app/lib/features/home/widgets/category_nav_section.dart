@@ -34,7 +34,7 @@ class CategoryNavSection extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
         child: SkeletonCategoryGridPage(),
       ),
-      error: (_, __) => Padding(
+      error: (_, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: ApiErrorView(
           message: 'Could not load categories',

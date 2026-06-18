@@ -53,12 +53,12 @@ class AppNetworkImage extends StatelessWidget {
       memCacheWidth: memW,
       memCacheHeight: memH,
       maxWidthDiskCache: memW != null ? memW.clamp(200, 1200) : 800,
-      maxHeightDiskCache: memH != null ? memH.clamp(200, 1200) : null,
+      maxHeightDiskCache: memH?.clamp(200, 1200),
       filterQuality: FilterQuality.medium,
       fadeInDuration: const Duration(milliseconds: 150),
       fadeOutDuration: const Duration(milliseconds: 100),
-      placeholder: (_, __) => placeholder ?? _loadingBox(),
-      errorWidget: (_, __, ___) => _errorBox(),
+      placeholder: (_, _) => placeholder ?? _loadingBox(),
+      errorWidget: (_, _, _) => _errorBox(),
     );
   }
 

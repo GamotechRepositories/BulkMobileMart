@@ -66,7 +66,7 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
           padding: EdgeInsets.only(top: 4, bottom: 12),
           child: SkeletonHeroBanner(),
         ),
-        error: (_, __) => _buildCarousel(_slidesFor(fallbackHeroBanners())),
+        error: (_, _) => _buildCarousel(_slidesFor(fallbackHeroBanners())),
         data: (banners) {
           final display = banners.isEmpty ? fallbackHeroBanners() : banners;
           return _buildCarousel(_slidesFor(display));

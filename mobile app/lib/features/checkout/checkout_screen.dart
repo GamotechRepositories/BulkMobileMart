@@ -389,30 +389,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   children: [
                     _StepSection(
                       title: 'Payment Method',
-                      child: Column(
-                        children: [
-                          _PaymentOption(
-                            value: 'cod',
-                            groupValue: _paymentMethod,
-                            title: 'Cash on Delivery',
-                            subtitle: 'Pay 10% advance now · balance on delivery',
-                            icon: Icons.payments_outlined,
-                            iconColor: AppColors.primary,
-                            iconBg: AppColors.primary.withValues(alpha: 0.12),
-                            onTap: () => setState(() => _paymentMethod = 'cod'),
-                          ),
-                          const SizedBox(height: 10),
-                          _PaymentOption(
-                            value: 'online',
-                            groupValue: _paymentMethod,
-                            title: 'Pay Online',
-                            subtitle: 'UPI, Cards, Net Banking via Razorpay',
-                            icon: Icons.credit_card_outlined,
-                            iconColor: Colors.blue,
-                            iconBg: Colors.blue.withValues(alpha: 0.12),
-                            onTap: () => setState(() => _paymentMethod = 'online'),
-                          ),
-                        ],
+                      child: RadioGroup<String>(
+                        groupValue: _paymentMethod,
+                        onChanged: (value) {
+                          if (value != null) setState(() => _paymentMethod = value);
+                        },
+                        child: Column(
+                          children: [
+                            _PaymentOption(
+                              value: 'cod',
+                              selected: _paymentMethod == 'cod',
+                              title: 'Cash on Delivery',
+                              subtitle: 'Pay 10% advance now · balance on delivery',
+                              icon: Icons.payments_outlined,
+                              iconColor: AppColors.primary,
+                              iconBg: AppColors.primary.withValues(alpha: 0.12),
+                              onTap: () => setState(() => _paymentMethod = 'cod'),
+                            ),
+                            const SizedBox(height: 10),
+                            _PaymentOption(
+                              value: 'online',
+                              selected: _paymentMethod == 'online',
+                              title: 'Pay Online',
+                              subtitle: 'UPI, Cards, Net Banking via Razorpay',
+                              icon: Icons.credit_card_outlined,
+                              iconColor: Colors.blue,
+                              iconBg: Colors.blue.withValues(alpha: 0.12),
+                              onTap: () => setState(() => _paymentMethod = 'online'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -788,7 +794,7 @@ class _StepSection extends StatelessWidget {
 class _PaymentOption extends StatelessWidget {
   const _PaymentOption({
     required this.value,
-    required this.groupValue,
+    required this.selected,
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -798,7 +804,7 @@ class _PaymentOption extends StatelessWidget {
   });
 
   final String value;
-  final String groupValue;
+  final bool selected;
   final String title;
   final String subtitle;
   final IconData icon;
@@ -808,7 +814,6 @@ class _PaymentOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = value == groupValue;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -825,8 +830,6 @@ class _PaymentOption extends StatelessWidget {
           children: [
             Radio<String>(
               value: value,
-              groupValue: groupValue,
-              onChanged: (_) => onTap(),
               activeColor: AppColors.primary,
             ),
             Container(
@@ -941,63 +944,65 @@ class _AddressPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ...addresses.map(
-          (addr) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: InkWell(
-              onTap: () => onSelect(addr.id),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: selectedId == addr.id ? AppColors.primary : AppColors.borderLight,
+    return RadioGroup<String>(
+      groupValue: selectedId,
+      onChanged: (value) {
+        if (value != null) onSelect(value);
+      },
+      child: Column(
+        children: [
+          ...addresses.map(
+            (addr) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => onSelect(addr.id),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: selectedId == addr.id ? AppColors.primary : AppColors.borderLight,
+                    ),
+                    color: selectedId == addr.id
+                        ? AppColors.primary.withValues(alpha: 0.05)
+                        : Colors.white,
                   ),
-                  color: selectedId == addr.id
-                      ? AppColors.primary.withValues(alpha: 0.05)
-                      : Colors.white,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Radio<String>(
-                      value: addr.id,
-                      groupValue: selectedId,
-                      onChanged: (value) {
-                        if (value != null) onSelect(value);
-                      },
-                      activeColor: AppColors.primary,
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            getAddressFullName(addr),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            formatAddressLine(addr),
-                            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                          ),
-                        ],
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Radio<String>(
+                        value: addr.id,
+                        activeColor: AppColors.primary,
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              getAddressFullName(addr),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              formatAddressLine(addr),
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(onPressed: onAddNew, child: const Text('+ Add new address')),
         ),
-      ],
+        ],
+      ),
     );
   }
 }

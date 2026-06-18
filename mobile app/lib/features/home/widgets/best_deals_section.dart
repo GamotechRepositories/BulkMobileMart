@@ -31,7 +31,7 @@ class BestDealsSection extends ConsumerWidget {
           ],
         ),
       ),
-      error: (_, __) => _DealsContent(products: fallbackHomeProducts()),
+      error: (_, _) => _DealsContent(products: fallbackHomeProducts()),
       data: (products) {
         final display =
             products.isEmpty ? fallbackHomeProducts() : products.take(12).toList();
@@ -142,7 +142,7 @@ class _DealsContent extends ConsumerWidget {
               cacheExtent: 320,
               addAutomaticKeepAlives: false,
               itemCount: products.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final product = products[index];
                 return Align(

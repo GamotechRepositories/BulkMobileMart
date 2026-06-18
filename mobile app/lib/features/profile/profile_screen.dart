@@ -236,7 +236,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     '${AppInfo.name} v${AppInfo.version}',
                     style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),
-                  error: (_, __) => Text(
+                  error: (_, _) => Text(
                     '${AppInfo.name} v${AppInfo.version}',
                     style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
                   ),

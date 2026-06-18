@@ -184,7 +184,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
             onRefresh: _refreshProducts,
             child: productsAsync.when(
               loading: () => const SkeletonProductGrid(),
-              error: (_, __) => ApiErrorView(
+              error: (_, _) => ApiErrorView(
                 message: 'Could not load products',
                 onRetry: _refreshProducts,
               ),
@@ -289,7 +289,7 @@ class _ProductResultsViewState extends State<_ProductResultsView> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         itemCount: _filtered.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final product = _filtered[index];
           return MobileProductCard(

@@ -119,9 +119,9 @@ class _ContactScreenState extends State<ContactScreen> {
           const SizedBox(height: 10),
           _contactInfo(Icons.email_outlined, 'Email', 'sales@bulkmobilemart.com', 'mailto:sales@bulkmobilemart.com'),
           const SizedBox(height: 10),
-          const _contactInfoStatic(Icons.schedule, 'Office Hours', 'Mon – Sat · 10:00 AM – 7:00 PM IST'),
+          const _ContactInfoStatic(Icons.schedule, 'Office Hours', 'Mon – Sat · 10:00 AM – 7:00 PM IST'),
           const SizedBox(height: 10),
-          const _contactInfoStatic(Icons.location_on_outlined, 'Locations', 'Mumbai · Delhi NCR · Bangalore'),
+          const _ContactInfoStatic(Icons.location_on_outlined, 'Locations', 'Mumbai · Delhi NCR · Bangalore'),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),
@@ -183,8 +183,8 @@ class _ContactScreenState extends State<ContactScreen> {
   }
 }
 
-class _contactInfoStatic extends StatelessWidget {
-  const _contactInfoStatic(this.icon, this.label, this.value);
+class _ContactInfoStatic extends StatelessWidget {
+  const _ContactInfoStatic(this.icon, this.label, this.value);
 
   final IconData icon;
   final String label;

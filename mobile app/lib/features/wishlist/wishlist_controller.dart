@@ -29,7 +29,7 @@ class WishlistState {
     final nextItems = items ?? this.items;
     return WishlistState(
       items: nextItems,
-      ids: items != null ? _idsFromItems(nextItems) : this.ids,
+      ids: items != null ? _idsFromItems(nextItems) : ids,
       loading: loading ?? this.loading,
       toastImage: clearToast ? null : (toastImage ?? this.toastImage),
     );

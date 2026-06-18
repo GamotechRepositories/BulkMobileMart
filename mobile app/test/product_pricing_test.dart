@@ -1,6 +1,5 @@
 import 'package:bulk_mobile_mart/core/utils/product_pricing.dart';
 import 'package:bulk_mobile_mart/models/product.dart';
-import 'package:bulk_mobile_mart/models/product_pricing_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

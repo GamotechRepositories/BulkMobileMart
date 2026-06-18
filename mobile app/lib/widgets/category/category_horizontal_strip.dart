@@ -28,7 +28,7 @@ class CategoryHorizontalStrip extends StatelessWidget {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: categories.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (context, index) {
             if (index == 0) {
               return _CategoryStripItem(

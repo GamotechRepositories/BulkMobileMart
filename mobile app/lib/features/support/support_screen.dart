@@ -297,7 +297,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: _issueType,
+                  initialValue: _issueType,
                   decoration: const InputDecoration(labelText: 'Issue Type *'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Select issue type')),

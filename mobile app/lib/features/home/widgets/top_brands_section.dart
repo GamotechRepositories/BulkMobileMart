@@ -35,7 +35,7 @@ class TopBrandsSection extends ConsumerWidget {
           ],
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (brands) {
         if (brands.isEmpty) return const SizedBox.shrink();
 
@@ -60,7 +60,7 @@ class TopBrandsSection extends ConsumerWidget {
                   cacheExtent: 320,
                   addAutomaticKeepAlives: false,
                   itemCount: brands.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (context, index) {
                     final brand = brands[index];
                     return _BrandTile(

@@ -85,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 80),
                   placeholderHeight: 220,
-                  child: const BestDealsSection(),
+                  child: BestDealsSection(),
                 ),
               ),
             ),
@@ -94,7 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 160),
                   placeholderHeight: 120,
-                  child: const TopBrandsSection(),
+                  child: TopBrandsSection(),
                 ),
               ),
             ),
@@ -102,7 +102,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: DeferredHomeSection(
                 delay: Duration(milliseconds: 240),
                 placeholderHeight: 168,
-                child: const HomeWholesaleBanner(),
+                child: HomeWholesaleBanner(),
               ),
             ),
             const SliverToBoxAdapter(
@@ -110,14 +110,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 320),
                   placeholderHeight: 280,
-                  child: const WhyChooseUsSection(),
+                  child: WhyChooseUsSection(),
                 ),
               ),
             ),
             const SliverToBoxAdapter(
               child: DeferredHomeSection(
                 delay: Duration(milliseconds: 400),
-                child: const HomeTrustStrip(),
+                child: HomeTrustStrip(),
               ),
             ),
             const SliverToBoxAdapter(
@@ -125,7 +125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: DeferredHomeSection(
                   delay: Duration(milliseconds: 480),
                   placeholderHeight: 180,
-                  child: const TestimonialsSection(),
+                  child: TestimonialsSection(),
                 ),
               ),
             ),

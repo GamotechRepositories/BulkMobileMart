@@ -50,8 +50,8 @@ class SkeletonDealRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, __) => const SizedBox(
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (_, _) => const SizedBox(
           width: 168,
           child: SkeletonBox(height: 272, borderRadius: 12),
         ),
@@ -93,8 +93,8 @@ class SkeletonWishlistList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => const SkeletonBox(height: 250, borderRadius: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (_, _) => const SkeletonBox(height: 250, borderRadius: 12),
     );
   }
 }
@@ -133,7 +133,7 @@ class SkeletonProductGrid extends StatelessWidget {
         childAspectRatio: 0.62,
       ),
       itemCount: 6,
-      itemBuilder: (_, __) => const SkeletonBox(borderRadius: 12),
+      itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
     );
   }
 }
@@ -174,7 +174,7 @@ class SkeletonCategoryGridPage extends StatelessWidget {
             crossAxisSpacing: 10,
             childAspectRatio: 0.58,
           ),
-          itemBuilder: (_, __) => Container(
+          itemBuilder: (_, _) => Container(
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(16),
@@ -201,8 +201,8 @@ class SkeletonCategorySlider extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: 5,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, __) => Container(
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (_, _) => Container(
               width: CategorySliderTile.tileWidth,
               decoration: BoxDecoration(
                 color: Colors.grey.shade200,
@@ -253,7 +253,7 @@ class SkeletonCategoryGrid extends StatelessWidget {
               crossAxisSpacing: large ? 8 : 8,
               childAspectRatio: aspectRatio,
             ),
-            itemBuilder: (_, __) => Container(
+            itemBuilder: (_, _) => Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(large ? 16 : 12),

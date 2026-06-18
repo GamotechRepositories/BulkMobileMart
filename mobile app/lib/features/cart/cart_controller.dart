@@ -188,7 +188,7 @@ class CartController extends Notifier<CartState> {
       await loadCart(silent: true);
 
       if (!buyNow) {
-        if (flySourceContext != null) {
+        if (flySourceContext != null && flySourceContext.mounted) {
           triggerFlyToCart(
             sourceContext: flySourceContext,
             imageUrl: product.primaryImage,

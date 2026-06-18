@@ -93,7 +93,7 @@ class _ProductFilterSheetState extends State<ProductFilterSheet> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
-                value: _brand,
+                initialValue: _brand,
                 decoration: const InputDecoration(
                   labelText: 'Brand',
                   filled: true,

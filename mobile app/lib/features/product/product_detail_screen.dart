@@ -126,7 +126,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
       body: productAsync.when(
         loading: () => const SkeletonProductDetail(),
-        error: (_, __) => _ErrorView(onBack: () => context.go(RoutePaths.product)),
+        error: (_, _) => _ErrorView(onBack: () => context.go(RoutePaths.product)),
         data: (product) => _buildContent(context, product),
       ),
     );

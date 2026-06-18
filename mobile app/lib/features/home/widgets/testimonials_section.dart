@@ -54,7 +54,7 @@ class _TestimonialsSectionState extends ConsumerState<TestimonialsSection> {
           ],
         ),
       ),
-      error: (_, __) => _ImpactStatsOnly(),
+      error: (_, _) => _ImpactStatsOnly(),
       data: (testimonials) {
         if (_lastCount != testimonials.length) {
           _lastCount = testimonials.length;
@@ -172,7 +172,7 @@ class _ImpactStatsOnly extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _stats.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final stat = _stats[index];
               return Container(
