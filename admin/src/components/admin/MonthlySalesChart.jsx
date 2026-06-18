@@ -124,7 +124,7 @@ function MonthlySalesChart({ monthlySales, year, years, onYearChange, loading })
   }, [hoveredIndex, normalizedData, ordersMax, salesMax, chartHeight, padding.top]);
 
   return (
-    <div className={cardClass}>
+    <div className={`${cardClass} flex h-full w-full min-h-0 flex-col`}>
       <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-neutral-900">Order Statistics</h3>
@@ -166,12 +166,12 @@ function MonthlySalesChart({ monthlySales, year, years, onYearChange, loading })
       </div>
 
       {loading ? (
-        <div className="flex h-80 items-center justify-center text-sm text-text-secondary">
+        <div className="flex min-h-[300px] flex-1 items-center justify-center text-sm text-text-secondary">
           Loading chart...
         </div>
       ) : (
         <div
-          className="relative overflow-x-auto"
+          className="relative min-h-[300px] flex-1 overflow-x-auto"
           onMouseLeave={() => setHoveredIndex(null)}
         >
           <svg

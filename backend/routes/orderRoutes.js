@@ -8,6 +8,7 @@ import {
   updateOrder,
   cancelOrder,
   getDashboardStats,
+  getOrderUnreadCount,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/admin/dashboard-stats", requireAdmin, getDashboardStats);
+router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
 router.get("/admin/all", requireAdmin, getAllOrders);
 router.patch("/admin/:id", requireAdmin, updateOrder);
 router.post("/", placeOrder);

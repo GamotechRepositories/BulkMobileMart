@@ -76,11 +76,15 @@ export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });
+export const getAdminOrderUnreadCount = (params) =>
+  api.get("/api/orders/admin/unread-count", { params });
 export const getDashboardStats = (params) =>
   api.get("/api/orders/admin/dashboard-stats", { params });
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 
 export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
+export const getAdminPaymentUnreadCount = (params) =>
+  api.get("/api/payments/admin/unread-count", { params });
 export const getAdminPaymentProof = (id) => api.get(`/api/payments/admin/${id}`);
 export const updateAdminPaymentProof = (id, data) =>
   api.patch(`/api/payments/admin/${id}`, data);

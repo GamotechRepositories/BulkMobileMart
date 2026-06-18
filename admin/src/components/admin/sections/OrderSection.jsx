@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
+import { useAdminNotifications } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
@@ -36,6 +37,7 @@ function getErrorMessage(err, fallback) {
 function OrderSection() {
   const navigate = useNavigate();
   const { adminUser } = useAuth();
+  const { markOrdersAsSeen } = useAdminNotifications();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,6 +57,10 @@ function OrderSection() {
   useEffect(() => {
     setPage(1);
   }, [startDate, endDate, orderStatus, paymentStatus]);
+
+  useEffect(() => {
+    markOrdersAsSeen();
+  }, [markOrdersAsSeen]);
 
   const fetchOrders = useCallback(async () => {
     if (adminUser?.role !== "admin") return;

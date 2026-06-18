@@ -1,6 +1,7 @@
 import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import User from "../models/user.js";
 import {
   enrichOrderForResponse,
   finalizeOrder,
@@ -12,6 +13,98 @@ import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
+
+function buildDayOrderStats(orders) {
+  return {
+    orders: orders.length,
+    pending: orders.filter((order) => PENDING_STATUSES.includes(order.status)).length,
+    delivered: orders.filter((order) => order.status === "delivered").length,
+    cancelled: orders.filter((order) => order.status === "cancelled").length,
+  };
+}
+
+function buildLast7DaysTrend(orders) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    return date;
+  });
+
+  return days.map((date) => {
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const dayOrders = orders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      return createdAt >= date && createdAt < nextDay;
+    });
+
+    return {
+      date: date.toISOString().slice(0, 10),
+      ...buildDayOrderStats(dayOrders),
+    };
+  });
+}
+
+function getPercentChange(current, previous) {
+  const curr = Number(current) || 0;
+  const prev = Number(previous) || 0;
+
+  if (prev === 0) {
+    if (curr === 0) return 0;
+    return 100;
+  }
+
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function buildMonthStats(orders) {
+  const nonCancelled = orders.filter((order) => order.status !== "cancelled");
+  const totalSales = nonCancelled.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+  const totalOrders = orders.length;
+  const delivered = orders.filter((order) => order.status === "delivered").length;
+
+  return {
+    totalOrders,
+    totalSales,
+    avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
+    fulfillmentRate: totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0,
+  };
+}
+
+function buildTopCategoriesChartData(categoriesAgg) {
+  const all = categoriesAgg.map((item) => ({
+    name: String(item._id || "Uncategorized"),
+    value: Number(item.value) || 0,
+    units: Number(item.units) || 0,
+  }));
+
+  const total = all.reduce((sum, item) => sum + item.value, 0);
+  const topThree = all.slice(0, 3);
+  const rest = all.slice(3);
+
+  const withPercent = (item) => ({
+    ...item,
+    percent: total > 0 ? Math.round((item.value / total) * 100) : 0,
+  });
+
+  const chartItems = topThree.map(withPercent);
+
+  if (rest.length > 0) {
+    const otherValue = rest.reduce((sum, item) => sum + item.value, 0);
+    const otherUnits = rest.reduce((sum, item) => sum + item.units, 0);
+    chartItems.push(
+      withPercent({
+        name: "Other",
+        value: otherValue,
+        units: otherUnits,
+      })
+    );
+  }
+
+  return chartItems;
+}
 
 export const placeOrder = async (req, res) => {
   try {
@@ -158,23 +251,49 @@ export const getDashboardStats = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const year = Number.parseInt(req.query.year, 10) || currentYear;
+    const now = new Date();
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const endOfYesterday = new Date(startOfToday);
+    endOfYesterday.setMilliseconds(-1);
+    const start7Days = new Date(startOfToday);
+    start7Days.setDate(start7Days.getDate() - 6);
 
-    const [todayOrders, recentTodayOrders, monthlyAgg, yearsAgg, products, categories] =
-      await Promise.all([
-      Order.find({
-        createdAt: { $gte: startOfToday, $lte: endOfToday },
-      }).select("status"),
-      Order.find({
-        createdAt: { $gte: startOfToday, $lte: endOfToday },
-      })
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [
+      todayOrders,
+      yesterdayOrders,
+      last7DayOrders,
+      recentOrders,
+      monthlyAgg,
+      yearsAgg,
+      products,
+      categories,
+      users,
+      totalRevenueAgg,
+      currentMonthOrders,
+      lastMonthOrders,
+      activeProducts,
+      outOfStockProducts,
+      lowStockProducts,
+      topCategoriesAgg,
+      yearOrderSummary,
+    ] = await Promise.all([
+      Order.find({ createdAt: { $gte: startOfToday, $lte: endOfToday } }).select("status"),
+      Order.find({ createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } }).select("status"),
+      Order.find({ createdAt: { $gte: start7Days, $lte: endOfToday } }).select("status createdAt"),
+      Order.find()
         .populate("user", "name email phone")
         .sort({ createdAt: -1 })
-        .limit(10)
+        .limit(6)
         .select("orderNumber total status createdAt user deliveryAddress"),
       Order.aggregate([
         {
@@ -195,23 +314,79 @@ export const getDashboardStats = async (req, res) => {
         { $sort: { _id: 1 } },
       ]),
       Order.aggregate([
-        {
-          $group: {
-            _id: { $year: { date: "$createdAt", timezone: INDIA_TZ } },
-          },
-        },
+        { $group: { _id: { $year: { date: "$createdAt", timezone: INDIA_TZ } } } },
         { $sort: { _id: -1 } },
       ]),
       Product.countDocuments(),
       Category.countDocuments(),
+      User.countDocuments({ role: "user" }),
+      Order.aggregate([
+        { $match: { status: { $ne: "cancelled" } } },
+        { $group: { _id: null, total: { $sum: "$total" } } },
+      ]),
+      Order.find({ createdAt: { $gte: currentMonthStart, $lte: endOfToday } }).select(
+        "status total"
+      ),
+      Order.find({ createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } }).select(
+        "status total"
+      ),
+      Product.countDocuments({ isActive: true, inStock: true, stock: { $gt: 0 } }),
+      Product.countDocuments({
+        $or: [{ inStock: false }, { stock: { $lte: 0 } }],
+      }),
+      Product.countDocuments({ isActive: true, inStock: true, stock: { $gt: 0, $lte: 5 } }),
+      Order.aggregate([
+        {
+          $match: {
+            status: { $ne: "cancelled" },
+            $expr: {
+              $eq: [{ $year: { date: "$createdAt", timezone: INDIA_TZ } }, year],
+            },
+          },
+        },
+        { $unwind: "$items" },
+        {
+          $lookup: {
+            from: "bulkmobilemartproducts",
+            localField: "items.product",
+            foreignField: "_id",
+            as: "productDoc",
+          },
+        },
+        { $unwind: "$productDoc" },
+        { $unwind: "$productDoc.categories" },
+        {
+          $group: {
+            _id: "$productDoc.categories",
+            value: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+            units: { $sum: "$items.quantity" },
+          },
+        },
+        { $sort: { value: -1 } },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            $expr: {
+              $eq: [{ $year: { date: "$createdAt", timezone: INDIA_TZ } }, year],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            delivered: {
+              $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] },
+            },
+          },
+        },
+      ]),
     ]);
 
-    const today = {
-      orders: todayOrders.length,
-      pending: todayOrders.filter((order) => PENDING_STATUSES.includes(order.status)).length,
-      delivered: todayOrders.filter((order) => order.status === "delivered").length,
-      cancelled: todayOrders.filter((order) => order.status === "cancelled").length,
-    };
+    const today = buildDayOrderStats(todayOrders);
+    const yesterday = buildDayOrderStats(yesterdayOrders);
+    const last7Days = buildLast7DaysTrend(last7DayOrders);
 
     const monthlySales = Array.from({ length: 12 }, (_, index) => {
       const month = index + 1;
@@ -223,23 +398,115 @@ export const getDashboardStats = async (req, res) => {
       };
     });
 
+    const yearTotals = monthlySales.reduce(
+      (acc, item) => ({
+        totalOrders: acc.totalOrders + item.orders,
+        totalSales: acc.totalSales + item.revenue,
+      }),
+      { totalOrders: 0, totalSales: 0 }
+    );
+
+    const currentMonthStats = buildMonthStats(currentMonthOrders);
+    const lastMonthStats = buildMonthStats(lastMonthOrders);
+
+    const topCategories = buildTopCategoriesChartData(topCategoriesAgg);
+
     const years = yearsAgg.map((entry) => entry._id);
     if (!years.includes(currentYear)) {
       years.unshift(currentYear);
     }
 
+    const yearOrderCount = Number(yearOrderSummary[0]?.totalOrders) || 0;
+    const yearDeliveredCount = Number(yearOrderSummary[0]?.delivered) || 0;
+
     res.status(200).json({
       success: true,
       data: {
         today,
-        recentTodayOrders,
+        yesterday,
+        last7Days,
+        recentOrders,
+        recentTodayOrders: recentOrders.filter(
+          (order) => new Date(order.createdAt) >= startOfToday
+        ),
         monthlySales,
         years,
-        totals: { products, categories },
+        totals: {
+          products,
+          categories,
+          users,
+          totalRevenue: Number(totalRevenueAgg[0]?.total) || 0,
+        },
+        revenue: {
+          currentMonth: currentMonthStats.totalSales,
+          lastMonth: lastMonthStats.totalSales,
+          monthlyTrend: monthlySales.map((item) => ({
+            month: item.month,
+            revenue: item.revenue,
+          })),
+        },
+        storeOverview: {
+          activeProducts,
+          outOfStock: outOfStockProducts,
+          lowStock: lowStockProducts,
+          activeUsers: users,
+        },
+        topCategories,
+        chartSummary: {
+          totalOrders: yearTotals.totalOrders,
+          totalSales: yearTotals.totalSales,
+          avgOrderValue:
+            yearTotals.totalOrders > 0 ? yearTotals.totalSales / yearTotals.totalOrders : 0,
+          fulfillmentRate:
+            yearOrderCount > 0 ? Math.round((yearDeliveredCount / yearOrderCount) * 100) : 0,
+          ordersChange: getPercentChange(
+            currentMonthStats.totalOrders,
+            lastMonthStats.totalOrders
+          ),
+          salesChange: getPercentChange(
+            currentMonthStats.totalSales,
+            lastMonthStats.totalSales
+          ),
+          aovChange: getPercentChange(
+            currentMonthStats.avgOrderValue,
+            lastMonthStats.avgOrderValue
+          ),
+          fulfillmentChange: getPercentChange(
+            currentMonthStats.fulfillmentRate,
+            lastMonthStats.fulfillmentRate
+          ),
+        },
       },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getOrderUnreadCount = async (req, res) => {
+  try {
+    const { since } = req.query;
+    const filter = {};
+
+    if (since) {
+      const sinceDate = new Date(since);
+      if (Number.isNaN(sinceDate.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid since date" });
+      }
+      filter.createdAt = { $gt: sinceDate };
+    }
+
+    const count = await Order.countDocuments(filter);
+
+    return res.json({
+      success: true,
+      data: { count },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load unread order count",
+    });
   }
 };
 

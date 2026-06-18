@@ -5,7 +5,7 @@ import {
   updateAdminSupportStatus,
 } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
-import { useSupportNotification } from "../../../context/SupportNotificationContext";
+import { useSupportNotification } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {

@@ -298,6 +298,33 @@ export const submitUpiPaymentProof = async (req, res) => {
   }
 };
 
+export const getPaymentUnreadCount = async (req, res) => {
+  try {
+    const { since } = req.query;
+    const filter = {};
+
+    if (since) {
+      const sinceDate = new Date(since);
+      if (Number.isNaN(sinceDate.getTime())) {
+        return res.status(400).json({ success: false, message: "Invalid since date" });
+      }
+      filter.createdAt = { $gt: sinceDate };
+    }
+
+    const count = await Payment.countDocuments(filter);
+
+    return res.json({
+      success: true,
+      data: { count },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load unread payment count",
+    });
+  }
+};
+
 export const getAdminPayments = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);

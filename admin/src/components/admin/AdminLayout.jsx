@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useSupportNotification } from "../../context/SupportNotificationContext";
-import { LOGO_URL, STORE_URL } from "../../constants/brand";
+import { useAdminNotifications } from "../../context/AdminNotificationContext";
+import { STORE_URL } from "../../constants/brand";
 import {
   IconBanner,
   IconBrand,
@@ -106,7 +106,7 @@ function NavIconWithBadge({ showBadge, children }) {
       {children}
       {showBadge ? (
         <span
-          className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-neutral-950"
+          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-neutral-950"
           aria-hidden="true"
         />
       ) : null}
@@ -211,29 +211,29 @@ function SidebarContent({
   onExpand,
   showLogout,
   hasUnreadSupport,
+  hasUnreadOrders,
+  hasUnreadPayments,
 }) {
   const [openGroupKey, setOpenGroupKey] = useState("");
 
   return (
     <>
-      <div
-        className={`mb-6 ${collapsed ? "flex justify-center px-1" : "flex items-center justify-between gap-2 px-1"}`}
-      >
-        <div className={`relative ${collapsed ? "" : "flex w-full items-center justify-between gap-2"}`}>
-          <div
-            className={`flex items-center justify-center overflow-hidden rounded-lg bg-white ${
-              collapsed ? "h-10 w-10" : "min-h-[52px] flex-1 px-3 py-2"
-            }`}
+      <div className={`mb-6 ${collapsed ? "flex justify-center px-1" : "px-1"}`}>
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={onExpand}
+            aria-label="Expand sidebar"
+            title="Bulk Mobile Mart"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-xl font-bold text-primary transition hover:bg-neutral-800"
           >
-            <img
-              src={LOGO_URL}
-              alt="BulkMobileMart"
-              className={`object-contain ${
-                collapsed ? "h-8 w-8" : "h-10 w-full max-w-[210px]"
-              }`}
-            />
-          </div>
-          {!collapsed ? (
+            B
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight text-white">
+              Bulk Mobile Mart
+            </div>
             <button
               type="button"
               onClick={onCollapse}
@@ -244,19 +244,8 @@ function SidebarContent({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onExpand}
-              aria-label="Expand sidebar"
-              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded text-[10px] text-neutral-400 transition hover:text-white"
-            >
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1">
@@ -278,6 +267,9 @@ function SidebarContent({
 
           const Icon = item.icon;
           const showSupportBadge = item.to === "/support" && hasUnreadSupport;
+          const showOrdersBadge = item.to === "/orders" && hasUnreadOrders;
+          const showPaymentsBadge = item.to === "/payments" && hasUnreadPayments;
+          const showBadge = showSupportBadge || showOrdersBadge || showPaymentsBadge;
           return (
             <NavLink
               key={item.to}
@@ -295,7 +287,7 @@ function SidebarContent({
                   : navLinkClass({ isActive })
               }
             >
-              <NavIconWithBadge showBadge={showSupportBadge}>
+              <NavIconWithBadge showBadge={showBadge}>
                 <Icon className="w-5 h-5 shrink-0" />
               </NavIconWithBadge>
               {!collapsed && item.label}
@@ -332,7 +324,14 @@ function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { adminUser, adminLogout } = useAuth();
-  const { hasUnread, markSupportAsSeen } = useSupportNotification();
+  const {
+    hasUnreadSupport,
+    hasUnreadOrders,
+    hasUnreadPayments,
+    markSupportAsSeen,
+    markOrdersAsSeen,
+    markPaymentsAsSeen,
+  } = useAdminNotifications();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -342,12 +341,26 @@ function AdminLayout() {
 
   const isDashboard = location.pathname === "/" || location.pathname === "";
   const isSupportPage = location.pathname === "/support";
+  const isOrdersPage = location.pathname === "/orders" || /^\/orders\/[^/]+$/.test(location.pathname);
+  const isPaymentsPage = location.pathname === "/payments";
 
   useEffect(() => {
     if (isSupportPage) {
       markSupportAsSeen();
     }
   }, [isSupportPage, markSupportAsSeen]);
+
+  useEffect(() => {
+    if (isOrdersPage) {
+      markOrdersAsSeen();
+    }
+  }, [isOrdersPage, markOrdersAsSeen]);
+
+  useEffect(() => {
+    if (isPaymentsPage) {
+      markPaymentsAsSeen();
+    }
+  }, [isPaymentsPage, markPaymentsAsSeen]);
 
   const handleLogout = () => {
     adminLogout();
@@ -382,7 +395,9 @@ function AdminLayout() {
           onCollapse={collapseSidebar}
           onExpand={expandSidebar}
           showLogout={isDashboard}
-          hasUnreadSupport={hasUnread && !isSupportPage}
+          hasUnreadSupport={hasUnreadSupport && !isSupportPage}
+          hasUnreadOrders={hasUnreadOrders && !isOrdersPage}
+          hasUnreadPayments={hasUnreadPayments && !isPaymentsPage}
         />
       </aside>
 

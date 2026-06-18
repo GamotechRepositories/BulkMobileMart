@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAdminOrders, getAdminPaymentProofs } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
+import { useAdminNotifications } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
@@ -53,6 +54,7 @@ function getRowStatus(order, proof) {
 
 function PaymentSection() {
   const { adminUser } = useAuth();
+  const { markPaymentsAsSeen } = useAdminNotifications();
   const [orders, setOrders] = useState([]);
   const [proofs, setProofs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,10 @@ function PaymentSection() {
   useEffect(() => {
     setPage(1);
   }, [startDate, endDate, orderStatus, paymentStatus]);
+
+  useEffect(() => {
+    markPaymentsAsSeen();
+  }, [markPaymentsAsSeen]);
 
   const proofByOrderId = useMemo(() => {
     const map = new Map();

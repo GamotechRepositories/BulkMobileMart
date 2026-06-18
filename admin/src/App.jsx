@@ -1,6 +1,6 @@
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { SupportNotificationProvider } from "./context/SupportNotificationContext";
+import { SupportNotificationProvider } from "./context/AdminNotificationContext";
 import Admin from "./pages/Admin";
 
 function App() {
