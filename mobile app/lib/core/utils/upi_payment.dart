@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../config/constants.dart';
 import '../../config/env.dart';
 
@@ -122,5 +126,32 @@ class UpiPayment {
 
   static bool isValidUpiId(String value) {
     return RegExp(r'^[\w.-]+@[\w.-]+$').hasMatch(value.trim());
+  }
+
+  /// Opens the OS UPI app picker — only installed UPI apps are shown.
+  static Future<bool> openUpiChooser({
+    required double amount,
+    String note = 'Order',
+    String? merchantUpiId,
+    String? merchantUpiName,
+  }) async {
+    final query = buildPaymentQuery(
+      amount,
+      note,
+      merchantUpiId: merchantUpiId,
+      merchantUpiName: merchantUpiName,
+    );
+    if (query.isEmpty) return false;
+
+    if (Platform.isAndroid) {
+      final intentUri = Uri.parse('intent://pay?$query#Intent;scheme=upi;end');
+      if (await canLaunchUrl(intentUri)) {
+        return launchUrl(intentUri, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    final upiUri = Uri.parse('upi://pay?$query');
+    if (!await canLaunchUrl(upiUri)) return false;
+    return launchUrl(upiUri, mode: LaunchMode.externalApplication);
   }
 }

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
-import { getUpiAppOptions, openUpiApp } from "../../utils/upiAppLauncher";
 import {
   getPayableAmount,
   getQrCodeImageUrl,
   isMobileDevice,
+  openUpiAppChooser,
   resolveMerchantUpiConfig,
 } from "../../utils/upiPayment";
 
@@ -21,27 +21,6 @@ const formatPrice = (amount) =>
   }).format(amount);
 
 const safeTrim = (value) => String(value ?? "").trim();
-
-function UpiAppButton({ app, disabled, onClick }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex w-[5.5rem] flex-col items-center rounded-lg border border-border-light bg-white px-1.5 py-2.5 transition hover:border-primary/30 hover:bg-orange-50/40 disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <span
-        className="flex h-8 w-8 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
-        style={{ backgroundColor: app.color }}
-      >
-        {app.shortLabel}
-      </span>
-      <span className="mt-1.5 text-center text-[10px] font-semibold leading-tight text-text-primary">
-        {app.label}
-      </span>
-    </button>
-  );
-}
 
 function PaymentModal({
   open,
@@ -61,6 +40,7 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const chooserOpenedRef = useRef(false);
 
   const payableAmount = getPayableAmount(orderTotal, paymentMethod);
   const isCod = paymentMethod === "cod";
@@ -71,11 +51,49 @@ function PaymentModal({
   );
   const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote, upiConfig);
   const hasUpiId = Boolean(upiConfig.upiId);
-  const upiApps = useMemo(() => getUpiAppOptions(), []);
   const onMobile = isMobileDevice();
 
+  const openUpiChooser = useCallback(
+    (auto = false) => {
+      if (!hasUpiId) {
+        if (!auto) setUpiHint("UPI ID is not configured. Please contact support.");
+        return;
+      }
+
+      if (auto && chooserOpenedRef.current) return;
+      if (auto) chooserOpenedRef.current = true;
+
+      if (!auto) setUpiHint("");
+      const launched = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
+
+      if (launched) {
+        setUpiHint(
+          auto
+            ? "Choose your UPI app to pay, then upload screenshot."
+            : "Complete payment in your UPI app, then upload screenshot."
+        );
+        return;
+      }
+
+      setUpiHint(
+        onMobile
+          ? "No UPI app found. Install PhonePe, Paytm, or GPay — or scan the QR code."
+          : "Open this page on your phone to pay with UPI, or scan the QR code."
+      );
+    },
+    [hasUpiId, onMobile, payableAmount, paymentNote, upiConfig]
+  );
+
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      chooserOpenedRef.current = false;
+      setUpiHint("");
+      setScreenshot(null);
+      setScreenshotPreview("");
+      setUpiTransactionRef("");
+      setUploadError("");
+      return undefined;
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -85,24 +103,14 @@ function PaymentModal({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !hasUpiId || !onMobile) return undefined;
+
+    const timer = window.setTimeout(() => openUpiChooser(true), 350);
+    return () => window.clearTimeout(timer);
+  }, [open, hasUpiId, onMobile, openUpiChooser]);
+
   if (!open) return null;
-
-  const handlePayWithApp = (app) => {
-    if (!hasUpiId) {
-      setUpiHint("UPI ID is not configured. Please contact support.");
-      return;
-    }
-
-    setUpiHint("");
-    const openedOnMobile = openUpiApp(app, payableAmount, paymentNote, upiConfig);
-
-    if (openedOnMobile) {
-      setUpiHint(`Complete payment in ${app.label}, then upload screenshot.`);
-      return;
-    }
-
-    setUpiHint("Open this page on your phone or scan the QR code to pay.");
-  };
 
   const processScreenshot = async (file) => {
     if (!file) return;
@@ -237,24 +245,30 @@ function PaymentModal({
                 <p className="mt-1 text-[10px] text-text-muted">Pay to: {upiConfig.upiId}</p>
               ) : null}
 
-              <div className="mt-3 w-full">
-                <p className="mb-2 text-left text-[11px] font-semibold text-text-primary">Pay with</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {upiApps.map((app) => (
-                    <UpiAppButton
-                      key={app.id}
-                      app={app}
-                      disabled={processing || !hasUpiId}
-                      onClick={() => handlePayWithApp(app)}
+              {onMobile ? (
+                <div className="mt-3 w-full">
+                  <button
+                    type="button"
+                    disabled={processing || !hasUpiId}
+                    onClick={() => openUpiChooser(false)}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    <img
+                      src="/assets/payment/upi.svg"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 shrink-0"
+                      aria-hidden="true"
                     />
-                  ))}
+                    Pay with UPI
+                  </button>
                 </div>
-                {!onMobile && hasUpiId ? (
-                  <p className="mt-2 text-center text-[10px] text-text-muted">
-                    On desktop, scan the QR code. On phone, tap an app above.
-                  </p>
-                ) : null}
-              </div>
+              ) : (
+                <p className="mt-3 text-center text-[10px] text-text-muted">
+                  Open this page on your phone to pay with UPI, or scan the QR code above.
+                </p>
+              )}
 
               {upiHint && (
                 <p className="mt-2 text-center text-[10px] leading-snug text-text-secondary">{upiHint}</p>

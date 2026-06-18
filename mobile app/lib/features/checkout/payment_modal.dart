@@ -1,15 +1,16 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../config/env.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/upi_app_launcher.dart';
 import '../../core/utils/upi_payment.dart';
 import '../../widgets/common/image_source_sheet.dart';
 
@@ -49,16 +50,15 @@ class _PaymentModalState extends State<PaymentModal> {
   static const _maxScreenshotBytes = 5 * 1024 * 1024;
 
   final _picker = ImagePicker();
+  final _txnIdController = TextEditingController();
   String? _screenshotUrl;
   String? _screenshotLocalPath;
   String? _screenshotName;
-  String _upiTransactionRef = '';
   String? _uploadError;
   bool _uploadingScreenshot = false;
   bool _submittingProof = false;
-  String _upiHint = '';
-  List<UpiAppOption> _installedUpiApps = [];
-  bool _loadingUpiApps = true;
+  bool _chooserOpened = false;
+  bool _paymentStarted = false;
 
   bool get _isCod => widget.paymentMethod == 'cod';
 
@@ -75,30 +75,33 @@ class _PaymentModalState extends State<PaymentModal> {
 
   bool get _hasUpiId => _resolvedUpiId.isNotEmpty;
 
+  bool get _showMobileUpiOptions => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  bool get _hasScreenshot => _screenshotLocalPath != null || _screenshotUrl != null;
+
+  bool get _busy => widget.processing || _uploadingScreenshot || _submittingProof;
+
   @override
   void initState() {
     super.initState();
-    _loadInstalledUpiApps();
-  }
-
-  Future<void> _loadInstalledUpiApps() async {
-    final apps = await UpiAppLauncher.detectInstalledApps();
-    if (!mounted) return;
-    setState(() {
-      _installedUpiApps = apps;
-      _loadingUpiApps = false;
-    });
-  }
-
-  Future<void> _payWithApp(UpiAppOption app) async {
-    if (!_hasUpiId) {
-      setState(() => _upiHint = 'UPI ID is not configured. Please contact support.');
-      return;
+    if (_showMobileUpiOptions) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openUpiChooser(auto: true));
     }
+  }
 
-    setState(() => _upiHint = '');
-    final launched = await UpiAppLauncher.launchApp(
-      app: app,
+  @override
+  void dispose() {
+    _txnIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openUpiChooser({bool auto = false}) async {
+    if (!_hasUpiId) return;
+
+    if (auto && _chooserOpened) return;
+    _chooserOpened = true;
+
+    final launched = await UpiPayment.openUpiChooser(
       amount: _payableAmount,
       note: _paymentNote,
       merchantUpiId: widget.merchantUpiId,
@@ -106,11 +109,9 @@ class _PaymentModalState extends State<PaymentModal> {
     );
 
     if (!mounted) return;
-    setState(() {
-      _upiHint = launched
-          ? 'Complete payment in ${app.label}, then upload screenshot.'
-          : 'Could not open ${app.label}. Try another app or scan QR.';
-    });
+    if (launched) {
+      setState(() => _paymentStarted = true);
+    }
   }
 
   Future<void> _pickScreenshot() async {
@@ -119,23 +120,19 @@ class _PaymentModalState extends State<PaymentModal> {
 
     XFile? picked;
     try {
-      picked = await _picker.pickImage(
-        source: source,
-        imageQuality: 92,
-      );
+      picked = await _picker.pickImage(source: source, imageQuality: 92);
     } on PlatformException {
       if (!mounted) return;
-      setState(() => _uploadError = 'Unable to open camera/gallery. Please allow permission.');
+      setState(() => _uploadError = 'Allow camera/gallery permission to upload.');
       return;
     } catch (_) {
       if (!mounted) return;
-      setState(() => _uploadError = 'Unable to pick screenshot. Please try again.');
+      setState(() => _uploadError = 'Could not pick image. Try again.');
       return;
     }
     if (picked == null) return;
-    final pickedFile = picked;
 
-    final file = File(pickedFile.path);
+    final file = File(picked.path);
     final bytes = await file.length();
     if (bytes > _maxScreenshotBytes) {
       setState(() => _uploadError = 'Image must be under 5 MB');
@@ -145,17 +142,17 @@ class _PaymentModalState extends State<PaymentModal> {
     setState(() {
       _uploadingScreenshot = true;
       _uploadError = null;
-      _screenshotLocalPath = pickedFile.path;
+      _screenshotLocalPath = picked!.path;
       _screenshotUrl = null;
       _screenshotName = null;
     });
 
     try {
-      final url = await widget.onUploadScreenshot(pickedFile.path);
+      final url = await widget.onUploadScreenshot(picked.path);
       if (!mounted) return;
       setState(() {
         _screenshotUrl = url;
-        _screenshotName = pickedFile.name;
+        _screenshotName = picked!.name;
         _uploadingScreenshot = false;
       });
     } catch (e) {
@@ -163,7 +160,7 @@ class _PaymentModalState extends State<PaymentModal> {
       setState(() {
         _uploadError = e is ApiException
             ? e.message
-            : 'Failed to upload screenshot. Please try again.';
+            : 'Upload failed. Please try again.';
         _screenshotUrl = null;
         _screenshotName = null;
         _screenshotLocalPath = null;
@@ -172,9 +169,18 @@ class _PaymentModalState extends State<PaymentModal> {
     }
   }
 
+  void _removeScreenshot() {
+    setState(() {
+      _screenshotUrl = null;
+      _screenshotLocalPath = null;
+      _screenshotName = null;
+      _uploadError = null;
+    });
+  }
+
   Future<void> _submitProof() async {
     if (_screenshotUrl == null) {
-      setState(() => _uploadError = 'Please upload your payment screenshot');
+      setState(() => _uploadError = 'Upload payment screenshot to continue');
       return;
     }
 
@@ -182,11 +188,13 @@ class _PaymentModalState extends State<PaymentModal> {
       _uploadError = null;
       _submittingProof = true;
     });
+
     final error = await widget.onSubmitUpiProof(
       screenshotUrl: _screenshotUrl!,
       screenshotName: _screenshotName ?? 'screenshot.jpg',
-      upiTransactionRef: _upiTransactionRef.trim(),
+      upiTransactionRef: _txnIdController.text.trim(),
     );
+
     if (!mounted) return;
     if (error == null) {
       Navigator.of(context, rootNavigator: true).pop();
@@ -198,6 +206,10 @@ class _PaymentModalState extends State<PaymentModal> {
     });
   }
 
+  void _close() {
+    if (!_busy) Navigator.of(context, rootNavigator: true).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final qrUrl = UpiPayment.getQrCodeImageUrl(
@@ -206,366 +218,778 @@ class _PaymentModalState extends State<PaymentModal> {
       merchantUpiId: widget.merchantUpiId,
       merchantUpiName: widget.merchantUpiName,
     );
-    final displayError = widget.error.isNotEmpty ? widget.error : (_uploadError ?? '');
-    final busy = widget.processing || _uploadingScreenshot || _submittingProof;
+    final displayError =
+        widget.error.isNotEmpty ? widget.error : (_uploadError ?? '');
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 560),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 4, 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Complete Payment',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
+    return Material(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SheetHandle(onClose: _busy ? null : _close),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 12 + bottomInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Complete Payment',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 20,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pay with UPI, then upload your payment screenshot.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.35,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      _AmountCard(
+                        amount: _payableAmount,
+                        isCod: _isCod,
+                        orderTotal: widget.orderTotal,
+                      ),
+                      if (displayError.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _AlertBanner(
+                          message: displayError,
+                          color: Colors.red,
+                          icon: Icons.error_outline_rounded,
+                        ),
+                      ],
+                      if (!_hasUpiId) ...[
+                        const SizedBox(height: 12),
+                        const _AlertBanner(
+                          message:
+                              'UPI is not set up yet. Contact store admin or use Razorpay.',
+                          color: Colors.amber,
+                          icon: Icons.info_outline_rounded,
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      _StepHeader(
+                        step: 1,
+                        title: 'Pay via UPI',
+                        subtitle: 'Open your UPI app or scan QR code',
+                        done: _paymentStarted,
+                      ),
+                      const SizedBox(height: 10),
+                      _PayStepCard(
+                        hasUpiId: _hasUpiId,
+                        qrUrl: qrUrl,
+                        upiId: _resolvedUpiId,
+                        showMobileOptions: _showMobileUpiOptions,
+                        busy: _busy,
+                        onPay: () => _openUpiChooser(),
+                      ),
+                      const SizedBox(height: 20),
+                      _StepHeader(
+                        step: 2,
+                        title: 'Upload screenshot',
+                        subtitle: 'Photo of successful UPI payment',
+                        done: _screenshotUrl != null,
+                      ),
+                      const SizedBox(height: 10),
+                      _UploadStepCard(
+                        busy: _busy,
+                        uploading: _uploadingScreenshot,
+                        hasScreenshot: _hasScreenshot,
+                        screenshotLocalPath: _screenshotLocalPath,
+                        screenshotUrl: _screenshotUrl,
+                        txnController: _txnIdController,
+                        onPick: _pickScreenshot,
+                        onRemove: _removeScreenshot,
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: busy ? null : () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, size: 20),
-                  ),
-                ],
+                ),
+              ),
+              _BottomActions(
+                busy: _busy,
+                uploading: _uploadingScreenshot,
+                canSubmit: _screenshotUrl != null && _hasUpiId,
+                submitting: _submittingProof,
+                onSubmit: _submitProof,
+                onRazorpay: widget.onPayWithRazorpay,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle({this.onClose});
+
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 4),
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.borderLight,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Spacer(),
+              IconButton(
+                onPressed: onClose,
+                icon: const Icon(Icons.close_rounded, size: 22),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.mobileSurface,
+                  foregroundColor: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmountCard extends StatelessWidget {
+  const _AmountCard({
+    required this.amount,
+    required this.isCod,
+    required this.orderTotal,
+  });
+
+  final double amount;
+  final bool isCod;
+  final double orderTotal;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.14),
+            AppColors.primary.withValues(alpha: 0.06),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            isCod ? 'COD ADVANCE (10%)' : 'AMOUNT TO PAY',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: AppColors.primary.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            formatInr(amount, withDecimals: true),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+              height: 1.1,
+            ),
+          ),
+          if (isCod) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Order total ${formatInr(orderTotal, withDecimals: true)} · Rest on delivery',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(12),
-                child: Column(
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StepHeader extends StatelessWidget {
+  const _StepHeader({
+    required this.step,
+    required this.title,
+    required this.subtitle,
+    required this.done,
+  });
+
+  final int step;
+  final String title;
+  final String subtitle;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StepBadge(number: step, done: done),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (done)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF2E7D32)),
+                SizedBox(width: 4),
+                Text(
+                  'Done',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2E7D32),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _StepBadge extends StatelessWidget {
+  const _StepBadge({required this.number, required this.done});
+
+  final int number;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: done ? const Color(0xFF2E7D32) : AppColors.primary,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: (done ? const Color(0xFF2E7D32) : AppColors.primary)
+                .withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: done
+          ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+          : Text(
+              '$number',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+    );
+  }
+}
+
+class _PayStepCard extends StatelessWidget {
+  const _PayStepCard({
+    required this.hasUpiId,
+    required this.qrUrl,
+    required this.upiId,
+    required this.showMobileOptions,
+    required this.busy,
+    required this.onPay,
+  });
+
+  final bool hasUpiId;
+  final String qrUrl;
+  final String upiId;
+  final bool showMobileOptions;
+  final bool busy;
+  final VoidCallback onPay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (showMobileOptions && hasUpiId) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton(
+                onPressed: busy ? null : onPay,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (displayError.isNotEmpty) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          displayError,
-                          style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    if (!_hasUpiId) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.shade200),
-                        ),
-                        child: Text(
-                          'UPI payment is not configured yet. Please contact the store admin.',
-                          style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            _isCod ? 'COD advance (10%)' : 'Amount to pay',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                          Text(
-                            formatInr(_payableAmount, withDecimals: true),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          if (_isCod)
-                            Text(
-                              'Total ${formatInr(widget.orderTotal, withDecimals: true)} · Balance on delivery',
-                              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
-                            ),
-                        ],
-                      ),
+                    SvgPicture.asset(
+                      'assets/images/payment/upi.svg',
+                      width: 22,
+                      height: 22,
                     ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.borderLight),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Scan QR to pay',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_hasUpiId && qrUrl.isNotEmpty)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: CachedNetworkImage(
-                                imageUrl: qrUrl,
-                                width: 112,
-                                height: 112,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          else
-                            Container(
-                              width: 112,
-                              height: 112,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppColors.borderLight),
-                                borderRadius: BorderRadius.circular(8),
-                                color: AppColors.mobileSurface,
-                              ),
-                              child: const Text(
-                                'QR unavailable',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 10, color: AppColors.textMuted),
-                              ),
-                            ),
-                          if (_hasUpiId) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Pay to: $_resolvedUpiId',
-                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Pay with',
-                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_loadingUpiApps)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          else if (_installedUpiApps.isEmpty)
-                            Text(
-                              _hasUpiId
-                                  ? 'Scan the QR code to pay with any UPI app.'
-                                  : 'UPI apps not detected.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
-                            )
-                          else
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: _installedUpiApps.map((app) {
-                                return SizedBox(
-                                  width: 88,
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: busy || !_hasUpiId ? null : () => _payWithApp(app),
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Ink(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: AppColors.borderLight),
-                                          borderRadius: BorderRadius.circular(10),
-                                          color: Colors.white,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 10,
-                                          horizontal: 6,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            CircleAvatar(
-                                              radius: 16,
-                                              backgroundColor: app.color,
-                                              child: Text(
-                                                app.shortLabel,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              app.label,
-                                              textAlign: TextAlign.center,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textPrimary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          if (_upiHint.isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              _upiHint,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.mobileSurface.withValues(alpha: 0.6),
-                        border: Border.all(color: AppColors.borderLight),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Upload screenshot',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                          ),
-                          const Text(
-                            'After payment, upload your UPI screenshot.',
-                            style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_screenshotLocalPath != null || _screenshotUrl != null)
-                            Column(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: _screenshotLocalPath != null
-                                      ? Image.file(
-                                          File(_screenshotLocalPath!),
-                                          height: 120,
-                                          width: double.infinity,
-                                          fit: BoxFit.contain,
-                                        )
-                                      : CachedNetworkImage(
-                                          imageUrl: _screenshotUrl!,
-                                          height: 120,
-                                          width: double.infinity,
-                                          fit: BoxFit.contain,
-                                        ),
-                                ),
-                                if (_uploadingScreenshot)
-                                  const Padding(
-                                    padding: EdgeInsets.only(top: 6),
-                                    child: Text(
-                                      'Uploading screenshot...',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                TextButton(
-                                  onPressed: busy
-                                      ? null
-                                      : () => setState(() {
-                                            _screenshotUrl = null;
-                                            _screenshotLocalPath = null;
-                                            _screenshotName = null;
-                                            _uploadError = null;
-                                          }),
-                                  child: const Text(
-                                    'Remove',
-                                    style: TextStyle(fontSize: 11, color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            OutlinedButton.icon(
-                              onPressed: busy ? null : _pickScreenshot,
-                              icon: const Icon(Icons.upload_file, size: 16),
-                              label: Text(
-                                _uploadingScreenshot ? 'Uploading...' : 'Choose screenshot',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            enabled: !busy,
-                            decoration: const InputDecoration(
-                              hintText: 'UPI Transaction ID (optional)',
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            ),
-                            style: const TextStyle(fontSize: 12),
-                            onChanged: (value) => _upiTransactionRef = value,
-                          ),
-                        ],
-                      ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Open UPI App',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
               ),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: busy || _uploadingScreenshot || _screenshotUrl == null || !_hasUpiId
-                          ? null
-                          : _submitProof,
-                      child: Text(_submittingProof ? 'Sending...' : 'Send screenshot'),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: Divider(color: AppColors.borderLight)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'OR SCAN QR',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: AppColors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: busy ? null : widget.onPayWithRazorpay,
-                      child: Text(
-                        busy ? 'Processing...' : 'Pay via Razorpay instead',
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                ),
+                Expanded(child: Divider(color: AppColors.borderLight)),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (hasUpiId && qrUrl.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.mobileSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: qrUrl,
+                      width: 130,
+                      height: 130,
+                      fit: BoxFit.contain,
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 14,
+                        color: AppColors.textMuted.withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          upiId,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: upiId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('UPI ID copied'),
+                              duration: Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 28),
+              decoration: BoxDecoration(
+                color: AppColors.mobileSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: const Text(
+                'QR not available',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
             ),
-          ],
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UploadStepCard extends StatelessWidget {
+  const _UploadStepCard({
+    required this.busy,
+    required this.uploading,
+    required this.hasScreenshot,
+    required this.screenshotLocalPath,
+    required this.screenshotUrl,
+    required this.txnController,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final bool busy;
+  final bool uploading;
+  final bool hasScreenshot;
+  final String? screenshotLocalPath;
+  final String? screenshotUrl;
+  final TextEditingController txnController;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hasScreenshot)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    color: AppColors.mobileSurface,
+                    child: screenshotLocalPath != null
+                        ? Image.file(
+                            File(screenshotLocalPath!),
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: screenshotUrl!,
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.contain,
+                          ),
+                  ),
+                ),
+                if (uploading)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      onTap: busy ? null : onRemove,
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(Icons.close_rounded, size: 18, color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Material(
+              color: AppColors.mobileSurface,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: busy || uploading ? null : onPick,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      width: 1.5,
+                      strokeAlign: BorderSide.strokeAlignInside,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          uploading ? Icons.hourglass_top_rounded : Icons.add_a_photo_outlined,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        uploading ? 'Uploading...' : 'Tap to upload screenshot',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'JPG, PNG · Max 5 MB',
+                        style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: txnController,
+            enabled: !busy,
+            decoration: InputDecoration(
+              hintText: 'UPI Transaction ID (optional)',
+              prefixIcon: const Icon(Icons.tag_rounded, size: 20),
+              filled: true,
+              fillColor: AppColors.mobileSurface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlertBanner extends StatelessWidget {
+  const _AlertBanner({
+    required this.message,
+    required this.color,
+    required this.icon,
+  });
+
+  final String message;
+  final MaterialColor color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color.shade700),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 12, color: color.shade900, height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
+    required this.busy,
+    required this.uploading,
+    required this.canSubmit,
+    required this.submitting,
+    required this.onSubmit,
+    required this.onRazorpay,
+  });
+
+  final bool busy;
+  final bool uploading;
+  final bool canSubmit;
+  final bool submitting;
+  final VoidCallback onSubmit;
+  final VoidCallback onRazorpay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton(
+              onPressed: busy || uploading || !canSubmit ? null : onSubmit,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                disabledBackgroundColor: AppColors.borderLight,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                submitting ? 'Confirming order...' : 'Confirm Order',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: busy ? null : onRazorpay,
+            child: Text(
+              busy ? 'Please wait...' : 'Pay via Razorpay instead',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

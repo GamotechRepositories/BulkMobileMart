@@ -154,9 +154,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final merchantUpiId = storeSettings?.merchantUpiId;
     final merchantUpiName = storeSettings?.merchantUpiName;
 
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: !_placingOrder,
+      isScrollControlled: true,
+      useSafeArea: true,
+      isDismissible: !_placingOrder,
+      enableDrag: !_placingOrder,
+      backgroundColor: Colors.transparent,
       builder: (context) => PaymentModal(
         paymentMethod: _paymentMethod,
         orderTotal: calculateCartSummary(ref.read(cartControllerProvider).items).total,

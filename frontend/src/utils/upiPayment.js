@@ -71,11 +71,13 @@ export function isValidUpiId(value) {
 }
 
 /**
- * Opens the phone's native UPI app chooser (GPay, PhonePe, Paytm, etc.)
+ * Opens the OS UPI app picker — only installed UPI apps are shown.
+ * Android: intent:// URL triggers the native "Open with" dialog.
+ * iOS/other: falls back to upi:// scheme.
  */
 export function openUpiAppChooser(amount, note, config = {}) {
   const query = buildUpiQuery(amount, note, config);
-  if (!query) return false;
+  if (!query || typeof window === "undefined") return false;
 
   const upiUrl = `upi://pay?${query}`;
   const ua = navigator.userAgent || "";
@@ -85,12 +87,17 @@ export function openUpiAppChooser(amount, note, config = {}) {
     ? `intent://pay?${query}#Intent;scheme=upi;end`
     : upiUrl;
 
-  const link = document.createElement("a");
-  link.href = targetUrl;
-  link.rel = "noopener noreferrer";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    // window.location is most reliable for Android intent:// in mobile Chrome
+    window.location.assign(targetUrl);
+  } catch {
+    const link = document.createElement("a");
+    link.href = targetUrl;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   return isMobileDevice();
 }
