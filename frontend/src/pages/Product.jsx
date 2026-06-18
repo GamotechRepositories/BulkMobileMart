@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getProducts } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -7,12 +7,8 @@ import CategoryProductLayout, {
   AllProductsLayout,
   DesktopCategorySidebar,
   MobileCategoryProductLayout,
+  ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
-import AddToCartButton from "../components/product/AddToCartButton";
-import ProductPriceDisplay from "../components/product/ProductPriceDisplay";
-import WishlistButton from "../components/product/WishlistButton";
-import ProductThumb from "../components/product/ProductThumb";
-import { isProductInStock } from "../utils/productPricing";
 import {
   getCartStepForProduct,
   getDecreasedCartQuantity,
@@ -87,72 +83,6 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
   );
 }
 
-function MobileProductCard({ product, cartQuantity, onIncrease, onDecrease }) {
-  const inStock = isProductInStock(product);
-
-  return (
-    <article className="flex items-center gap-2.5 rounded-xl border border-border-light bg-white p-2.5">
-      <div className="relative shrink-0">
-        <div className="absolute right-1 top-1 z-10">
-          <WishlistButton product={product} />
-        </div>
-        <Link
-          to={`/product/${product._id}`}
-          className="block w-[84px] shrink-0 overflow-hidden rounded-lg border border-border-light"
-        >
-          <ProductThumb src={product.productImages?.[0]} alt={product.name} />
-        </Link>
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Link to={`/product/${product._id}`} className="min-w-0">
-          <h2 className="line-clamp-1 text-base font-bold leading-tight text-text-primary">
-            {product.name}
-          </h2>
-        </Link>
-
-        <ProductPriceDisplay product={product} size="md" className="mt-0.5" />
-
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <p className={`text-sm font-semibold ${inStock ? "text-green-600" : "text-red-500"}`}>
-            {inStock ? "In Stock" : "Out of Stock"}
-          </p>
-          {cartQuantity > 0 ? (
-            <div className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border-light bg-white">
-              <button
-                type="button"
-                onClick={() => onDecrease(product)}
-                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary"
-                aria-label="Decrease quantity"
-              >
-                −
-              </button>
-              <span className="flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-1 text-sm font-bold text-text-primary">
-                {cartQuantity}
-              </span>
-              <button
-                type="button"
-                onClick={() => onIncrease(product)}
-                disabled={!inStock}
-                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
-          ) : (
-            <AddToCartButton
-              onClick={(e) => onIncrease(product, e.currentTarget)}
-              disabled={!inStock}
-              className="shrink-0"
-            />
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function SearchResultsView({
   products,
   categories,
@@ -212,59 +142,33 @@ function SearchResultsView({
             ))}
           </div>
         )}
-        <div className="space-y-2.5 bg-mobile-bg px-0 py-3">
-          {loading ? (
-            [...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="h-[100px] animate-pulse rounded-xl border border-border-light bg-white"
-              />
-            ))
-          ) : sortedProducts.length === 0 ? (
-            <p className="py-12 text-center text-sm text-text-secondary">{emptyMessage}</p>
-          ) : (
-            sortedProducts.map((product) => (
-              <MobileProductCard
-                key={product._id}
-                product={product}
-                cartQuantity={onGetCartQuantity(product)}
-                onIncrease={onIncrease}
-                onDecrease={onDecrease}
-              />
-            ))
-          )}
+        <div className="bg-mobile-bg px-3 py-3">
+          <ProductResultsGrid
+            products={sortedProducts}
+            loading={loading}
+            onAdd={onIncrease}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
+            emptyMessage={emptyMessage}
+          />
         </div>
       </div>
 
       <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
         <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[240px_1fr] bg-mobile-bg xl:grid-cols-[260px_1fr]">
           <DesktopCategorySidebar categories={categories} activeCategory="" />
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto border-l border-border-light bg-white px-6 py-5">
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto border-l border-border-light bg-white px-3 py-4 lg:px-6 lg:py-5">
             <h1 className="mb-4 text-xl font-bold text-text-primary">{pageTitle}</h1>
-            {loading ? (
-              <div className="grid grid-cols-4 gap-4">
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-[380px] animate-pulse rounded-lg border border-border-light bg-white"
-                  />
-                ))}
-              </div>
-            ) : sortedProducts.length === 0 ? (
-              <p className="py-12 text-center text-text-secondary">{emptyMessage}</p>
-            ) : (
-              <div className="grid grid-cols-4 gap-4">
-                {sortedProducts.map((product) => (
-                  <MobileProductCard
-                    key={product._id}
-                    product={product}
-                    cartQuantity={onGetCartQuantity(product)}
-                    onIncrease={onIncrease}
-                    onDecrease={onDecrease}
-                  />
-                ))}
-              </div>
-            )}
+            <ProductResultsGrid
+              products={sortedProducts}
+              loading={loading}
+              onAdd={onIncrease}
+              onGetCartQuantity={onGetCartQuantity}
+              onIncrease={onIncrease}
+              onDecrease={onDecrease}
+              emptyMessage={emptyMessage}
+            />
           </div>
         </div>
       </div>

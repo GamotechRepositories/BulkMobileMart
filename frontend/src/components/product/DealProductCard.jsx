@@ -32,7 +32,7 @@ function DealProductCard({
 
   return (
     <div
-      className={`flex flex-col overflow-hidden rounded-xl bg-white transition ${layoutClass}`}
+      className={`flex h-full flex-col overflow-hidden rounded-xl border border-border-light bg-white transition ${layoutClass}`}
     >
       <div className="relative">
         <div className="absolute right-1.5 top-1.5 z-10">
@@ -43,9 +43,9 @@ function DealProductCard({
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col p-2 sm:p-2.5">
-        <Link to={productUrl} className="min-w-0">
-          <h3 className="line-clamp-1 text-sm font-bold text-text-primary sm:text-base">
+      <div className="flex min-h-0 flex-1 flex-col p-2 sm:p-2.5">
+        <Link to={productUrl} className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-snug text-text-primary sm:text-base">
             {product.name}
           </h3>
           <p className="line-clamp-1 text-[11px] text-text-secondary sm:text-xs">
@@ -54,6 +54,7 @@ function DealProductCard({
           <ProductPriceDisplay product={product} size="sm" className="mt-0.5" />
         </Link>
 
+        <div className="mt-auto pt-1.5">
         {cartQuantity > 0 ? (
           <div className="mt-1.5 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
             <button
@@ -81,9 +82,10 @@ function DealProductCard({
           <AddToCartButton
             onClick={(e) => (onIncrease ?? onAdd)?.(product, e.currentTarget)}
             disabled={disabled}
-            className="mt-1.5 w-full"
+            className="w-full"
           />
         )}
+        </div>
       </div>
     </div>
   );
