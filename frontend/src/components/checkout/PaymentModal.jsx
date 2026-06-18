@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
@@ -40,7 +40,6 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
-  const chooserOpenedRef = useRef(false);
 
   const payableAmount = getPayableAmount(orderTotal, paymentMethod);
   const isCod = paymentMethod === "cod";
@@ -53,40 +52,29 @@ function PaymentModal({
   const hasUpiId = Boolean(upiConfig.upiId);
   const onMobile = isMobileDevice();
 
-  const openUpiChooser = useCallback(
-    (auto = false) => {
-      if (!hasUpiId) {
-        if (!auto) setUpiHint("UPI ID is not configured. Please contact support.");
-        return;
-      }
+  const openUpiChooser = useCallback(() => {
+    if (!hasUpiId) {
+      setUpiHint("UPI ID is not configured. Please contact support.");
+      return;
+    }
 
-      if (auto && chooserOpenedRef.current) return;
-      if (auto) chooserOpenedRef.current = true;
+    setUpiHint("");
+    const launched = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
 
-      if (!auto) setUpiHint("");
-      const launched = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
+    if (launched) {
+      setUpiHint("Complete payment in your UPI app, then upload screenshot.");
+      return;
+    }
 
-      if (launched) {
-        setUpiHint(
-          auto
-            ? "Choose your UPI app to pay, then upload screenshot."
-            : "Complete payment in your UPI app, then upload screenshot."
-        );
-        return;
-      }
-
-      setUpiHint(
-        onMobile
-          ? "No UPI app found. Install PhonePe, Paytm, or GPay — or scan the QR code."
-          : "Open this page on your phone to pay with UPI, or scan the QR code."
-      );
-    },
-    [hasUpiId, onMobile, payableAmount, paymentNote, upiConfig]
-  );
+    setUpiHint(
+      onMobile
+        ? "No UPI app found. Install PhonePe, Paytm, or GPay — or scan the QR code."
+        : "Open this page on your phone to pay with UPI, or scan the QR code."
+    );
+  }, [hasUpiId, onMobile, payableAmount, paymentNote, upiConfig]);
 
   useEffect(() => {
     if (!open) {
-      chooserOpenedRef.current = false;
       setUpiHint("");
       setScreenshot(null);
       setScreenshotPreview("");
@@ -102,13 +90,6 @@ function PaymentModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
-
-  useEffect(() => {
-    if (!open || !hasUpiId || !onMobile) return undefined;
-
-    const timer = window.setTimeout(() => openUpiChooser(true), 350);
-    return () => window.clearTimeout(timer);
-  }, [open, hasUpiId, onMobile, openUpiChooser]);
 
   if (!open) return null;
 
@@ -250,7 +231,7 @@ function PaymentModal({
                   <button
                     type="button"
                     disabled={processing || !hasUpiId}
-                    onClick={() => openUpiChooser(false)}
+                    onClick={openUpiChooser}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
                   >
                     <img
