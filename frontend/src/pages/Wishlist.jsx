@@ -100,7 +100,7 @@ function Wishlist() {
   }
 
   return (
-    <div className="min-h-screen bg-mobile-bg text-text-primary">
+    <div className="min-h-screen bg-mobile-bg pb-24 text-text-primary lg:pb-8">
       <section className="bg-white px-4 py-4 pb-6 sm:px-6 md:px-8 md:pb-8">
         <div className="mx-auto w-full max-w-[1600px]">
           <h1 className="mb-4 text-xl font-bold sm:mb-6 sm:text-2xl lg:text-3xl">
@@ -108,24 +108,14 @@ function Wishlist() {
           </h1>
 
           {loading ? (
-            <>
-              <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 md:hidden">
-                {[1, 2, 3].map((n) => (
-                  <div
-                    key={n}
-                    className="h-[220px] w-[150px] shrink-0 animate-pulse rounded-xl border border-border-light bg-white sm:w-[165px]"
-                  />
-                ))}
-              </div>
-              <div className="hidden grid-cols-4 gap-4 md:grid lg:grid-cols-6">
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div
-                    key={n}
-                    className="h-[280px] animate-pulse rounded-xl border border-border-light bg-white"
-                  />
-                ))}
-              </div>
-            </>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div
+                  key={n}
+                  className="h-[258px] animate-pulse rounded-xl border border-border-light bg-white"
+                />
+              ))}
+            </div>
           ) : wishlistItems.length === 0 ? (
             <div className="rounded-xl border border-border-light bg-white py-16 text-center shadow-sm">
               <p className="mb-2 text-lg font-semibold">Your wishlist is empty</p>
@@ -140,37 +130,20 @@ function Wishlist() {
               </Link>
             </div>
           ) : (
-            <>
-              <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 md:hidden">
-                {wishlistItems.map((item) => (
-                  <DealProductCard
-                    key={item._id}
-                    product={item}
-                    onAdd={handleAdd}
-                    onIncrease={handleIncrease}
-                    onDecrease={handleDecrease}
-                    cartQuantity={getCartQuantity(item)}
-                    layout="scroll"
-                    addDisabled={loading}
-                  />
-                ))}
-              </div>
-
-              <div className="hidden grid-cols-4 gap-4 md:grid lg:grid-cols-6">
-                {wishlistItems.map((item) => (
-                  <DealProductCard
-                    key={item._id}
-                    product={item}
-                    onAdd={handleAdd}
-                    onIncrease={handleIncrease}
-                    onDecrease={handleDecrease}
-                    cartQuantity={getCartQuantity(item)}
-                    layout="grid"
-                    addDisabled={loading}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {wishlistItems.map((item) => (
+                <DealProductCard
+                  key={item._id}
+                  product={item}
+                  onAdd={handleAdd}
+                  onIncrease={handleIncrease}
+                  onDecrease={handleDecrease}
+                  cartQuantity={getCartQuantity(item)}
+                  layout="grid"
+                  addDisabled={loading}
+                />
+              ))}
+            </div>
           )}
         </div>
       </section>

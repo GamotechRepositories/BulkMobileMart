@@ -1,8 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
 
-const BATCH_SIZE = 12;
+const MOBILE_ITEMS_PER_SLIDE = 6;
+const DESKTOP_ITEMS_PER_SLIDE = 12;
+
+function useItemsPerSlide() {
+  const [itemsPerSlide, setItemsPerSlide] = useState(() => {
+    if (typeof window === "undefined") return MOBILE_ITEMS_PER_SLIDE;
+    return window.matchMedia("(min-width: 1024px)").matches
+      ? DESKTOP_ITEMS_PER_SLIDE
+      : MOBILE_ITEMS_PER_SLIDE;
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      setItemsPerSlide(mq.matches ? DESKTOP_ITEMS_PER_SLIDE : MOBILE_ITEMS_PER_SLIDE);
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return itemsPerSlide;
+}
 
 const DEFAULT_CATEGORIES = [
   { name: "Chargers", icon: "charger" },
@@ -36,6 +58,13 @@ function chunkCategories(items, size) {
     batches.push(items.slice(index, index + size));
   }
   return batches;
+}
+
+function sortCategories(categories, direction = "asc") {
+  return [...categories].sort((a, b) => {
+    const result = a.name.localeCompare(b.name, "en", { sensitivity: "base" });
+    return direction === "asc" ? result : -result;
+  });
 }
 
 function CategoryIcon({ type, className = "h-10 w-10" }) {
@@ -157,65 +186,124 @@ function CategoryCard({ category }) {
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-      className="group flex min-h-[96px] flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white transition-colors hover:border-primary sm:min-h-[120px] lg:min-h-[180px]"
+      className="group flex min-h-[158px] flex-col overflow-hidden rounded-xl border border-[#e6e6e6] bg-white transition-colors hover:border-primary sm:min-h-[172px] lg:min-h-[188px]"
     >
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-2 pb-1 sm:px-3 sm:pt-3 lg:px-4 lg:pt-6">
-        <div className="flex h-12 w-12 items-center justify-center sm:h-16 sm:w-16 lg:h-28 lg:w-28">
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-4 sm:pt-5">
+        <div className="flex h-[72px] w-[72px] items-center justify-center sm:h-20 sm:w-20 lg:h-24 lg:w-24">
           <CategoryImage
             src={category.image}
             name={category.name}
             icon={category.icon}
-            className="h-9 w-9 sm:h-12 sm:w-12 lg:h-20 lg:w-20"
+            className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
           />
         </div>
       </div>
-      <p className="px-2 pb-2 text-center text-[10px] font-bold leading-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:pb-3 sm:text-xs lg:px-4 lg:pb-4 lg:text-left lg:text-base">
-        {category.name}
+      <p className="line-clamp-2 px-2 pb-3.5 text-center text-xs font-extrabold uppercase leading-tight tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:pb-4 sm:text-sm">
+        {category.name.replace(/&/g, " / ")}
       </p>
     </Link>
   );
 }
 
-function CategoryGrid({ categories, compact = false, className = "" }) {
-  const gridClass = compact
-    ? "grid grid-cols-3 gap-2 sm:gap-3"
-    : "grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-6 lg:gap-4";
-
+function SliderArrow({ direction, onClick, disabled }) {
   return (
-    <div className={`${gridClass} ${className}`}>
-      {categories.map((category) => (
-        <CategoryCard key={category.name} category={category} />
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={direction === "left" ? "Previous categories" : "Next categories"}
+      className="absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[#e6e6e6] bg-white text-xl font-bold leading-none text-text-primary shadow-md transition hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-25 sm:h-10 sm:w-10"
+      style={direction === "left" ? { left: "-0.5rem" } : { right: "-0.5rem" }}
+    >
+      {direction === "left" ? "‹" : "›"}
+    </button>
   );
 }
 
-function CategoryBatchCarousel({ batches }) {
-  return (
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-      <div className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth scroll-px-4 sm:scroll-px-6 lg:scroll-px-8">
-        {batches.map((batch, batchIndex) => (
-          <div
-            key={`category-batch-${batchIndex}`}
-            className="w-full shrink-0 snap-start px-4 sm:px-6 lg:px-8"
-          >
-            <CategoryGrid categories={batch} compact />
-          </div>
-        ))}
-      </div>
+function CategoryTwoRowSlider({ sectionKey, categories }) {
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const itemsPerSlide = useItemsPerSlide();
 
-      {batches.length > 1 ? (
-        <p className="mt-3 text-center text-xs text-text-muted">
-          Swipe for more categories · {batches.length} pages
-        </p>
-      ) : null}
+  const batches = useMemo(
+    () => chunkCategories(categories, itemsPerSlide),
+    [categories, itemsPerSlide]
+  );
+
+  const updateScrollState = () => {
+    const node = scrollRef.current;
+    if (!node) return;
+    setCanScrollLeft(node.scrollLeft > 4);
+    setCanScrollRight(node.scrollLeft + node.clientWidth < node.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const node = scrollRef.current;
+    if (!node) return undefined;
+
+    node.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+
+    return () => {
+      node.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [batches]);
+
+  const scrollByPage = (direction) => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollBy({ left: direction * node.clientWidth, behavior: "smooth" });
+  };
+
+  if (categories.length === 0) return null;
+
+  const showArrows = batches.length > 1;
+
+  return (
+    <div className="mb-6 last:mb-0 sm:mb-8">
+      <div className="relative px-3 sm:px-4">
+        {showArrows ? (
+          <>
+            <SliderArrow
+              direction="left"
+              onClick={() => scrollByPage(-1)}
+              disabled={!canScrollLeft}
+            />
+            <SliderArrow
+              direction="right"
+              onClick={() => scrollByPage(1)}
+              disabled={!canScrollRight}
+            />
+          </>
+        ) : null}
+
+        <div
+          ref={scrollRef}
+          className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+        >
+          {batches.map((batch, batchIndex) => (
+            <div
+              key={`${sectionKey}-batch-${batchIndex}`}
+              className="w-full shrink-0 snap-start px-0.5 pb-1"
+            >
+              <div className="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-3 lg:grid-cols-6 lg:gap-4">
+                {batch.map((category) => (
+                  <CategoryCard key={`${sectionKey}-${category.name}`} category={category} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 function CategoryNav() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -244,55 +332,27 @@ function CategoryNav() {
     fetchCategories();
   }, []);
 
-  const batches = useMemo(
-    () => chunkCategories(categories, BATCH_SIZE),
-    [categories]
-  );
-
-  const hasMultipleBatches = batches.length > 1;
+  const categoriesAZ = useMemo(() => sortCategories(categories, "asc"), [categories]);
+  const categoriesZA = useMemo(() => sortCategories(categories, "desc"), [categories]);
 
   return (
     <section className="bg-mobile-bg px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-[1600px]">
-        <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5 lg:mb-6">
+        <div className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
           <h2 className="text-lg font-bold text-text-primary sm:text-xl lg:text-2xl">
             Explore Our Categories
           </h2>
           <Link
             to="/product"
-            className="hidden shrink-0 text-sm font-semibold text-primary transition hover:underline lg:inline-flex"
+            className="shrink-0 text-sm font-semibold text-primary transition hover:underline"
           >
             View All
           </Link>
-          {hasMultipleBatches ? (
-            <button
-              type="button"
-              onClick={() => setShowAll((prev) => !prev)}
-              className="shrink-0 text-sm font-semibold text-primary transition hover:underline lg:hidden"
-            >
-              {showAll ? "Show Less" : "View All"}
-            </button>
-          ) : (
-            <Link
-              to="/product"
-              className="shrink-0 text-sm font-semibold text-primary transition hover:underline lg:hidden"
-            >
-              View All
-            </Link>
-          )}
         </div>
 
-        <div className="hidden lg:block">
-          <CategoryGrid categories={categories} />
-        </div>
+        <CategoryTwoRowSlider sectionKey="az" categories={categoriesAZ} />
 
-        <div className="lg:hidden">
-          {showAll ? (
-            <CategoryGrid categories={categories} />
-          ) : (
-            <CategoryBatchCarousel batches={batches} />
-          )}
-        </div>
+        <CategoryTwoRowSlider sectionKey="za" categories={categoriesZA} />
       </div>
     </section>
   );
