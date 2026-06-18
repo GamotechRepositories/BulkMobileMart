@@ -28,13 +28,13 @@ function TodayStatCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-neutral-500">{label}</p>
+        <p className="whitespace-nowrap text-xs font-medium text-neutral-500 sm:text-sm">{label}</p>
         <p className="mt-0.5 text-xl font-bold text-neutral-900 sm:text-2xl">
           {loading ? "—" : value}
         </p>
         {!loading && (
           <p
-            className={`mt-1 flex items-center gap-0.5 text-[11px] font-semibold leading-tight sm:text-xs ${trendClass}`}
+            className={`mt-1 flex items-center gap-0.5 whitespace-nowrap text-[11px] font-semibold leading-tight sm:text-xs ${trendClass}`}
           >
             <TrendArrow direction={change.direction} />
             <span>{trendLabel}</span>
@@ -47,7 +47,7 @@ function TodayStatCard({
           values={trendValues}
           color={sparkColor}
           height={36}
-          className="hidden w-14 shrink-0 sm:block lg:w-16"
+          className="hidden w-12 shrink-0 sm:block sm:w-14"
         />
       )}
     </div>
