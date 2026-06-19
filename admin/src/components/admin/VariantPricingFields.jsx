@@ -1,4 +1,3 @@
-import ColorOptionsField, { EMPTY_COLOR } from "./ColorOptionsField";
 import { inputClass, labelClass } from "./adminStyles";
 
 const EMPTY_SLAB = {
@@ -58,63 +57,65 @@ function VariantPricingFields({
 
   return (
     <div className="space-y-4">
-      {showPricingType ? (
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={variant.pricingType === "single"}
-              onChange={() => updateField("pricingType", "single")}
-              className="h-4 w-4 accent-primary"
-            />
-            Single price
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              checked={variant.pricingType === "bulk"}
-              onChange={() => updateField("pricingType", "bulk")}
-              className="h-4 w-4 accent-primary"
-            />
-            Bulk price
-          </label>
+      {showPricingType || showInStock ? (
+        <div
+          className={`grid items-center gap-2 sm:gap-4 ${
+            showPricingType && showInStock ? "grid-cols-3" : showPricingType ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
+          {showPricingType ? (
+            <>
+              <label className="flex items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
+                <input
+                  type="radio"
+                  checked={variant.pricingType === "single"}
+                  onChange={() => updateField("pricingType", "single")}
+                  className="h-4 w-4 shrink-0 accent-primary"
+                />
+                <span className="leading-tight">Single price</span>
+              </label>
+              <label className="flex items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
+                <input
+                  type="radio"
+                  checked={variant.pricingType === "bulk"}
+                  onChange={() => updateField("pricingType", "bulk")}
+                  className="h-4 w-4 shrink-0 accent-primary"
+                />
+                <span className="leading-tight">Bulk price</span>
+              </label>
+            </>
+          ) : null}
+          {showInStock ? (
+            <label className="flex items-center gap-1.5 text-xs sm:gap-2 sm:text-sm">
+              <input
+                type="checkbox"
+                checked={variant.inStock !== false}
+                onChange={(e) => updateField("inStock", e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="font-medium leading-tight text-text-primary">In stock</span>
+            </label>
+          ) : null}
         </div>
       ) : null}
 
-      {showInStock || isBulk ? (
-        <div className={`grid gap-4 ${showInStock && isBulk ? "sm:grid-cols-2" : ""}`}>
-          {showInStock ? (
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={variant.inStock !== false}
-                  onChange={(e) => updateField("inStock", e.target.checked)}
-                  className="h-4 w-4 accent-primary"
-                />
-                <span className="text-sm font-medium text-text-primary">In stock</span>
-              </label>
-            </div>
-          ) : null}
-          {isBulk ? (
-            <div>
-              <label className={labelClass}>Minimum order quantity *</label>
-              <input
-                type="number"
-                required
-                min="1"
-                placeholder="e.g. 50"
-                value={variant.bulkMinOrderQuantity}
-                onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          ) : null}
+      {isBulk ? (
+        <div>
+          <label className={labelClass}>Minimum order quantity *</label>
+          <input
+            type="number"
+            required
+            min="1"
+            placeholder="e.g. 50"
+            value={variant.bulkMinOrderQuantity}
+            onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
+            className={inputClass}
+          />
         </div>
       ) : null}
 
       {!isBulk ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
           <div>
             <label className={labelClass}>Price (₹) *</label>
             <input
@@ -140,7 +141,7 @@ function VariantPricingFields({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
             <div>
               <label className={labelClass}>Price (₹) *</label>
               <input
@@ -178,7 +179,7 @@ function VariantPricingFields({
                 return (
                   <div
                     key={index}
-                    className="grid gap-3 rounded-lg border border-border-light p-3 sm:grid-cols-2 lg:grid-cols-5"
+                    className="grid grid-cols-2 gap-3 rounded-lg border border-border-light p-3 lg:grid-cols-5"
                   >
                     <div>
                       <label className="mb-1 block text-xs font-medium text-text-secondary">
@@ -253,10 +254,6 @@ function VariantPricingFields({
           </div>
         </div>
       )}
-      <ColorOptionsField
-        colors={variant.colors?.length ? variant.colors : [{ ...EMPTY_COLOR }]}
-        onChange={(colors) => updateField("colors", colors)}
-      />
     </div>
   );
 }

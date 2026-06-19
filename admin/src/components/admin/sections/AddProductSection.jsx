@@ -579,7 +579,7 @@ function AddProductSection() {
           )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
           <div>
             <label className={labelClass}>Product name *</label>
             <input
@@ -651,7 +651,7 @@ function AddProductSection() {
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2">
+          <div className="col-span-2">
             <label className={labelClass}>Subcategories *</label>
             {!form.primaryCategory ? (
               <p className="text-sm text-text-muted">Select a category first</p>
@@ -702,15 +702,15 @@ function AddProductSection() {
 
         <div className="rounded-lg border border-border-light p-4">
           <p className="mb-3 text-sm font-semibold text-text-primary">Product status</p>
-          <div className="flex flex-wrap items-center gap-6">
+          <div className={`grid gap-3 ${isMultiVariant ? "grid-cols-1" : "grid-cols-2"}`}>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={form.isActive}
                 onChange={(e) => setField("isActive", e.target.checked)}
-                className="h-4 w-4 accent-primary"
+                className="h-4 w-4 shrink-0 accent-primary"
               />
-              Product is active (visible on website)
+              <span>Product is active</span>
             </label>
             {!isMultiVariant ? (
               <label className="flex items-center gap-2 text-sm">
@@ -718,15 +718,15 @@ function AddProductSection() {
                   type="checkbox"
                   checked={form.inStock !== false}
                   onChange={(e) => setField("inStock", e.target.checked)}
-                  className="h-4 w-4 accent-primary"
+                  className="h-4 w-4 shrink-0 accent-primary"
                 />
-                In stock
+                <span>In stock</span>
               </label>
             ) : null}
           </div>
         </div>
 
-        <div className={`grid gap-4 ${isMultiVariant ? "" : "sm:grid-cols-2"}`}>
+        <div className={`grid gap-3 sm:gap-4 ${isMultiVariant ? "" : "grid-cols-2"}`}>
           <div className="rounded-lg border border-border-light p-4">
             <p className="mb-3 text-sm font-semibold text-text-primary">Variant type</p>
             <div className="flex flex-wrap gap-4">
@@ -786,7 +786,7 @@ function AddProductSection() {
         </div>
 
         {isMultiVariant ? (
-          <div className="space-y-4 rounded-lg border border-border-light p-4">
+          <div className="space-y-4">
             <div>
               <label className={labelClass}>Product variants *</label>
               <p className="mb-3 text-xs text-text-muted">
@@ -892,7 +892,7 @@ function AddProductSection() {
         <div className="space-y-4">
           <label className={labelClass}>Product images *</label>
           {productImages.map((url, index) => (
-            <div key={index} className="rounded-lg border border-border-light p-3">
+            <div key={index} className="space-y-2">
               <ImagePicker
                 label={`Image ${index + 1}`}
                 folder={UPLOAD_FOLDERS.PRODUCTS}

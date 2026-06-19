@@ -9,8 +9,38 @@ function RevenueCard({ totalRevenue, currentMonth, lastMonth, monthlyTrend = [],
   const sparkValues = monthlyTrend.slice(-6).map((item) => item.revenue);
 
   return (
-    <div className={`${cardClass} col-span-2 h-full xl:col-span-2`}>
-      <div className="flex h-full items-center justify-between gap-4">
+    <div className={`${cardClass} col-span-2 h-full p-3 sm:p-5 xl:col-span-2`}>
+      <div className="flex items-center gap-2 sm:hidden">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
+            />
+          </svg>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-medium leading-tight text-neutral-500">Total Revenue</p>
+          {!loading && (
+            <p className={`mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold leading-tight ${trendClass}`}>
+              <TrendArrow direction={change.direction} />
+              <span>
+                {change.direction === "flat"
+                  ? "No change vs last month"
+                  : `${change.percent}% vs last month`}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <p className="shrink-0 text-lg font-bold text-neutral-900">
+          {loading ? "—" : formatCurrency(totalRevenue)}
+        </p>
+      </div>
+
+      <div className="hidden h-full items-center justify-between gap-4 sm:flex">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600 sm:h-12 sm:w-12">
             <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

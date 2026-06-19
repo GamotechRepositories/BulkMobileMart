@@ -38,17 +38,6 @@ const PAGE_TITLES = {
 
 const NAV_ITEMS = [
   { type: "link", to: "/", label: "Dashboard", end: true, icon: IconDashboard },
-  { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
-  {
-    type: "group",
-    label: "Categories",
-    icon: IconCategory,
-    basePath: "/categories",
-    children: [
-      { to: "/categories/add", label: "Add Category" },
-      { to: "/categories/show", label: "Show Category" },
-    ],
-  },
   {
     type: "group",
     label: "Products",
@@ -57,6 +46,17 @@ const NAV_ITEMS = [
     children: [
       { to: "/products/add", label: "Add Product" },
       { to: "/products/show", label: "Show Product" },
+    ],
+  },
+  { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
+  {
+    type: "group",
+    label: "Categories",
+    icon: IconCategory,
+    basePath: "/categories",
+    children: [
+      { to: "/categories/add", label: "Add Category" },
+      { to: "/categories/show", label: "Show Category" },
     ],
   },
   {
@@ -79,11 +79,11 @@ const NAV_ITEMS = [
       { to: "/testimonials/show", label: "Show Testimonials" },
     ],
   },
-  { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
   { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },
+  { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
 ];
 
 const navLinkClass = ({ isActive }) =>

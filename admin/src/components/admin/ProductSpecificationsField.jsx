@@ -101,7 +101,7 @@ function isSpecComplete(spec) {
 
 function SpecificationValueField({ spec, index, valueOptions, allowCustomValue, onUpdate }) {
   const inputClass =
-    "min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30";
+    "min-w-0 w-full flex-1 rounded-lg border border-border-light bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm";
   const selectClass = `${inputClass} text-text-primary`;
 
   if (valueOptions.length > 0) {
@@ -180,9 +180,6 @@ function ProductSpecificationsField({
             <h4 className="text-base font-bold text-text-primary sm:text-lg">
               Product Specifications
             </h4>
-            <p className="mt-1 text-xs text-text-muted sm:text-sm">
-              All specifications are listed below. Fill what applies and delete the rest.
-            </p>
           </div>
           <button
             type="button"
@@ -205,7 +202,7 @@ function ProductSpecificationsField({
         ) : null}
       </div>
 
-      <div className="divide-y divide-border-light">
+      <div className="grid grid-cols-1 divide-y divide-border-light lg:grid-cols-3 lg:gap-4 lg:divide-y-0 lg:p-4">
         {specifications.map((spec, index) => {
           const isCustom = spec.name === SPEC_CUSTOM_NAME;
           const hasName = isCustom || Boolean(spec.name?.trim());
@@ -219,7 +216,7 @@ function ProductSpecificationsField({
           return (
             <div
               key={`spec-row-${index}`}
-              className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4"
+              className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 lg:relative lg:rounded-lg lg:border lg:border-border-light lg:px-3 lg:py-3"
             >
               {editOrder ? (
                 <div className="flex shrink-0 flex-col gap-0.5">
@@ -248,11 +245,11 @@ function ProductSpecificationsField({
                 </div>
               ) : null}
 
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-primary sm:h-10 sm:w-10">
-                <SpecIcon name={hasName ? displayName : ""} />
-              </div>
+              <div className="flex min-w-0 flex-1 items-center gap-2 lg:w-full">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-primary sm:h-10 sm:w-10">
+                  <SpecIcon name={hasName ? displayName : ""} className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
 
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2 sm:flex-nowrap">
                 {!hasName ? (
                   <select
                     value={spec.name}
@@ -264,7 +261,7 @@ function ProductSpecificationsField({
                         value: "",
                       });
                     }}
-                    className="min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    className="min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2 py-1.5 text-xs text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm lg:w-full"
                   >
                     <option value="">Select specification</option>
                     {specificationLibrary.map((item) => (
@@ -275,42 +272,44 @@ function ProductSpecificationsField({
                     <option value={SPEC_CUSTOM_NAME}>+ Custom specification</option>
                   </select>
                 ) : (
-                  <>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2 sm:flex-nowrap lg:gap-2">
                     {isCustom ? (
                       <input
                         type="text"
                         placeholder="Specification name"
                         value={spec.customName}
                         onChange={(e) => onUpdate(index, "customName", e.target.value)}
-                        className="w-full min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2.5 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:max-w-[180px]"
+                        className="w-full min-w-0 flex-1 rounded-lg border border-border-light bg-white px-2 py-1.5 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm lg:max-w-[120px] lg:flex-none xl:max-w-[140px]"
                       />
                     ) : (
-                      <div className="flex min-w-[88px] shrink-0 items-center gap-0.5 sm:min-w-[120px]">
-                        <span className="text-sm font-semibold text-text-primary">
+                      <div className="flex min-w-[72px] shrink-0 items-center gap-0.5 sm:min-w-[120px] lg:min-w-0 lg:max-w-[100px] xl:max-w-[120px]">
+                        <span className="truncate text-xs font-semibold leading-tight text-text-primary sm:text-sm">
                           {displayName}
                         </span>
-                        <span className="text-sm text-text-muted">:</span>
+                        <span className="shrink-0 text-xs text-text-muted sm:text-sm">:</span>
                       </div>
                     )}
 
-                    <SpecificationValueField
-                      spec={spec}
-                      index={index}
-                      valueOptions={valueOptions}
-                      allowCustomValue={allowCustomValue}
-                      onUpdate={onUpdate}
-                    />
-                  </>
+                    <div className="min-w-0 flex-1">
+                      <SpecificationValueField
+                        spec={spec}
+                        index={index}
+                        valueOptions={valueOptions}
+                        allowCustomValue={allowCustomValue}
+                        onUpdate={onUpdate}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
 
               <button
                 type="button"
                 onClick={() => onRemove(index)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 sm:h-9 sm:w-9"
                 aria-label="Remove specification"
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                 </svg>
               </button>
