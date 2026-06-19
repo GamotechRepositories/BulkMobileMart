@@ -103,6 +103,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpay_signature,
       paymentMode = "online",
       checkoutItems,
+      attemptedOrderId,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -175,6 +176,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       codAdvanceRazorpayPaymentId: isCodAdvance ? razorpay_payment_id : "",
       paidAt: isCodAdvance ? null : new Date(),
       message: orderMessage,
+      attemptedOrderId,
     });
 
     res.status(201).json({
@@ -192,7 +194,7 @@ export const verifyRazorpayPayment = async (req, res) => {
 
 export const submitUpiPaymentProof = async (req, res) => {
   try {
-    const { addressId, paymentMode = "online", checkoutItems } = req.body;
+    const { addressId, paymentMode = "online", checkoutItems, attemptedOrderId } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
     const screenshotName = normalizeText(req.body.screenshotName, 200);
@@ -259,6 +261,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       status: "confirm",
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
+      attemptedOrderId,
     });
 
     const payment = await Payment.create({

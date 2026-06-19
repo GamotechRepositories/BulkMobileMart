@@ -7,7 +7,9 @@ import {
   finalizeOrder,
   normalizeOrderMessage,
   populateOrderItems,
+  prepareCheckoutAttemptData,
   prepareOrderData,
+  upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
@@ -115,9 +117,42 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
   };
 }
 
+export const createCheckoutAttempt = async (req, res) => {
+  try {
+    const { addressId, checkoutItems, paymentMethod } = req.body;
+    const prepared = await prepareCheckoutAttemptData(req.user._id, {
+      addressId,
+      checkoutItems,
+    });
+
+    if (prepared.error) {
+      return res.status(prepared.status).json({
+        success: false,
+        message: prepared.error,
+        ...(prepared.code ? { code: prepared.code } : {}),
+        ...(prepared.removedItems ? { removedItems: prepared.removedItems } : {}),
+      });
+    }
+
+    const order = await upsertCheckoutAttemptOrder(
+      req.user._id,
+      prepared,
+      paymentMethod
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Checkout attempt recorded",
+      data: enrichOrderForResponse(order),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const placeOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod } = req.body;
+    const { addressId, paymentMethod, attemptedOrderId } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
@@ -162,6 +197,7 @@ export const placeOrder = async (req, res) => {
       paymentMethod: "cod",
       paymentStatus: "unpaid",
       message: orderMessage,
+      attemptedOrderId,
     });
 
     res.status(201).json({
@@ -232,10 +268,10 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
-    if (order.status !== "confirm") {
+    if (!["confirm", "attempted"].includes(order.status)) {
       return res.status(400).json({
         success: false,
-        message: "Order can only be cancelled while status is Confirm",
+        message: "Order can only be cancelled while status is Confirm or Attempted",
       });
     }
 
@@ -592,7 +628,7 @@ export const updateOrder = async (req, res) => {
     const { status, paymentStatus } = req.body;
     const updates = {};
 
-    const allowedStatuses = ["confirm", "processing", "shipping", "delivered", "cancelled"];
+    const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
     const allowedPaymentStatuses = ["unpaid", "paid", "refundable", "pending_verification"];
 
     const existingOrder = await Order.findById(req.params.id);

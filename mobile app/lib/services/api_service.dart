@@ -111,6 +111,9 @@ class ApiService {
   Future<Response<dynamic>> placeOrder(Map<String, dynamic> data) =>
       _dio.post('/api/orders', data: data);
 
+  Future<Response<dynamic>> createCheckoutAttempt(Map<String, dynamic> data) =>
+      _dio.post('/api/orders/checkout-attempt', data: data);
+
   Future<Response<dynamic>> createRazorpayOrder(Map<String, dynamic> data) =>
       _dio.post('/api/payments/create-order', data: data);
 

@@ -1,6 +1,7 @@
 import { getOrderNumber } from "./orderNumber";
 
 export const ORDER_STATUS_LABELS = {
+  attempted: "Attempted",
   confirm: "Confirm",
   processing: "Processing",
   shipping: "Shipping",
@@ -12,6 +13,7 @@ export const ORDER_STATUS_LABELS = {
 };
 
 export const ORDER_STATUS_STEP_INDEX = {
+  attempted: -1,
   confirm: 0,
   processing: 1,
   shipping: 2,
@@ -55,6 +57,8 @@ export function getOrderStatusLabel(status) {
 
 export function getOrderStatusColor(status) {
   switch (status) {
+    case "attempted":
+      return "#d97706";
     case "processing":
       return "#9333ea";
     case "shipping":
@@ -119,6 +123,8 @@ export function getRelativePlacedLabel(dateStr) {
 
 export function getOrderStatusHeadline(status) {
   switch (status) {
+    case "attempted":
+      return "Checkout not completed";
     case "delivered":
       return "Delivered successfully";
     case "shipping":

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
@@ -10,6 +10,7 @@ import {
   submitUpiPaymentProof,
   verifyRazorpayPayment,
   getStoreSettings,
+  createCheckoutAttempt,
 } from "../api/api";
 import PaymentModal from "../components/checkout/PaymentModal";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
@@ -60,16 +61,20 @@ function Checkout() {
   const buyNowItem = getBuyNowCheckout();
   const isBuyNow = Boolean(buyNowItem);
   const checkoutItems = isBuyNow ? [buyNowItem] : items;
-  const paymentCheckoutItems = isBuyNow
-    ? [
-        {
-          productId: buyNowItem.productId,
-          quantity: buyNowItem.quantity,
-          variantName: buyNowItem.variantName || "",
-          colorName: buyNowItem.colorName || "",
-        },
-      ]
-    : undefined;
+  const paymentCheckoutItems = useMemo(
+    () =>
+      isBuyNow && buyNowItem
+        ? [
+            {
+              productId: buyNowItem.productId,
+              quantity: buyNowItem.quantity,
+              variantName: buyNowItem.variantName || "",
+              colorName: buyNowItem.colorName || "",
+            },
+          ]
+        : undefined,
+    [isBuyNow, buyNowItem]
+  );
 
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
@@ -87,11 +92,32 @@ function Checkout() {
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [message, setMessage] = useState("");
   const [storeSettings, setStoreSettings] = useState(null);
+  const [attemptedOrderId, setAttemptedOrderId] = useState(null);
   const messageRef = useRef("");
+  const attemptedOrderIdRef = useRef(null);
+
+  const checkoutAttemptKey = useMemo(
+    () =>
+      JSON.stringify({
+        addressId: selectedAddressId,
+        paymentMethod,
+        items: checkoutItems.map((item) => ({
+          productId: item.productId || item._id,
+          quantity: item.quantity,
+          variantName: item.variantName || "",
+          colorName: item.colorName || "",
+        })),
+      }),
+    [selectedAddressId, paymentMethod, checkoutItems]
+  );
 
   useEffect(() => {
     messageRef.current = message;
   }, [message]);
+
+  useEffect(() => {
+    attemptedOrderIdRef.current = attemptedOrderId;
+  }, [attemptedOrderId]);
 
   const subtotal = checkoutItems.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
@@ -186,6 +212,47 @@ function Checkout() {
     isBuyNow,
   ]);
 
+  useEffect(() => {
+    if (
+      authLoading ||
+      bootstrapping ||
+      !user ||
+      orderPlaced ||
+      checkoutItems.length === 0 ||
+      (!isBuyNow && cartLoading)
+    ) {
+      return;
+    }
+
+    let active = true;
+
+    createCheckoutAttempt({
+      addressId: selectedAddressId || undefined,
+      paymentMethod,
+      checkoutItems: paymentCheckoutItems,
+    })
+      .then(({ data }) => {
+        if (active && data?.data?._id) {
+          setAttemptedOrderId(data.data._id);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [
+    authLoading,
+    bootstrapping,
+    user,
+    orderPlaced,
+    checkoutItems.length,
+    cartLoading,
+    isBuyNow,
+    checkoutAttemptKey,
+    paymentCheckoutItems,
+  ]);
+
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
       note || "Your order has been placed and will be delivered soon."
@@ -231,6 +298,7 @@ function Checkout() {
             paymentMode,
             customerMessage: safeTrim(messageRef.current),
             checkoutItems: paymentCheckoutItems,
+            attemptedOrderId: attemptedOrderIdRef.current,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -281,6 +349,7 @@ function Checkout() {
         paymentMode,
         customerMessage: safeTrim(messageRef.current),
         checkoutItems: paymentCheckoutItems,
+        attemptedOrderId: attemptedOrderIdRef.current,
         screenshot,
         screenshotName,
         upiTransactionRef,

@@ -100,6 +100,7 @@ export const updateAddress = (id, data) =>
 export const deleteAddress = (id) => api.delete(`/api/addresses/${id}`);
 
 export const placeOrder = (data) => api.post("/api/orders", data);
+export const createCheckoutAttempt = (data) => api.post("/api/orders/checkout-attempt", data);
 export const createRazorpayOrder = (data) => api.post("/api/payments/create-order", data);
 export const verifyRazorpayPayment = (data) => api.post("/api/payments/verify", data);
 export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-upi-proof", data);

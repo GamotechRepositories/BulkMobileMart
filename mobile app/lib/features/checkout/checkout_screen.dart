@@ -49,6 +49,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _showSuccessModal = false;
   String _orderSuccessNote = '';
   String _pendingPaymentMode = 'online';
+  String? _attemptedOrderId;
+  String? _lastCheckoutAttemptKey;
 
   @override
   void initState() {
@@ -88,6 +90,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
     final defaultAddr = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.first;
     _selectedAddressId = defaultAddr.id;
+  }
+
+  Future<void> _syncCheckoutAttempt(List<CartItem> items) async {
+    if (_orderPlaced || items.isEmpty) return;
+
+    final key =
+        '${_selectedAddressId ?? ''}|$_paymentMethod|${items.map((i) => '${i.productId}:${i.quantity}').join(',')}';
+    if (key == _lastCheckoutAttemptKey) return;
+    _lastCheckoutAttemptKey = key;
+
+    try {
+      final response = await ref.read(apiServiceProvider).createCheckoutAttempt({
+        if (_selectedAddressId != null) 'addressId': _selectedAddressId,
+        'paymentMethod': _paymentMethod,
+      });
+      final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
+      final orderId = order['_id']?.toString();
+      if (orderId != null && orderId.isNotEmpty) {
+        _attemptedOrderId = orderId;
+      }
+    } catch (_) {
+      // Non-blocking: checkout can continue if attempt recording fails.
+    }
   }
 
   Future<void> _handleSaveAddress(Map<String, String> form) async {
@@ -252,6 +277,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'addressId': _selectedAddressId,
         'paymentMode': _pendingPaymentMode,
         'customerMessage': _message.trim(),
+        if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
         'razorpay_signature': response.signature,
@@ -289,6 +315,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'addressId': _selectedAddressId,
         'paymentMode': _apiPaymentMode,
         'customerMessage': _message.trim(),
+        if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'screenshot': screenshot,
         'screenshotName': screenshotName,
         'upiTransactionRef': upiTransactionRef,
@@ -369,6 +396,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!cartLoading && cartItems.isEmpty && !_orderPlaced) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.go(RoutePaths.cart);
+      });
+    }
+
+    if (!cartLoading && cartItems.isNotEmpty && !_orderPlaced) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncCheckoutAttempt(cartItems);
       });
     }
 

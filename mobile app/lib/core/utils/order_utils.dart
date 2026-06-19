@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/order.dart';
 
 const orderStatusLabels = <String, String>{
+  'attempted': 'Attempted',
   'confirm': 'Confirm',
   'processing': 'Processing',
   'shipping': 'Shipping',
@@ -24,6 +25,7 @@ const paymentStatusLabels = <String, String>{
 const orderSteps = ['Confirm', 'Processing', 'Shipping', 'Delivered', 'Cancelled'];
 
 const orderStatusStepIndex = <String, int>{
+  'attempted': -1,
   'confirm': 0,
   'processing': 1,
   'shipping': 2,
@@ -58,6 +60,8 @@ bool showOrderPaymentBadge(Order order) {
 
 Color getOrderStatusColor(String status) {
   switch (status) {
+    case 'attempted':
+      return Colors.amber.shade700;
     case 'processing':
       return Colors.purple;
     case 'shipping':

@@ -338,7 +338,173 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   };
 }
 
-export async function finalizeOrder({
+function buildPendingDeliveryAddress(user, address = null) {
+  if (address) {
+    const snapshot = addressToSnapshot(address);
+    const fields = [
+      "fullName",
+      "number",
+      "email",
+      "shopNo",
+      "shopName",
+      "fullAddress",
+      "landmark",
+      "city",
+      "state",
+      "pincode",
+    ];
+    if (fields.every((field) => snapshot[field])) {
+      return snapshot;
+    }
+  }
+
+  const rawPhone = String(user?.phone || "").trim();
+  const phone = /^[6789]\d{9}$/.test(rawPhone) ? rawPhone : "6000000000";
+  const rawEmail = String(user?.email || "").trim().toLowerCase();
+  const email = /^\S+@\S+\.\S+$/.test(rawEmail) ? rawEmail : "customer@example.com";
+
+  return {
+    fullName: (user?.name || "Customer").trim(),
+    number: phone,
+    email,
+    shopNo: "Pending",
+    shopName: "Checkout in progress",
+    fullAddress: "Address to be confirmed",
+    landmark: "Pending",
+    city: "Pending",
+    state: "Pending",
+    pincode: "110001",
+  };
+}
+
+async function resolveItemsForCheckout(userId, options = {}) {
+  const checkoutMode = options.checkoutItems?.length ? "buyNow" : "cart";
+  let itemsToProcess = [];
+  let cart = null;
+
+  if (checkoutMode === "buyNow") {
+    const resolved = await resolveCheckoutItems(options.checkoutItems);
+    if (resolved.error) {
+      return resolved;
+    }
+    itemsToProcess = resolved.items;
+    cart = await populateCart(Cart.findOne({ user: userId }));
+  } else {
+    cart = await populateCart(Cart.findOne({ user: userId }));
+    if (!cart?.items?.length) {
+      return { error: "Your cart is empty", status: 400 };
+    }
+
+    const { unavailable, available } = listUnavailableCartItems(cart.items);
+    if (unavailable.length && !available.length) {
+      const names = unavailable.map((item) => item.name).join(", ");
+      return {
+        error: `These items are no longer available: ${names}`,
+        status: 400,
+        code: "CART_ITEMS_UNAVAILABLE",
+        removedItems: unavailable,
+      };
+    }
+
+    itemsToProcess = available.length ? available : cart.items;
+  }
+
+  return { itemsToProcess, cart, checkoutMode };
+}
+
+export async function prepareCheckoutAttemptData(userId, options = {}) {
+  const user = await User.findById(userId);
+  if (!user) {
+    return { error: "User not found", status: 404 };
+  }
+
+  let address = null;
+  if (options.addressId) {
+    address = await Address.findOne({ _id: options.addressId, user: userId });
+  } else {
+    address =
+      (await Address.findOne({ user: userId, isDefault: true })) ||
+      (await Address.findOne({ user: userId }).sort({ updatedAt: -1 }));
+  }
+
+  const resolvedItems = await resolveItemsForCheckout(userId, options);
+  if (resolvedItems.error) {
+    return resolvedItems;
+  }
+
+  const { itemsToProcess, cart, checkoutMode } = resolvedItems;
+  const built = buildOrderItemsFromResolved(itemsToProcess);
+  if (built.error) {
+    return built;
+  }
+
+  const { orderItems, subtotal } = built;
+  const storeSettings = await getStoreSettings();
+  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  const total = subtotal + deliveryCharges;
+
+  return {
+    orderItems,
+    deliveryAddress: buildPendingDeliveryAddress(user, address),
+    subtotal,
+    deliveryCharges,
+    total,
+    cart,
+    checkoutMode,
+  };
+}
+
+export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod = "cod") {
+  const normalizedPaymentMethod = paymentMethod === "online" ? "online" : "cod";
+  const payload = {
+    items: prepared.orderItems,
+    deliveryAddress: prepared.deliveryAddress,
+    subtotal: prepared.subtotal,
+    deliveryCharges: prepared.deliveryCharges,
+    total: prepared.total,
+    paymentMethod: normalizedPaymentMethod,
+    paymentStatus: "unpaid",
+    status: "attempted",
+  };
+
+  let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
+    updatedAt: -1,
+  });
+
+  if (order) {
+    Object.assign(order, payload);
+    await order.save();
+    return order;
+  }
+
+  order = await Order.create({
+    user: userId,
+    ...payload,
+  });
+
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { orders: order._id },
+  });
+
+  return order;
+}
+
+async function clearCartAfterCheckout(cart, checkoutMode, orderItems) {
+  if (!cart) return;
+
+  if (checkoutMode === "buyNow") {
+    cart.items = cart.items.filter(
+      (item) => !orderItems.some((ordered) => matchesOrderedItem(item, ordered))
+    );
+  } else {
+    cart.items = [];
+  }
+
+  await cart.save();
+}
+
+export async function completeAttemptedOrder({
+  attemptedOrderId,
   userId,
   orderItems,
   deliveryAddress,
@@ -357,6 +523,87 @@ export async function finalizeOrder({
   paidAt,
   message = "",
 }) {
+  const order = await Order.findOne({
+    _id: attemptedOrderId,
+    user: userId,
+    status: "attempted",
+  });
+
+  if (!order) {
+    return null;
+  }
+
+  const orderMessage =
+    typeof message === "string" ? message.trim().slice(0, 500) : "";
+
+  order.items = orderItems;
+  order.deliveryAddress = deliveryAddress;
+  order.subtotal = subtotal;
+  order.deliveryCharges = deliveryCharges;
+  order.total = total;
+  order.paymentMethod = paymentMethod;
+  order.paymentStatus = paymentStatus;
+  order.status = status;
+  order.message = orderMessage;
+  order.razorpayOrderId = razorpayOrderId || "";
+  order.razorpayPaymentId = razorpayPaymentId || "";
+  order.codAdvanceAmount = codAdvanceAmount > 0 ? codAdvanceAmount : 0;
+  order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
+  order.paidAt = paidAt || null;
+
+  await order.save();
+  await clearCartAfterCheckout(cart, checkoutMode, orderItems);
+
+  return order;
+}
+
+export async function finalizeOrder({
+  userId,
+  orderItems,
+  deliveryAddress,
+  subtotal,
+  deliveryCharges,
+  total,
+  cart,
+  checkoutMode = "cart",
+  paymentMethod,
+  paymentStatus,
+  status = "confirm",
+  razorpayOrderId,
+  razorpayPaymentId,
+  codAdvanceAmount = 0,
+  codAdvanceRazorpayPaymentId = "",
+  paidAt,
+  message = "",
+  attemptedOrderId,
+}) {
+  if (attemptedOrderId) {
+    const completed = await completeAttemptedOrder({
+      attemptedOrderId,
+      userId,
+      orderItems,
+      deliveryAddress,
+      subtotal,
+      deliveryCharges,
+      total,
+      cart,
+      checkoutMode,
+      paymentMethod,
+      paymentStatus,
+      status,
+      razorpayOrderId,
+      razorpayPaymentId,
+      codAdvanceAmount,
+      codAdvanceRazorpayPaymentId,
+      paidAt,
+      message,
+    });
+
+    if (completed) {
+      return completed;
+    }
+  }
+
   const orderMessage =
     typeof message === "string" ? message.trim().slice(0, 500) : "";
 
@@ -382,17 +629,7 @@ export async function finalizeOrder({
     $addToSet: { orders: order._id },
   });
 
-  if (cart) {
-    if (checkoutMode === "buyNow") {
-      cart.items = cart.items.filter(
-        (item) =>
-          !orderItems.some((ordered) => matchesOrderedItem(item, ordered))
-      );
-    } else {
-      cart.items = [];
-    }
-    await cart.save();
-  }
+  await clearCartAfterCheckout(cart, checkoutMode, orderItems);
 
   return order;
 }
