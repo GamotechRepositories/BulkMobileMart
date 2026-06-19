@@ -9,7 +9,7 @@ function RevenueCard({ totalRevenue, currentMonth, lastMonth, monthlyTrend = [],
   const sparkValues = monthlyTrend.slice(-6).map((item) => item.revenue);
 
   return (
-    <div className={`${cardClass} h-full xl:col-span-2`}>
+    <div className={`${cardClass} col-span-2 h-full xl:col-span-2`}>
       <div className="flex h-full items-center justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600 sm:h-12 sm:w-12">
