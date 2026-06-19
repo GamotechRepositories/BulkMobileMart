@@ -186,19 +186,19 @@ function CategoryCard({ category }) {
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(category.name)}`}
-      className="group flex min-h-[158px] flex-col overflow-hidden rounded-xl border border-[#e6e6e6] bg-white transition-colors hover:border-primary sm:min-h-[172px] lg:min-h-[188px]"
+      className="group flex min-h-[118px] flex-col overflow-hidden rounded-xl border border-[#e6e6e6] bg-white transition-colors hover:border-primary sm:min-h-[172px] lg:min-h-[188px]"
     >
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-2 pt-4 sm:pt-5">
-        <div className="flex h-[72px] w-[72px] items-center justify-center sm:h-20 sm:w-20 lg:h-24 lg:w-24">
+      <div className="flex flex-1 items-center justify-center overflow-hidden px-1 pt-2 sm:px-2 sm:pt-5">
+        <div className="flex h-[52px] w-[52px] items-center justify-center sm:h-20 sm:w-20 lg:h-24 lg:w-24">
           <CategoryImage
             src={category.image}
             name={category.name}
             icon={category.icon}
-            className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+            className="h-9 w-9 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
           />
         </div>
       </div>
-      <p className="line-clamp-2 px-2 pb-3.5 text-center text-xs font-extrabold uppercase leading-tight tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:pb-4 sm:text-sm">
+      <p className="line-clamp-2 px-1 pb-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-2 sm:pb-4 sm:text-sm">
         {category.name.replace(/&/g, " / ")}
       </p>
     </Link>
@@ -224,7 +224,7 @@ function CategoryTwoRowSlider({ sectionKey, categories }) {
               key={`${sectionKey}-batch-${batchIndex}`}
               className="w-full shrink-0 snap-start px-0.5 pb-1"
             >
-              <div className="grid grid-cols-3 grid-rows-2 gap-2.5 sm:gap-3 lg:grid-cols-6 lg:gap-4">
+              <div className="grid grid-cols-3 grid-rows-2 gap-2 sm:gap-3 lg:grid-cols-6 lg:gap-4">
                 {batch.map((category) => (
                   <CategoryCard key={`${sectionKey}-${category.name}`} category={category} />
                 ))}
