@@ -1,28 +1,24 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminNotifications } from "../../context/AdminNotificationContext";
-import { STORE_URL } from "../../constants/brand";
 import {
   IconBanner,
   IconBrand,
-  IconCalendar,
   IconCategory,
   IconDashboard,
-  IconExternalLink,
-  IconLogout,
   IconOrder,
   IconPayment,
   IconProduct,
   IconSupport,
   IconTestimonial,
   IconSettings,
-  IconUser,
   IconUsers,
 } from "./AdminIcons";
 
 const PAGE_TITLES = {
   "/": "Dashboard",
+  "/profile": "Admin Profile",
   "/banners": "Hero Banners",
   "/categories/add": "Add Category",
   "/categories/show": "Show Category",
@@ -103,85 +99,18 @@ const subNavLinkClass = ({ isActive }) =>
       : "text-neutral-500 hover:bg-neutral-800 hover:text-white"
   }`;
 
-const INDIA_TZ = "Asia/Kolkata";
-
-function formatTodayDate(short = false) {
-  return new Intl.DateTimeFormat("en-IN", {
-    weekday: short ? undefined : "short",
-    day: "numeric",
-    month: "short",
-    year: short ? undefined : "numeric",
-    timeZone: INDIA_TZ,
-  }).format(new Date());
-}
-
-const toolbarIconWrap =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md shadow-sm ring-1";
-
-function AdminHeaderToolbar({ adminUser, onLogout }) {
-  const today = formatTodayDate();
-  const todayShort = formatTodayDate(true);
-  const adminLabel = adminUser?.name?.split(" ")[0] || "Admin";
-
-  const boxBase =
-    "inline-flex h-9 max-w-full items-center gap-2 rounded-lg border px-2.5 text-xs font-semibold transition sm:h-10 sm:gap-2.5 sm:px-3 sm:text-sm";
+function AdminProfileAvatar({ adminUser }) {
+  const initial = adminUser?.name?.trim()?.charAt(0)?.toUpperCase() || "A";
 
   return (
-    <div className="flex max-w-full flex-wrap items-center justify-end gap-2 sm:gap-2.5">
-      <div
-        className={`${boxBase} border-neutral-200 bg-neutral-50 text-neutral-700`}
-        title={today}
-      >
-        <span className={`${toolbarIconWrap} bg-white text-accent ring-neutral-200/80`}>
-          <IconCalendar className="h-4 w-4" />
-        </span>
-        <span className="hidden whitespace-nowrap sm:inline">{today}</span>
-        <span className="whitespace-nowrap sm:hidden">{todayShort}</span>
-      </div>
-
-      <a
-        href={STORE_URL}
-        target="_blank"
-        rel="noreferrer"
-        className={`${boxBase} border-accent/30 bg-accent/5 text-accent hover:border-accent/50 hover:bg-accent/10`}
-      >
-        <span className={`${toolbarIconWrap} bg-accent/10 text-accent ring-accent/20`}>
-          <IconExternalLink className="h-4 w-4" />
-        </span>
-        <span className="whitespace-nowrap">Visit Site</span>
-      </a>
-
-      {adminUser ? (
-        <>
-          <span
-            className={`${boxBase} max-w-[9.5rem] border-neutral-200 bg-white text-neutral-700 sm:max-w-[11rem]`}
-            title={adminUser.email || adminLabel}
-          >
-            <span className={`${toolbarIconWrap} bg-neutral-100 text-neutral-600 ring-neutral-200/80`}>
-              <IconUser className="h-4 w-4" />
-            </span>
-            <span className="truncate">{adminLabel}</span>
-          </span>
-          <button
-            type="button"
-            onClick={onLogout}
-            className={`${boxBase} border-red-200 bg-red-50 text-red-600 hover:border-red-300 hover:bg-red-100`}
-          >
-            <span className={`${toolbarIconWrap} bg-red-100 text-red-600 ring-red-200/80`}>
-              <IconLogout className="h-4 w-4" />
-            </span>
-            <span className="whitespace-nowrap">Logout</span>
-          </button>
-        </>
-      ) : (
-        <span className={`${boxBase} border-neutral-200 bg-white text-neutral-700`}>
-          <span className={`${toolbarIconWrap} bg-neutral-100 text-neutral-600 ring-neutral-200/80`}>
-            <IconUser className="h-4 w-4" />
-          </span>
-          <span className="whitespace-nowrap">Admin</span>
-        </span>
-      )}
-    </div>
+    <Link
+      to="/profile"
+      aria-label="Admin profile"
+      title="Admin profile"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-neutral-300 bg-white text-sm font-bold text-neutral-800 transition hover:border-accent hover:text-accent"
+    >
+      {initial}
+    </Link>
   );
 }
 
@@ -319,7 +248,7 @@ function SidebarContent({
             <button
               type="button"
               onClick={onCollapse}
-              aria-label="Collapse sidebar"
+              aria-label="Close sidebar"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-neutral-800 hover:text-white"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -383,8 +312,7 @@ function SidebarContent({
 
 function AdminLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { adminUser, adminLogout } = useAuth();
+  const { adminUser } = useAuth();
   const {
     hasUnreadSupport,
     hasUnreadOrders,
@@ -423,13 +351,11 @@ function AdminLayout() {
     }
   }, [isPaymentsPage, markPaymentsAsSeen]);
 
-  const handleLogout = () => {
-    adminLogout();
-    navigate("/login");
-  };
-
   const expandSidebar = () => setSidebarCollapsed(false);
-  const collapseSidebar = () => setSidebarCollapsed(true);
+  const handleSidebarHeaderClose = () => {
+    setSidebarOpen(false);
+    setSidebarCollapsed(true);
+  };
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -451,7 +377,7 @@ function AdminLayout() {
           location={location}
           onNavigate={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed && !sidebarOpen}
-          onCollapse={collapseSidebar}
+          onCollapse={handleSidebarHeaderClose}
           onExpand={expandSidebar}
           hasUnreadSupport={hasUnreadSupport && !isSupportPage}
           hasUnreadOrders={hasUnreadOrders && !isOrdersPage}
@@ -481,10 +407,8 @@ function AdminLayout() {
             </h1>
           </div>
 
-          <div className="flex min-w-0 max-w-[min(100%,42rem)] shrink items-center justify-end">
-            {isDashboard ? (
-              <AdminHeaderToolbar adminUser={adminUser} onLogout={handleLogout} />
-            ) : null}
+          <div className="flex min-w-0 shrink items-center justify-end">
+            {isDashboard ? <AdminProfileAvatar adminUser={adminUser} /> : null}
           </div>
         </header>
 

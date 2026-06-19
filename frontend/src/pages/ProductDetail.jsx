@@ -23,6 +23,7 @@ import {
   setBuyNowCheckout,
 } from "../utils/checkoutSession";
 import ProductImageFrame from "../components/product/ProductImageFrame";
+import { normalizeProductImages } from "../utils/productImage";
 import {
   buildProductShareContent,
   getShareableProductFile,
@@ -484,20 +485,44 @@ function ThumbnailCarousel({ images, activeImage, onSelect }) {
   if (images.length <= 1) return null;
 
   return (
-    <div className="flex justify-center gap-2 overflow-x-auto hide-scrollbar">
-      {images.map((img, index) => (
-        <button
-          key={`${img}-${index}`}
-          type="button"
-          onClick={() => onSelect(index)}
-          className={`product-image product-image--contain h-16 w-16 shrink-0 rounded-md border-2 lg:h-[72px] lg:w-[72px] ${
-            activeImage === index ? "border-primary" : "border-border-light"
-          }`}
-        >
-          <img src={img} alt="" />
-        </button>
-      ))}
+    <div className="w-full overflow-x-auto hide-scrollbar">
+      <div className="flex w-max min-w-full justify-start gap-2 px-0.5 pb-0.5">
+        {images.map((img, index) => (
+          <button
+            key={`${img}-${index}`}
+            type="button"
+            onClick={() => onSelect(index)}
+            aria-label={`View image ${index + 1} of ${images.length}`}
+            aria-current={activeImage === index ? "true" : undefined}
+            className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-white lg:h-[72px] lg:w-[72px] ${
+              activeImage === index ? "border-primary" : "border-border-light"
+            }`}
+          >
+            <img
+              src={img}
+              alt=""
+              className="h-full w-full object-contain"
+              loading="lazy"
+            />
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function GalleryNavButton({ direction, onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={direction === "prev" ? "Previous image" : "Next image"}
+      className="absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border-light bg-white/95 text-lg text-text-secondary transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+      style={direction === "prev" ? { left: "0.5rem" } : { right: "0.5rem" }}
+    >
+      {direction === "prev" ? "‹" : "›"}
+    </button>
   );
 }
 
@@ -612,12 +637,17 @@ function ProductDetail() {
     }
   };
 
-  const images = useMemo(() => {
-    if (!product?.productImages?.length) return [];
-    return product.productImages.filter(
-      (img) => typeof img === "string" && img.trim()
-    );
-  }, [product]);
+  const images = useMemo(
+    () => normalizeProductImages(product?.productImages),
+    [product?.productImages]
+  );
+
+  useEffect(() => {
+    setActiveImage((prev) => {
+      if (!images.length) return 0;
+      return prev < images.length ? prev : 0;
+    });
+  }, [images]);
 
   const activeVariantName = product && isMultiVariant(product) ? selectedVariant : "";
 
@@ -863,8 +893,29 @@ function ProductDetail() {
               <div className="flex w-full items-center justify-center">
                 <ProductImage src={images[activeImage]} alt={product.name} />
               </div>
+              {images.length > 1 ? (
+                <>
+                  <GalleryNavButton
+                    direction="prev"
+                    disabled={activeImage === 0}
+                    onClick={() => setActiveImage((prev) => Math.max(0, prev - 1))}
+                  />
+                  <GalleryNavButton
+                    direction="next"
+                    disabled={activeImage === images.length - 1}
+                    onClick={() =>
+                      setActiveImage((prev) => Math.min(images.length - 1, prev + 1))
+                    }
+                  />
+                </>
+              ) : null}
             </div>
-            <div className="mt-auto">
+            <div className="mt-auto space-y-2">
+              {images.length > 1 ? (
+                <p className="text-center text-xs text-text-muted">
+                  Image {activeImage + 1} of {images.length}
+                </p>
+              ) : null}
               <ThumbnailCarousel
                 images={images}
                 activeImage={activeImage}

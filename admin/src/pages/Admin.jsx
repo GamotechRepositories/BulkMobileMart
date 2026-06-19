@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminRoute from "../components/admin/AdminRoute";
 import OverviewSection from "../components/admin/sections/OverviewSection";
+import AdminProfileSection from "../components/admin/sections/AdminProfileSection";
 import BannerSection from "../components/admin/sections/BannerSection";
 import AddCategorySection from "../components/admin/sections/AddCategorySection";
 import ShowCategorySection from "../components/admin/sections/ShowCategorySection";
@@ -26,6 +27,7 @@ function Admin() {
       <Route element={<AdminRoute />}>
         <Route element={<AdminLayout />}>
           <Route index element={<OverviewSection />} />
+          <Route path="profile" element={<AdminProfileSection />} />
           <Route path="banners" element={<BannerSection />} />
           <Route path="categories/add" element={<AddCategorySection />} />
           <Route path="categories/show" element={<ShowCategorySection />} />

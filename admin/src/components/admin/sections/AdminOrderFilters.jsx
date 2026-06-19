@@ -34,7 +34,7 @@ function AdminOrderFilters({
         </div>
       ) : null}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <div className="min-w-0">
             <label className={adminFilterLabelClass}>Start Date</label>
             <input

@@ -125,10 +125,6 @@ function OrderSection() {
         }}
       />
 
-      <p className="mb-4 text-sm font-medium text-neutral-700">
-        {pagination.total} order{pagination.total === 1 ? "" : "s"}
-      </p>
-
       <AdminOrderFilters
         startDate={startDate}
         endDate={endDate}
