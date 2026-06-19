@@ -10,6 +10,7 @@ import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/home/home_providers.dart';
 import '../../features/product/product_providers.dart';
+import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
@@ -207,7 +208,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   }
 }
 
-class _ProductResultsView extends StatefulWidget {
+class _ProductResultsView extends ConsumerStatefulWidget {
   const _ProductResultsView({
     required this.products,
     required this.searchQuery,
@@ -231,10 +232,10 @@ class _ProductResultsView extends StatefulWidget {
   final Future<void> Function(Product, BuildContext) onAdd;
 
   @override
-  State<_ProductResultsView> createState() => _ProductResultsViewState();
+  ConsumerState<_ProductResultsView> createState() => _ProductResultsViewState();
 }
 
-class _ProductResultsViewState extends State<_ProductResultsView> {
+class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
   late List<Product> _filtered;
 
   @override
@@ -265,6 +266,70 @@ class _ProductResultsViewState extends State<_ProductResultsView> {
       maxPrice: widget.maxPrice,
       sort: widget.sort,
     );
+  }
+
+  CartItem? _cartLineForProduct(List<CartItem> cartItems, Product product) {
+    final defaults = resolveCartDefaults(product);
+    for (final item in cartItems) {
+      if (item.id != product.id) continue;
+      if (item.variantName.trim() != defaults.variantName.trim()) continue;
+      if (item.colorName.trim() != defaults.colorName.trim()) continue;
+      return item;
+    }
+    return null;
+  }
+
+  Future<void> _handleIncrease(Product product) async {
+    final cartItems = ref.read(cartControllerProvider).items;
+    final line = _cartLineForProduct(cartItems, product);
+    if (line == null) {
+      final defaults = resolveCartDefaults(product);
+      final result = await ref.read(cartControllerProvider.notifier).addToCart(
+            product,
+            defaults.quantity,
+            variantName: defaults.variantName,
+            colorName: defaults.colorName,
+          );
+      if (result == AddToCartResult.requiresLogin && mounted) {
+        ref.read(authControllerProvider.notifier).openAuthModal();
+      }
+      return;
+    }
+
+    final step = getCartStepForProduct(product, line.variantName);
+    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+          productId: product.id,
+          quantity: line.quantity + step,
+          variantName: line.variantName,
+          colorName: line.colorName,
+        );
+  }
+
+  Future<void> _handleDecrease(Product product) async {
+    final cartItems = ref.read(cartControllerProvider).items;
+    final line = _cartLineForProduct(cartItems, product);
+    if (line == null) return;
+
+    final nextQty = getDecreasedCartQuantityForProduct(
+      product,
+      line.quantity,
+      line.variantName,
+    );
+    if (nextQty <= 0) {
+      await ref.read(cartControllerProvider.notifier).removeFromCartLine(
+            productId: product.id,
+            variantName: line.variantName,
+            colorName: line.colorName,
+          );
+      return;
+    }
+
+    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+          productId: product.id,
+          quantity: nextQty,
+          variantName: line.variantName,
+          colorName: line.colorName,
+        );
   }
 
   @override
@@ -318,7 +383,10 @@ class _ProductResultsViewState extends State<_ProductResultsView> {
                 return DealProductCard(
                   product: product,
                   fillCell: true,
+                  cartQuantity: ref.watch(cartProductQuantityProvider(product)),
                   onAdd: (context) => widget.onAdd(product, context),
+                  onIncrease: () => _handleIncrease(product),
+                  onDecrease: () => _handleDecrease(product),
                 );
               },
               childCount: _filtered.length,

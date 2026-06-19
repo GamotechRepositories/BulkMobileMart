@@ -164,6 +164,20 @@ int getCartStepForProduct(Product product, [String variantName = '']) {
   return getQuantityStep(product, variantName);
 }
 
+int getDecreasedCartQuantityForProduct(
+  Product product,
+  int currentQty, [
+  String variantName = '',
+]) {
+  final step = getQuantityStep(product, variantName);
+  final moq = getMinOrderQuantity(product, variantName);
+  final safeStep = step < 1 ? 1 : step;
+  final floor = moq > 0 ? moq : safeStep;
+  if (currentQty <= floor) return 0;
+  final next = currentQty - safeStep;
+  return next < floor ? floor : next;
+}
+
 double getDisplayPriceForSource(PricingSource source) {
   if (source.pricingType == 'bulk' && source.bulkPricing.slabs.isNotEmpty) {
     return source.bulkPricing.slabs

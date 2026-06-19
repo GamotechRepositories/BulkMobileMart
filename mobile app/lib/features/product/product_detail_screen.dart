@@ -149,6 +149,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final variantStock = getVariantStock(product, activeVariantName);
     final inStock = variantStock > 0;
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final bulkStepByQuantity = getPricingSource(product, activeVariantName)
+        ?.bulkPricing
+        .stepByQuantity;
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
     final currentUnitPrice =
         getUnitPriceForQuantity(product, _quantity, activeVariantName);
@@ -295,6 +298,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: Text(
                     [
                       if (showBulkSection) 'MOQ: $minOrderQuantity Pieces',
+                      if (showBulkSection &&
+                          bulkStepByQuantity != null &&
+                          bulkStepByQuantity > 0)
+                        'Step by QTY: $bulkStepByQuantity Pieces',
                       if (isMultiVariant(product)) 'Stock: $variantStock',
                     ].join(' · '),
                     style: const TextStyle(
@@ -569,7 +576,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
 
     if (line != null) {
-      final nextQty = getDecreasedCartQuantity(line.quantity, quantityStep);
+      final nextQty = getDecreasedCartQuantityForProduct(
+        product,
+        line.quantity,
+        activeVariantName,
+      );
       if (nextQty <= 0) {
         await ref.read(cartControllerProvider.notifier).removeFromCartLine(
               productId: product.id,

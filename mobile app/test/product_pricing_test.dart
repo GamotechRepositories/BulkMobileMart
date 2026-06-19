@@ -100,5 +100,31 @@ void main() {
 
       expect(getQuantityStep(product), 25);
     });
+
+    test('decrease quantity uses step by qty but not below MOQ', () {
+      final product = Product.fromJson({
+        'id': 'bulk4',
+        'name': 'Bulk Cable Decrease',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 200,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'bulkPricing': {
+          'minOrderQuantity': 50,
+          'stepByQuantity': 10,
+          'slabs': [
+            {'minQuantity': 50, 'maxQuantity': null, 'pricePerUnit': 80},
+          ],
+        },
+      });
+
+      expect(getDecreasedCartQuantityForProduct(product, 60), 50);
+      expect(getDecreasedCartQuantityForProduct(product, 50), 0);
+    });
   });
 }

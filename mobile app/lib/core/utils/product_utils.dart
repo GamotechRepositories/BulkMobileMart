@@ -25,10 +25,18 @@ List<BulkTier> getBulkTiers(double basePrice) {
 
 const int defaultReviewCount = 128;
 
-int getDecreasedCartQuantity(int currentQty, int step) {
-  final moq = step < 1 ? 1 : step;
-  if (currentQty <= moq) return 0;
-  return currentQty - moq;
+int getDecreasedCartQuantity(
+  int currentQty,
+  int step, {
+  int? minOrderQuantity,
+}) {
+  final safeStep = step < 1 ? 1 : step;
+  final floor = minOrderQuantity != null && minOrderQuantity > 0
+      ? minOrderQuantity
+      : safeStep;
+  if (currentQty <= floor) return 0;
+  final next = currentQty - safeStep;
+  return next < floor ? floor : next;
 }
 
 CartItem? findCartLine(

@@ -108,24 +108,33 @@ class CartItem {
   }
 }
 
+Product _productFromCartItem(CartItem item) {
+  return Product(
+    id: item.id,
+    name: item.name,
+    categories: const [],
+    subcategory: '',
+    brandName: item.brandName,
+    price: item.price,
+    discountedPrice: item.discountedPrice,
+    discountedPercent: 0,
+    stock: item.stock,
+    productImages: item.productImages,
+    pricingType: item.pricingType,
+    bulkPricing: item.bulkPricing,
+    variantType: item.variantType,
+    variants: item.variants,
+  );
+}
+
 int getCartStepForCartItem(CartItem item) {
-  return getQuantityStep(
-    Product(
-      id: item.id,
-      name: item.name,
-      categories: const [],
-      subcategory: '',
-      brandName: item.brandName,
-      price: item.price,
-      discountedPrice: item.discountedPrice,
-      discountedPercent: 0,
-      stock: item.stock,
-      productImages: item.productImages,
-      pricingType: item.pricingType,
-      bulkPricing: item.bulkPricing,
-      variantType: item.variantType,
-      variants: item.variants,
-    ),
+  return getQuantityStep(_productFromCartItem(item), item.variantName);
+}
+
+int getDecreasedCartQuantityForCartItem(CartItem item) {
+  return getDecreasedCartQuantityForProduct(
+    _productFromCartItem(item),
+    item.quantity,
     item.variantName,
   );
 }

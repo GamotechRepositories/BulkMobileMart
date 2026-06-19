@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
-import '../../core/utils/product_utils.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -104,8 +103,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final line = _cartLineForProduct(cartItems, product);
     if (line == null) return;
 
-    final step = getCartStepForProduct(product, line.variantName);
-    final nextQty = getDecreasedCartQuantity(line.quantity, step);
+    final nextQty = getDecreasedCartQuantityForProduct(
+      product,
+      line.quantity,
+      line.variantName,
+    );
     if (nextQty <= 0) {
       await ref.read(cartControllerProvider.notifier).removeFromCartLine(
             productId: product.id,

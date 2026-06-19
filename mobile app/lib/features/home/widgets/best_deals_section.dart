@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/product_pricing.dart';
-import '../../../core/utils/product_utils.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
 import '../../../models/cart_item.dart';
@@ -117,8 +116,11 @@ class _DealsContent extends ConsumerWidget {
     final line = _cartLine(cartItems, product);
     if (line == null) return;
 
-    final step = getCartStepForProduct(product, line.variantName);
-    final nextQty = getDecreasedCartQuantity(line.quantity, step);
+    final nextQty = getDecreasedCartQuantityForProduct(
+      product,
+      line.quantity,
+      line.variantName,
+    );
     if (nextQty <= 0) {
       await ref.read(cartControllerProvider.notifier).removeFromCartLine(
             productId: product.id,
