@@ -99,17 +99,30 @@ function VariantPricingFields({
       ) : null}
 
       {isBulk ? (
-        <div>
-          <label className={labelClass}>MOQ *</label>
-          <input
-            type="number"
-            required
-            min="1"
-            placeholder="e.g. 50"
-            value={variant.bulkMinOrderQuantity}
-            onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
-            className={inputClass}
-          />
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
+          <div>
+            <label className={labelClass}>MOQ *</label>
+            <input
+              type="number"
+              required
+              min="1"
+              placeholder="e.g. 50"
+              value={variant.bulkMinOrderQuantity}
+              onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Step by QTY</label>
+            <input
+              type="number"
+              min="1"
+              placeholder="Uses MOQ if empty"
+              value={variant.bulkStepByQuantity}
+              onChange={(e) => updateField("bulkStepByQuantity", e.target.value)}
+              className={inputClass}
+            />
+          </div>
         </div>
       ) : null}
 

@@ -144,7 +144,9 @@ function mapVariantToPayload(variant) {
       ...base,
       bulkPricing: {
         minOrderQuantity: Number(variant.bulkMinOrderQuantity),
-        stepByQuantity: null,
+        stepByQuantity: variant.bulkStepByQuantity?.trim()
+          ? Number(variant.bulkStepByQuantity)
+          : null,
         slabs: variant.slabs
           .map((slab) => ({
             maxQuantity: slab.maxQuantity.trim()
@@ -388,7 +390,9 @@ function AddProductSection() {
       } else if (form.pricingType === "bulk") {
         payload.bulkPricing = {
           minOrderQuantity: Number(form.bulkMinOrderQuantity),
-          stepByQuantity: null,
+          stepByQuantity: form.bulkStepByQuantity?.trim()
+            ? Number(form.bulkStepByQuantity)
+            : null,
           slabs: bulkSlabs
             .map((slab) => ({
               maxQuantity: slab.maxQuantity.trim()
