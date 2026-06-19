@@ -211,6 +211,17 @@ const buildProductPayload = (body) => {
   const pricingType = body.pricingType === "bulk" ? "bulk" : "single";
   const sku = body.sku?.trim().toUpperCase() ?? "";
 
+  const mapBulkPricingInput = (bulkPricing) => ({
+    minOrderQuantity: bulkPricing?.minOrderQuantity ?? null,
+    stepByQuantity:
+      bulkPricing?.stepByQuantity === "" ||
+      bulkPricing?.stepByQuantity == null ||
+      bulkPricing?.stepByQuantity === undefined
+        ? null
+        : Number(bulkPricing.stepByQuantity),
+    slabs: bulkPricing?.slabs || [],
+  });
+
   return {
     name: body.name?.trim(),
     sku,
@@ -229,11 +240,8 @@ const buildProductPayload = (body) => {
           pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
           bulkPricing:
             variant.pricingType === "bulk"
-              ? {
-                  minOrderQuantity: variant.bulkPricing?.minOrderQuantity,
-                  slabs: variant.bulkPricing?.slabs || [],
-                }
-              : { minOrderQuantity: null, slabs: [] },
+              ? mapBulkPricingInput(variant.bulkPricing)
+              : { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
           price: variant.price,
           discountedPrice: variant.discountedPrice,
           discountedPercent: variant.discountedPercent,
@@ -245,11 +253,8 @@ const buildProductPayload = (body) => {
     pricingType,
     bulkPricing:
       pricingType === "bulk"
-        ? {
-            minOrderQuantity: body.bulkPricing?.minOrderQuantity,
-            slabs: body.bulkPricing?.slabs || [],
-          }
-        : { minOrderQuantity: null, slabs: [] },
+        ? mapBulkPricingInput(body.bulkPricing)
+        : { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
     price: body.price ?? body.original_price,
     discountedPrice: body.discountedPrice ?? body.discounted_price,
     discountedPercent: body.discountedPercent ?? body.discount_percent,
@@ -329,7 +334,7 @@ const resolveProductPricing = (payload) => {
       stock: legacyStockFromInStock(productInStock),
       colors: [],
       pricingType: hasBulk ? "bulk" : "single",
-      bulkPricing: { minOrderQuantity: null, slabs: [] },
+      bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
       price: maxPrice,
       discountedPrice: minDiscounted,
       discountedPercent:

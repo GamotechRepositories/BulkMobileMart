@@ -164,7 +164,7 @@ function mapVariantToPayload(variant) {
     price: Number(variant.price),
     discountedPrice: Number(variant.discountedPrice),
     discountedPercent: deriveDiscountPercent(variant.price, variant.discountedPrice),
-    bulkPricing: { minOrderQuantity: null, slabs: [] },
+    bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
   };
 }
 
@@ -406,7 +406,7 @@ function AddProductSection() {
         payload.price = Number(form.price);
         payload.discountedPrice = Number(form.discountedPrice);
         payload.discountedPercent = deriveDiscountPercent(form.price, form.discountedPrice);
-        payload.bulkPricing = { minOrderQuantity: null, slabs: [] };
+        payload.bulkPricing = { minOrderQuantity: null, stepByQuantity: null, slabs: [] };
       }
 
       if (editingId) {

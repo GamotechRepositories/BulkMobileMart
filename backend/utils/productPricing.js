@@ -337,7 +337,7 @@ export function resolvePricingFields(payload) {
 
   return {
     pricingType: "single",
-    bulkPricing: { minOrderQuantity: null, slabs: [] },
+      bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
     price,
     discountedPrice,
     discountedPercent: Math.max(0, Math.min(100, discountedPercent)),
