@@ -192,6 +192,7 @@ class SkeletonCategoryTwoRowSliders extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       children: [
+        SkeletonBox(width: 200, height: 24, borderRadius: 6),
         SizedBox(height: 16),
         SkeletonCategoryTwoRowPage(),
         SizedBox(height: 12),
@@ -216,7 +217,7 @@ class SkeletonCategoryTwoRowPage extends StatelessWidget {
         crossAxisSpacing: 10,
         childAspectRatio: 0.78,
       ),
-      itemBuilder: (_, _) => SkeletonBox(borderRadius: 12),
+      itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
     );
   }
 }

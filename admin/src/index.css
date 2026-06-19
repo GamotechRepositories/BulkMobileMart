@@ -55,10 +55,6 @@ input[type="number"] {
   scrollbar-width: none;
 }
 
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
 .product-image {
   width: 100%;
   aspect-ratio: 1 / 1;

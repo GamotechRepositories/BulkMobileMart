@@ -69,8 +69,6 @@ export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
 export const loginUser = (data) => api.post("/api/users/login", data);
-export const getAdminProfile = () => api.get("/api/users/me");
-export const changeAdminPassword = (data) => api.patch("/api/users/me/password", data);
 export const getUsers = (params) => api.get("/api/users", { params });
 export const createUser = (data) => api.post("/api/users", data);
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
@@ -106,7 +104,6 @@ export const uploadImageFile = async (file, folder) => {
     folder,
     mimeType: file.type,
     filename: file.name,
-    fileSize: file.size,
   });
 
   const { uploadUrl, cloudFrontUrl } = presignRes.data;
