@@ -13,7 +13,6 @@ import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 import {
   btnPrimary,
   btnSecondary,
-  cardClass,
   formHeaderClass,
   inputClass,
   labelClass,
@@ -555,7 +554,10 @@ function AddProductSection() {
     <div className="min-w-0">
       <AdminAlert error={error} success={success} onClear={() => setError("")} />
 
-      <form onSubmit={handleSubmit} className={`${cardClass} space-y-4`}>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 p-0 sm:rounded-xl sm:border sm:border-border-light sm:bg-white sm:p-5 sm:shadow-sm"
+      >
         <div className={formHeaderClass}>
           <h3 className="font-semibold">
             {editingId ? "Edit Product" : "Add Product"}
