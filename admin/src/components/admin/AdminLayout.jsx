@@ -6,8 +6,11 @@ import { STORE_URL } from "../../constants/brand";
 import {
   IconBanner,
   IconBrand,
+  IconCalendar,
   IconCategory,
   IconDashboard,
+  IconExternalLink,
+  IconLogout,
   IconOrder,
   IconPayment,
   IconProduct,
@@ -99,6 +102,88 @@ const subNavLinkClass = ({ isActive }) =>
       ? "bg-neutral-800 text-accent font-medium"
       : "text-neutral-500 hover:bg-neutral-800 hover:text-white"
   }`;
+
+const INDIA_TZ = "Asia/Kolkata";
+
+function formatTodayDate(short = false) {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: short ? undefined : "short",
+    day: "numeric",
+    month: "short",
+    year: short ? undefined : "numeric",
+    timeZone: INDIA_TZ,
+  }).format(new Date());
+}
+
+const toolbarIconWrap =
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md shadow-sm ring-1";
+
+function AdminHeaderToolbar({ adminUser, onLogout }) {
+  const today = formatTodayDate();
+  const todayShort = formatTodayDate(true);
+  const adminLabel = adminUser?.name?.split(" ")[0] || "Admin";
+
+  const boxBase =
+    "inline-flex h-9 max-w-full items-center gap-2 rounded-lg border px-2.5 text-xs font-semibold transition sm:h-10 sm:gap-2.5 sm:px-3 sm:text-sm";
+
+  return (
+    <div className="flex max-w-full flex-wrap items-center justify-end gap-2 sm:gap-2.5">
+      <div
+        className={`${boxBase} border-neutral-200 bg-neutral-50 text-neutral-700`}
+        title={today}
+      >
+        <span className={`${toolbarIconWrap} bg-white text-accent ring-neutral-200/80`}>
+          <IconCalendar className="h-4 w-4" />
+        </span>
+        <span className="hidden whitespace-nowrap sm:inline">{today}</span>
+        <span className="whitespace-nowrap sm:hidden">{todayShort}</span>
+      </div>
+
+      <a
+        href={STORE_URL}
+        target="_blank"
+        rel="noreferrer"
+        className={`${boxBase} border-accent/30 bg-accent/5 text-accent hover:border-accent/50 hover:bg-accent/10`}
+      >
+        <span className={`${toolbarIconWrap} bg-accent/10 text-accent ring-accent/20`}>
+          <IconExternalLink className="h-4 w-4" />
+        </span>
+        <span className="whitespace-nowrap">Visit Site</span>
+      </a>
+
+      {adminUser ? (
+        <>
+          <span
+            className={`${boxBase} max-w-[9.5rem] border-neutral-200 bg-white text-neutral-700 sm:max-w-[11rem]`}
+            title={adminUser.email || adminLabel}
+          >
+            <span className={`${toolbarIconWrap} bg-neutral-100 text-neutral-600 ring-neutral-200/80`}>
+              <IconUser className="h-4 w-4" />
+            </span>
+            <span className="truncate">{adminLabel}</span>
+          </span>
+          <button
+            type="button"
+            onClick={onLogout}
+            className={`${boxBase} border-red-200 bg-red-50 text-red-600 hover:border-red-300 hover:bg-red-100`}
+          >
+            <span className={`${toolbarIconWrap} bg-red-100 text-red-600 ring-red-200/80`}>
+              <IconLogout className="h-4 w-4" />
+            </span>
+            <span className="whitespace-nowrap">Logout</span>
+          </button>
+        </>
+      ) : (
+        <span className={`${boxBase} border-neutral-200 bg-white text-neutral-700`}>
+          <span className={`${toolbarIconWrap} bg-neutral-100 text-neutral-600 ring-neutral-200/80`}>
+            <IconUser className="h-4 w-4" />
+          </span>
+          <span className="whitespace-nowrap">Admin</span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 function NavIconWithBadge({ showBadge, children }) {
   return (
@@ -204,12 +289,9 @@ function NavGroup({
 function SidebarContent({
   location,
   onNavigate,
-  onLogout,
-  user,
   collapsed,
   onCollapse,
   onExpand,
-  showLogout,
   hasUnreadSupport,
   hasUnreadOrders,
   hasUnreadPayments,
@@ -295,27 +377,6 @@ function SidebarContent({
           );
         })}
       </nav>
-
-      {user && showLogout && (
-        <div className={`mt-6 border-t border-neutral-800 pt-4 ${collapsed ? "space-y-2" : ""}`}>
-          {!collapsed && (
-            <p className="mb-2 truncate px-3 text-xs text-neutral-500">{user.email}</p>
-          )}
-          <button
-            type="button"
-            title="Logout"
-            onClick={onLogout}
-            className={`flex w-full items-center rounded-lg text-sm font-medium text-red-400 transition hover:bg-neutral-800 hover:text-red-300 ${
-              collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"
-            }`}
-          >
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-            </svg>
-            {!collapsed && "Logout"}
-          </button>
-        </div>
-      )}
     </>
   );
 }
@@ -389,12 +450,9 @@ function AdminLayout() {
         <SidebarContent
           location={location}
           onNavigate={() => setSidebarOpen(false)}
-          onLogout={handleLogout}
-          user={adminUser}
           collapsed={sidebarCollapsed && !sidebarOpen}
           onCollapse={collapseSidebar}
           onExpand={expandSidebar}
-          showLogout={isDashboard}
           hasUnreadSupport={hasUnreadSupport && !isSupportPage}
           hasUnreadOrders={hasUnreadOrders && !isOrdersPage}
           hasUnreadPayments={hasUnreadPayments && !isPaymentsPage}
@@ -423,38 +481,9 @@ function AdminLayout() {
             </h1>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex min-w-0 max-w-[min(100%,42rem)] shrink items-center justify-end">
             {isDashboard ? (
-              <>
-                <a
-                  href={STORE_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hidden rounded-lg border border-neutral-200 px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-accent hover:text-accent sm:inline-flex sm:px-4 sm:text-sm"
-                >
-                  Visit Site
-                </a>
-                {adminUser ? (
-                  <>
-                    <span className="hidden md:inline-flex max-w-[140px] items-center gap-2 truncate rounded-lg border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-700">
-                      <IconUser className="h-4 w-4 shrink-0" />
-                      {adminUser.name.split(" ")[0]}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 sm:px-4 sm:text-sm"
-                    >
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <span className="hidden items-center gap-2 rounded-lg border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 sm:inline-flex">
-                    <IconUser className="h-4 w-4" />
-                    Admin
-                  </span>
-                )}
-              </>
+              <AdminHeaderToolbar adminUser={adminUser} onLogout={handleLogout} />
             ) : null}
           </div>
         </header>

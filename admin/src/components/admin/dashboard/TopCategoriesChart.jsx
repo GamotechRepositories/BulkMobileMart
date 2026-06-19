@@ -25,9 +25,10 @@ function buildDonutSegments(categories, total) {
   });
 }
 
-function TopCategoriesChart({ categories = [], loading }) {
-  const total = categories.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const segments = buildDonutSegments(categories, total);
+function TopCategoriesChart({ categories = [], totalSales, loading }) {
+  const segmentTotal = categories.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const displayTotal = Number(totalSales) > 0 ? Number(totalSales) : segmentTotal;
+  const segments = buildDonutSegments(categories, displayTotal);
   const radius = 38;
   const circumference = 2 * Math.PI * radius;
 
@@ -36,7 +37,7 @@ function TopCategoriesChart({ categories = [], loading }) {
       <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-neutral-900">Top Categories</h3>
-          {!loading && total > 0 && (
+          {!loading && displayTotal > 0 && (
             <p className="mt-0.5 text-xs text-neutral-500">Top 3 + other categories</p>
           )}
         </div>
@@ -79,7 +80,7 @@ function TopCategoriesChart({ categories = [], loading }) {
             <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
               <p className="text-[10px] font-medium text-neutral-500">Total Sales</p>
               <p className="mt-0.5 text-xs font-bold text-neutral-900 sm:text-sm">
-                {formatCompactCurrency(total)}
+                {formatCompactCurrency(displayTotal)}
               </p>
             </div>
           </div>

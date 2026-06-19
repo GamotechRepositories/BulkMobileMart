@@ -74,37 +74,45 @@ function buildMonthStats(orders) {
   };
 }
 
-function buildTopCategoriesChartData(categoriesAgg) {
+function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
   const all = categoriesAgg.map((item) => ({
     name: String(item._id || "Uncategorized"),
     value: Number(item.value) || 0,
     units: Number(item.units) || 0,
   }));
 
-  const total = all.reduce((sum, item) => sum + item.value, 0);
+  const categoryProductSales = all.reduce((sum, item) => sum + item.value, 0);
+  const displayTotal =
+    yearOrderRevenue > 0 ? yearOrderRevenue : categoryProductSales;
   const topThree = all.slice(0, 3);
   const rest = all.slice(3);
 
   const withPercent = (item) => ({
     ...item,
-    percent: total > 0 ? Math.round((item.value / total) * 100) : 0,
+    percent: displayTotal > 0 ? Math.round((item.value / displayTotal) * 100) : 0,
   });
 
   const chartItems = topThree.map(withPercent);
 
-  if (rest.length > 0) {
-    const otherValue = rest.reduce((sum, item) => sum + item.value, 0);
-    const otherUnits = rest.reduce((sum, item) => sum + item.units, 0);
+  const restValue = rest.reduce((sum, item) => sum + item.value, 0);
+  const restUnits = rest.reduce((sum, item) => sum + item.units, 0);
+  const fees = Math.max(0, displayTotal - categoryProductSales);
+  const otherValue = restValue + fees;
+
+  if (otherValue > 0) {
     chartItems.push(
       withPercent({
         name: "Other",
         value: otherValue,
-        units: otherUnits,
+        units: restUnits,
       })
     );
   }
 
-  return chartItems;
+  return {
+    categories: chartItems,
+    totalSales: displayTotal,
+  };
 }
 
 export const placeOrder = async (req, res) => {
@@ -354,11 +362,17 @@ export const getDashboardStats = async (req, res) => {
             as: "productDoc",
           },
         },
-        { $unwind: "$productDoc" },
-        { $unwind: "$productDoc.categories" },
+        { $unwind: { path: "$productDoc", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            categoryName: {
+              $ifNull: [{ $arrayElemAt: ["$productDoc.categories", 0] }, "Uncategorized"],
+            },
+          },
+        },
         {
           $group: {
-            _id: "$productDoc.categories",
+            _id: "$categoryName",
             value: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
             units: { $sum: "$items.quantity" },
           },
@@ -399,6 +413,9 @@ export const getDashboardStats = async (req, res) => {
       };
     });
 
+    const currentMonthStats = buildMonthStats(currentMonthOrders);
+    const lastMonthStats = buildMonthStats(lastMonthOrders);
+
     const yearTotals = monthlySales.reduce(
       (acc, item) => ({
         totalOrders: acc.totalOrders + item.orders,
@@ -407,10 +424,10 @@ export const getDashboardStats = async (req, res) => {
       { totalOrders: 0, totalSales: 0 }
     );
 
-    const currentMonthStats = buildMonthStats(currentMonthOrders);
-    const lastMonthStats = buildMonthStats(lastMonthOrders);
-
-    const topCategories = buildTopCategoriesChartData(topCategoriesAgg);
+    const topCategoriesData = buildTopCategoriesChartData(
+      topCategoriesAgg,
+      yearTotals.totalSales
+    );
 
     const years = yearsAgg.map((entry) => entry._id);
     if (!years.includes(currentYear)) {
@@ -452,7 +469,8 @@ export const getDashboardStats = async (req, res) => {
           lowStock: lowStockProducts,
           activeUsers: users,
         },
-        topCategories,
+        topCategories: topCategoriesData.categories,
+        topCategoriesTotal: topCategoriesData.totalSales,
         chartSummary: {
           totalOrders: yearTotals.totalOrders,
           totalSales: yearTotals.totalSales,

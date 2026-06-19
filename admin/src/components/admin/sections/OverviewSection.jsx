@@ -29,6 +29,7 @@ function OverviewSection() {
     activeUsers: 0,
   });
   const [topCategories, setTopCategories] = useState([]);
+  const [topCategoriesTotal, setTopCategoriesTotal] = useState(0);
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -54,6 +55,7 @@ function OverviewSection() {
           }
         );
         setTopCategories(stats.topCategories || []);
+        setTopCategoriesTotal(Number(stats.topCategoriesTotal) || 0);
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
       } finally {
@@ -154,7 +156,11 @@ function OverviewSection() {
           />
         </div>
         <div className="flex h-full min-h-0">
-          <TopCategoriesChart categories={topCategories} loading={loading} />
+          <TopCategoriesChart
+            categories={topCategories}
+            totalSales={topCategoriesTotal}
+            loading={loading}
+          />
         </div>
       </div>
 
