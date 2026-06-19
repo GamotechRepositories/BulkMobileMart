@@ -50,5 +50,55 @@ void main() {
       expect(getMinOrderQuantity(product), defaultSingleMoq);
       expect(getMaxOrderQuantity(product, ''), 12);
     });
+
+    test('uses step by quantity when defined for bulk products', () {
+      final product = Product.fromJson({
+        'id': 'bulk2',
+        'name': 'Bulk Cable Step',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 200,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'bulkPricing': {
+          'minOrderQuantity': 50,
+          'stepByQuantity': 10,
+          'slabs': [
+            {'minQuantity': 50, 'maxQuantity': null, 'pricePerUnit': 80},
+          ],
+        },
+      });
+
+      expect(getMinOrderQuantity(product), 50);
+      expect(getQuantityStep(product), 10);
+    });
+
+    test('bulk quantity step falls back to MOQ when step is not defined', () {
+      final product = Product.fromJson({
+        'id': 'bulk3',
+        'name': 'Bulk Cable MOQ Step',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 200,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'bulkPricing': {
+          'minOrderQuantity': 25,
+          'slabs': [
+            {'minQuantity': 25, 'maxQuantity': null, 'pricePerUnit': 80},
+          ],
+        },
+      });
+
+      expect(getQuantityStep(product), 25);
+    });
   });
 }

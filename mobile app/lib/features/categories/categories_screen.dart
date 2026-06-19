@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -89,9 +90,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       }
       return;
     }
+    final step = getCartStepForProduct(product, line.variantName);
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity + 1,
+          quantity: line.quantity + step,
           variantName: line.variantName,
           colorName: line.colorName,
         );
@@ -102,7 +104,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final line = _cartLineForProduct(cartItems, product);
     if (line == null) return;
 
-    if (line.quantity <= 1) {
+    final step = getCartStepForProduct(product, line.variantName);
+    final nextQty = getDecreasedCartQuantity(line.quantity, step);
+    if (nextQty <= 0) {
       await ref.read(cartControllerProvider.notifier).removeFromCartLine(
             productId: product.id,
             variantName: line.variantName,
@@ -113,7 +117,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity - 1,
+          quantity: nextQty,
           variantName: line.variantName,
           colorName: line.colorName,
         );

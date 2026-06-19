@@ -113,6 +113,21 @@ export function getMinOrderQuantity(product, variantName = "", fallback = DEFAUL
   return fallback;
 }
 
+export function getQuantityStep(product, variantName = "", fallback = DEFAULT_SINGLE_MOQ) {
+  const source = getPricingSource(product, variantName);
+  if (!source) return fallback;
+
+  if (source.pricingType === "bulk" && source.bulkPricing) {
+    const step = Number(source.bulkPricing.stepByQuantity);
+    if (Number.isFinite(step) && step > 0) return step;
+
+    const moq = Number(source.bulkPricing.minOrderQuantity);
+    if (Number.isFinite(moq) && moq > 0) return moq;
+  }
+
+  return fallback;
+}
+
 export function getDisplayPriceForSource(source) {
   if (!source) return 0;
 

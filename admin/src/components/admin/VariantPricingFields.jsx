@@ -3,7 +3,6 @@ import { inputClass, labelClass } from "./adminStyles";
 const EMPTY_SLAB = {
   maxQuantity: "",
   price: "",
-  discountedPrice: "",
 };
 
 function getSlabStartQuantity(minOrderQuantity, slabs, index) {
@@ -101,7 +100,7 @@ function VariantPricingFields({
 
       {isBulk ? (
         <div>
-          <label className={labelClass}>Minimum order quantity *</label>
+          <label className={labelClass}>MOQ *</label>
           <input
             type="number"
             required
@@ -140,35 +139,10 @@ function VariantPricingFields({
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
-            <div>
-              <label className={labelClass}>Price (₹) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                value={variant.price}
-                onChange={(e) => updateField("price", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Discounted price (₹) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                value={variant.discountedPrice}
-                onChange={(e) => updateField("discountedPrice", e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Pricing slabs *</label>
-            <div className="space-y-3">
-              {variant.slabs.map((slab, index) => {
+        <div>
+          <label className={labelClass}>Pricing slabs *</label>
+          <div className="space-y-3">
+            {variant.slabs.map((slab, index) => {
                 const rangeStart = getSlabStartQuantity(
                   variant.bulkMinOrderQuantity,
                   variant.slabs,
@@ -179,18 +153,20 @@ function VariantPricingFields({
                 return (
                   <div
                     key={index}
-                    className="grid grid-cols-2 gap-3 rounded-lg border border-border-light p-3 lg:grid-cols-5"
+                    className={`grid gap-1.5 rounded-lg border border-border-light p-2 sm:gap-3 sm:p-3 [&>div]:min-w-0 ${
+                      variant.slabs.length > 1 ? "grid-cols-4" : "grid-cols-3"
+                    }`}
                   >
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-text-secondary">
+                      <label className="mb-0.5 block text-[10px] font-medium leading-tight text-text-secondary sm:mb-1 sm:text-xs">
                         Range starts at
                       </label>
-                      <div className="rounded-lg border border-border-light bg-mobile-surface px-3 py-2.5 text-sm text-text-primary">
+                      <div className="rounded-lg border border-border-light bg-mobile-surface px-2 py-2 text-xs text-text-primary sm:px-3 sm:py-2.5 sm:text-sm">
                         {rangeStart}
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-text-secondary">
+                      <label className="mb-0.5 block text-[10px] font-medium leading-tight text-text-secondary sm:mb-1 sm:text-xs">
                         Max qty {isLast ? "(optional)" : "*"}
                       </label>
                       <input
@@ -200,12 +176,12 @@ function VariantPricingFields({
                         placeholder={isLast ? "Open-ended" : "e.g. 200"}
                         value={slab.maxQuantity}
                         onChange={(e) => updateSlab(index, "maxQuantity", e.target.value)}
-                        className={inputClass}
+                        className={`${inputClass} !px-2 !py-2 text-xs sm:!px-3 sm:!py-2.5 sm:text-sm`}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-text-secondary">
-                        Price (₹) *
+                      <label className="mb-0.5 block text-[10px] font-medium leading-tight text-text-secondary sm:mb-1 sm:text-xs">
+                        Price per unit (₹) *
                       </label>
                       <input
                         type="number"
@@ -213,20 +189,7 @@ function VariantPricingFields({
                         min="0"
                         value={slab.price}
                         onChange={(e) => updateSlab(index, "price", e.target.value)}
-                        className={inputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-text-secondary">
-                        Discounted price (₹) *
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="0"
-                        value={slab.discountedPrice}
-                        onChange={(e) => updateSlab(index, "discountedPrice", e.target.value)}
-                        className={inputClass}
+                        className={`${inputClass} !px-2 !py-2 text-xs sm:!px-3 sm:!py-2.5 sm:text-sm`}
                       />
                     </div>
                     <div className="flex items-end">
@@ -234,9 +197,10 @@ function VariantPricingFields({
                         <button
                           type="button"
                           onClick={() => removeSlab(index)}
-                          className="w-full rounded-lg border border-border-light px-3 py-2.5 text-sm text-red-600 transition hover:border-red-300 hover:bg-red-50"
+                          className="w-full rounded-lg border border-border-light px-1.5 py-2 text-[10px] font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 sm:px-3 sm:py-2.5 sm:text-sm"
                         >
-                          Remove slab
+                          <span className="sm:hidden">Remove</span>
+                          <span className="hidden sm:inline">Remove slab</span>
                         </button>
                       ) : null}
                     </div>
@@ -251,7 +215,6 @@ function VariantPricingFields({
             >
               + Add pricing slab
             </button>
-          </div>
         </div>
       )}
     </div>

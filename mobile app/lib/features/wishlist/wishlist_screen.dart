@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/wishlist/wishlist_controller.dart';
@@ -69,9 +70,10 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
       return;
     }
 
+    final step = getCartStepForProduct(product, line.variantName);
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity + 1,
+          quantity: line.quantity + step,
           variantName: line.variantName,
           colorName: line.colorName,
         );
@@ -81,7 +83,9 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
     final line = _cartLine(product);
     if (line == null) return;
 
-    if (line.quantity <= 1) {
+    final step = getCartStepForProduct(product, line.variantName);
+    final nextQty = getDecreasedCartQuantity(line.quantity, step);
+    if (nextQty <= 0) {
       await ref.read(cartControllerProvider.notifier).removeFromCartLine(
             productId: product.id,
             variantName: line.variantName,
@@ -92,7 +96,7 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
 
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity - 1,
+          quantity: nextQty,
           variantName: line.variantName,
           colorName: line.colorName,
         );

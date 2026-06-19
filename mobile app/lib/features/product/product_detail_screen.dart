@@ -560,6 +560,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     String activeVariantName,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final quantityStep = getQuantityStep(product, activeVariantName);
     final line = findCartLine(
       ref.read(cartControllerProvider).items,
       product.id,
@@ -568,7 +569,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
 
     if (line != null) {
-      final nextQty = getDecreasedCartQuantity(line.quantity, minOrderQuantity);
+      final nextQty = getDecreasedCartQuantity(line.quantity, quantityStep);
       if (nextQty <= 0) {
         await ref.read(cartControllerProvider.notifier).removeFromCartLine(
               productId: product.id,
@@ -587,7 +588,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     setState(() {
-      _quantity = (_quantity - minOrderQuantity).clamp(minOrderQuantity, _quantity);
+      _quantity = (_quantity - quantityStep).clamp(minOrderQuantity, _quantity);
     });
   }
 
@@ -596,6 +597,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     String activeVariantName,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final quantityStep = getQuantityStep(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
     final line = findCartLine(
       ref.read(cartControllerProvider).items,
@@ -605,7 +607,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
 
     if (line != null) {
-      final nextQty = (line.quantity + minOrderQuantity).clamp(minOrderQuantity, maxQuantity);
+      final nextQty = (line.quantity + quantityStep).clamp(minOrderQuantity, maxQuantity);
       await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
             productId: product.id,
             quantity: nextQty,
@@ -616,7 +618,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     setState(() {
-      _quantity = (_quantity + minOrderQuantity).clamp(minOrderQuantity, maxQuantity);
+      _quantity = (_quantity + quantityStep).clamp(minOrderQuantity, maxQuantity);
     });
   }
 

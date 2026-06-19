@@ -9,6 +9,7 @@ import {
   getAvailableColors,
   getBulkTierRows,
   getMinOrderQuantity,
+  getQuantityStep,
   getUnitPriceForQuantity,
   getVariantStock,
   isBulkPricing,
@@ -656,6 +657,9 @@ function ProductDetail() {
   const minOrderQuantity = product
     ? getMinOrderQuantity(product, activeVariantName, DEFAULT_MOQ)
     : DEFAULT_MOQ;
+  const quantityStep = product
+    ? getQuantityStep(product, activeVariantName, DEFAULT_MOQ)
+    : DEFAULT_MOQ;
 
   const getCartLine = () => {
     if (!product?._id) return null;
@@ -707,7 +711,7 @@ function ProductDetail() {
   const handleQuantityDecrease = async () => {
     if (!product) return;
     const line = getCartLine();
-    const step = minOrderQuantity;
+    const step = quantityStep;
 
     if (line) {
       const nextQty = getDecreasedCartQuantity(line.quantity, step);
@@ -725,7 +729,7 @@ function ProductDetail() {
   const handleQuantityIncrease = async () => {
     if (!product) return;
     const line = getCartLine();
-    const step = minOrderQuantity;
+    const step = quantityStep;
     const variantStock = getVariantStock(product, activeVariantName);
     const maxQty =
       variantStock > 0

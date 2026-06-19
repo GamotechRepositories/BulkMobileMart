@@ -8,16 +8,14 @@ export function normalizeBulkSlabInput(slabs = []) {
           ? null
           : Number(slab.maxQuantity),
       pricePerUnit: Number(
-        slab.discountedPrice ?? slab.pricePerUnit ?? slab.discounted_price
+        slab.price ?? slab.pricePerUnit ?? slab.discountedPrice ?? slab.discounted_price
       ),
       originalPricePerUnit:
-        slab.price !== undefined && slab.price !== null && slab.price !== ""
-          ? Number(slab.price)
-          : slab.originalPricePerUnit !== undefined &&
-              slab.originalPricePerUnit !== null &&
-              slab.originalPricePerUnit !== ""
-            ? Number(slab.originalPricePerUnit)
-            : null,
+        slab.originalPricePerUnit !== undefined &&
+        slab.originalPricePerUnit !== null &&
+        slab.originalPricePerUnit !== ""
+          ? Number(slab.originalPricePerUnit)
+          : null,
     }))
     .filter(
       (slab) => Number.isFinite(slab.pricePerUnit) && slab.pricePerUnit >= 0
@@ -80,10 +78,25 @@ export function validateBulkPricing(bulkPricing) {
     return { valid: false, message: built.error };
   }
 
+  const stepByQuantity =
+    bulkPricing.stepByQuantity === "" ||
+    bulkPricing.stepByQuantity == null ||
+    bulkPricing.stepByQuantity === undefined
+      ? null
+      : Number(bulkPricing.stepByQuantity);
+
+  if (
+    stepByQuantity != null &&
+    (!Number.isFinite(stepByQuantity) || stepByQuantity < 1)
+  ) {
+    return { valid: false, message: "Step by quantity must be at least 1" };
+  }
+
   return {
     valid: true,
     bulkPricing: {
       minOrderQuantity: Number(bulkPricing.minOrderQuantity),
+      stepByQuantity,
       slabs: built.slabs,
     },
   };
@@ -200,6 +213,21 @@ export function getMinOrderQuantity(product, variantName = "") {
   }
 
   return 1;
+}
+
+export function getQuantityStep(product, variantName = "", fallback = 1) {
+  const source = getPricingSource(product, variantName);
+  if (!source) return fallback;
+
+  if (source.pricingType === "bulk" && source.bulkPricing) {
+    const step = Number(source.bulkPricing.stepByQuantity);
+    if (Number.isFinite(step) && step > 0) return step;
+
+    const moq = Number(source.bulkPricing.minOrderQuantity);
+    if (Number.isFinite(moq) && moq > 0) return moq;
+  }
+
+  return fallback;
 }
 
 export function getDisplayPriceForSource(source) {

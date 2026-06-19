@@ -42,6 +42,7 @@ const EMPTY_VARIANT = {
   price: "",
   discountedPrice: "",
   bulkMinOrderQuantity: "",
+  bulkStepByQuantity: "",
   slabs: [{ ...EMPTY_SLAB }],
   colors: [],
 };
@@ -110,6 +111,7 @@ function mapVariantFromProduct(variant) {
     price: String(variant.price ?? ""),
     discountedPrice: String(variant.discountedPrice ?? ""),
     bulkMinOrderQuantity: String(variant.bulkPricing?.minOrderQuantity ?? ""),
+    bulkStepByQuantity: String(variant.bulkPricing?.stepByQuantity ?? ""),
     colors: Array.isArray(variant.colors)
       ? variant.colors.map((color) => ({
           name: color.name || "",
@@ -120,10 +122,7 @@ function mapVariantFromProduct(variant) {
         ? variant.bulkPricing.slabs.map((slab) => ({
             maxQuantity:
               slab.maxQuantity == null ? "" : String(slab.maxQuantity),
-            price: String(
-              slab.originalPricePerUnit ?? slab.pricePerUnit ?? ""
-            ),
-            discountedPrice: String(slab.pricePerUnit ?? ""),
+            price: String(slab.pricePerUnit ?? ""),
           }))
         : [{ ...EMPTY_SLAB }],
   };
@@ -144,20 +143,17 @@ function mapVariantToPayload(variant) {
   if (variant.pricingType === "bulk") {
     return {
       ...base,
-      price: Number(variant.price),
-      discountedPrice: Number(variant.discountedPrice),
-      discountedPercent: deriveDiscountPercent(variant.price, variant.discountedPrice),
       bulkPricing: {
         minOrderQuantity: Number(variant.bulkMinOrderQuantity),
+        stepByQuantity: null,
         slabs: variant.slabs
           .map((slab) => ({
             maxQuantity: slab.maxQuantity.trim()
               ? Number(slab.maxQuantity)
               : null,
-            price: slab.price.trim() ? Number(slab.price) : Number(slab.discountedPrice),
-            discountedPrice: Number(slab.discountedPrice),
+            price: Number(slab.price),
           }))
-          .filter((slab) => Number.isFinite(slab.discountedPrice)),
+          .filter((slab) => Number.isFinite(slab.price)),
       },
     };
   }
@@ -182,6 +178,7 @@ const EMPTY_FORM = {
   price: "",
   discountedPrice: "",
   bulkMinOrderQuantity: "",
+  bulkStepByQuantity: "",
   inStock: true,
   colors: [],
   ratings: "0",
@@ -250,6 +247,7 @@ function AddProductSection() {
         price: String(editProduct.price ?? ""),
         discountedPrice: String(editProduct.discountedPrice ?? ""),
         bulkMinOrderQuantity: String(editProduct.bulkPricing?.minOrderQuantity ?? ""),
+        bulkStepByQuantity: String(editProduct.bulkPricing?.stepByQuantity ?? ""),
         inStock: editProduct.inStock !== false,
         colors: Array.isArray(editProduct.colors)
           ? editProduct.colors.map((color) => ({
@@ -277,10 +275,7 @@ function AddProductSection() {
           ? slabs.map((slab) => ({
               maxQuantity:
                 slab.maxQuantity == null ? "" : String(slab.maxQuantity),
-              price: String(
-                slab.originalPricePerUnit ?? slab.pricePerUnit ?? ""
-              ),
-              discountedPrice: String(slab.pricePerUnit ?? ""),
+              price: String(slab.pricePerUnit ?? ""),
             }))
           : [{ ...EMPTY_SLAB }]
       );
@@ -333,15 +328,11 @@ function AddProductSection() {
         return;
       }
     } else if (form.pricingType === "bulk") {
-      if (!form.price.trim() || !form.discountedPrice.trim()) {
-        setError("Price and discounted price are required for bulk pricing");
-        return;
-      }
       if (!form.bulkMinOrderQuantity.trim()) {
-        setError("Minimum order quantity is required for bulk pricing");
+        setError("MOQ is required for bulk pricing");
         return;
       }
-      const validSlabs = bulkSlabs.filter((slab) => slab.discountedPrice?.trim());
+      const validSlabs = bulkSlabs.filter((slab) => slab.price?.trim());
       if (validSlabs.length === 0) {
         setError("Add at least one pricing slab for bulk pricing");
         return;
@@ -396,20 +387,17 @@ function AddProductSection() {
           .filter((variant) => variant.name.trim())
           .map(mapVariantToPayload);
       } else if (form.pricingType === "bulk") {
-        payload.price = Number(form.price);
-        payload.discountedPrice = Number(form.discountedPrice);
-        payload.discountedPercent = deriveDiscountPercent(form.price, form.discountedPrice);
         payload.bulkPricing = {
           minOrderQuantity: Number(form.bulkMinOrderQuantity),
+          stepByQuantity: null,
           slabs: bulkSlabs
             .map((slab) => ({
               maxQuantity: slab.maxQuantity.trim()
                 ? Number(slab.maxQuantity)
                 : null,
-              price: slab.price.trim() ? Number(slab.price) : Number(slab.discountedPrice),
-              discountedPrice: Number(slab.discountedPrice),
+              price: Number(slab.price),
             }))
-            .filter((slab) => Number.isFinite(slab.discountedPrice)),
+            .filter((slab) => Number.isFinite(slab.price)),
         };
       } else {
         payload.price = Number(form.price);
@@ -858,6 +846,7 @@ function AddProductSection() {
                 price: form.price,
                 discountedPrice: form.discountedPrice,
                 bulkMinOrderQuantity: form.bulkMinOrderQuantity,
+                bulkStepByQuantity: form.bulkStepByQuantity,
                 slabs: bulkSlabs,
               }}
               onChange={(updated) => {
@@ -869,6 +858,7 @@ function AddProductSection() {
                   price: updated.price,
                   discountedPrice: updated.discountedPrice,
                   bulkMinOrderQuantity: updated.bulkMinOrderQuantity,
+                  bulkStepByQuantity: updated.bulkStepByQuantity,
                 }));
                 setBulkSlabs(updated.slabs);
               }}

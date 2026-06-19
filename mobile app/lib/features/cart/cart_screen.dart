@@ -6,6 +6,7 @@ import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../models/cart_item.dart';
@@ -149,7 +150,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         colorName: item.colorName,
                       ),
                   onDecrease: () {
-                    if (item.quantity <= 1) {
+                    final step = item.quantityStep;
+                    final nextQty = getDecreasedCartQuantity(item.quantity, step);
+                    if (nextQty <= 0) {
                       ref.read(cartControllerProvider.notifier).removeFromCartLine(
                             productId: item.id,
                             variantName: item.variantName,
@@ -160,7 +163,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                           .read(cartControllerProvider.notifier)
                           .updateCartLineQuantity(
                             productId: item.id,
-                            quantity: item.quantity - 1,
+                            quantity: nextQty,
                             variantName: item.variantName,
                             colorName: item.colorName,
                           );
@@ -170,7 +173,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       .read(cartControllerProvider.notifier)
                       .updateCartLineQuantity(
                         productId: item.id,
-                        quantity: item.quantity + 1,
+                        quantity: item.quantity + item.quantityStep,
                         variantName: item.variantName,
                         colorName: item.colorName,
                       ),

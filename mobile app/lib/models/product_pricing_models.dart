@@ -26,9 +26,10 @@ class BulkPricingSlab {
 }
 
 class BulkPricing {
-  const BulkPricing({this.minOrderQuantity, this.slabs = const []});
+  const BulkPricing({this.minOrderQuantity, this.stepByQuantity, this.slabs = const []});
 
   final int? minOrderQuantity;
+  final int? stepByQuantity;
   final List<BulkPricingSlab> slabs;
 
   factory BulkPricing.fromJson(dynamic json) {
@@ -37,6 +38,9 @@ class BulkPricing {
       minOrderQuantity: json['minOrderQuantity'] == null
           ? null
           : _toInt(json['minOrderQuantity'], fallback: 1),
+      stepByQuantity: json['stepByQuantity'] == null
+          ? null
+          : _toInt(json['stepByQuantity'], fallback: 1),
       slabs: (json['slabs'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(BulkPricingSlab.fromJson)

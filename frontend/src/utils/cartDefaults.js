@@ -1,6 +1,7 @@
 import {
   getAvailableColors,
   getMinOrderQuantity,
+  getQuantityStep,
   isMultiVariant,
   isProductInStock,
 } from "./productPricing";
@@ -22,13 +23,13 @@ export function resolveCartDefaults(product) {
 }
 
 export function getCartStepForProduct(product, variantName = "") {
-  return getMinOrderQuantity(product, variantName, 1);
+  return getQuantityStep(product, variantName, 1);
 }
 
 export function getCartStepForItem(item) {
   if (!item) return 1;
 
-  return getMinOrderQuantity(
+  return getQuantityStep(
     {
       pricingType: item.pricingType,
       bulkPricing: item.bulkPricing,

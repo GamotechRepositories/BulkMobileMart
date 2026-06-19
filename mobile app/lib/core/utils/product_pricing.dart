@@ -141,6 +141,29 @@ int getMinOrderQuantity(
   return fallback;
 }
 
+int getQuantityStep(
+  Product product, [
+  String variantName = '',
+  int fallback = defaultSingleMoq,
+]) {
+  final source = getPricingSource(product, variantName);
+  if (source == null) return fallback;
+
+  if (source.pricingType == 'bulk') {
+    final step = source.bulkPricing.stepByQuantity;
+    if (step != null && step > 0) return step;
+
+    final moq = source.bulkPricing.minOrderQuantity;
+    if (moq != null && moq > 0) return moq;
+  }
+
+  return fallback;
+}
+
+int getCartStepForProduct(Product product, [String variantName = '']) {
+  return getQuantityStep(product, variantName);
+}
+
 double getDisplayPriceForSource(PricingSource source) {
   if (source.pricingType == 'bulk' && source.bulkPricing.slabs.isNotEmpty) {
     return source.bulkPricing.slabs

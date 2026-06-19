@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/product_pricing.dart';
+import '../../../core/utils/product_utils.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
 import '../../../models/cart_item.dart';
@@ -102,9 +103,10 @@ class _DealsContent extends ConsumerWidget {
       }
       return;
     }
+    final step = getCartStepForProduct(product, line.variantName);
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity + 1,
+          quantity: line.quantity + step,
           variantName: line.variantName,
           colorName: line.colorName,
         );
@@ -115,7 +117,9 @@ class _DealsContent extends ConsumerWidget {
     final line = _cartLine(cartItems, product);
     if (line == null) return;
 
-    if (line.quantity <= 1) {
+    final step = getCartStepForProduct(product, line.variantName);
+    final nextQty = getDecreasedCartQuantity(line.quantity, step);
+    if (nextQty <= 0) {
       await ref.read(cartControllerProvider.notifier).removeFromCartLine(
             productId: product.id,
             variantName: line.variantName,
@@ -126,7 +130,7 @@ class _DealsContent extends ConsumerWidget {
 
     await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
           productId: product.id,
-          quantity: line.quantity - 1,
+          quantity: nextQty,
           variantName: line.variantName,
           colorName: line.colorName,
         );

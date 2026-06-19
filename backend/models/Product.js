@@ -38,6 +38,11 @@ const bulkPricingSchema = new mongoose.Schema(
       min: [1, "Minimum order quantity must be at least 1"],
       default: null,
     },
+    stepByQuantity: {
+      type: Number,
+      min: [1, "Step by quantity must be at least 1"],
+      default: null,
+    },
     slabs: {
       type: [bulkPricingSlabSchema],
       default: [],
