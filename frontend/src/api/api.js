@@ -1,7 +1,17 @@
 import axios from "axios";
 import { STORAGE_KEY } from "../utils/authStorage";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+function normalizeApiBaseUrl() {
+  const raw = (import.meta.env.VITE_API_URL || "http://localhost:5001").trim();
+  return raw.replace(/\/+$/, "");
+}
+
+export const API_URL = normalizeApiBaseUrl();
+
+export function buildApiUrl(path) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return API_URL ? `${API_URL}${normalizedPath}` : normalizedPath;
+}
 
 const api = axios.create({
   baseURL: API_URL,

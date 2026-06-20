@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getProductById } from "../api/api";
+import { buildApiUrl, getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
@@ -34,7 +34,6 @@ import {
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -154,7 +153,7 @@ function buildProxyDownloadUrl(imageUrl, filename) {
     url: imageUrl,
     filename,
   });
-  return `${API_URL}/api/proxy/image/download?${params.toString()}`;
+  return buildApiUrl(`/api/proxy/image/download?${params.toString()}`);
 }
 
 function triggerBlobDownload(blob, filename, mimeType) {
@@ -221,7 +220,7 @@ async function fetchImageBlob(imageUrl) {
 
   try {
     const proxyResponse = await fetch(
-      `${API_URL}/api/proxy/image?url=${encodeURIComponent(imageUrl)}`
+      buildApiUrl(`/api/proxy/image?url=${encodeURIComponent(imageUrl)}`)
     );
     if (proxyResponse.ok) {
       return await proxyResponse.blob();

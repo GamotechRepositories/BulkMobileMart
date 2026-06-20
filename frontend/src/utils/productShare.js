@@ -1,8 +1,7 @@
 import html2canvas from "html2canvas";
+import { buildApiUrl } from "../api/api";
 import { formatProductPriceLabel } from "./productPricing";
 import { clampImageAspectRatio, getDisplayHeightForWidth } from "./productImage";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 function getImageExtension(url) {
   const match = url?.match(/\.(jpe?g|png|webp|gif)(?:\?|$)/i);
@@ -33,7 +32,7 @@ async function fetchImageBlob(imageUrl) {
 
   try {
     const proxyResponse = await fetch(
-      `${API_URL}/api/proxy/image?url=${encodeURIComponent(imageUrl)}`
+      buildApiUrl(`/api/proxy/image?url=${encodeURIComponent(imageUrl)}`)
     );
     if (proxyResponse.ok) {
       return await proxyResponse.blob();
@@ -100,7 +99,7 @@ export async function createShareCardImage({ productName, priceLabel, brandName,
 
   const img = document.createElement("img");
   img.crossOrigin = "anonymous";
-  img.src = `${API_URL}/api/proxy/image?url=${encodeURIComponent(imageUrl)}`;
+  img.src = buildApiUrl(`/api/proxy/image?url=${encodeURIComponent(imageUrl)}`);
   img.alt = productName;
   img.style.cssText =
     "display:block;width:100%;object-fit:contain;background:#f8f8f8;padding:12px;box-sizing:border-box;";
