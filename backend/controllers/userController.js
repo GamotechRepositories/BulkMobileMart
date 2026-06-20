@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { escapeRegex } from "../utils/adminSearch.js";
 
 const signToken = (userId) => {
   if (!process.env.JWT_SECRET) {
@@ -322,6 +323,18 @@ export const getUsers = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
     const filter = { role: { $ne: "admin" } };
+
+    const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
+    const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
+
+    if (name) {
+      filter.name = { $regex: escapeRegex(name), $options: "i" };
+    }
+
+    if (phone) {
+      filter.phone = { $regex: escapeRegex(phone), $options: "i" };
+    }
+
     const [total, users] = await Promise.all([
       User.countDocuments(filter),
       User.find(filter).select("-password").sort({ createdAt: -1 }).skip(skip).limit(limit),

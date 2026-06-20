@@ -73,6 +73,9 @@ export const getUsers = (params) => api.get("/api/users", { params });
 export const getCurrentUser = () => api.get("/api/users/me");
 export const changeMyPassword = (data) => api.patch("/api/users/me/password", data);
 export const createUser = (data) => api.post("/api/users", data);
+export const getUserAddresses = (userId) => api.get(`/api/users/${userId}/addresses`);
+export const createUserAddress = (userId, data) =>
+  api.post(`/api/users/${userId}/addresses`, data);
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 
@@ -83,6 +86,7 @@ export const getAdminOrderUnreadCount = (params) =>
 export const getDashboardStats = (params) =>
   api.get("/api/orders/admin/dashboard-stats", { params });
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
+export const createAdminOrder = (data) => api.post("/api/orders/admin/create", data);
 
 export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
 export const getAdminPaymentUnreadCount = (params) =>

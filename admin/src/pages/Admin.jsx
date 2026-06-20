@@ -9,6 +9,7 @@ import ShowCategorySection from "../components/admin/sections/ShowCategorySectio
 import AddProductSection from "../components/admin/sections/AddProductSection";
 import ShowProductSection from "../components/admin/sections/ShowProductSection";
 import UserSection from "../components/admin/sections/UserSection";
+import CreateOrderSection from "../components/admin/sections/CreateOrderSection";
 import OrderSection from "../components/admin/sections/OrderSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
 import PaymentSection from "../components/admin/sections/PaymentSection";
@@ -43,6 +44,7 @@ function Admin() {
           <Route path="testimonials" element={<Navigate to="show" replace />} />
           <Route path="settings" element={<StoreSettingsSection />} />
           <Route path="users" element={<UserSection />} />
+          <Route path="orders/create" element={<CreateOrderSection />} />
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />
           <Route path="payments" element={<PaymentSection />} />

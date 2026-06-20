@@ -42,6 +42,40 @@ function getMissingFields(data) {
   return REQUIRED_FIELDS.filter((field) => !data[field]);
 }
 
+async function createAddressForUser(userId, body) {
+  const user = await User.findById(userId);
+  if (!user) {
+    return { error: { status: 404, message: "User not found" } };
+  }
+
+  const normalized = normalizeAddressBody(body);
+  const { isDefault } = normalized;
+  const missing = getMissingFields(normalized);
+
+  if (missing.length > 0) {
+    return { error: { status: 400, message: "All address fields are required" } };
+  }
+
+  if (isDefault) {
+    await Address.updateMany({ user: userId }, { $set: { isDefault: false } });
+  }
+
+  const addressCount = await Address.countDocuments({ user: userId });
+  const shouldBeDefault = isDefault || addressCount === 0;
+
+  const address = await Address.create({
+    user: userId,
+    ...normalized,
+    isDefault: shouldBeDefault,
+  });
+
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { addresses: address._id },
+  });
+
+  return { address };
+}
+
 export const getAddresses = async (req, res) => {
   try {
     const addresses = await Address.find({ user: req.user._id }).sort({
@@ -57,41 +91,58 @@ export const getAddresses = async (req, res) => {
 
 export const addAddress = async (req, res) => {
   try {
-    const normalized = normalizeAddressBody(req.body);
-    const { isDefault } = normalized;
-    const missing = getMissingFields(normalized);
-
-    if (missing.length > 0) {
-      return res.status(400).json({
+    const result = await createAddressForUser(req.user._id, req.body);
+    if (result.error) {
+      return res.status(result.error.status).json({
         success: false,
-        message: "All address fields are required",
+        message: result.error.message,
       });
     }
-
-    if (isDefault) {
-      await Address.updateMany(
-        { user: req.user._id },
-        { $set: { isDefault: false } }
-      );
-    }
-
-    const addressCount = await Address.countDocuments({ user: req.user._id });
-    const shouldBeDefault = isDefault || addressCount === 0;
-
-    const address = await Address.create({
-      user: req.user._id,
-      ...normalized,
-      isDefault: shouldBeDefault,
-    });
-
-    await User.findByIdAndUpdate(req.user._id, {
-      $addToSet: { addresses: address._id },
-    });
 
     res.status(201).json({
       success: true,
       message: "Address added successfully",
-      data: address,
+      data: result.address,
+    });
+  } catch (error) {
+    const message = formatValidationError(error);
+    const status = error.name === "ValidationError" ? 400 : 500;
+    res.status(status).json({ success: false, message });
+  }
+};
+
+export const getAddressesForUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const addresses = await Address.find({ user: req.params.userId }).sort({
+      isDefault: -1,
+      createdAt: -1,
+    });
+
+    res.status(200).json({ success: true, data: addresses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const addAddressForUser = async (req, res) => {
+  try {
+    const result = await createAddressForUser(req.params.userId, req.body);
+    if (result.error) {
+      return res.status(result.error.status).json({
+        success: false,
+        message: result.error.message,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Address added successfully",
+      data: result.address,
     });
   } catch (error) {
     const message = formatValidationError(error);

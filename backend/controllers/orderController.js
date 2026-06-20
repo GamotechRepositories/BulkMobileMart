@@ -150,6 +150,96 @@ export const createCheckoutAttempt = async (req, res) => {
   }
 };
 
+export const adminPlaceOrder = async (req, res) => {
+  try {
+    const {
+      userId,
+      addressId,
+      paymentMethod = "cod",
+      paymentStatus = "unpaid",
+      checkoutItems,
+    } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer is required",
+      });
+    }
+
+    if (!addressId) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery address is required",
+      });
+    }
+
+    if (!Array.isArray(checkoutItems) || checkoutItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Add at least one product to the order",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    const normalizedPayment = paymentMethod === "online" ? "online" : "cod";
+    if (normalizedPayment === "online") {
+      return res.status(400).json({
+        success: false,
+        message: "Online payment must be completed by the customer",
+      });
+    }
+
+    const allowedPaymentStatuses = ["unpaid", "paid"];
+    const normalizedPaymentStatus = allowedPaymentStatuses.includes(paymentStatus)
+      ? paymentStatus
+      : "unpaid";
+
+    const orderMessage = normalizeOrderMessage(req.body);
+
+    const result = await prepareOrderData(userId, addressId, { checkoutItems });
+    if (result.error) {
+      return res.status(result.status).json({
+        success: false,
+        message: result.error,
+        ...(result.code ? { code: result.code } : {}),
+        ...(result.removedItems ? { removedItems: result.removedItems } : {}),
+      });
+    }
+
+    const order = await finalizeOrder({
+      userId,
+      orderItems: result.orderItems,
+      deliveryAddress: result.deliveryAddress,
+      subtotal: result.subtotal,
+      deliveryCharges: result.deliveryCharges,
+      total: result.total,
+      cart: result.cart,
+      checkoutMode: result.checkoutMode,
+      paymentMethod: normalizedPayment,
+      paymentStatus: normalizedPaymentStatus,
+      status: "confirm",
+      message: orderMessage,
+      ...(normalizedPaymentStatus === "paid" ? { paidAt: new Date() } : {}),
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully",
+      data: enrichOrderForResponse(order),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const placeOrder = async (req, res) => {
   try {
     const { addressId, paymentMethod, attemptedOrderId } = req.body;

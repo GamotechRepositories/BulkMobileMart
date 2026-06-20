@@ -14,6 +14,7 @@ import {
   IconTestimonial,
   IconSettings,
   IconUsers,
+  IconCreateOrder,
 } from "./AdminIcons";
 
 const PAGE_TITLES = {
@@ -31,6 +32,7 @@ const PAGE_TITLES = {
   "/settings": "Store Settings",
   "/users": "Users",
   "/orders": "Orders",
+  "/orders/create": "Create Order",
   "/payments": "Payments",
   "/support": "Support Messages",
 };
@@ -48,6 +50,7 @@ const NAV_ITEMS = [
     ],
   },
   { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
+  { type: "link", to: "/orders/create", label: "Create Order", icon: IconCreateOrder },
   {
     type: "group",
     label: "Categories",
@@ -324,9 +327,12 @@ function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const pageTitle = /^\/orders\/[^/]+$/.test(location.pathname)
-    ? "Order Details"
-    : PAGE_TITLES[location.pathname] || "Dashboard";
+  const pageTitle =
+    location.pathname === "/orders/create"
+      ? "Create Order"
+      : /^\/orders\/[^/]+$/.test(location.pathname)
+        ? "Order Details"
+        : PAGE_TITLES[location.pathname] || "Dashboard";
 
   const isDashboard = location.pathname === "/" || location.pathname === "";
   const isSupportPage = location.pathname === "/support";
