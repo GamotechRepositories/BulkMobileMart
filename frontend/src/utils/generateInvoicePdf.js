@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatAddressLine, getAddressFullName } from "./addressDisplay";
+import { getOrderGstAmount, GST_PERCENT_LABEL } from "./gst";
 import { getOrderNumber } from "./orderNumber";
 
 const formatPrice = (amount) =>
@@ -35,7 +36,12 @@ export function downloadInvoicePdf(order, user, filename) {
   const orderNo = getOrderNumber(order);
   const addr = order.deliveryAddress;
   const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
-  const paymentStatus = (order.paymentStatus || "unpaid") === "paid" ? "Paid" : "Unpaid";
+  const paymentStatus =
+    order.paymentStatus === "paid_10"
+      ? "Paid 10%"
+      : (order.paymentStatus || "unpaid") === "paid"
+        ? "Paid"
+        : "Unpaid";
 
   // Header
   doc.setTextColor(102, 102, 102);
@@ -142,9 +148,9 @@ export function downloadInvoicePdf(order, user, filename) {
 
   y += 5;
   doc.setTextColor(102, 102, 102);
-  doc.text("18% GST", summaryX, y);
+  doc.text(`${GST_PERCENT_LABEL} GST`, summaryX, y);
   doc.setTextColor(0, 0, 0);
-  doc.text("Included", pageW - margin, y, { align: "right" });
+  doc.text(formatPrice(getOrderGstAmount(order)), pageW - margin, y, { align: "right" });
 
   y += 5;
   doc.setTextColor(102, 102, 102);

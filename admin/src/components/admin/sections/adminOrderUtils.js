@@ -16,6 +16,7 @@ export const ORDER_STATUS_OPTIONS = [
 export const PAYMENT_STATUS_OPTIONS = [
   { value: "all", label: "All Payments" },
   { value: "unpaid", label: "Unpaid" },
+  { value: "paid_10", label: "Paid 10%" },
   { value: "paid", label: "Paid" },
   { value: "pending_verification", label: "Pending verification" },
   { value: "refundable", label: "Refundable" },
@@ -39,6 +40,7 @@ export const ADMIN_DETAIL_ORDER_STATUS_OPTIONS = [
 
 export const ADMIN_DETAIL_PAYMENT_STATUS_OPTIONS = [
   { value: "unpaid", label: "unpaid" },
+  { value: "paid_10", label: "paid 10%" },
   { value: "paid", label: "paid" },
   { value: "refundable", label: "refundable" },
 ];
@@ -125,8 +127,11 @@ export function getPaymentStatus(order) {
   return order.paymentStatus || "unpaid";
 }
 
+export { getPaymentStatusLabel } from "../../../utils/payment";
+
 export function getPaymentStatusBadgeClass(payment) {
   if (payment === "paid") return "bg-green-100 text-green-700";
+  if (payment === "paid_10") return "bg-lime-100 text-lime-800";
   if (payment === "refundable") return "bg-blue-100 text-blue-700";
   return "bg-amber-100 text-amber-800";
 }

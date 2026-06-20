@@ -19,10 +19,7 @@ Future<Uint8List> generateInvoicePdf(
   final addr = order.deliveryAddress;
   final paymentMode =
       order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Online Payment';
-  final paymentStatus =
-      getOrderPaymentStatus(order) == 'paid' || getOrderPaymentStatus(order) == 'advance_paid'
-          ? 'Paid'
-          : 'Unpaid';
+  final paymentStatus = getOrderPaymentLabel(order);
 
   doc.addPage(
     pw.MultiPage(

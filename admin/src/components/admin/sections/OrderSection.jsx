@@ -24,6 +24,7 @@ import {
   getOrderStatusLabel,
   getPaymentStatus,
   getPaymentStatusBadgeClass,
+  getPaymentStatusLabel,
   getProductSummary,
   getTotalQty,
   getTransactionId,
@@ -214,7 +215,7 @@ function OrderSection() {
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium lowercase ${getPaymentStatusBadgeClass(payment)}`}
                       >
-                        {payment}
+                        {getPaymentStatusLabel(payment)}
                       </span>
                     </td>
                     <td className={`${adminCompactTdClass} text-neutral-600`}>

@@ -26,6 +26,7 @@ export const ORDER_STATUS_STEP_INDEX = {
 
 export const PAYMENT_LABELS = {
   paid: "Paid",
+  paid_10: "Paid 10%",
   unpaid: "Unpaid",
   refundable: "Refundable",
   pending_verification: "Payment verification pending",
@@ -78,15 +79,11 @@ export function getMiniTrackerIndex(status) {
 }
 
 export function getPaymentStatus(order) {
-  if (order.paymentMethod === "cod" && order.codAdvancePaidAt) {
-    return "advance_paid";
-  }
   return order.paymentStatus || "unpaid";
 }
 
 export function getOrderPaymentLabel(order) {
   const status = getPaymentStatus(order);
-  if (status === "advance_paid") return "COD advance paid";
   return PAYMENT_LABELS[status] || status;
 }
 
@@ -97,7 +94,8 @@ export function showOrderPaymentBadge(order) {
 
 export function getOrderPaymentColor(order) {
   const status = getPaymentStatus(order);
-  if (status === "advance_paid" || status === "paid") return "#16a34a";
+  if (status === "paid_10") return "#65a30d";
+  if (status === "paid") return "#16a34a";
   if (status === "refundable") return "#ea580c";
   if (status === "pending_verification") return "#b45309";
   return "#d97706";

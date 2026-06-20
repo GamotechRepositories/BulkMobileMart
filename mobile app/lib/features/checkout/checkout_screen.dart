@@ -11,12 +11,12 @@ import '../../core/providers/app_providers.dart';
 import '../../core/utils/address_utils.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/payment_utils.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
-import '../../features/checkout/payment_modal.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../routes/route_paths.dart';
@@ -39,7 +39,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _showAddressForm = false;
   bool _showAddressPicker = false;
   bool _savingAddress = false;
-  String _paymentMethod = 'cod';
+  String _paymentPlan = PaymentPlan.advance;
   String _message = '';
   int _messageLength = 0;
   String _formError = '';
@@ -96,14 +96,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_orderPlaced || items.isEmpty) return;
 
     final key =
-        '${_selectedAddressId ?? ''}|$_paymentMethod|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
+        '${_selectedAddressId ?? ''}|$_paymentPlan|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (key == _lastCheckoutAttemptKey) return;
     _lastCheckoutAttemptKey = key;
 
     try {
       final response = await ref.read(apiServiceProvider).createCheckoutAttempt({
         if (_selectedAddressId != null) 'addressId': _selectedAddressId,
-        'paymentMethod': _paymentMethod,
+        'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -161,8 +161,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
   }
 
-  void _openPaymentModal() async {
+  Future<void> _placeOrder() async {
     if (_selectedAddressId == null || _placingOrder) return;
+
     setState(() => _orderError = '');
 
     await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
@@ -175,48 +176,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
-    final storeSettings = ref.read(storeSettingsProvider).value;
-    final merchantUpiId = storeSettings?.merchantUpiId;
-    final merchantUpiName = storeSettings?.merchantUpiName;
-    final merchantUpiAccounts = storeSettings?.merchantUpiAccounts ?? const [];
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      isDismissible: !_placingOrder,
-      enableDrag: !_placingOrder,
-      backgroundColor: Colors.transparent,
-      builder: (context) => PaymentModal(
-        paymentMethod: _paymentMethod,
-        orderTotal: calculateCartSummary(ref.read(cartControllerProvider).items).total,
-        merchantUpiId: merchantUpiId,
-        merchantUpiName: merchantUpiName,
-        merchantUpiAccounts: merchantUpiAccounts,
-        processing: _placingOrder,
-        error: _orderError,
-        onUploadScreenshot: (path) =>
-            ref.read(apiServiceProvider).uploadPaymentProofImage(path),
-        onPayWithRazorpay: () {
-          Navigator.pop(context);
-          _startRazorpayPayment();
-        },
-        onSubmitUpiProof: ({
-          required String screenshotUrl,
-          required String screenshotName,
-          required String upiTransactionRef,
-        }) async {
-          return _submitUpiProof(
-            screenshot: screenshotUrl,
-            screenshotName: screenshotName,
-            upiTransactionRef: upiTransactionRef,
-          );
-        },
-      ),
-    );
+    await _startRazorpayPayment();
   }
 
-  String get _apiPaymentMode => _paymentMethod == 'cod' ? 'cod_advance' : 'online';
+  String get _apiPaymentMode => _paymentPlan;
 
   Future<void> _startRazorpayPayment() async {
     if (_selectedAddressId == null) return;
@@ -242,9 +205,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'amount': body['amount'],
         'order_id': body['razorpayOrderId'],
         'name': 'Bulk Mobile Mart',
-        'description': _apiPaymentMode == 'cod_advance'
-            ? 'COD advance payment (10%)'
-            : 'Order payment',
+        'description': _paymentPlan == PaymentPlan.advance
+            ? '10% advance payment via Razorpay'
+            : 'Full order payment via Razorpay',
         'prefill': {
           'contact': user.phone,
           'email': user.email,
@@ -261,7 +224,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderError)));
-        _openPaymentModal();
       }
     }
   }
@@ -282,7 +244,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'razorpay_payment_id': response.paymentId,
         'razorpay_signature': response.signature,
       });
-      await _completeOrderSuccess();
+      await _completeOrderSuccess(
+        _pendingPaymentMode == PaymentPlan.advance
+            ? 'Order confirmed. 10% paid via Razorpay. Pay the balance on delivery.'
+            : null,
+      );
     } catch (e) {
       setState(() {
         _orderError = e is ApiException
@@ -298,44 +264,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _placingOrder = false;
       _orderError = response.message ?? 'Payment cancelled. Your order was not placed.';
     });
-    _openPaymentModal();
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     // no-op
-  }
-
-  Future<String?> _submitUpiProof({
-    required String screenshot,
-    required String screenshotName,
-    required String upiTransactionRef,
-  }) async {
-    try {
-      await ref.read(apiServiceProvider).submitUpiPaymentProof({
-        'addressId': _selectedAddressId,
-        'paymentMode': _apiPaymentMode,
-        'customerMessage': _message.trim(),
-        if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
-        'screenshot': screenshot,
-        'screenshotName': screenshotName,
-        'upiTransactionRef': upiTransactionRef,
-      });
-      await _completeOrderSuccess(
-        'Your order is confirmed. We will verify your UPI payment screenshot shortly.',
-      );
-      return null;
-    } catch (e) {
-      final message = e is ApiException
-          ? e.message
-          : 'Failed to submit payment proof. Please try again.';
-      if (mounted) {
-        setState(() => _orderError = message);
-        if (message.toLowerCase().contains('no longer available')) {
-          await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
-        }
-      }
-      return message;
-    }
   }
 
   Future<void> _completeOrderSuccess([String? note]) async {
@@ -421,34 +353,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                   children: [
                     _StepSection(
-                      title: 'Payment Method',
+                      title: 'Payment via Razorpay',
                       child: RadioGroup<String>(
-                        groupValue: _paymentMethod,
+                        groupValue: _paymentPlan,
                         onChanged: (value) {
-                          if (value != null) setState(() => _paymentMethod = value);
+                          if (value != null) setState(() => _paymentPlan = value);
                         },
                         child: Column(
                           children: [
-                            _PaymentOption(
-                              value: 'cod',
-                              selected: _paymentMethod == 'cod',
-                              title: 'Cash on Delivery',
-                              subtitle: 'Pay 10% advance now · balance on delivery',
-                              icon: Icons.payments_outlined,
-                              iconColor: AppColors.primary,
-                              iconBg: AppColors.primary.withValues(alpha: 0.12),
-                              onTap: () => setState(() => _paymentMethod = 'cod'),
+                            _PaymentPlanOption(
+                              value: PaymentPlan.advance,
+                              selected: _paymentPlan == PaymentPlan.advance,
+                              title: 'Pay 10% now · balance on delivery',
+                              subtitle:
+                                  'Pay ${formatInr(PaymentUtils.advanceAmount(summary.total), withDecimals: true)} now · ${formatInr(summary.total - PaymentUtils.advanceAmount(summary.total), withDecimals: true)} on delivery',
+                              onTap: () => setState(() => _paymentPlan = PaymentPlan.advance),
                             ),
                             const SizedBox(height: 10),
-                            _PaymentOption(
-                              value: 'online',
-                              selected: _paymentMethod == 'online',
-                              title: 'Pay Online',
-                              subtitle: 'UPI, Cards, Net Banking via Razorpay',
-                              icon: Icons.credit_card_outlined,
-                              iconColor: Colors.blue,
-                              iconBg: Colors.blue.withValues(alpha: 0.12),
-                              onTap: () => setState(() => _paymentMethod = 'online'),
+                            _PaymentPlanOption(
+                              value: PaymentPlan.full,
+                              selected: _paymentPlan == PaymentPlan.full,
+                              title: 'Pay 100% now',
+                              subtitle:
+                                  'Complete payment of ${formatInr(summary.total, withDecimals: true)} via Razorpay',
+                              onTap: () => setState(() => _paymentPlan = PaymentPlan.full),
                             ),
                           ],
                         ),
@@ -579,6 +507,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             ),
                           ),
                           const Divider(height: 24),
+                          _summaryRow(
+                            'Pay now (Razorpay)',
+                            formatInr(
+                              PaymentUtils.payableAmount(summary.total, _paymentPlan),
+                              withDecimals: true,
+                            ),
+                          ),
+                          if (_paymentPlan == PaymentPlan.advance) ...[
+                            const SizedBox(height: 8),
+                            _summaryRow(
+                              'Balance on delivery',
+                              formatInr(
+                                summary.total - PaymentUtils.advanceAmount(summary.total),
+                                withDecimals: true,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
                           _summaryRow('Total', formatInr(summary.total), bold: true),
                           if (summary.savings > 0) ...[
                             const SizedBox(height: 12),
@@ -701,13 +647,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: FilledButton(
-                  onPressed: _selectedAddressId == null || _placingOrder
-                      ? null
-                      : _openPaymentModal,
+                  onPressed: _selectedAddressId == null || _placingOrder ? null : _placeOrder,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: Text('Place Order · ${formatInr(summary.total)}'),
+                  child: Text(
+                    _paymentPlan == PaymentPlan.advance
+                        ? 'Pay ${formatInr(PaymentUtils.payableAmount(summary.total, _paymentPlan), withDecimals: true)} with Razorpay'
+                        : 'Pay ${formatInr(summary.total, withDecimals: true)} with Razorpay',
+                  ),
                 ),
               ),
             ),
@@ -820,76 +768,6 @@ class _StepSection extends StatelessWidget {
           const SizedBox(height: 12),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _PaymentOption extends StatelessWidget {
-  const _PaymentOption({
-    required this.value,
-    required this.selected,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.onTap,
-  });
-
-  final String value;
-  final bool selected;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppColors.primary : AppColors.borderLight,
-          ),
-          color: selected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
-        ),
-        child: Row(
-          children: [
-            Radio<String>(
-              value: value,
-              activeColor: AppColors.primary,
-            ),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1036,6 +914,62 @@ class _AddressPicker extends StatelessWidget {
           child: TextButton(onPressed: onAddNew, child: const Text('+ Add new address')),
         ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaymentPlanOption extends StatelessWidget {
+  const _PaymentPlanOption({
+    required this.value,
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final String value;
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.borderLight,
+          ),
+          color: selected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Radio<String>(
+              value: value,
+              activeColor: AppColors.primary,
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

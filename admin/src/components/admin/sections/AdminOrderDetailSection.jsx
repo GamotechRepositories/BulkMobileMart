@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getOrderById, updateAdminOrder } from "../../../api/api";
+import { getOrderGstAmount, GST_PERCENT_LABEL } from "../../../utils/gst";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
 import {
@@ -385,8 +386,8 @@ function AdminOrderDetailSection() {
             <span className="text-green-600">-₹0</span>
           </div>
           <div className="flex justify-between text-neutral-600">
-            <span>18% GST</span>
-            <span>Included</span>
+            <span>{GST_PERCENT_LABEL} GST</span>
+            <span>{formatPrice(getOrderGstAmount(order))}</span>
           </div>
           <div className="flex justify-between text-neutral-600">
             <span>Delivery Charges</span>

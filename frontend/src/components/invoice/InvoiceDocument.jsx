@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { getAddressFullName } from "../../utils/addressDisplay";
 import { LOGO_URL } from "../layout/Header";
+import { getOrderGstAmount, GST_PERCENT_LABEL } from "../../utils/gst";
 import { getOrderNumber } from "../../utils/orderNumber";
 
 const formatPrice = (amount) =>
@@ -38,7 +39,12 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   const invoiceDate = formatDate(new Date());
   const orderDate = formatDate(order.createdAt);
   const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
-  const paymentStatus = (order.paymentStatus || "unpaid") === "paid" ? "Paid" : "Unpaid";
+  const paymentStatus =
+    order.paymentStatus === "paid_10"
+      ? "Paid 10%"
+      : (order.paymentStatus || "unpaid") === "paid"
+        ? "Paid"
+        : "Unpaid";
 
   return (
     <div className="w-full max-w-3xl overflow-hidden rounded-xl border border-border-light bg-white text-text-primary shadow-sm">
@@ -137,8 +143,8 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
               <span>{formatPrice(order.subtotal)}</span>
             </div>
             <div className="flex justify-between text-text-secondary">
-              <span>18% GST</span>
-              <span>Included</span>
+              <span>{GST_PERCENT_LABEL} GST</span>
+              <span>{formatPrice(getOrderGstAmount(order))}</span>
             </div>
             <div className="flex justify-between text-text-secondary">
               <span>Delivery</span>

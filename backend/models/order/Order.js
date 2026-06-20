@@ -57,6 +57,7 @@ const orderSchema = new mongoose.Schema(
     },
     subtotal: { type: Number, required: true },
     deliveryCharges: { type: Number, default: 0 },
+    gstAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true },
     status: {
       type: String,
@@ -65,7 +66,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["unpaid", "paid", "refundable", "pending_verification"],
+      enum: ["unpaid", "paid_10", "paid", "refundable", "pending_verification"],
       default: "unpaid",
     },
     razorpayOrderId: { type: String, default: "" },

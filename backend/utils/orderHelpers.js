@@ -16,6 +16,7 @@ import {
   getStoreSettings,
   meetsMinimumOrder,
 } from "./storeSettingsHelpers.js";
+import { calculateOrderTotal } from "./gstHelpers.js";
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -302,7 +303,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   }
 
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const total = subtotal + deliveryCharges;
+  const { gstAmount, total } = calculateOrderTotal(subtotal, deliveryCharges);
 
   const deliveryAddress = addressToSnapshot(address);
   const requiredSnapshotFields = [
@@ -332,6 +333,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     deliveryAddress,
     subtotal,
     deliveryCharges,
+    gstAmount,
     total,
     cart,
     checkoutMode,
@@ -441,13 +443,14 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   const { orderItems, subtotal } = built;
   const storeSettings = await getStoreSettings();
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const total = subtotal + deliveryCharges;
+  const { gstAmount, total } = calculateOrderTotal(subtotal, deliveryCharges);
 
   return {
     orderItems,
     deliveryAddress: buildPendingDeliveryAddress(user, address),
     subtotal,
     deliveryCharges,
+    gstAmount,
     total,
     cart,
     checkoutMode,
@@ -461,6 +464,7 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     deliveryAddress: prepared.deliveryAddress,
     subtotal: prepared.subtotal,
     deliveryCharges: prepared.deliveryCharges,
+    gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
     paymentMethod: normalizedPaymentMethod,
     paymentStatus: "unpaid",
@@ -510,6 +514,7 @@ export async function completeAttemptedOrder({
   deliveryAddress,
   subtotal,
   deliveryCharges,
+  gstAmount = 0,
   total,
   cart,
   checkoutMode = "cart",
@@ -520,6 +525,7 @@ export async function completeAttemptedOrder({
   razorpayPaymentId,
   codAdvanceAmount = 0,
   codAdvanceRazorpayPaymentId = "",
+  codAdvancePaidAt = null,
   paidAt,
   message = "",
 }) {
@@ -540,6 +546,7 @@ export async function completeAttemptedOrder({
   order.deliveryAddress = deliveryAddress;
   order.subtotal = subtotal;
   order.deliveryCharges = deliveryCharges;
+  order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
   order.paymentMethod = paymentMethod;
   order.paymentStatus = paymentStatus;
@@ -549,6 +556,7 @@ export async function completeAttemptedOrder({
   order.razorpayPaymentId = razorpayPaymentId || "";
   order.codAdvanceAmount = codAdvanceAmount > 0 ? codAdvanceAmount : 0;
   order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
+  order.codAdvancePaidAt = codAdvancePaidAt || null;
   order.paidAt = paidAt || null;
 
   await order.save();
@@ -563,6 +571,7 @@ export async function finalizeOrder({
   deliveryAddress,
   subtotal,
   deliveryCharges,
+  gstAmount = 0,
   total,
   cart,
   checkoutMode = "cart",
@@ -573,6 +582,7 @@ export async function finalizeOrder({
   razorpayPaymentId,
   codAdvanceAmount = 0,
   codAdvanceRazorpayPaymentId = "",
+  codAdvancePaidAt = null,
   paidAt,
   message = "",
   attemptedOrderId,
@@ -585,6 +595,7 @@ export async function finalizeOrder({
       deliveryAddress,
       subtotal,
       deliveryCharges,
+      gstAmount,
       total,
       cart,
       checkoutMode,
@@ -595,6 +606,7 @@ export async function finalizeOrder({
       razorpayPaymentId,
       codAdvanceAmount,
       codAdvanceRazorpayPaymentId,
+      codAdvancePaidAt,
       paidAt,
       message,
     });
@@ -614,6 +626,7 @@ export async function finalizeOrder({
     paymentMethod,
     subtotal,
     deliveryCharges,
+    gstAmount: gstAmount > 0 ? gstAmount : 0,
     total,
     status,
     paymentStatus,
@@ -622,6 +635,7 @@ export async function finalizeOrder({
     ...(razorpayPaymentId && { razorpayPaymentId }),
     ...(codAdvanceAmount > 0 && { codAdvanceAmount }),
     ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
+    ...(codAdvancePaidAt && { codAdvancePaidAt }),
     ...(paidAt && { paidAt }),
   });
 

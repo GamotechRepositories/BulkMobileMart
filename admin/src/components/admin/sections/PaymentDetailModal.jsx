@@ -41,6 +41,7 @@ function getProofStatusBadgeClass(status) {
 
 function getPaymentStatusBadgeClass(status) {
   if (status === "paid") return "bg-green-100 text-green-800";
+  if (status === "paid_10") return "bg-lime-100 text-lime-800";
   if (status === "refundable") return "bg-blue-100 text-blue-800";
   if (status === "pending_verification") return "bg-amber-100 text-amber-800";
   return "bg-neutral-100 text-neutral-700";
@@ -48,6 +49,7 @@ function getPaymentStatusBadgeClass(status) {
 
 function getPaymentStatusLabel(status) {
   if (status === "pending_verification") return "Pending verification";
+  if (status === "paid_10") return "Paid 10%";
   if (status === "paid") return "Paid";
   if (status === "refundable") return "Refundable";
   return "Unpaid";

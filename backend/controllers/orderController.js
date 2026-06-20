@@ -13,6 +13,10 @@ import {
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
+import {
+  calculateAdvanceAmount,
+  PAYMENT_STATUS,
+} from "../utils/paymentHelpers.js";
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -190,17 +194,15 @@ export const adminPlaceOrder = async (req, res) => {
     }
 
     const normalizedPayment = paymentMethod === "online" ? "online" : "cod";
-    if (normalizedPayment === "online") {
-      return res.status(400).json({
-        success: false,
-        message: "Online payment must be completed by the customer",
-      });
-    }
 
-    const allowedPaymentStatuses = ["unpaid", "paid"];
+    const allowedPaymentStatuses = [
+      PAYMENT_STATUS.UNPAID,
+      PAYMENT_STATUS.PAID_10,
+      PAYMENT_STATUS.PAID,
+    ];
     const normalizedPaymentStatus = allowedPaymentStatuses.includes(paymentStatus)
       ? paymentStatus
-      : "unpaid";
+      : PAYMENT_STATUS.UNPAID;
 
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -214,12 +216,18 @@ export const adminPlaceOrder = async (req, res) => {
       });
     }
 
+    const codAdvanceAmount =
+      normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
+        ? calculateAdvanceAmount(result.total)
+        : 0;
+
     const order = await finalizeOrder({
       userId,
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
       deliveryCharges: result.deliveryCharges,
+      gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,
@@ -227,7 +235,13 @@ export const adminPlaceOrder = async (req, res) => {
       paymentStatus: normalizedPaymentStatus,
       status: "confirm",
       message: orderMessage,
-      ...(normalizedPaymentStatus === "paid" ? { paidAt: new Date() } : {}),
+      codAdvanceAmount,
+      ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID
+        ? { paidAt: new Date() }
+        : {}),
+      ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
+        ? { codAdvancePaidAt: new Date() }
+        : {}),
     });
 
     res.status(201).json({
@@ -282,6 +296,7 @@ export const placeOrder = async (req, res) => {
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
       deliveryCharges: result.deliveryCharges,
+      gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
       paymentMethod: "cod",
@@ -719,7 +734,13 @@ export const updateOrder = async (req, res) => {
     const updates = {};
 
     const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
-    const allowedPaymentStatuses = ["unpaid", "paid", "refundable", "pending_verification"];
+    const allowedPaymentStatuses = [
+      PAYMENT_STATUS.UNPAID,
+      PAYMENT_STATUS.PAID_10,
+      PAYMENT_STATUS.PAID,
+      PAYMENT_STATUS.REFUNDABLE,
+      PAYMENT_STATUS.PENDING_VERIFICATION,
+    ];
 
     const existingOrder = await Order.findById(req.params.id);
     if (!existingOrder) {

@@ -7,12 +7,10 @@ import {
   getAddresses,
   addAddress,
   createRazorpayOrder,
-  submitUpiPaymentProof,
   verifyRazorpayPayment,
   getStoreSettings,
   createCheckoutAttempt,
 } from "../api/api";
-import PaymentModal from "../components/checkout/PaymentModal";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import {
@@ -29,6 +27,13 @@ import {
   meetsMinimumOrder,
   mergeStoreSettings,
 } from "../utils/orderSettings";
+import { calculateOrderTotal, GST_EXCLUDED_NOTE, GST_PERCENT_LABEL } from "../utils/gst";
+import {
+  calculateAdvanceAmount,
+  calculatePayableAmount,
+  getCheckoutPaymentMethod,
+  PAYMENT_PLAN,
+} from "../utils/payment";
 
 const MAX_ORDER_NOTE_LENGTH = 200;
 
@@ -81,14 +86,14 @@ function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.ADVANCE);
+  const paymentMethod = getCheckoutPaymentMethod(paymentPlan);
   const [formError, setFormError] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [bootstrapping, setBootstrapping] = useState(true);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
   const [message, setMessage] = useState("");
   const [storeSettings, setStoreSettings] = useState(null);
@@ -101,6 +106,7 @@ function Checkout() {
       JSON.stringify({
         addressId: selectedAddressId,
         paymentMethod,
+        paymentPlan,
         items: checkoutItems.map((item) => ({
           productId: item.productId || item._id,
           quantity: item.quantity,
@@ -108,7 +114,7 @@ function Checkout() {
           colorName: item.colorName || "",
         })),
       }),
-    [selectedAddressId, paymentMethod, checkoutItems]
+    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems]
   );
 
   useEffect(() => {
@@ -124,7 +130,9 @@ function Checkout() {
     0
   );
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const orderTotal = subtotal + deliveryCharges;
+  const { gstAmount, total: orderTotal } = calculateOrderTotal(subtotal, deliveryCharges);
+  const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
+  const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
   const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
   const minimumOrderShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
   const minimumOrderValue = mergeStoreSettings(storeSettings).minimumOrderValue;
@@ -264,7 +272,7 @@ function Checkout() {
   };
 
   const handleRazorpayPayment = async () => {
-    const paymentMode = paymentMethod === "cod" ? "cod_advance" : "online";
+    const paymentMode = paymentPlan;
 
     const scriptLoaded = await loadRazorpayScript();
     if (!scriptLoaded) {
@@ -286,9 +294,9 @@ function Checkout() {
       razorpayOrderId: paymentData.razorpayOrderId,
       user,
       description:
-        paymentMode === "cod_advance"
-          ? "COD advance payment (10%)"
-          : "Order payment",
+        paymentMode === PAYMENT_PLAN.ADVANCE
+          ? "10% advance payment via Razorpay"
+          : "Full order payment via Razorpay",
       onSuccess: async (response) => {
         setPlacingOrder(true);
         setOrderError("");
@@ -303,8 +311,11 @@ function Checkout() {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
           });
-          setShowPaymentModal(false);
-          await completeOrderSuccess();
+          await completeOrderSuccess(
+            paymentMode === PAYMENT_PLAN.ADVANCE
+              ? "Order confirmed. 10% paid via Razorpay. Pay the balance on delivery."
+              : ""
+          );
         } catch (err) {
           setOrderError(
             err.response?.data?.message || "Payment verified but order failed. Contact support."
@@ -323,49 +334,12 @@ function Checkout() {
   const handlePlaceOrder = async () => {
     if (!selectedAddressId || placingOrder || !minimumOrderMet) return;
     setOrderError("");
-    await loadCart();
-    setShowPaymentModal(true);
-  };
-
-  const handlePayWithRazorpay = async () => {
     setPlacingOrder(true);
-    setOrderError("");
+    await loadCart();
     try {
       await handleRazorpayPayment();
     } catch (err) {
       setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
-      setPlacingOrder(false);
-    }
-  };
-
-  const handleSubmitUpiProof = async ({ screenshot, screenshotName, upiTransactionRef }) => {
-    const paymentMode = paymentMethod === "cod" ? "cod_advance" : "online";
-
-    setPlacingOrder(true);
-    setOrderError("");
-    try {
-      await submitUpiPaymentProof({
-        addressId: selectedAddressId,
-        paymentMode,
-        customerMessage: safeTrim(messageRef.current),
-        checkoutItems: paymentCheckoutItems,
-        attemptedOrderId: attemptedOrderIdRef.current,
-        screenshot,
-        screenshotName,
-        upiTransactionRef,
-      });
-      setShowPaymentModal(false);
-      await completeOrderSuccess(
-        "Your order is confirmed. We will verify your UPI payment screenshot shortly."
-      );
-    } catch (err) {
-      const message =
-        err.response?.data?.message || "Failed to submit payment proof. Please try again.";
-      setOrderError(message);
-      if (message.toLowerCase().includes("no longer available")) {
-        await loadCart();
-      }
-    } finally {
       setPlacingOrder(false);
     }
   };
@@ -410,9 +384,7 @@ function Checkout() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
           <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-10 py-8 shadow-lg">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-border-light border-t-primary" />
-            <p className="text-sm font-semibold text-text-primary">
-              {paymentMethod === "online" ? "Processing payment..." : "Placing your order..."}
-            </p>
+            <p className="text-sm font-semibold text-text-primary">Processing payment...</p>
           </div>
         </div>
       )}
@@ -466,65 +438,57 @@ function Checkout() {
           ) : (
             <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
               <div className="space-y-3 sm:space-y-4">
-                <StepSection title="Payment Method">
+                <StepSection title="Payment via Razorpay">
                   <div className="space-y-3">
                     <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 lg:p-5 ${
-                        paymentMethod === "cod"
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
+                        paymentPlan === PAYMENT_PLAN.ADVANCE
                           ? "border-primary bg-primary/5"
                           : "border-border-light hover:border-primary/40"
                       }`}
                     >
                       <input
                         type="radio"
-                        name="payment"
-                        value="cod"
-                        checked={paymentMethod === "cod"}
-                        onChange={() => setPaymentMethod("cod")}
+                        name="paymentPlan"
+                        value={PAYMENT_PLAN.ADVANCE}
+                        checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
+                        onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
                         className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                       />
-                      <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-primary sm:h-10 sm:w-10">
-                          <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.34 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-text-primary sm:text-base">Cash on Delivery</p>
-                          <p className="mt-0.5 text-xs text-text-secondary sm:mt-1 sm:text-sm">
-                            Pay 10% advance now · balance on delivery
-                          </p>
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-text-primary sm:text-base">
+                          Pay 10% now · balance on delivery
+                        </p>
+                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
+                          Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via Razorpay ·{" "}
+                          {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
+                          on delivery
+                        </p>
                       </div>
                     </label>
 
                     <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 lg:p-5 ${
-                        paymentMethod === "online"
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
+                        paymentPlan === PAYMENT_PLAN.FULL
                           ? "border-primary bg-primary/5"
                           : "border-border-light hover:border-primary/40"
                       }`}
                     >
                       <input
                         type="radio"
-                        name="payment"
-                        value="online"
-                        checked={paymentMethod === "online"}
-                        onChange={() => setPaymentMethod("online")}
+                        name="paymentPlan"
+                        value={PAYMENT_PLAN.FULL}
+                        checked={paymentPlan === PAYMENT_PLAN.FULL}
+                        onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
                         className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
                       />
-                      <div className="flex min-w-0 flex-1 items-start gap-2 sm:gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 sm:h-10 sm:w-10">
-                          <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-text-primary sm:text-base">Pay Online</p>
-                          <p className="mt-0.5 text-xs text-text-secondary sm:mt-1 sm:text-sm">
-                            UPI, Cards, Net Banking via Razorpay
-                          </p>
-                        </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-text-primary sm:text-base">
+                          Pay 100% now
+                        </p>
+                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
+                          Complete payment of {formatPrice(orderTotal, 2)} via Razorpay
+                        </p>
                       </div>
                     </label>
                   </div>
@@ -675,7 +639,23 @@ function Checkout() {
                       {formatPrice(deliveryCharges)}
                     </span>
                   </div>
-                  <p className="text-xs text-text-muted">GST included in prices</p>
+                  <div className="flex justify-between text-text-secondary">
+                    <span>{GST_PERCENT_LABEL} GST</span>
+                    <span className="font-medium text-text-primary">{formatPrice(gstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-text-secondary">
+                    <span>Pay now (Razorpay)</span>
+                    <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
+                  </div>
+                  {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
+                    <div className="flex justify-between text-text-secondary">
+                      <span>Balance on delivery</span>
+                      <span className="font-medium text-text-primary">
+                        {formatPrice(balanceOnDelivery, 2)}
+                      </span>
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-text-muted">{GST_EXCLUDED_NOTE}</p>
                   {!minimumOrderMet ? (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                       Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}
@@ -717,7 +697,11 @@ function Checkout() {
                       d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0V10.5M4.5 10.5h15v8.25a1.5 1.5 0 01-1.5 1.5h-12a1.5 1.5 0 01-1.5-1.5V10.5z"
                     />
                   </svg>
-                  {placingOrder ? "Please wait..." : "Place Order"}
+                  {placingOrder
+                    ? "Please wait..."
+                    : paymentPlan === PAYMENT_PLAN.ADVANCE
+                      ? `Pay ${formatPrice(payableNow, 2)} with Razorpay`
+                      : `Pay ${formatPrice(orderTotal, 2)} with Razorpay`}
                 </button>
 
               </div>
@@ -725,22 +709,6 @@ function Checkout() {
           )}
         </div>
       </section>
-
-      <PaymentModal
-        open={showPaymentModal}
-        onClose={() => {
-          if (!placingOrder) setShowPaymentModal(false);
-        }}
-        paymentMethod={paymentMethod}
-        orderTotal={orderTotal}
-        merchantUpiId={storeSettings?.merchantUpiId}
-        merchantUpiName={storeSettings?.merchantUpiName}
-        merchantUpiAccounts={storeSettings?.merchantUpiAccounts}
-        onPayWithRazorpay={handlePayWithRazorpay}
-        onSubmitUpiProof={handleSubmitUpiProof}
-        processing={placingOrder}
-        error={orderError}
-      />
     </div>
   );
 }

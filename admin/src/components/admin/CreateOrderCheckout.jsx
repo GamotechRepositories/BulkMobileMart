@@ -27,6 +27,15 @@ import {
   getMinimumOrderShortfall,
   meetsMinimumOrder,
 } from "../../utils/orderSettings";
+import {
+  calculateOrderTotal,
+  GST_EXCLUDED_NOTE,
+  GST_PERCENT_LABEL,
+} from "../../utils/gst";
+import {
+  calculateAdvanceAmount,
+  PAYMENT_STATUS,
+} from "../../utils/payment";
 
 const btnCompactPrimary = `${btnPrimary} !px-2.5 !py-1.5 text-xs`;
 const btnCompactSecondary = `${btnSecondary} !px-2.5 !py-1.5 text-xs`;
@@ -120,7 +129,8 @@ function ProductSearchCard({
               {product.brandName || "No brand"}
             </p>
             <p className="mt-0.5 text-[10px] font-medium text-text-primary">
-              From {formatPrice(getUnitPriceForQuantity(product, minQty, draft.variantName))}
+              From {formatPrice(getUnitPriceForQuantity(product, minQty, draft.variantName))}{" "}
+              <span className="text-text-secondary">(excl. GST)</span>
             </p>
           </div>
 
@@ -290,7 +300,10 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
     [subtotal, storeSettings]
   );
 
-  const total = subtotal + deliveryCharges;
+  const { gstAmount, total } = useMemo(
+    () => calculateOrderTotal(subtotal, deliveryCharges),
+    [subtotal, deliveryCharges]
+  );
   const minimumMet = meetsMinimumOrder(subtotal, storeSettings);
   const minimumShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
 
@@ -411,10 +424,12 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
     try {
       setPlacingOrder(true);
       onError?.("");
+      const adminPaymentMethod =
+        paymentStatus === PAYMENT_STATUS.PAID ? "online" : "cod";
       const { data } = await createAdminOrder({
         userId,
         addressId,
-        paymentMethod: "cod",
+        paymentMethod: adminPaymentMethod,
         paymentStatus,
         message: orderMessage.trim(),
         checkoutItems: lineItems.map((item) => ({
@@ -471,6 +486,7 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
     <div className="min-w-0 space-y-6">
       <div className={cardClass}>
         <h2 className="text-sm font-bold text-text-primary">Add Products</h2>
+        <p className="mt-1 text-[10px] text-text-secondary">{GST_EXCLUDED_NOTE}</p>
 
         <div className="mt-4 grid grid-cols-2 items-end gap-2 sm:gap-3 lg:grid-cols-[1fr_auto]">
           <div className="col-span-2 min-w-0 lg:col-span-1">
@@ -693,6 +709,10 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
               <dt className="text-text-secondary">Delivery</dt>
               <dd className="font-medium text-text-primary">{formatPrice(deliveryCharges)}</dd>
             </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-text-secondary">{GST_PERCENT_LABEL} GST</dt>
+              <dd className="font-medium text-text-primary">{formatPrice(gstAmount)}</dd>
+            </div>
             <div className="flex justify-between gap-4 border-t border-neutral-100 pt-2 text-sm">
               <dt className="font-semibold text-text-primary">Total</dt>
               <dd className="font-bold text-text-primary">{formatPrice(total)}</dd>
@@ -713,8 +733,9 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                 onChange={(e) => setPaymentStatus(e.target.value)}
                 className={adminFilterInputClass}
               >
-                <option value="unpaid">Unpaid (COD)</option>
-                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+                <option value={PAYMENT_STATUS.PAID_10}>Paid 10%</option>
+                <option value={PAYMENT_STATUS.PAID}>Paid (100%)</option>
               </select>
             </div>
             <div className="col-span-2 min-w-0">

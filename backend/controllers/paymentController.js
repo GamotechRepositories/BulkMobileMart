@@ -9,6 +9,7 @@ import {
 } from "../utils/orderHelpers.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
+import { calculatePayableAmount } from "../utils/paymentHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 function normalizeText(value, maxLength) {
@@ -21,7 +22,7 @@ export const createRazorpayOrder = async (req, res) => {
     if (!isRazorpayConfigured()) {
       return res.status(500).json({
         success: false,
-        message: "Online payment is not configured. Please use Cash on Delivery.",
+        message: "Online payment is not configured. Please contact support.",
       });
     }
 
@@ -50,10 +51,7 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const payableAmount =
-      paymentMode === "cod_advance"
-        ? Math.round(result.total * 0.1 * 100) / 100
-        : result.total;
+    const payableAmount = calculatePayableAmount(result.total, paymentMode);
     const amountPaise = Math.round(payableAmount * 100);
 
     const razorpayOrder = await razorpay.orders.create({
@@ -145,10 +143,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
-    const payableAmount =
-      paymentMode === "cod_advance"
-        ? Math.round(result.total * 0.1 * 100) / 100
-        : result.total;
+    const payableAmount = calculatePayableAmount(result.total, paymentMode);
     const expectedAmount = Math.round(payableAmount * 100);
     if (Number(razorpayOrder.amount) !== expectedAmount) {
       return res.status(400).json({
@@ -165,16 +160,18 @@ export const verifyRazorpayPayment = async (req, res) => {
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
       deliveryCharges: result.deliveryCharges,
+      gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,
       paymentMethod: isCodAdvance ? "cod" : "online",
-      paymentStatus: isCodAdvance ? "unpaid" : "paid",
+      paymentStatus: isCodAdvance ? "paid_10" : "paid",
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: isCodAdvance ? "" : razorpay_payment_id,
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       codAdvanceRazorpayPaymentId: isCodAdvance ? razorpay_payment_id : "",
       paidAt: isCodAdvance ? null : new Date(),
+      ...(isCodAdvance ? { codAdvancePaidAt: new Date() } : {}),
       message: orderMessage,
       attemptedOrderId,
     });
@@ -253,6 +250,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
       deliveryCharges: result.deliveryCharges,
+      gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,

@@ -17,6 +17,7 @@ const orderStatusLabels = <String, String>{
 
 const paymentStatusLabels = <String, String>{
   'paid': 'Paid',
+  'paid_10': 'Paid 10%',
   'unpaid': 'Unpaid',
   'refundable': 'Refundable',
   'pending_verification': 'Payment verification pending',
@@ -41,15 +42,11 @@ String getOrderStatusLabel(String status) {
 }
 
 String getOrderPaymentStatus(Order order) {
-  if (order.paymentMethod == 'cod' && order.codAdvancePaidAt != null) {
-    return 'advance_paid';
-  }
   return order.paymentStatus.isNotEmpty ? order.paymentStatus : 'unpaid';
 }
 
 String getOrderPaymentLabel(Order order) {
   final status = getOrderPaymentStatus(order);
-  if (status == 'advance_paid') return 'COD advance paid';
   return paymentStatusLabels[status] ?? status;
 }
 
@@ -78,7 +75,8 @@ Color getOrderStatusColor(String status) {
 
 Color getOrderPaymentColor(Order order) {
   final status = getOrderPaymentStatus(order);
-  if (status == 'advance_paid' || status == 'paid') return Colors.green;
+  if (status == 'paid_10') return Colors.lightGreen.shade800;
+  if (status == 'paid') return Colors.green;
   if (status == 'refundable') return Colors.orange;
   if (status == 'pending_verification') return Colors.amber.shade800;
   return Colors.amber;
