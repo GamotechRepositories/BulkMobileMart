@@ -129,7 +129,7 @@ export async function pruneUnavailableCartItems(cart) {
   return { removed: unavailable, changed: true };
 }
 
-async function resolveCheckoutItems(rawItems) {
+async function resolveCheckoutItems(rawItems, { skipStockCheck = false } = {}) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: "No items to checkout", status: 400 };
   }
@@ -193,7 +193,7 @@ async function resolveCheckoutItems(rawItems) {
     }
 
     const availableStock = getVariantStock(product, normalizedVariantName);
-    if (qty > availableStock) {
+    if (!skipStockCheck && qty > availableStock) {
       return {
         error: `Only ${availableStock} units available in stock`,
         status: 400,
@@ -337,6 +337,34 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     total,
     cart,
     checkoutMode,
+  };
+}
+
+export async function rebuildOrderFromItemsInput(rawItems) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    return { error: "Order must have at least one item", status: 400 };
+  }
+
+  const resolved = await resolveCheckoutItems(rawItems, { skipStockCheck: true });
+  if (resolved.error) {
+    return resolved;
+  }
+
+  const built = buildOrderItemsFromResolved(resolved.items);
+  if (built.error) {
+    return built;
+  }
+
+  const storeSettings = await getStoreSettings();
+  const deliveryCharges = calculateShippingCharge(built.subtotal, storeSettings);
+  const { gstAmount, total } = calculateOrderTotal(built.subtotal, deliveryCharges);
+
+  return {
+    orderItems: built.orderItems,
+    subtotal: built.subtotal,
+    deliveryCharges,
+    gstAmount,
+    total,
   };
 }
 

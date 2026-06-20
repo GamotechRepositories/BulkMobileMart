@@ -16,7 +16,7 @@ import {
   meetsMinimumOrder,
   mergeStoreSettings,
 } from "../utils/orderSettings";
-import { calculateOrderTotal, GST_EXCLUDED_NOTE, GST_PERCENT_LABEL } from "../utils/gst";
+import { calculateOrderTotal } from "../utils/gst";
 
 const formatPrice = (amount, fractionDigits = 2) =>
   new Intl.NumberFormat("en-IN", {
@@ -250,7 +250,7 @@ function OrderSummary({ items, storeSettings }) {
     0
   );
   const shipping = calculateShippingCharge(subtotal, storeSettings);
-  const { gstAmount, total } = calculateOrderTotal(subtotal, shipping);
+  const { total } = calculateOrderTotal(subtotal, shipping);
   const hasItems = items.length > 0;
   const canCheckout = hasItems && meetsMinimumOrder(subtotal, storeSettings);
   const shortfall = getMinimumOrderShortfall(subtotal, storeSettings);
@@ -268,11 +268,6 @@ function OrderSummary({ items, storeSettings }) {
         <div className="flex items-center justify-between text-text-secondary">
           <span>Shipping Charges</span>
           <span className="font-medium text-text-primary">{formatPrice(shipping)}</span>
-        </div>
-        <p className="text-[11px] text-text-muted sm:text-xs">{GST_EXCLUDED_NOTE}</p>
-        <div className="flex items-center justify-between text-text-secondary">
-          <span>{GST_PERCENT_LABEL} GST</span>
-          <span className="font-medium text-text-primary">{formatPrice(gstAmount)}</span>
         </div>
         {!canCheckout && hasItems ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-800 sm:text-xs">

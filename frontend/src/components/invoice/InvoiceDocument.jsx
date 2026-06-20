@@ -1,7 +1,6 @@
 import { forwardRef } from "react";
 import { getAddressFullName } from "../../utils/addressDisplay";
 import { LOGO_URL } from "../layout/Header";
-import { getOrderGstAmount, GST_PERCENT_LABEL } from "../../utils/gst";
 import { getOrderNumber } from "../../utils/orderNumber";
 
 const formatPrice = (amount) =>
@@ -143,13 +142,10 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
               <span>{formatPrice(order.subtotal)}</span>
             </div>
             <div className="flex justify-between text-text-secondary">
-              <span>{GST_PERCENT_LABEL} GST</span>
-              <span>{formatPrice(getOrderGstAmount(order))}</span>
-            </div>
-            <div className="flex justify-between text-text-secondary">
               <span>Delivery</span>
               <span>{order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}</span>
             </div>
+            <p className="text-xs text-text-muted">All prices include GST.</p>
           </div>
         </div>
 

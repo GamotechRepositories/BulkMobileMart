@@ -2,16 +2,11 @@ import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getOrderById, updateAdminOrder } from "../../../api/api";
-import { getOrderGstAmount, GST_PERCENT_LABEL } from "../../../utils/gst";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
+import AdminOrderItemsEditor from "../AdminOrderItemsEditor";
 import {
   adminFilterInputClass,
-  adminTableClass,
-  adminTableHeaderClass,
-  adminTableWrapperClass,
-  adminTdClass,
-  adminThClass,
   cardClass,
 } from "../adminStyles";
 import {
@@ -146,6 +141,11 @@ function AdminOrderDetailSection() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleItemsUpdated = (updatedOrder) => {
+    setOrder(updatedOrder);
+    setSuccess("Order items updated");
   };
 
   if (loading) {
@@ -325,53 +325,13 @@ function AdminOrderDetailSection() {
         </div>
       </div>
 
-      {/* Order items */}
-      <div className={cardClass}>
-        <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-neutral-500">
-          Order Items
-        </h3>
-        <div className={adminTableWrapperClass}>
-          <table className={adminTableClass}>
-            <thead>
-              <tr className={adminTableHeaderClass}>
-                <th className={`${adminThClass} w-[50%]`}>Item</th>
-                <th className={`${adminThClass} w-[15%]`}>Qty</th>
-                <th className={`${adminThClass} w-[17%]`}>Unit Price</th>
-                <th className={`${adminThClass} w-[18%]`}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((item) => (
-                <tr key={item._id} className="border-b border-neutral-100 last:border-0">
-                  <td className={adminTdClass}>
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-neutral-200 bg-neutral-50">
-                        {item.image ? (
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="h-full w-full object-contain p-1"
-                          />
-                        ) : null}
-                      </div>
-                      <span className="line-clamp-2 text-sm font-medium text-neutral-900">
-                        {item.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className={`${adminTdClass} text-neutral-700`}>{item.quantity}</td>
-                  <td className={`${adminTdClass} text-neutral-700`}>
-                    {formatPrice(item.price)}
-                  </td>
-                  <td className={`${adminTdClass} font-semibold text-neutral-900`}>
-                    {formatPrice(item.price * item.quantity)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <AdminOrderItemsEditor
+        order={order}
+        disabled={updating || order.status === "cancelled"}
+        onUpdated={handleItemsUpdated}
+        onError={setError}
+        onSuccess={setSuccess}
+      />
 
       {/* Billing summary */}
       <div className={cardClass}>
@@ -382,19 +342,12 @@ function AdminOrderDetailSection() {
             <span>{formatPrice(order.subtotal)}</span>
           </div>
           <div className="flex justify-between text-neutral-600">
-            <span>Discount</span>
-            <span className="text-green-600">-₹0</span>
-          </div>
-          <div className="flex justify-between text-neutral-600">
-            <span>{GST_PERCENT_LABEL} GST</span>
-            <span>{formatPrice(getOrderGstAmount(order))}</span>
-          </div>
-          <div className="flex justify-between text-neutral-600">
             <span>Delivery Charges</span>
             <span>
               {order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}
             </span>
           </div>
+          <p className="text-xs text-neutral-500">All prices include GST.</p>
           <div className="flex justify-between border-t border-neutral-200 pt-3 text-base font-bold text-neutral-900">
             <span>Total Amount</span>
             <span>{formatPrice(order.total)}</span>

@@ -108,7 +108,6 @@ Future<Uint8List> generateInvoicePdf(
             child: pw.Column(
               children: [
                 _pdfTotalRow('Subtotal', formatInr(order.subtotal)),
-                _pdfTotalRow('18% GST', 'Included'),
                 _pdfTotalRow(
                   'Delivery',
                   order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges),

@@ -9,6 +9,7 @@ import {
   populateOrderItems,
   prepareCheckoutAttemptData,
   prepareOrderData,
+  rebuildOrderFromItemsInput,
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
@@ -730,7 +731,7 @@ export const getAllOrders = async (req, res) => {
 
 export const updateOrder = async (req, res) => {
   try {
-    const { status, paymentStatus } = req.body;
+    const { status, paymentStatus, items } = req.body;
     const updates = {};
 
     const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
@@ -748,6 +749,26 @@ export const updateOrder = async (req, res) => {
         success: false,
         message: "Order not found",
       });
+    }
+
+    if (items !== undefined) {
+      const rebuilt = await rebuildOrderFromItemsInput(items);
+      if (rebuilt.error) {
+        return res.status(rebuilt.status || 400).json({
+          success: false,
+          message: rebuilt.error,
+        });
+      }
+
+      updates.items = rebuilt.orderItems;
+      updates.subtotal = rebuilt.subtotal;
+      updates.deliveryCharges = rebuilt.deliveryCharges;
+      updates.gstAmount = rebuilt.gstAmount;
+      updates.total = rebuilt.total;
+
+      if (existingOrder.paymentStatus === PAYMENT_STATUS.PAID_10) {
+        updates.codAdvanceAmount = calculateAdvanceAmount(rebuilt.total);
+      }
     }
 
     if (status !== undefined) {
@@ -783,16 +804,20 @@ export const updateOrder = async (req, res) => {
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
+    await Order.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
       { new: true, runValidators: true }
-    ).populate("user", "name email phone");
+    );
+
+    const order = await populateOrderItems(
+      Order.findById(req.params.id).populate("user", "name email phone")
+    );
 
     res.status(200).json({
       success: true,
       message: "Order updated successfully",
-      data: order,
+      data: enrichOrderForResponse(order),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

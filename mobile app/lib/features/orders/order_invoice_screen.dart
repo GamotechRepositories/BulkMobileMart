@@ -353,7 +353,6 @@ class _InvoiceDocument extends StatelessWidget {
                         child: Column(
                           children: [
                             _totalRow('Subtotal', formatInr(order.subtotal)),
-                            _totalRow('18% GST', 'Included'),
                             _totalRow(
                               'Delivery',
                               order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges),

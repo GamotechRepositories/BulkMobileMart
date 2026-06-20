@@ -27,7 +27,7 @@ import {
   meetsMinimumOrder,
   mergeStoreSettings,
 } from "../utils/orderSettings";
-import { calculateOrderTotal, GST_EXCLUDED_NOTE, GST_PERCENT_LABEL } from "../utils/gst";
+import { calculateOrderTotal } from "../utils/gst";
 import {
   calculateAdvanceAmount,
   calculatePayableAmount,
@@ -130,7 +130,7 @@ function Checkout() {
     0
   );
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { gstAmount, total: orderTotal } = calculateOrderTotal(subtotal, deliveryCharges);
+  const { total: orderTotal } = calculateOrderTotal(subtotal, deliveryCharges);
   const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
   const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
   const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
@@ -640,10 +640,6 @@ function Checkout() {
                     </span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
-                    <span>{GST_PERCENT_LABEL} GST</span>
-                    <span className="font-medium text-text-primary">{formatPrice(gstAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-text-secondary">
                     <span>Pay now (Razorpay)</span>
                     <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
                   </div>
@@ -655,7 +651,6 @@ function Checkout() {
                       </span>
                     </div>
                   ) : null}
-                  <p className="text-xs text-text-muted">{GST_EXCLUDED_NOTE}</p>
                   {!minimumOrderMet ? (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                       Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}

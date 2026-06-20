@@ -1,7 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatAddressLine, getAddressFullName } from "./addressDisplay";
-import { getOrderGstAmount, GST_PERCENT_LABEL } from "./gst";
 import { getOrderNumber } from "./orderNumber";
 
 const formatPrice = (amount) =>
@@ -145,12 +144,6 @@ export function downloadInvoicePdf(order, user, filename) {
   doc.text("Subtotal", summaryX, y);
   doc.setTextColor(0, 0, 0);
   doc.text(formatPrice(order.subtotal), pageW - margin, y, { align: "right" });
-
-  y += 5;
-  doc.setTextColor(102, 102, 102);
-  doc.text(`${GST_PERCENT_LABEL} GST`, summaryX, y);
-  doc.setTextColor(0, 0, 0);
-  doc.text(formatPrice(getOrderGstAmount(order)), pageW - margin, y, { align: "right" });
 
   y += 5;
   doc.setTextColor(102, 102, 102);
