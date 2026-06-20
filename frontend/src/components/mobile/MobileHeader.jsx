@@ -118,6 +118,7 @@ function MobileHeader() {
 
             <Link
               to="/wishlist"
+              data-wishlist-target="mobile"
               onClick={handleWishlistClick}
               className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}

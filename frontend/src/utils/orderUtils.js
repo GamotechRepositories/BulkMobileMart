@@ -178,3 +178,88 @@ export function buildOrdersSummary(orders) {
     { total: 0, spent: 0, active: 0, delivered: 0 }
   );
 }
+
+function ordinalSuffix(day) {
+  if (day >= 11 && day <= 13) return "th";
+  switch (day % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+export function formatPlacedAtLabel(dateStr) {
+  if (!dateStr) return "Placed recently";
+  const date = new Date(dateStr);
+  const day = date.getDate();
+  const suffix = ordinalSuffix(day);
+  const formatted = date.toLocaleString("en-IN", {
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `Placed at ${day}${suffix} ${formatted}`;
+}
+
+export function formatOrderDateTime(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+export function getBlinkitStatusLabel(status) {
+  switch (status) {
+    case "delivered":
+      return "Order delivered";
+    case "shipping":
+    case "shipped":
+      return "Order on the way";
+    case "processing":
+      return "Order being prepared";
+    case "cancelled":
+      return "Order cancelled";
+    default:
+      return "Order confirmed";
+  }
+}
+
+export function getBlinkitShipmentStatusLabel(status) {
+  switch (status) {
+    case "delivered":
+      return "Delivered";
+    case "shipping":
+    case "shipped":
+      return "On the way";
+    case "processing":
+      return "Preparing";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "Confirmed";
+  }
+}
+
+export function getOrderDisplayCode(order) {
+  const number = order?.orderNumber?.trim();
+  if (number) return number;
+  return getOrderNumber(order);
+}
+
+export function splitOrderShipments(items = []) {
+  if (items.length <= 6) return [items];
+  const mid = Math.ceil(items.length / 2);
+  return [items.slice(0, mid), items.slice(mid)];
+}

@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../models/product.dart';
+import '../../widgets/cart/fly_product_animator.dart';
 import '../auth/auth_controller.dart';
 
 class WishlistState {
@@ -88,7 +90,10 @@ class WishlistController extends Notifier<WishlistState> {
     }
   }
 
-  Future<bool> toggleWishlist(Product product) async {
+  Future<bool> toggleWishlist(
+    Product product, {
+    BuildContext? flySourceContext,
+  }) async {
     if (product.id.length < 10) return false;
 
     final auth = ref.read(authControllerProvider);
@@ -110,10 +115,17 @@ class WishlistController extends Notifier<WishlistState> {
       final body = response.data;
       final added = body is Map<String, dynamic> && body['added'] == true;
       if (added) {
-        state = state.copyWith(toastImage: product.primaryImage);
-        Future.delayed(const Duration(milliseconds: 2600), () {
-          if (ref.mounted) clearToast();
-        });
+        if (flySourceContext != null && flySourceContext.mounted) {
+          triggerFlyToWishlist(
+            sourceContext: flySourceContext,
+            imageUrl: product.primaryImage,
+          );
+        } else {
+          state = state.copyWith(toastImage: product.primaryImage);
+          Future.delayed(const Duration(milliseconds: 2600), () {
+            if (ref.mounted) clearToast();
+          });
+        }
       }
       return true;
     } catch (_) {

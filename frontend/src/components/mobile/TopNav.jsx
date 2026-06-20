@@ -116,6 +116,7 @@ function TopNav() {
 
           <Link
             to="/wishlist"
+            data-wishlist-target="desktop"
             onClick={handleWishlistClick}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:text-primary-dark"
             aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}

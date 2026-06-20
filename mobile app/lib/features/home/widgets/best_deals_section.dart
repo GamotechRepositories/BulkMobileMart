@@ -144,7 +144,7 @@ class _DealsContent extends ConsumerWidget {
 
     return HomeSectionCard(
       margin: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       showDivider: true,
       child: Column(
         children: [
@@ -153,11 +153,13 @@ class _DealsContent extends ConsumerWidget {
             dense: true,
             onViewAll: () => context.go(RoutePaths.product),
           ),
+          const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
               final pageWidth = constraints.maxWidth;
               final cardWidth = (pageWidth - _gridSpacing) / 2;
-              final cardHeight = cardWidth / DealProductCardDimensions.gridChildAspectRatio;
+              final aspectRatio = DealProductCardDimensions.homeDealsGridAspectRatio;
+              final cardHeight = cardWidth / aspectRatio;
               final gridHeight = cardHeight * 2 + _gridSpacing;
 
               return SizedBox(
@@ -173,12 +175,13 @@ class _DealsContent extends ConsumerWidget {
                     return SizedBox(
                       width: pageWidth,
                       child: GridView.builder(
+                        padding: EdgeInsets.zero,
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           mainAxisSpacing: _gridSpacing,
                           crossAxisSpacing: _gridSpacing,
-                          childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+                          childAspectRatio: aspectRatio,
                         ),
                         itemCount: batch.length,
                         itemBuilder: (context, index) {

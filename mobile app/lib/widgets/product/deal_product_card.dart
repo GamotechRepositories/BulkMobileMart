@@ -15,14 +15,16 @@ class DealProductCardDimensions {
   static const double width = 152;
   static const double height = 258;
   static const double titleHeight = 29;
-  static const double priceHeight = 14;
+  static const double priceHeight = 18;
   static const double buttonHeight = 34;
   static const double contentPaddingVertical = 10;
   static const double bottomSectionHeight =
       contentPaddingVertical + titleHeight + 2 + priceHeight + 4 + buttonHeight;
 
   /// Use for `SliverGridDelegateWithFixedCrossAxisCount.childAspectRatio`.
-  static const double gridChildAspectRatio = 0.61;
+  static const double gridChildAspectRatio = 0.58;
+  /// Taller ratio for 2-row home deal slides so price + button are not clipped.
+  static const double homeDealsGridAspectRatio = 0.55;
 }
 
 class DealProductCard extends StatelessWidget {

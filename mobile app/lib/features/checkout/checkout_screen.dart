@@ -96,7 +96,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_orderPlaced || items.isEmpty) return;
 
     final key =
-        '${_selectedAddressId ?? ''}|$_paymentMethod|${items.map((i) => '${i.productId}:${i.quantity}').join(',')}';
+        '${_selectedAddressId ?? ''}|$_paymentMethod|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (key == _lastCheckoutAttemptKey) return;
     _lastCheckoutAttemptKey = key;
 

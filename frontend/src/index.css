@@ -247,6 +247,10 @@ input[type="number"] {
   animation: cart-target-pulse 0.45s ease-out;
 }
 
+.wishlist-target-pulse {
+  animation: cart-target-pulse 0.45s ease-out;
+}
+
 @keyframes why-choose-fade-up {
   from {
     opacity: 0;

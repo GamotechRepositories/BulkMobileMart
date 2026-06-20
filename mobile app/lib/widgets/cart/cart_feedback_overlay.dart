@@ -5,7 +5,7 @@ import '../../features/cart/cart_controller.dart';
 import '../../routes/app_router.dart';
 import '../../routes/route_paths.dart';
 import 'added_to_cart_toast.dart';
-import 'fly_to_cart_animator.dart';
+import 'fly_product_animator.dart';
 
 /// Global cart toast + side effects for screens outside [AppShell].
 class CartFeedbackOverlay extends ConsumerWidget {
@@ -33,7 +33,7 @@ class CartFeedbackOverlay extends ConsumerWidget {
     return Stack(
       children: [
         child,
-        const FlyToCartAnimator(),
+        const FlyProductAnimator(),
         const AddedToCartToast(),
       ],
     );

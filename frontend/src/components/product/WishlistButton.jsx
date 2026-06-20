@@ -28,7 +28,7 @@ function WishlistButton({ product, className = "", size = "sm" }) {
   const handleClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    await toggleWishlist(product);
+    await toggleWishlist(product, { flySource: e.currentTarget });
   };
 
   if (!product?._id || product._id.length < 10) {

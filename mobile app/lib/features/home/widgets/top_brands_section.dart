@@ -17,7 +17,7 @@ class TopBrandsSection extends ConsumerWidget {
 
   static const _tileWidth = 132.0;
   static const _logoHeight = 108.0;
-  static const _rowHeight = 124.0;
+  static const _rowHeight = 130.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +31,7 @@ class TopBrandsSection extends ConsumerWidget {
           children: [
             SkeletonBox(width: 120, height: 20, borderRadius: 6),
             SizedBox(height: 12),
-            SkeletonBox(height: 124, borderRadius: 12),
+            SkeletonBox(height: 130, borderRadius: 12),
           ],
         ),
       ),

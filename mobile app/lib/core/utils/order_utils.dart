@@ -94,6 +94,44 @@ String formatOrderDateTime(DateTime? date) {
   return DateFormat('d MMM y, hh:mm a').format(date);
 }
 
+String formatPlacedAtLabel(DateTime? date) {
+  if (date == null) return 'Placed recently';
+  final day = date.day;
+  final suffix = _ordinalSuffix(day);
+  final monthYearTime = DateFormat('MMM y, hh:mm a').format(date);
+  return 'Placed at $day$suffix $monthYearTime';
+}
+
+String getBlinkitStatusLabel(String status) {
+  switch (status) {
+    case 'delivered':
+      return 'Order delivered';
+    case 'shipping':
+    case 'shipped':
+      return 'Order on the way';
+    case 'processing':
+      return 'Order being prepared';
+    case 'cancelled':
+      return 'Order cancelled';
+    default:
+      return 'Order confirmed';
+  }
+}
+
+String _ordinalSuffix(int day) {
+  if (day >= 11 && day <= 13) return 'th';
+  switch (day % 10) {
+    case 1:
+      return 'st';
+    case 2:
+      return 'nd';
+    case 3:
+      return 'rd';
+    default:
+      return 'th';
+  }
+}
+
 String getOrderMessage(Order order) {
   final text = (order.customerMessage.isNotEmpty
           ? order.customerMessage

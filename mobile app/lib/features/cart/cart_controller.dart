@@ -7,7 +7,7 @@ import '../../features/home/home_fallback_data.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../auth/auth_controller.dart';
-import '../../widgets/cart/fly_to_cart_animator.dart';
+import '../../widgets/cart/fly_product_animator.dart';
 
 enum AddToCartResult { success, requiresLogin, failed }
 

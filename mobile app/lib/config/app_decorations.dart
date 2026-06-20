@@ -35,6 +35,20 @@ class AppDecorations {
         ),
       ];
 
+  /// Product thumbnail depth — gradient only (no blur; safe on Mali/low-end GPUs).
+  static BoxDecoration productImage3d({
+    double radius = radiusSm,
+  }) {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFFFFF), Color(0xFFF2F2F2)],
+      ),
+    );
+  }
+
   static BoxDecoration card({Color? color, double radius = radiusLg}) {
     return BoxDecoration(
       color: color ?? cardBackground,

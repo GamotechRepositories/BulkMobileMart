@@ -8,7 +8,11 @@ function FlyToCartOverlay({ animation, onComplete }) {
     if (!animation) return undefined;
 
     const timer = window.setTimeout(() => {
-      pulseCartTarget();
+      if (typeof animation.pulse === "function") {
+        animation.pulse();
+      } else {
+        pulseCartTarget();
+      }
       onComplete?.();
     }, 1000);
 

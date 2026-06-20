@@ -28,7 +28,10 @@ class WishlistButton extends ConsumerWidget {
       elevation: 1,
       child: InkWell(
         customBorder: const CircleBorder(),
-        onTap: () => ref.read(wishlistControllerProvider.notifier).toggleWishlist(product),
+        onTap: () => ref.read(wishlistControllerProvider.notifier).toggleWishlist(
+              product,
+              flySourceContext: context,
+            ),
         child: SizedBox(
           width: size,
           height: size,

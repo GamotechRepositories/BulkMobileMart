@@ -61,7 +61,7 @@ class SkeletonDealGridPage extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.61,
+        childAspectRatio: 0.55,
       ),
       itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
     );
@@ -75,18 +75,11 @@ class SkeletonOrderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(8, 4, 8, 12),
-          child: SkeletonBox(width: 140, height: 28, borderRadius: 6),
-        ),
-        for (var i = 0; i < count; i++) ...[
-          const SkeletonBox(height: 220, borderRadius: 4),
-          const SizedBox(height: 10),
-        ],
-      ],
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+      itemCount: count,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (_, _) => const SkeletonBox(height: 180, borderRadius: 12),
     );
   }
 }
@@ -104,7 +97,7 @@ class SkeletonWishlistList extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.61,
+        childAspectRatio: 0.58,
       ),
       itemCount: count,
       itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
@@ -309,26 +302,35 @@ class SkeletonOrderDetail extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.zero,
       children: const [
-        SkeletonBox(height: 130, borderRadius: 0),
-        SizedBox(height: 8),
+        SizedBox(height: 12),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: SkeletonBox(height: 88, borderRadius: 4),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 56, borderRadius: 12),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 16),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: SkeletonBox(height: 160, borderRadius: 4),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 48, borderRadius: 10),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 20),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: SkeletonBox(height: 120, borderRadius: 4),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 72, borderRadius: 8),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 12),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: SkeletonBox(height: 140, borderRadius: 4),
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 72, borderRadius: 8),
+        ),
+        SizedBox(height: 12),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 72, borderRadius: 8),
+        ),
+        SizedBox(height: 16),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: SkeletonBox(height: 180, borderRadius: 12),
         ),
       ],
     );

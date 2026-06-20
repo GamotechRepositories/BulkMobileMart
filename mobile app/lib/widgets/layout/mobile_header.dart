@@ -10,6 +10,7 @@ import '../../features/home/home_providers.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
 import '../common/app_logo.dart';
+import '../wishlist/wishlist_nav_icon_key.dart';
 import 'mobile_search_bar.dart';
 
 class MobileHeader extends ConsumerStatefulWidget {
@@ -98,6 +99,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                       ),
                     ),
                     _HeaderIconButton(
+                      key: wishlistNavIconKey,
                       icon: Icons.favorite_border_rounded,
                       onPressed: () => context.go(RoutePaths.wishlist),
                       light: true,
@@ -123,6 +125,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
 
 class _HeaderIconButton extends StatelessWidget {
   const _HeaderIconButton({
+    super.key,
     required this.icon,
     required this.onPressed,
     this.light = false,
