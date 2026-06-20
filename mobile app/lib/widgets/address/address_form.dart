@@ -24,12 +24,14 @@ class AddressForm extends StatefulWidget {
     required this.onSubmit,
     required this.onCancel,
     this.submitting = false,
+    this.plain = false,
   });
 
   final Map<String, String>? initial;
   final ValueChanged<Map<String, String>> onSubmit;
   final VoidCallback onCancel;
   final bool submitting;
+  final bool plain;
 
   @override
   State<AddressForm> createState() => _AddressFormState();
@@ -72,16 +74,9 @@ class _AddressFormState extends State<AddressForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final formContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           if (_validationError != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -156,7 +151,18 @@ class _AddressFormState extends State<AddressForm> {
             ],
           ),
         ],
+    );
+
+    if (widget.plain) return formContent;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderLight),
       ),
+      child: formContent,
     );
   }
 

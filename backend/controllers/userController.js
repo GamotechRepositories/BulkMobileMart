@@ -180,6 +180,88 @@ export const changeMyPassword = async (req, res) => {
   }
 };
 
+export const updateMe = async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({ success: false, message: "Name is required" });
+      }
+      updates.name = String(name).trim();
+    }
+
+    if (email !== undefined) {
+      if (!String(email).trim()) {
+        return res.status(400).json({ success: false, message: "Email is required" });
+      }
+      updates.email = String(email).trim().toLowerCase();
+    }
+
+    if (phone !== undefined) {
+      if (!String(phone).trim()) {
+        return res.status(400).json({ success: false, message: "Phone is required" });
+      }
+      updates.phone = String(phone).trim();
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({
+        success: false,
+        message: "No profile fields to update",
+      });
+    }
+
+    const conflictFilters = [];
+    if (updates.email) conflictFilters.push({ email: updates.email });
+    if (updates.phone) conflictFilters.push({ phone: updates.phone });
+
+    if (conflictFilters.length) {
+      const existingUser = await User.findOne({
+        _id: { $ne: req.user._id },
+        $or: conflictFilters,
+      });
+
+      if (existingUser) {
+        const field = existingUser.email === updates.email ? "Email" : "Phone";
+        return res.status(409).json({
+          success: false,
+          message: `${field} is already registered`,
+        });
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const createUser = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;

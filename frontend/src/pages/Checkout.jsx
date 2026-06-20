@@ -588,6 +588,7 @@ function Checkout() {
                             </p>
                           )}
                           <AddressForm
+                            plain
                             initial={{
                               ...ADDRESS_FORM_FIELDS,
                               fullName: user.name || "",

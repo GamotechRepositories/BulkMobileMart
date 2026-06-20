@@ -13,6 +13,7 @@ class Product {
     required this.discountedPercent,
     required this.stock,
     required this.productImages,
+    this.videoUrl = '',
     this.ratings = 0,
     this.description = '',
     this.features = const [],
@@ -37,6 +38,7 @@ class Product {
   final double ratings;
   final int stock;
   final List<String> productImages;
+  final String videoUrl;
   final String description;
   final List<String> features;
   final String warranty;
@@ -68,6 +70,7 @@ class Product {
       productImages: (json['productImages'] as List<dynamic>? ?? [])
           .map((item) => item.toString())
           .toList(),
+      videoUrl: json['videoUrl']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       features: (json['features'] as List<dynamic>? ?? [])
           .map((item) => item.toString())

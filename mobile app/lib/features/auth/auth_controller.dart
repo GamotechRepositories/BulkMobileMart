@@ -96,6 +96,22 @@ class AuthController extends Notifier<AuthState> {
     state = const AuthState(loading: false);
   }
 
+  Future<String?> updateProfile(Map<String, dynamic> data) async {
+    if (state.user == null) return 'Not signed in';
+
+    try {
+      final user = await ref.read(apiServiceProvider).updateProfile(data);
+      await ref.read(authStorageProvider).saveSession(
+            user: user.toJson(),
+            token: state.token ?? '',
+          );
+      state = state.copyWith(user: user);
+      return null;
+    } catch (e) {
+      return authErrorMessage(e);
+    }
+  }
+
   Future<void> _persistSession(AuthSession session) async {
     await ref.read(authStorageProvider).saveSession(
           user: session.user.toJson(),

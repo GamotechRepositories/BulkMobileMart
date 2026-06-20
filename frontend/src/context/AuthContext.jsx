@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import api, { loginUser, signupUser } from "../api/api";
+import api, { loginUser, signupUser, updateMe } from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
@@ -105,6 +105,13 @@ export function AuthProvider({ children }) {
     clearCustomerAuth();
   };
 
+  const updateProfile = async (data) => {
+    const res = await updateMe(data);
+    const authUser = res.data.data;
+    persistCustomerAuth(authUser, token);
+    return res.data;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -114,6 +121,7 @@ export function AuthProvider({ children }) {
         signup,
         login,
         logout,
+        updateProfile,
         authModal,
         openAuthModal,
         closeAuthModal,

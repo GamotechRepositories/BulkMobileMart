@@ -16,6 +16,22 @@ const normalizeImages = (productImages, images) => {
     .filter(Boolean);
 };
 
+const normalizeVideoUrl = (value) => {
+  if (value == null) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return trimmed;
+  }
+};
+
 const normalizeFeatures = (features) => {
   if (!Array.isArray(features)) return [];
   return features
@@ -263,7 +279,7 @@ const buildProductPayload = (body) => {
     inStock: normalizeInStock(body.inStock, body.stock),
     colors: normalizeColors(body.colors),
     productImages: normalizeImages(body.productImages, body.images),
-    videoUrl: body.videoUrl?.trim() ?? "",
+    videoUrl: normalizeVideoUrl(body.videoUrl),
     description: body.description?.trim() ?? "",
     features: normalizeFeatures(body.features),
     specifications: normalizeSpecifications(body.specifications),
@@ -626,7 +642,10 @@ export const updateProduct = async (req, res) => {
       colors: req.body.colors ?? existing.colors,
       productImages:
         req.body.productImages ?? req.body.images ?? existing.productImages,
-      videoUrl: req.body.videoUrl ?? existing.videoUrl,
+      videoUrl:
+        req.body.videoUrl !== undefined
+          ? normalizeVideoUrl(req.body.videoUrl)
+          : existing.videoUrl,
       description: req.body.description ?? existing.description,
       features: req.body.features ?? existing.features,
       specifications: req.body.specifications ?? existing.specifications,

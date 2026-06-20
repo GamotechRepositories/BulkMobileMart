@@ -24,6 +24,12 @@ import ProductSpecificationsField, {
   SPEC_CUSTOM_VALUE,
 } from "../ProductSpecificationsField";
 import UploadProgressBar from "../UploadProgressBar";
+import VideoUrlPreview from "../VideoUrlPreview";
+import {
+  isValidHttpUrl,
+  normalizeVideoUrlForSave,
+  normalizeVideoUrlInput,
+} from "../../../utils/videoUrl";
 
 function deriveDiscountPercent(price, discountedPrice) {
   const original = Number(price);
@@ -322,6 +328,11 @@ function AddProductSection() {
       setError("Select at least one subcategory");
       return;
     }
+    const videoUrl = normalizeVideoUrlForSave(form.videoUrl);
+    if (form.videoUrl?.trim() && !isValidHttpUrl(videoUrl)) {
+      setError("Please enter a valid video URL starting with http:// or https://");
+      return;
+    }
     if (form.variantType === "multi") {
       const namedVariants = variants.filter((variant) => variant.name.trim());
       if (namedVariants.length < 2) {
@@ -361,7 +372,7 @@ function AddProductSection() {
                 })),
         ratings: Number(form.ratings) || 0,
         productImages: images,
-        videoUrl: form.videoUrl.trim(),
+        videoUrl,
         description: form.description,
         specifications: form.specifications
           .map((spec) => {
@@ -525,7 +536,11 @@ function AddProductSection() {
       const { data } = await uploadVideoFile(file, UPLOAD_FOLDERS.PRODUCTS, {
         onProgress: setVideoUploadProgress,
       });
-      setField("videoUrl", data.data.url);
+      const uploadedUrl = data?.data?.url ?? data?.url ?? "";
+      if (!uploadedUrl) {
+        throw new Error("Upload succeeded but no video URL was returned");
+      }
+      setField("videoUrl", uploadedUrl);
       setField("videoInputType", "upload");
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Failed to upload video");
@@ -945,7 +960,9 @@ function AddProductSection() {
             <div>
               <label className={labelClass}>Video URL</label>
               <input
-                type="url"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
                 placeholder="https://cdn.example.com/product-video.mp4"
                 value={form.videoUrl}
                 onChange={(e) => setField("videoUrl", e.target.value)}
@@ -977,27 +994,11 @@ function AddProductSection() {
             </div>
           )}
 
-          {form.videoUrl ? (
-            <div className="rounded-lg border border-border-light p-3">
-              <video src={form.videoUrl} controls className="max-h-52 w-full rounded" />
-              <div className="mt-2 flex flex-wrap gap-3">
-                <a
-                  href={form.videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Open video URL
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setField("videoUrl", "")}
-                  className="text-xs font-medium text-red-600 hover:underline"
-                >
-                  Remove video
-                </button>
-              </div>
-            </div>
+          {normalizeVideoUrlInput(form.videoUrl) ? (
+            <VideoUrlPreview
+              url={normalizeVideoUrlInput(form.videoUrl)}
+              onRemove={() => setField("videoUrl", "")}
+            />
           ) : null}
         </div>
 

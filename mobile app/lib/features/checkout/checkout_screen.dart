@@ -490,6 +490,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   ),
                                 if (_showAddressForm) ...[
                                   AddressForm(
+                                    plain: true,
                                     initial: _addressInitialValues(),
                                     submitting: _savingAddress,
                                     onCancel: () => setState(() {

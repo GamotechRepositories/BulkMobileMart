@@ -94,6 +94,9 @@ class ApiService {
 
   Future<Response<dynamic>> getMe() => _dio.get('/api/users/me');
 
+  Future<Response<dynamic>> updateMe(Map<String, dynamic> data) =>
+      _dio.patch('/api/users/me', data: data);
+
   Future<Response<dynamic>> getAddresses() => _dio.get('/api/addresses');
 
   Future<Response<dynamic>> addAddress(Map<String, dynamic> data) =>
@@ -305,6 +308,11 @@ class ApiService {
 
   Future<User> fetchMe() async {
     final response = await getMe();
+    return ApiResponseParser.parseObject(response.data, User.fromJson);
+  }
+
+  Future<User> updateProfile(Map<String, dynamic> data) async {
+    final response = await updateMe(data);
     return ApiResponseParser.parseObject(response.data, User.fromJson);
   }
 

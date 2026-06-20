@@ -62,6 +62,7 @@ export const removeFromWishlistItem = (productId) =>
 export const signupUser = (data) => api.post("/api/users/signup", data);
 export const loginUser = (data) => api.post("/api/users/login", data);
 export const getMe = () => api.get("/api/users/me");
+export const updateMe = (data) => api.patch("/api/users/me", data);
 
 function buildAddressPayload(data) {
   const fullName = data.fullName?.trim() || data.name?.trim() || "";

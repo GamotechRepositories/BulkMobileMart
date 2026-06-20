@@ -17,6 +17,7 @@ import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/product_price_display.dart';
 import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
+import '../../widgets/product/product_video_player.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({super.key, required this.productId});
@@ -174,6 +175,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               _ProductImageGallery(
                 images: images,
                 product: product,
+                videoUrl: product.videoUrl,
               ),
               const SizedBox(height: 16),
               Row(
@@ -732,21 +734,51 @@ class _ProductImageGallery extends StatefulWidget {
   const _ProductImageGallery({
     required this.images,
     required this.product,
+    required this.videoUrl,
   });
 
   final List<String> images;
   final Product product;
+  final String videoUrl;
 
   @override
   State<_ProductImageGallery> createState() => _ProductImageGalleryState();
 }
 
+class _GalleryItem {
+  const _GalleryItem({required this.type, required this.url});
+
+  final String type;
+  final String url;
+}
+
 class _ProductImageGalleryState extends State<_ProductImageGallery> {
-  int _activeImage = 0;
+  int _activeMedia = 0;
+
+  List<_GalleryItem> get _items {
+    final items = widget.images
+        .map((url) => _GalleryItem(type: 'image', url: url))
+        .toList();
+    final video = widget.videoUrl.trim();
+    if (video.isNotEmpty) {
+      items.add(_GalleryItem(type: 'video', url: video));
+    }
+    return items;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProductImageGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_activeMedia >= _items.length) {
+      _activeMedia = 0;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final images = widget.images;
+    final items = _items;
+    final activeItem = items.isEmpty ? null : items[_activeMedia.clamp(0, items.length - 1)];
+    final isVideoActive = activeItem?.type == 'video';
 
     return RepaintBoundary(
       child: Column(
@@ -755,21 +787,25 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             children: [
               Container(
                 height: 280,
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  color: AppColors.mobileSurface,
+                  color: isVideoActive ? Colors.black : AppColors.mobileSurface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.borderLight),
                 ),
-                child: images.isNotEmpty
-                    ? AppNetworkImage(
-                        imageUrl: images[_activeImage.clamp(0, images.length - 1)],
-                        fit: BoxFit.contain,
-                        cacheWidth: 560,
-                        cacheHeight: 560,
-                        errorIcon: Icons.image_outlined,
-                        errorIconSize: 64,
-                      )
-                    : const Icon(Icons.image_outlined, size: 64, color: AppColors.textMuted),
+                clipBehavior: Clip.antiAlias,
+                child: activeItem == null
+                    ? const Icon(Icons.image_outlined, size: 64, color: AppColors.textMuted)
+                    : isVideoActive
+                        ? ProductVideoPlayer(url: activeItem.url, embedded: true)
+                        : AppNetworkImage(
+                            imageUrl: activeItem.url,
+                            fit: BoxFit.contain,
+                            cacheWidth: 560,
+                            cacheHeight: 560,
+                            errorIcon: Icons.image_outlined,
+                            errorIconSize: 64,
+                          ),
               ),
               Positioned(
                 left: 8,
@@ -778,18 +814,19 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
               ),
             ],
           ),
-          if (images.length > 1) ...[
+          if (items.length > 1) ...[
             const SizedBox(height: 12),
             SizedBox(
               height: 64,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                itemCount: images.length,
+                itemCount: items.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
-                  final selected = index == _activeImage;
+                  final item = items[index];
+                  final selected = index == _activeMedia;
                   return GestureDetector(
-                    onTap: () => setState(() => _activeImage = index),
+                    onTap: () => setState(() => _activeMedia = index),
                     child: Container(
                       width: 64,
                       decoration: BoxDecoration(
@@ -799,15 +836,25 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                           width: selected ? 2 : 1,
                         ),
                       ),
-                      child: AppNetworkImage(
-                        imageUrl: images[index],
-                        fit: BoxFit.contain,
-                        width: 64,
-                        height: 64,
-                        cacheWidth: 128,
-                        cacheHeight: 128,
-                        errorIcon: Icons.image_outlined,
-                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: item.type == 'video'
+                          ? ColoredBox(
+                              color: Colors.black,
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: selected ? AppColors.primary : Colors.white,
+                                size: 28,
+                              ),
+                            )
+                          : AppNetworkImage(
+                              imageUrl: item.url,
+                              fit: BoxFit.contain,
+                              width: 64,
+                              height: 64,
+                              cacheWidth: 128,
+                              cacheHeight: 128,
+                              errorIcon: Icons.image_outlined,
+                            ),
                     ),
                   );
                 },

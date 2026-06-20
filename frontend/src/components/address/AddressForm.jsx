@@ -50,7 +50,7 @@ export function validateAddressForm(form) {
 const inputClass =
   "w-full rounded-lg border border-border-light bg-white px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary/60 outline-none focus:border-primary";
 
-function AddressForm({ initial, onSubmit, onCancel, submitting }) {
+function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false }) {
   const [form, setForm] = useState(initial || ADDRESS_FORM_FIELDS);
   const [validationError, setValidationError] = useState("");
 
@@ -85,7 +85,11 @@ function AddressForm({ initial, onSubmit, onCancel, submitting }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-3 rounded-xl border border-border-light bg-white p-4"
+      className={
+        plain
+          ? "space-y-3"
+          : "space-y-3 rounded-xl border border-border-light bg-white p-4"
+      }
     >
       {validationError && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{validationError}</p>

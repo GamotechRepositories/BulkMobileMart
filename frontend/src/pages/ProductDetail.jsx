@@ -23,6 +23,7 @@ import {
   setBuyNowCheckout,
 } from "../utils/checkoutSession";
 import ProductImageFrame from "../components/product/ProductImageFrame";
+import ProductVideo from "../components/product/ProductVideo";
 import { normalizeProductImages } from "../utils/productImage";
 import {
   buildProductShareContent,
@@ -481,29 +482,41 @@ const TABS = [
   { id: "shipping", label: "Shipping & Delivery", shortLabel: "Shipping" },
 ];
 
-function ThumbnailCarousel({ images, activeImage, onSelect }) {
-  if (images.length <= 1) return null;
+function MediaThumbnailCarousel({ items, activeIndex, onSelect }) {
+  if (items.length <= 1) return null;
 
   return (
     <div className="w-full overflow-x-auto hide-scrollbar">
       <div className="flex w-max min-w-full justify-start gap-2 px-0.5 pb-0.5">
-        {images.map((img, index) => (
+        {items.map((item, index) => (
           <button
-            key={`${img}-${index}`}
+            key={`${item.type}-${item.url}-${index}`}
             type="button"
             onClick={() => onSelect(index)}
-            aria-label={`View image ${index + 1} of ${images.length}`}
-            aria-current={activeImage === index ? "true" : undefined}
-            className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-white lg:h-[72px] lg:w-[72px] ${
-              activeImage === index ? "border-primary" : "border-border-light"
+            aria-label={
+              item.type === "video"
+                ? "View product video"
+                : `View image ${index} of ${items.length}`
+            }
+            aria-current={activeIndex === index ? "true" : undefined}
+            className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-white lg:h-[72px] lg:w-[72px] ${
+              activeIndex === index ? "border-primary" : "border-border-light"
             }`}
           >
-            <img
-              src={img}
-              alt=""
-              className="h-full w-full object-contain"
-              loading="lazy"
-            />
+            {item.type === "video" ? (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-900 text-white">
+                <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            ) : (
+              <img
+                src={item.url}
+                alt=""
+                className="h-full w-full object-contain"
+                loading="lazy"
+              />
+            )}
           </button>
         ))}
       </div>
@@ -591,7 +604,7 @@ function ProductDetail() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeImage, setActiveImage] = useState(0);
+  const [activeMedia, setActiveMedia] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
   const [quantity, setQuantity] = useState(DEFAULT_MOQ);
   const [selectedVariant, setSelectedVariant] = useState("");
@@ -614,7 +627,7 @@ function ProductDetail() {
         setProduct(nextProduct);
         setSelectedVariant(initialVariant);
         setSelectedColor(initialColors[0]?.name || "");
-        setActiveImage(0);
+        setActiveMedia(0);
         setActiveTab("description");
       } catch {
         setProduct(null);
@@ -642,12 +655,26 @@ function ProductDetail() {
     [product?.productImages]
   );
 
+  const videoUrl = product?.videoUrl?.trim() || "";
+
+  const galleryItems = useMemo(() => {
+    const items = images.map((url) => ({ type: "image", url }));
+    if (videoUrl) {
+      items.push({ type: "video", url: videoUrl });
+    }
+    return items;
+  }, [images, videoUrl]);
+
   useEffect(() => {
-    setActiveImage((prev) => {
-      if (!images.length) return 0;
-      return prev < images.length ? prev : 0;
+    setActiveMedia((prev) => {
+      if (!galleryItems.length) return 0;
+      return prev < galleryItems.length ? prev : 0;
     });
-  }, [images]);
+  }, [galleryItems]);
+
+  const activeGalleryItem = galleryItems[activeMedia];
+  const isVideoActive = activeGalleryItem?.type === "video";
+  const imageOnlyIndex = activeMedia;
 
   const activeVariantName = product && isMultiVariant(product) ? selectedVariant : "";
 
@@ -656,7 +683,7 @@ function ProductDetail() {
       ? `${window.location.origin}/product/${product._id}`
       : "";
 
-  const shareImageUrl = images[activeImage] || images[0] || "";
+  const shareImageUrl = images[0] || "";
   const specifications = useMemo(() => getResolvedSpecifications(product), [product]);
 
   useEffect(() => {
@@ -868,7 +895,7 @@ function ProductDetail() {
               <div className="absolute left-2 top-2 z-10">
                 <WishlistButton product={product} size="md" />
               </div>
-              {images[activeImage] && (
+              {activeGalleryItem?.type === "image" && activeGalleryItem.url && (
                 <button
                   type="button"
                   disabled={downloadingImage}
@@ -876,9 +903,9 @@ function ProductDetail() {
                     setDownloadingImage(true);
                     try {
                       await downloadProductImage(
-                        images[activeImage],
+                        activeGalleryItem.url,
                         product.name,
-                        activeImage
+                        Math.max(0, imageOnlyIndex)
                       );
                     } finally {
                       setDownloadingImage(false);
@@ -891,35 +918,41 @@ function ProductDetail() {
                 </button>
               )}
               <div className="flex w-full items-center justify-center">
-                <ProductImage src={images[activeImage]} alt={product.name} />
+                {isVideoActive ? (
+                  <ProductVideo url={activeGalleryItem.url} embedded />
+                ) : (
+                  <ProductImage src={activeGalleryItem?.url} alt={product.name} />
+                )}
               </div>
-              {images.length > 1 ? (
+              {galleryItems.length > 1 ? (
                 <>
                   <GalleryNavButton
                     direction="prev"
-                    disabled={activeImage === 0}
-                    onClick={() => setActiveImage((prev) => Math.max(0, prev - 1))}
+                    disabled={activeMedia === 0}
+                    onClick={() => setActiveMedia((prev) => Math.max(0, prev - 1))}
                   />
                   <GalleryNavButton
                     direction="next"
-                    disabled={activeImage === images.length - 1}
+                    disabled={activeMedia === galleryItems.length - 1}
                     onClick={() =>
-                      setActiveImage((prev) => Math.min(images.length - 1, prev + 1))
+                      setActiveMedia((prev) => Math.min(galleryItems.length - 1, prev + 1))
                     }
                   />
                 </>
               ) : null}
             </div>
             <div className="mt-auto space-y-2">
-              {images.length > 1 ? (
+              {galleryItems.length > 1 ? (
                 <p className="text-center text-xs text-text-muted">
-                  Image {activeImage + 1} of {images.length}
+                  {isVideoActive
+                    ? "Video"
+                    : `Image ${Math.max(1, imageOnlyIndex + 1)} of ${images.length}`}
                 </p>
               ) : null}
-              <ThumbnailCarousel
-                images={images}
-                activeImage={activeImage}
-                onSelect={setActiveImage}
+              <MediaThumbnailCarousel
+                items={galleryItems}
+                activeIndex={activeMedia}
+                onSelect={setActiveMedia}
               />
             </div>
           </div>
