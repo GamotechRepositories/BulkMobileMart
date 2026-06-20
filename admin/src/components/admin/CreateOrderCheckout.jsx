@@ -28,16 +28,235 @@ import {
   meetsMinimumOrder,
 } from "../../utils/orderSettings";
 
+const btnCompactPrimary = `${btnPrimary} !px-2.5 !py-1.5 text-xs`;
+const btnCompactSecondary = `${btnSecondary} !px-2.5 !py-1.5 text-xs`;
+const btnAddedClass =
+  "inline-flex w-full items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 sm:w-auto";
+
+function getProductImage(product) {
+  return product?.productImages?.[0] || "";
+}
+
+function ProductThumb({ product, className = "h-12 w-12" }) {
+  const image = getProductImage(product);
+  return (
+    <div
+      className={`${className} shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50`}
+    >
+      {image ? (
+        <img src={image} alt={product?.name || "Product"} className="h-full w-full object-contain p-0.5" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[10px] text-neutral-400">—</div>
+      )}
+    </div>
+  );
+}
+
+function getDefaultDraft(product) {
+  const variantName = isMultiVariant(product) ? product.variants?.[0]?.name || "" : "";
+  const colors = getAvailableColors(product, variantName);
+  return {
+    variantName,
+    colorName: colors.length === 1 ? colors[0].name || "" : "",
+    quantity: getMinOrderQuantity(product, variantName),
+  };
+}
+
+function needsConfiguration(product) {
+  if (isMultiVariant(product)) return true;
+  return getAvailableColors(product).length > 0;
+}
+
+function ProductSearchCard({
+  product,
+  draft,
+  isExpanded,
+  isInOrder,
+  onToggleExpand,
+  onQuickAdd,
+  onDraftChange,
+  onConfirmAdd,
+  onError,
+}) {
+  const colors = useMemo(
+    () => getAvailableColors(product, draft.variantName),
+    [product, draft.variantName]
+  );
+  const step = getCartAdjustStep(product, draft.variantName);
+  const minQty = getMinOrderQuantity(product, draft.variantName);
+  const unitPrice = getUnitPriceForQuantity(product, draft.quantity, draft.variantName);
+  const configurable = needsConfiguration(product);
+
+  const adjustQty = (delta) => {
+    onDraftChange({
+      ...draft,
+      quantity: Math.max(minQty, draft.quantity + delta * step),
+    });
+  };
+
+  const handleConfirm = () => {
+    if (isMultiVariant(product) && !draft.variantName.trim()) {
+      onError?.("Select a variant");
+      return;
+    }
+    if (colors.length > 0 && !draft.colorName.trim()) {
+      onError?.("Select a color");
+      return;
+    }
+    onConfirmAdd(product, draft);
+  };
+
+  return (
+    <article className="flex min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-2.5 shadow-sm sm:p-3">
+      <div className="flex min-w-0 gap-2.5">
+        <ProductThumb product={product} />
+
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-text-primary">
+              {product.name}
+            </h3>
+            <p className="mt-0.5 truncate text-[10px] text-text-secondary">
+              {product.brandName || "No brand"}
+            </p>
+            <p className="mt-0.5 text-[10px] font-medium text-text-primary">
+              From {formatPrice(getUnitPriceForQuantity(product, minQty, draft.variantName))}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-1.5 sm:flex-col sm:items-stretch">
+            {isInOrder ? (
+              <span className={btnAddedClass}>Added</span>
+            ) : configurable ? (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className={`${isExpanded ? btnCompactSecondary : btnCompactPrimary} w-full sm:w-auto`}
+              >
+                {isExpanded ? "Close" : "Add"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onQuickAdd}
+                className={`${btnCompactPrimary} w-full sm:w-auto`}
+              >
+                Add
+              </button>
+            )}
+            {isInOrder && configurable ? (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className={`${btnCompactSecondary} w-full sm:w-auto`}
+              >
+                {isExpanded ? "Close" : "Add variant"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {isExpanded ? (
+        <div className="mt-2.5 space-y-2.5 border-t border-neutral-100 pt-2.5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+            {isMultiVariant(product) ? (
+              <div className="col-span-2 min-w-0 lg:col-span-1">
+                <label className={labelClass}>Variant</label>
+                <select
+                  value={draft.variantName}
+                  onChange={(e) => {
+                    const variantName = e.target.value;
+                    const nextColors = getAvailableColors(product, variantName);
+                    onDraftChange({
+                      variantName,
+                      colorName: nextColors.length === 1 ? nextColors[0].name || "" : "",
+                      quantity: getMinOrderQuantity(product, variantName),
+                    });
+                  }}
+                  className={adminFilterInputClass}
+                >
+                  <option value="">Select variant</option>
+                  {product.variants.map((variant) => (
+                    <option key={variant.name} value={variant.name}>
+                      {variant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {colors.length > 0 ? (
+              <div className="col-span-2 min-w-0 lg:col-span-1">
+                <label className={labelClass}>Color</label>
+                <select
+                  value={draft.colorName}
+                  onChange={(e) => onDraftChange({ ...draft, colorName: e.target.value })}
+                  className={adminFilterInputClass}
+                >
+                  <option value="">Select color</option>
+                  {colors.map((color) => (
+                    <option key={color.name} value={color.name}>
+                      {color.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <div className="col-span-2 min-w-0 lg:col-span-1">
+              <label className={labelClass}>Quantity</label>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button type="button" onClick={() => adjustQty(-1)} className={btnCompactSecondary}>
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={minQty}
+                  step={step}
+                  value={draft.quantity}
+                  onChange={(e) =>
+                    onDraftChange({
+                      ...draft,
+                      quantity: Math.max(minQty, Number(e.target.value) || minQty),
+                    })
+                  }
+                  className={`${adminFilterInputClass} min-w-0 flex-1 text-center`}
+                />
+                <button type="button" onClick={() => adjustQty(1)} className={btnCompactSecondary}>
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="col-span-2 flex items-end lg:col-span-1">
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className={`${btnCompactPrimary} w-full sm:w-auto`}
+              >
+                Add to Order
+              </button>
+            </div>
+          </div>
+          <p className="text-[10px] text-text-secondary">
+            Unit price: {formatPrice(unitPrice)} · Line total:{" "}
+            {formatPrice(unitPrice * draft.quantity)}
+          </p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
   const [lineItems, setLineItems] = useState([]);
   const [productSearch, setProductSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchingProducts, setSearchingProducts] = useState(false);
   const [hasSearchedProducts, setHasSearchedProducts] = useState(false);
-  const [draftProduct, setDraftProduct] = useState(null);
-  const [draftVariant, setDraftVariant] = useState("");
-  const [draftColor, setDraftColor] = useState("");
-  const [draftQty, setDraftQty] = useState(1);
+  const [expandedProductIds, setExpandedProductIds] = useState(() => new Set());
+  const [productDrafts, setProductDrafts] = useState({});
   const [storeSettings, setStoreSettings] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState("unpaid");
   const [orderMessage, setOrderMessage] = useState("");
@@ -50,42 +269,17 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
       .catch(() => setStoreSettings(null));
   }, []);
 
-  const draftColors = useMemo(() => {
-    if (!draftProduct) return [];
-    return getAvailableColors(draftProduct, draftVariant);
-  }, [draftProduct, draftVariant]);
-
-  const draftStep = useMemo(() => {
-    if (!draftProduct) return 1;
-    return getCartAdjustStep(draftProduct, draftVariant);
-  }, [draftProduct, draftVariant]);
-
-  const draftMinQty = useMemo(() => {
-    if (!draftProduct) return 1;
-    return getMinOrderQuantity(draftProduct, draftVariant);
-  }, [draftProduct, draftVariant]);
-
-  useEffect(() => {
-    if (!draftProduct) return;
-    setDraftQty((prev) => Math.max(draftMinQty, prev));
-  }, [draftProduct, draftVariant, draftMinQty]);
-
-  useEffect(() => {
-    if (draftProduct && isMultiVariant(draftProduct) && !draftVariant) {
-      setDraftColor("");
-      return;
-    }
-    if (draftColors.length === 1) {
-      setDraftColor(draftColors[0].name || "");
-    } else if (draftColors.length === 0) {
-      setDraftColor("");
-    }
-  }, [draftProduct, draftVariant, draftColors]);
+  const productIdsInOrder = useMemo(
+    () => new Set(lineItems.map((item) => item.product._id)),
+    [lineItems]
+  );
 
   const subtotal = useMemo(
     () =>
       lineItems.reduce(
-        (sum, item) => sum + getUnitPriceForQuantity(item.product, item.quantity, item.variantName) * item.quantity,
+        (sum, item) =>
+          sum +
+          getUnitPriceForQuantity(item.product, item.quantity, item.variantName) * item.quantity,
         0
       ),
     [lineItems]
@@ -100,6 +294,31 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
   const minimumMet = meetsMinimumOrder(subtotal, storeSettings);
   const minimumShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
 
+  const addToLineItems = useCallback((product, draft) => {
+    const { variantName = "", colorName = "", quantity } = draft;
+    const key = buildLineItemKey(product._id, variantName, colorName);
+
+    setLineItems((prev) => {
+      const existing = prev.find((item) => item.key === key);
+      if (existing) {
+        return prev.map((item) =>
+          item.key === key ? { ...item, quantity: item.quantity + quantity } : item
+        );
+      }
+      return [
+        ...prev,
+        {
+          key,
+          product,
+          variantName,
+          colorName,
+          quantity,
+        },
+      ];
+    });
+    onError?.("");
+  }, [onError]);
+
   const handleProductSearch = async () => {
     if (!productSearch.trim()) {
       onError?.("Enter a product name or SKU to search");
@@ -108,82 +327,57 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
     try {
       setSearchingProducts(true);
       setHasSearchedProducts(true);
-      setDraftProduct(null);
+      setExpandedProductIds(new Set());
       const { data } = await getAllProducts({
         page: 1,
-        limit: 15,
+        limit: 24,
         search: productSearch.trim(),
         sortBy: "name",
         sortDir: "asc",
       });
-      setSearchResults((data.data || []).filter((product) => product.isActive !== false));
+      const products = (data.data || []).filter((product) => product.isActive !== false);
+      setSearchResults(products);
+      setProductDrafts(
+        Object.fromEntries(products.map((product) => [product._id, getDefaultDraft(product)]))
+      );
     } catch (err) {
       onError?.(err.response?.data?.message || "Failed to search products");
       setSearchResults([]);
+      setProductDrafts({});
     } finally {
       setSearchingProducts(false);
     }
   };
 
-  const startAddProduct = (product) => {
-    setDraftProduct(product);
-    if (isMultiVariant(product)) {
-      const firstVariant = product.variants?.[0];
-      setDraftVariant(firstVariant?.name || "");
-    } else {
-      setDraftVariant("");
-    }
-    setDraftColor("");
-    setDraftQty(getMinOrderQuantity(product, isMultiVariant(product) ? product.variants?.[0]?.name : ""));
-  };
-
-  const cancelDraft = () => {
-    setDraftProduct(null);
-    setDraftVariant("");
-    setDraftColor("");
-    setDraftQty(1);
-  };
-
-  const adjustDraftQty = (delta) => {
-    setDraftQty((prev) => Math.max(draftMinQty, prev + delta * draftStep));
-  };
-
-  const addDraftToOrder = () => {
-    if (!draftProduct) return;
-
-    if (isMultiVariant(draftProduct) && !draftVariant.trim()) {
-      onError?.("Select a variant");
-      return;
-    }
-
-    if (draftColors.length > 0 && !draftColor.trim()) {
-      onError?.("Select a color");
-      return;
-    }
-
-    const key = buildLineItemKey(draftProduct._id, draftVariant, draftColor);
-    setLineItems((prev) => {
-      const existing = prev.find((item) => item.key === key);
-      if (existing) {
-        return prev.map((item) =>
-          item.key === key
-            ? { ...item, quantity: item.quantity + draftQty }
-            : item
-        );
+  const toggleProductExpand = (productId) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
       }
-      return [
-        ...prev,
-        {
-          key,
-          product: draftProduct,
-          variantName: draftVariant,
-          colorName: draftColor,
-          quantity: draftQty,
-        },
-      ];
+      return next;
     });
-    cancelDraft();
-    onError?.("");
+    setProductDrafts((prev) => {
+      if (prev[productId]) return prev;
+      const product = searchResults.find((item) => item._id === productId);
+      return product ? { ...prev, [productId]: getDefaultDraft(product) } : prev;
+    });
+  };
+
+  const handleQuickAdd = (product) => {
+    const draft = getDefaultDraft(product);
+    addToLineItems(product, draft);
+  };
+
+  const handleConfirmAdd = (product, draft) => {
+    addToLineItems(product, draft);
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev);
+      next.delete(product._id);
+      return next;
+    });
   };
 
   const updateLineQty = useCallback((key, delta) => {
@@ -262,6 +456,8 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
               setProductSearch("");
               setSearchResults([]);
               setHasSearchedProducts(false);
+              setExpandedProductIds(new Set());
+              setProductDrafts({});
             }}
           >
             Create Another Order
@@ -272,9 +468,9 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div className={cardClass}>
-        <h2 className="text-base font-bold text-text-primary">Add Products</h2>
+        <h2 className="text-sm font-bold text-text-primary">Add Products</h2>
 
         <div className="mt-4 grid grid-cols-2 items-end gap-2 sm:gap-3 lg:grid-cols-[1fr_auto]">
           <div className="col-span-2 min-w-0 lg:col-span-1">
@@ -302,127 +498,110 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
           searchResults.length === 0 ? (
             <p className="mt-4 text-sm text-text-secondary">No products found.</p>
           ) : (
-            <div className={`mt-4 ${adminTableWrapperClass}`}>
-              <table className={adminCompactTableClass}>
-                <thead>
-                  <tr className={adminTableHeaderClass}>
-                    <th className={adminCompactThClass}>Product</th>
-                    <th className={adminCompactThClass}>Brand</th>
-                    <th className={adminCompactThClass}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {searchResults.map((product) => (
-                    <tr
-                      key={product._id}
-                      className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
-                    >
-                      <td className={`${adminCompactTdClass} font-medium text-neutral-900`}>
-                        <span className="block truncate">{product.name}</span>
-                      </td>
-                      <td className={`${adminCompactTdClass} text-neutral-600`}>
-                        <span className="block truncate">{product.brandName || "—"}</span>
-                      </td>
-                      <td className={adminCompactTdClass}>
-                        <button
-                          type="button"
-                          onClick={() => startAddProduct(product)}
-                          className={btnSecondary}
-                        >
-                          Add
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {searchResults.map((product) => (
+                <ProductSearchCard
+                  key={product._id}
+                  product={product}
+                  draft={productDrafts[product._id] || getDefaultDraft(product)}
+                  isExpanded={expandedProductIds.has(product._id)}
+                  isInOrder={productIdsInOrder.has(product._id)}
+                  onToggleExpand={() => toggleProductExpand(product._id)}
+                  onQuickAdd={() => handleQuickAdd(product)}
+                  onDraftChange={(draft) =>
+                    setProductDrafts((prev) => ({ ...prev, [product._id]: draft }))
+                  }
+                  onConfirmAdd={handleConfirmAdd}
+                  onError={onError}
+                />
+              ))}
             </div>
           )
-        ) : null}
-
-        {draftProduct ? (
-          <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/60 p-4">
-            <p className="text-sm font-semibold text-text-primary">{draftProduct.name}</p>
-            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {isMultiVariant(draftProduct) ? (
-                <div className="col-span-2 min-w-0 lg:col-span-1">
-                  <label className={labelClass}>Variant</label>
-                  <select
-                    value={draftVariant}
-                    onChange={(e) => setDraftVariant(e.target.value)}
-                    className={adminFilterInputClass}
-                  >
-                    <option value="">Select variant</option>
-                    {draftProduct.variants.map((variant) => (
-                      <option key={variant.name} value={variant.name}>
-                        {variant.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              {draftColors.length > 0 ? (
-                <div className="col-span-2 min-w-0 lg:col-span-1">
-                  <label className={labelClass}>Color</label>
-                  <select
-                    value={draftColor}
-                    onChange={(e) => setDraftColor(e.target.value)}
-                    className={adminFilterInputClass}
-                  >
-                    <option value="">Select color</option>
-                    {draftColors.map((color) => (
-                      <option key={color.name} value={color.name}>
-                        {color.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              <div className="col-span-2 min-w-0 lg:col-span-1">
-                <label className={labelClass}>Quantity</label>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => adjustDraftQty(-1)} className={btnSecondary}>
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    min={draftMinQty}
-                    step={draftStep}
-                    value={draftQty}
-                    onChange={(e) =>
-                      setDraftQty(Math.max(draftMinQty, Number(e.target.value) || draftMinQty))
-                    }
-                    className={`${adminFilterInputClass} text-center`}
-                  />
-                  <button type="button" onClick={() => adjustDraftQty(1)} className={btnSecondary}>
-                    +
-                  </button>
-                </div>
-              </div>
-              <div className="col-span-2 flex flex-wrap gap-2 lg:col-span-1 lg:items-end">
-                <button type="button" onClick={addDraftToOrder} className={btnPrimary}>
-                  Add to Order
-                </button>
-                <button type="button" onClick={cancelDraft} className={btnSecondary}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-text-secondary">
-              Unit price:{" "}
-              {formatPrice(getUnitPriceForQuantity(draftProduct, draftQty, draftVariant))}
-            </p>
-          </div>
         ) : null}
       </div>
 
       {lineItems.length > 0 ? (
         <div className={cardClass}>
-          <h2 className="text-base font-bold text-text-primary">Order Items</h2>
-          <div className={`mt-4 ${adminTableWrapperClass}`}>
+          <h2 className="text-sm font-bold text-text-primary">
+            Order Items ({lineItems.length})
+          </h2>
+
+          <div className="mt-3 space-y-2 md:hidden">
+            {lineItems.map((item) => {
+              const unitPrice = getUnitPriceForQuantity(
+                item.product,
+                item.quantity,
+                item.variantName
+              );
+              const step = getCartAdjustStep(item.product, item.variantName);
+              return (
+                <div
+                  key={item.key}
+                  className="rounded-xl border border-neutral-200 bg-neutral-50/40 p-2.5"
+                >
+                  <div className="flex items-start gap-2">
+                    <ProductThumb product={item.product} className="h-10 w-10" />
+                    <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-xs font-semibold leading-snug text-text-primary">
+                          {item.product.name}
+                        </p>
+                        {item.variantName ? (
+                          <p className="text-[10px] text-text-secondary">{item.variantName}</p>
+                        ) : null}
+                        {item.colorName ? (
+                          <p className="text-[10px] text-text-secondary">{item.colorName}</p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(item.key)}
+                        className={`${btnSecondary} !px-2 !py-1 text-[10px]`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pl-[2.875rem]">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateLineQty(item.key, -1)}
+                        className={`${btnSecondary} !px-2 !py-1 text-xs`}
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[1.75rem] text-center text-xs font-medium">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateLineQty(item.key, 1)}
+                        className={`${btnSecondary} !px-2 !py-1 text-xs`}
+                      >
+                        +
+                      </button>
+                      {step > 1 ? (
+                        <span className="text-[10px] text-text-secondary">Step {step}</span>
+                      ) : null}
+                    </div>
+                    <div className="text-right text-[10px] sm:text-xs">
+                      <p className="text-text-secondary">{formatPrice(unitPrice)} each</p>
+                      <p className="text-xs font-semibold text-text-primary">
+                        {formatPrice(unitPrice * item.quantity)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className={`mt-3 hidden md:block ${adminTableWrapperClass}`}>
             <table className={adminCompactTableClass}>
               <thead>
                 <tr className={adminTableHeaderClass}>
+                  <th className={adminCompactThClass}>Image</th>
                   <th className={adminCompactThClass}>Product</th>
                   <th className={adminCompactThClass}>Variant</th>
                   <th className={adminCompactThClass}>Qty</th>
@@ -444,15 +623,18 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                       key={item.key}
                       className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                     >
-                      <td className={`${adminCompactTdClass} font-medium text-neutral-900`}>
-                        <span className="block truncate">{item.product.name}</span>
+                      <td className={adminCompactTdClass}>
+                        <ProductThumb product={item.product} className="h-8 w-8" />
+                      </td>
+                      <td className={`${adminCompactTdClass} text-xs font-medium text-neutral-900`}>
+                        <span className="line-clamp-2">{item.product.name}</span>
                         {item.colorName ? (
-                          <span className="block truncate text-xs text-neutral-500">
+                          <span className="block truncate text-[10px] text-neutral-500">
                             {item.colorName}
                           </span>
                         ) : null}
                       </td>
-                      <td className={`${adminCompactTdClass} text-neutral-600`}>
+                      <td className={`${adminCompactTdClass} text-[10px] text-neutral-600`}>
                         {item.variantName || "—"}
                       </td>
                       <td className={adminCompactTdClass}>
@@ -464,7 +646,7 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                           >
                             −
                           </button>
-                          <span className="min-w-[2rem] text-center text-sm">{item.quantity}</span>
+                          <span className="min-w-[1.75rem] text-center text-xs">{item.quantity}</span>
                           <button
                             type="button"
                             onClick={() => updateLineQty(item.key, 1)}
@@ -474,11 +656,11 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                           </button>
                         </div>
                         {step > 1 ? (
-                          <span className="mt-1 block text-xs text-neutral-500">Step: {step}</span>
+                          <span className="mt-1 block text-[10px] text-neutral-500">Step: {step}</span>
                         ) : null}
                       </td>
-                      <td className={adminCompactTdClass}>{formatPrice(unitPrice)}</td>
-                      <td className={`${adminCompactTdClass} font-medium`}>
+                      <td className={`${adminCompactTdClass} text-xs`}>{formatPrice(unitPrice)}</td>
+                      <td className={`${adminCompactTdClass} text-xs font-medium`}>
                         {formatPrice(unitPrice * item.quantity)}
                       </td>
                       <td className={adminCompactTdClass}>
@@ -501,17 +683,17 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
 
       {lineItems.length > 0 ? (
         <div className={cardClass}>
-          <h2 className="text-base font-bold text-text-primary">Order Summary</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
+          <h2 className="text-sm font-bold text-text-primary">Order Summary</h2>
+          <dl className="mt-3 space-y-1.5 text-xs">
+            <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Subtotal</dt>
               <dd className="font-medium text-text-primary">{formatPrice(subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Delivery</dt>
               <dd className="font-medium text-text-primary">{formatPrice(deliveryCharges)}</dd>
             </div>
-            <div className="flex justify-between border-t border-neutral-100 pt-2 text-base">
+            <div className="flex justify-between gap-4 border-t border-neutral-100 pt-2 text-sm">
               <dt className="font-semibold text-text-primary">Total</dt>
               <dd className="font-bold text-text-primary">{formatPrice(total)}</dd>
             </div>
@@ -523,8 +705,8 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
             </p>
           ) : null}
 
-          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-2">
-            <div className="min-w-0">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="col-span-2 min-w-0 sm:col-span-1">
               <label className={labelClass}>Payment status</label>
               <select
                 value={paymentStatus}
@@ -552,7 +734,7 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
               type="button"
               onClick={handlePlaceOrder}
               disabled={placingOrder || !minimumMet}
-              className={btnPrimary}
+              className={`${btnPrimary} w-full sm:w-auto`}
             >
               {placingOrder ? "Creating Order..." : "Create Order"}
             </button>
