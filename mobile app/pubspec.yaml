@@ -91,6 +91,7 @@ flutter:
   assets:
     - .env
     - assets/images/app_logo.png
+    - assets/images/whatsapp.svg
     - assets/images/payment/
 
   # An image asset can refer to one or more resolution-specific "variants", see

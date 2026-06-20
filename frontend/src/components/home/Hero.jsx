@@ -12,11 +12,14 @@ function Hero() {
     const fetchBanners = async () => {
       try {
         const { data } = await getHeroBanners();
-        const banners = data.data.map((b) => ({
-          id: b._id,
-          src: b.imageUrl,
-          alt: b.alt,
-        }));
+        const banners = (data?.data || [])
+          .filter((b) => b.isActive !== false && b.imageUrl?.trim())
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((b) => ({
+            id: b._id,
+            src: b.imageUrl,
+            alt: b.alt || "BulkMobileMart hero banner",
+          }));
         setSlides(banners);
         setCurrent(0);
       } catch {

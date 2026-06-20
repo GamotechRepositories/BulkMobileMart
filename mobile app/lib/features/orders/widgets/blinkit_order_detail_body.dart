@@ -37,17 +37,11 @@ class BlinkitOrderDetailBody extends ConsumerStatefulWidget {
     required this.order,
     required this.onInvoice,
     required this.onOrderAgain,
-    required this.cancelling,
-    required this.onCancel,
-    this.cancelError,
   });
 
   final Order order;
   final VoidCallback onInvoice;
   final VoidCallback onOrderAgain;
-  final bool cancelling;
-  final VoidCallback onCancel;
-  final String? cancelError;
 
   @override
   ConsumerState<BlinkitOrderDetailBody> createState() =>
@@ -118,31 +112,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ),
                 const SizedBox(height: 24),
                 _OrderDetailsSection(order: order, orderCode: orderCode),
-                if (order.status == 'confirm') ...[
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: OutlinedButton(
-                      onPressed: widget.cancelling ? null : widget.onCancel,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade700,
-                        side: BorderSide(color: Colors.red.shade200),
-                        minimumSize: const Size.fromHeight(46),
-                      ),
-                      child: Text(
-                        widget.cancelling ? 'Cancelling...' : 'Cancel order',
-                      ),
-                    ),
-                  ),
-                  if (widget.cancelError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Text(
-                        widget.cancelError!,
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-                      ),
-                    ),
-                ],
               ],
             ),
           ),
@@ -185,19 +154,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                     widget.onInvoice();
                   },
                 ),
-                if (widget.order.status == 'confirm')
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.cancel_outlined, color: Colors.red.shade700),
-                    title: Text(
-                      'Cancel order',
-                      style: TextStyle(color: Colors.red.shade700),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onCancel();
-                    },
-                  ),
               ],
             ),
           ),

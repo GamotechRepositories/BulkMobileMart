@@ -133,48 +133,36 @@ class CategoryTwoRowSlider extends StatelessWidget {
               final batch = batches[pageIndex];
               return SizedBox(
                 width: pageWidth,
-                child: Column(
-                  children: List.generate(_gridRows, (row) {
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: row < _gridRows - 1 ? _gridSpacing : 0),
-                      child: Row(
-                        children: List.generate(columns, (col) {
-                          final index = row * columns + col;
-                          if (index >= batch.length) {
-                            return Expanded(child: SizedBox(height: gridHeight / _gridRows));
-                          }
+                height: gridHeight,
+                child: GridView.builder(
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisSpacing: _gridSpacing,
+                    crossAxisSpacing: _gridSpacing,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemCount: batch.length,
+                  itemBuilder: (context, index) {
+                    final category = batch[index];
+                    final globalIndex =
+                        categories.indexWhere((c) => c.id == category.id);
 
-                          final category = batch[index];
-                          final globalIndex =
-                              categories.indexWhere((c) => c.id == category.id);
-
-                          return Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                right: col < columns - 1 ? _gridSpacing : 0,
-                              ),
-                              child: SizedBox(
-                                height: (gridHeight - _gridSpacing) / _gridRows,
-                                child: CategoryGridTile.fromCategory(
-                                  category: category,
-                                  icon: categoryIconTypes[
-                                      globalIndex % categoryIconTypes.length],
-                                  style: CategoryTileStyle.card,
-                                  onTap: () {
-                                    context.go(
-                                      ProductSearch.buildPath(
-                                        categoryName: category.categoryName,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
+                    return CategoryGridTile.fromCategory(
+                      category: category,
+                      icon: categoryIconTypes[
+                          globalIndex % categoryIconTypes.length],
+                      style: CategoryTileStyle.card,
+                      onTap: () {
+                        context.go(
+                          ProductSearch.buildPath(
+                            categoryName: category.categoryName,
+                          ),
+                        );
+                      },
                     );
-                  }),
+                  },
                 ),
               );
             },

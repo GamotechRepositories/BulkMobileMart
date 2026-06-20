@@ -24,9 +24,7 @@ class OrderDetailScreen extends ConsumerStatefulWidget {
 class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   Order? _order;
   bool _loading = true;
-  bool _cancelling = false;
   String? _error;
-  String? _cancelError;
 
   @override
   void initState() {
@@ -63,51 +61,6 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
         _order = null;
         _loading = false;
         _error = 'Order not found';
-      });
-    }
-  }
-
-  Future<void> _cancelOrder() async {
-    final order = _order;
-    if (order == null || _cancelling || order.status != 'confirm') return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel order?'),
-        content: const Text(
-          'Are you sure you want to cancel this order? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes, cancel', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() {
-      _cancelling = true;
-      _cancelError = null;
-    });
-
-    try {
-      final updated = await ref.read(apiServiceProvider).cancelOrderById(order.id);
-      if (!mounted) return;
-      setState(() {
-        _order = updated;
-        _cancelling = false;
-      });
-      ref.read(ordersControllerProvider.notifier).upsertOrder(updated);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _cancelling = false;
-        _cancelError = 'Failed to cancel order';
       });
     }
   }
@@ -178,9 +131,6 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
       backgroundColor: Colors.white,
       body: BlinkitOrderDetailBody(
         order: order,
-        cancelling: _cancelling,
-        cancelError: _cancelError,
-        onCancel: _cancelOrder,
         onInvoice: () => context.push('/orders/${order.id}/invoice'),
         onOrderAgain: () => _handleOrderAgain(order),
       ),

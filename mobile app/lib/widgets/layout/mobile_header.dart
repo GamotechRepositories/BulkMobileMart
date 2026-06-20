@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/utils/product_search.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/home/home_providers.dart';
+import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
 import '../common/app_logo.dart';
+import '../common/whatsapp_icon.dart';
 import '../wishlist/wishlist_nav_icon_key.dart';
 import 'mobile_search_bar.dart';
 
@@ -55,6 +59,13 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
     );
   }
 
+  Future<void> _openWhatsAppGroup() async {
+    final uri = Uri.parse(AppConstants.whatsAppGroupUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   void dispose() {
     _searchFocusNode.dispose();
@@ -65,6 +76,9 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
   Widget build(BuildContext context) {
     final searchBottomPadding = widget.showSearchBar ? 12.0 : 0.0;
     final topInset = MediaQuery.paddingOf(context).top;
+    final wishlistCount = ref.watch(
+      wishlistControllerProvider.select((s) => s.items.length),
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.storefrontHeaderOverlay,
@@ -99,10 +113,17 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                       ),
                     ),
                     _HeaderIconButton(
+                      onPressed: _openWhatsAppGroup,
+                      light: true,
+                      child: const WhatsAppIcon(size: 22),
+                    ),
+                    const SizedBox(width: 4),
+                    _HeaderIconButton(
                       key: wishlistNavIconKey,
                       icon: Icons.favorite_border_rounded,
                       onPressed: () => context.go(RoutePaths.wishlist),
                       light: true,
+                      badgeCount: wishlistCount,
                     ),
                   ],
                 ),
@@ -126,14 +147,18 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
 class _HeaderIconButton extends StatelessWidget {
   const _HeaderIconButton({
     super.key,
-    required this.icon,
+    this.icon,
+    this.child,
     required this.onPressed,
     this.light = false,
-  });
+    this.badgeCount = 0,
+  }) : assert(icon != null || child != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? child;
   final VoidCallback onPressed;
   final bool light;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -148,11 +173,56 @@ class _HeaderIconButton extends StatelessWidget {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: Icon(
-            icon,
-            size: 22,
-            color: light ? Colors.white : AppColors.textPrimary,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              child ??
+                  Icon(
+                    icon,
+                    size: 22,
+                    color: light ? Colors.white : AppColors.textPrimary,
+                  ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: _HeaderBadge(count: badgeCount),
+                ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBadge extends StatelessWidget {
+  const _HeaderBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    final minWidth = count > 9 ? 18.0 : 16.0;
+
+    return Container(
+      constraints: BoxConstraints(minWidth: minWidth, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: AppColors.navBadge,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white, width: 1.2),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          height: 1,
         ),
       ),
     );

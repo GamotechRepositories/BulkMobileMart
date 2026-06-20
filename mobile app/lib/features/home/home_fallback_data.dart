@@ -1,5 +1,3 @@
-import '../../config/constants.dart';
-import '../../models/hero_banner.dart';
 import '../../models/product.dart';
 
 Product _fallbackProduct({
@@ -41,13 +39,3 @@ List<Product> fallbackHomeProducts() {
 }
 
 bool isFallbackProductId(String id) => id.length < 10;
-
-List<HeroBanner> fallbackHeroBanners() {
-  return [
-    HeroBanner(
-      id: 'fallback-1',
-      imageUrl: AppConstants.promoBannerImage,
-      alt: 'Mobile accessories wholesale',
-    ),
-  ];
-}

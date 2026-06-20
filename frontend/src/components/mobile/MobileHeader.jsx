@@ -4,21 +4,10 @@ import { getCategories } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { LOGO_URL } from "../layout/Header";
+import { NavIconWrap } from "./NavIconWrap";
+import { HeaderWhatsAppButton } from "./HeaderWhatsAppButton";
 import MobileMenuDrawer from "./MobileMenuDrawer";
 import MobileSearchBar from "./MobileSearchBar";
-
-function NavIconWrap({ children, badge }) {
-  return (
-    <span className="relative inline-flex shrink-0 text-text-primary">
-      {children}
-      {badge > 0 ? (
-        <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-          {badge > 99 ? "99+" : badge}
-        </span>
-      ) : null}
-    </span>
-  );
-}
 
 function MobileHeader() {
   const { user, openAuthModal } = useAuth();
@@ -97,7 +86,7 @@ function MobileHeader() {
             />
           </Link>
 
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1 overflow-visible">
             <button
               type="button"
               onClick={toggleSearch}
@@ -116,11 +105,13 @@ function MobileHeader() {
               </svg>
             </button>
 
+            <HeaderWhatsAppButton />
+
             <Link
               to="/wishlist"
               data-wishlist-target="mobile"
               onClick={handleWishlistClick}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
+              className="relative flex h-10 w-10 items-center justify-center overflow-visible rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
             >
               <NavIconWrap badge={wishlistCount}>

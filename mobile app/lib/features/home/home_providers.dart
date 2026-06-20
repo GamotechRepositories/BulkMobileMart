@@ -47,5 +47,8 @@ final heroBannersProvider = FutureProvider((ref) async {
   if (banners.isEmpty && results[1].isNotEmpty) {
     banners = results[1];
   }
-  return banners.where((banner) => banner.isActive).toList();
+  return banners
+      .where((banner) => banner.isActive && banner.imageUrl.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.order.compareTo(b.order));
 });

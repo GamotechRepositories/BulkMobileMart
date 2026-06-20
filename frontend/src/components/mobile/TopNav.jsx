@@ -5,6 +5,8 @@ import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import UserAccountDropdown from "../account/UserAccountDropdown";
 import DesktopSearchBar from "./DesktopSearchBar";
+import { NavIconWrap } from "./NavIconWrap";
+import { HeaderWhatsAppButton } from "./HeaderWhatsAppButton";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -13,19 +15,6 @@ const formatPrice = (amount) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-
-function NavIconWrap({ children, badge }) {
-  return (
-    <span className="relative inline-flex shrink-0 text-text-primary">
-      {children}
-      {badge > 0 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
-          {badge > 99 ? "99+" : badge}
-        </span>
-      )}
-    </span>
-  );
-}
 
 function TopNav() {
   const { user, openAuthModal } = useAuth();
@@ -95,6 +84,8 @@ function TopNav() {
             </span>
           </button>
 
+          <HeaderWhatsAppButton />
+
           {user ? (
             <UserAccountDropdown user={user} />
           ) : (
@@ -118,7 +109,7 @@ function TopNav() {
             to="/wishlist"
             data-wishlist-target="desktop"
             onClick={handleWishlistClick}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-primary transition hover:text-primary-dark"
+            className="relative flex h-10 w-10 items-center justify-center overflow-visible rounded-lg text-primary transition hover:text-primary-dark"
             aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
           >
             <NavIconWrap badge={wishlistCount}>
@@ -136,7 +127,7 @@ function TopNav() {
             to="/cart"
             data-cart-target="desktop"
             onClick={handleCartClick}
-            className="flex h-10 items-center gap-1.5 rounded-lg px-2 text-text-primary transition hover:text-primary"
+            className="relative flex h-10 items-center gap-1.5 overflow-visible rounded-lg px-2 text-text-primary transition hover:text-primary"
             aria-label={`Cart, ${cartCount} items, ${formatPrice(cartTotal)}`}
           >
             <NavIconWrap badge={cartCount}>
