@@ -26,21 +26,13 @@ class BulkPricingSlab {
 }
 
 class BulkPricing {
-  const BulkPricing({this.minOrderQuantity, this.stepByQuantity, this.slabs = const []});
+  const BulkPricing({this.slabs = const []});
 
-  final int? minOrderQuantity;
-  final int? stepByQuantity;
   final List<BulkPricingSlab> slabs;
 
   factory BulkPricing.fromJson(dynamic json) {
     if (json is! Map<String, dynamic>) return const BulkPricing();
     return BulkPricing(
-      minOrderQuantity: json['minOrderQuantity'] == null
-          ? null
-          : _toInt(json['minOrderQuantity'], fallback: 1),
-      stepByQuantity: json['stepByQuantity'] == null
-          ? null
-          : _toInt(json['stepByQuantity'], fallback: 1),
       slabs: (json['slabs'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(BulkPricingSlab.fromJson)
@@ -86,6 +78,8 @@ class ProductVariant {
     this.discountedPrice = 0,
     this.stock = 0,
     this.colors = const [],
+    this.minOrderQuantity,
+    this.stepByQuantity,
   });
 
   final String name;
@@ -95,12 +89,15 @@ class ProductVariant {
   final double discountedPrice;
   final int stock;
   final List<ProductColor> colors;
+  final int? minOrderQuantity;
+  final int? stepByQuantity;
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    final legacyBulk = json['bulkPricing'];
     return ProductVariant(
       name: json['name']?.toString() ?? '',
       pricingType: json['pricingType']?.toString() ?? 'single',
-      bulkPricing: BulkPricing.fromJson(json['bulkPricing']),
+      bulkPricing: BulkPricing.fromJson(legacyBulk),
       price: _toDouble(json['price']),
       discountedPrice: _toDouble(json['discountedPrice']),
       stock: _toInt(json['stock']),
@@ -108,6 +105,14 @@ class ProductVariant {
           .whereType<Map<String, dynamic>>()
           .map(ProductColor.fromJson)
           .toList(),
+      minOrderQuantity: _parseOptionalQuantity(
+        json['minOrderQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['minOrderQuantity'] : null,
+      ),
+      stepByQuantity: _parseOptionalQuantity(
+        json['stepByQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
+      ),
     );
   }
 }
@@ -121,4 +126,11 @@ int _toInt(dynamic value, {int fallback = 0}) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
+int? _parseOptionalQuantity(dynamic primary, dynamic legacy) {
+  final value = primary ?? legacy;
+  if (value == null) return null;
+  final parsed = _toInt(value, fallback: 0);
+  return parsed > 0 ? parsed : null;
 }

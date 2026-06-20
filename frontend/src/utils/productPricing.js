@@ -55,6 +55,11 @@ export function getTotalProductStock(product) {
 }
 
 export function getPricingSource(product, variantName = "") {
+  const productMoq =
+    product?.minOrderQuantity ?? product?.bulkPricing?.minOrderQuantity ?? null;
+  const productStep =
+    product?.stepByQuantity ?? product?.bulkPricing?.stepByQuantity ?? null;
+
   if (isMultiVariant(product)) {
     const variant = getVariant(product, variantName);
     if (!variant) return null;
@@ -64,6 +69,16 @@ export function getPricingSource(product, variantName = "") {
       bulkPricing: variant.bulkPricing,
       price: variant.price,
       discountedPrice: variant.discountedPrice,
+      minOrderQuantity:
+        productMoq ??
+        variant.minOrderQuantity ??
+        variant.bulkPricing?.minOrderQuantity ??
+        null,
+      stepByQuantity:
+        productStep ??
+        variant.stepByQuantity ??
+        variant.bulkPricing?.stepByQuantity ??
+        null,
     };
   }
 
@@ -72,6 +87,8 @@ export function getPricingSource(product, variantName = "") {
     bulkPricing: product?.bulkPricing,
     price: product?.price,
     discountedPrice: product?.discountedPrice,
+    minOrderQuantity: productMoq,
+    stepByQuantity: productStep,
   };
 }
 
@@ -106,8 +123,9 @@ export function getMinOrderQuantity(product, variantName = "", fallback = DEFAUL
   const source = getPricingSource(product, variantName);
   if (!source) return fallback;
 
-  if (source.pricingType === "bulk" && source.bulkPricing?.minOrderQuantity) {
-    return source.bulkPricing.minOrderQuantity;
+  const moq = Number(source.minOrderQuantity);
+  if (Number.isFinite(moq) && moq > 0) {
+    return moq;
   }
 
   return fallback;
@@ -117,15 +135,45 @@ export function getQuantityStep(product, variantName = "", fallback = DEFAULT_SI
   const source = getPricingSource(product, variantName);
   if (!source) return fallback;
 
-  if (source.pricingType === "bulk" && source.bulkPricing) {
-    const step = Number(source.bulkPricing.stepByQuantity);
-    if (Number.isFinite(step) && step > 0) return step;
-
-    const moq = Number(source.bulkPricing.minOrderQuantity);
-    if (Number.isFinite(moq) && moq > 0) return moq;
+  const step = Number(source.stepByQuantity);
+  if (Number.isFinite(step) && step > 0) {
+    return step;
   }
 
   return fallback;
+}
+
+export function getCartAdjustStep(product, variantName = "", fallback = DEFAULT_SINGLE_MOQ) {
+  const source = getPricingSource(product, variantName);
+  if (!source) return fallback;
+
+  const step = Number(source.stepByQuantity);
+  if (Number.isFinite(step) && step > 0) {
+    return step;
+  }
+
+  const moq = Number(source.minOrderQuantity);
+  if (Number.isFinite(moq) && moq > 0) {
+    return moq;
+  }
+
+  return fallback;
+}
+
+export function hasConfiguredMinOrderQuantity(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source) return false;
+
+  const moq = Number(source.minOrderQuantity);
+  return Number.isFinite(moq) && moq > 1;
+}
+
+export function hasConfiguredQuantityStep(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source) return false;
+
+  const step = Number(source.stepByQuantity);
+  return Number.isFinite(step) && step > 1;
 }
 
 export function getDisplayPriceForSource(source) {

@@ -19,6 +19,8 @@ class CartItem {
     this.bulkPricing = const BulkPricing(),
     this.variantType = 'single',
     this.variants = const [],
+    this.minOrderQuantity,
+    this.stepByQuantity,
   });
 
   final String id;
@@ -35,6 +37,8 @@ class CartItem {
   final BulkPricing bulkPricing;
   final String variantType;
   final List<ProductVariant> variants;
+  final int? minOrderQuantity;
+  final int? stepByQuantity;
 
   double get lineTotal => discountedPrice * quantity;
 
@@ -56,6 +60,8 @@ class CartItem {
       bulkPricing: bulkPricing,
       variantType: variantType,
       variants: variants,
+      minOrderQuantity: minOrderQuantity,
+      stepByQuantity: stepByQuantity,
     );
   }
 
@@ -75,6 +81,8 @@ class CartItem {
       bulkPricing: product.bulkPricing,
       variantType: product.variantType,
       variants: product.variants,
+      minOrderQuantity: product.minOrderQuantity,
+      stepByQuantity: product.stepByQuantity,
     );
   }
 
@@ -83,6 +91,8 @@ class CartItem {
     if (product is! Map<String, dynamic>) {
       throw const FormatException('Cart item missing product');
     }
+
+    final legacyBulk = product['bulkPricing'];
 
     return CartItem(
       id: parseJsonId(product),
@@ -98,12 +108,20 @@ class CartItem {
       variantName: json['variantName']?.toString() ?? '',
       colorName: json['colorName']?.toString() ?? '',
       pricingType: product['pricingType']?.toString() ?? 'single',
-      bulkPricing: BulkPricing.fromJson(product['bulkPricing']),
+      bulkPricing: BulkPricing.fromJson(legacyBulk),
       variantType: product['variantType']?.toString() ?? 'single',
       variants: (product['variants'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(ProductVariant.fromJson)
           .toList(),
+      minOrderQuantity: _parseOptionalQuantity(
+        product['minOrderQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['minOrderQuantity'] : null,
+      ),
+      stepByQuantity: _parseOptionalQuantity(
+        product['stepByQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
+      ),
     );
   }
 }
@@ -124,11 +142,13 @@ Product _productFromCartItem(CartItem item) {
     bulkPricing: item.bulkPricing,
     variantType: item.variantType,
     variants: item.variants,
+    minOrderQuantity: item.minOrderQuantity,
+    stepByQuantity: item.stepByQuantity,
   );
 }
 
 int getCartStepForCartItem(CartItem item) {
-  return getQuantityStep(_productFromCartItem(item), item.variantName);
+  return getCartAdjustStep(_productFromCartItem(item), item.variantName);
 }
 
 int getDecreasedCartQuantityForCartItem(CartItem item) {
@@ -148,4 +168,11 @@ int _toInt(dynamic value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+int? _parseOptionalQuantity(dynamic primary, dynamic legacy) {
+  final value = primary ?? legacy;
+  if (value == null) return null;
+  final parsed = _toInt(value);
+  return parsed > 0 ? parsed : null;
 }

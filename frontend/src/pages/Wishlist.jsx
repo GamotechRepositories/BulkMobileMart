@@ -6,7 +6,7 @@ import { useWishlist } from "../context/WishlistContext";
 import DealProductCard from "../components/product/DealProductCard";
 import {
   getCartStepForProduct,
-  getDecreasedCartQuantity,
+  getDecreasedCartQuantityForProduct,
   resolveCartDefaults,
 } from "../utils/cartDefaults";
 
@@ -65,8 +65,11 @@ function Wishlist() {
   const handleDecrease = async (product) => {
     const line = getCartLine(product);
     if (!line) return;
-    const step = getCartStepForProduct(product, line.variantName || "");
-    const nextQty = getDecreasedCartQuantity(line.quantity, step);
+    const nextQty = getDecreasedCartQuantityForProduct(
+      product,
+      line.quantity,
+      line.variantName || ""
+    );
     if (nextQty <= 0) {
       await removeFromCart(line._id, line.variantName || "", line.colorName || "");
       return;

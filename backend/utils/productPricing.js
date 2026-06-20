@@ -22,20 +22,17 @@ export function normalizeBulkSlabInput(slabs = []) {
     );
 }
 
-export function buildBulkSlabs(minOrderQuantity, rawSlabs = []) {
-  const minOrder = Number(minOrderQuantity);
+export function buildBulkSlabs(rawSlabs = [], minOrderQuantity = null) {
+  const configuredMin = Number(minOrderQuantity);
   const entries = normalizeBulkSlabInput(rawSlabs);
-
-  if (!Number.isFinite(minOrder) || minOrder < 1) {
-    return { error: "Minimum order quantity is required for bulk pricing" };
-  }
 
   if (entries.length === 0) {
     return { error: "At least one pricing slab is required for bulk pricing" };
   }
 
   const slabs = [];
-  let nextMin = minOrder;
+  let nextMin =
+    Number.isFinite(configuredMin) && configuredMin >= 1 ? configuredMin : 1;
 
   for (let i = 0; i < entries.length; i += 1) {
     const entry = entries[i];
@@ -68,35 +65,29 @@ export function buildBulkSlabs(minOrderQuantity, rawSlabs = []) {
   return { slabs };
 }
 
-export function validateBulkPricing(bulkPricing) {
-  const built = buildBulkSlabs(
-    bulkPricing?.minOrderQuantity,
-    bulkPricing?.slabs
-  );
+export function normalizeOptionalQuantity(value) {
+  if (value === "" || value == null || value === undefined) {
+    return null;
+  }
+
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 1) {
+    return null;
+  }
+
+  return num;
+}
+
+export function validateBulkPricing(bulkPricing, minOrderQuantity = null) {
+  const built = buildBulkSlabs(bulkPricing?.slabs || [], minOrderQuantity);
 
   if (built.error) {
     return { valid: false, message: built.error };
   }
 
-  const stepByQuantity =
-    bulkPricing.stepByQuantity === "" ||
-    bulkPricing.stepByQuantity == null ||
-    bulkPricing.stepByQuantity === undefined
-      ? null
-      : Number(bulkPricing.stepByQuantity);
-
-  if (
-    stepByQuantity != null &&
-    (!Number.isFinite(stepByQuantity) || stepByQuantity < 1)
-  ) {
-    return { valid: false, message: "Step by quantity must be at least 1" };
-  }
-
   return {
     valid: true,
     bulkPricing: {
-      minOrderQuantity: Number(bulkPricing.minOrderQuantity),
-      stepByQuantity,
       slabs: built.slabs,
     },
   };
@@ -157,6 +148,11 @@ export function getTotalProductStock(product) {
 }
 
 export function getPricingSource(product, variantName) {
+  const productMoq =
+    product?.minOrderQuantity ?? product?.bulkPricing?.minOrderQuantity ?? null;
+  const productStep =
+    product?.stepByQuantity ?? product?.bulkPricing?.stepByQuantity ?? null;
+
   if (isMultiVariant(product)) {
     const variant = getVariant(product, variantName);
     if (!variant) return null;
@@ -166,6 +162,16 @@ export function getPricingSource(product, variantName) {
       bulkPricing: variant.bulkPricing,
       price: variant.price,
       discountedPrice: variant.discountedPrice,
+      minOrderQuantity:
+        productMoq ??
+        variant.minOrderQuantity ??
+        variant.bulkPricing?.minOrderQuantity ??
+        null,
+      stepByQuantity:
+        productStep ??
+        variant.stepByQuantity ??
+        variant.bulkPricing?.stepByQuantity ??
+        null,
     };
   }
 
@@ -174,6 +180,8 @@ export function getPricingSource(product, variantName) {
     bulkPricing: product.bulkPricing,
     price: product.price,
     discountedPrice: product.discountedPrice,
+    minOrderQuantity: productMoq,
+    stepByQuantity: productStep,
   };
 }
 
@@ -208,8 +216,9 @@ export function getMinOrderQuantity(product, variantName = "") {
   const source = getPricingSource(product, variantName);
   if (!source) return 1;
 
-  if (source.pricingType === "bulk" && source.bulkPricing?.minOrderQuantity) {
-    return source.bulkPricing.minOrderQuantity;
+  const moq = Number(source.minOrderQuantity);
+  if (Number.isFinite(moq) && moq > 0) {
+    return moq;
   }
 
   return 1;
@@ -219,12 +228,26 @@ export function getQuantityStep(product, variantName = "", fallback = 1) {
   const source = getPricingSource(product, variantName);
   if (!source) return fallback;
 
-  if (source.pricingType === "bulk" && source.bulkPricing) {
-    const step = Number(source.bulkPricing.stepByQuantity);
-    if (Number.isFinite(step) && step > 0) return step;
+  const step = Number(source.stepByQuantity);
+  if (Number.isFinite(step) && step > 0) {
+    return step;
+  }
 
-    const moq = Number(source.bulkPricing.minOrderQuantity);
-    if (Number.isFinite(moq) && moq > 0) return moq;
+  return fallback;
+}
+
+export function getCartAdjustStep(product, variantName = "", fallback = 1) {
+  const source = getPricingSource(product, variantName);
+  if (!source) return fallback;
+
+  const step = Number(source.stepByQuantity);
+  if (Number.isFinite(step) && step > 0) {
+    return step;
+  }
+
+  const moq = Number(source.minOrderQuantity);
+  if (Number.isFinite(moq) && moq > 0) {
+    return moq;
   }
 
   return fallback;
@@ -271,8 +294,11 @@ export function deriveSinglePriceFieldsFromBulk(bulkPricing) {
 }
 
 export function resolvePricingFields(payload) {
+  const minOrderQuantity = normalizeOptionalQuantity(payload.minOrderQuantity);
+  const stepByQuantity = normalizeOptionalQuantity(payload.stepByQuantity);
+
   if (payload.pricingType === "bulk") {
-    const bulkCheck = validateBulkPricing(payload.bulkPricing);
+    const bulkCheck = validateBulkPricing(payload.bulkPricing, minOrderQuantity);
     if (!bulkCheck.valid) {
       return { error: bulkCheck.message };
     }
@@ -300,6 +326,8 @@ export function resolvePricingFields(payload) {
     return {
       pricingType: "bulk",
       bulkPricing: bulkCheck.bulkPricing,
+      minOrderQuantity,
+      stepByQuantity,
       price,
       discountedPrice,
       discountedPercent: Math.max(0, Math.min(100, discountedPercent)),
@@ -337,7 +365,9 @@ export function resolvePricingFields(payload) {
 
   return {
     pricingType: "single",
-      bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
+    bulkPricing: { slabs: [] },
+    minOrderQuantity,
+    stepByQuantity,
     price,
     discountedPrice,
     discountedPercent: Math.max(0, Math.min(100, discountedPercent)),
@@ -345,4 +375,4 @@ export function resolvePricingFields(payload) {
 }
 
 export const PRODUCT_PRICING_SELECT =
-  "name brandName price discountedPrice discountedPercent productImages stock inStock subcategory subcategories pricingType bulkPricing variantType variants colors isActive";
+  "name brandName price discountedPrice discountedPercent productImages stock inStock subcategory subcategories pricingType bulkPricing variantType variants colors minOrderQuantity stepByQuantity isActive";

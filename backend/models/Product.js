@@ -33,16 +33,6 @@ const bulkPricingSlabSchema = new mongoose.Schema(
 
 const bulkPricingSchema = new mongoose.Schema(
   {
-    minOrderQuantity: {
-      type: Number,
-      min: [1, "Minimum order quantity must be at least 1"],
-      default: null,
-    },
-    stepByQuantity: {
-      type: Number,
-      min: [1, "Step by quantity must be at least 1"],
-      default: null,
-    },
     slabs: {
       type: [bulkPricingSlabSchema],
       default: [],
@@ -127,6 +117,16 @@ const productVariantSchema = new mongoose.Schema(
     colors: {
       type: [productColorSchema],
       default: [],
+    },
+    minOrderQuantity: {
+      type: Number,
+      min: [1, "Minimum order quantity must be at least 1"],
+      default: null,
+    },
+    stepByQuantity: {
+      type: Number,
+      min: [1, "Step by quantity must be at least 1"],
+      default: null,
     },
   },
   { _id: false }
@@ -229,6 +229,16 @@ const productSchema = new mongoose.Schema(
     colors: {
       type: [productColorSchema],
       default: [],
+    },
+    minOrderQuantity: {
+      type: Number,
+      min: [1, "Minimum order quantity must be at least 1"],
+      default: null,
+    },
+    stepByQuantity: {
+      type: Number,
+      min: [1, "Step by quantity must be at least 1"],
+      default: null,
     },
     productImages: {
       type: [String],

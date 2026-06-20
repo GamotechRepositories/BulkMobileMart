@@ -39,6 +39,8 @@ const mapWishlistItems = (wishlist) => {
       bulkPricing: item.product.bulkPricing,
       variantType: item.product.variantType,
       variants: item.product.variants,
+      minOrderQuantity: item.product.minOrderQuantity,
+      stepByQuantity: item.product.stepByQuantity,
       colors: item.product.colors,
     }));
 };
@@ -57,6 +59,8 @@ const mapToggleProduct = (product) => ({
   bulkPricing: product.bulkPricing,
   variantType: product.variantType,
   variants: product.variants,
+  minOrderQuantity: product.minOrderQuantity,
+  stepByQuantity: product.stepByQuantity,
   colors: product.colors,
 });
 

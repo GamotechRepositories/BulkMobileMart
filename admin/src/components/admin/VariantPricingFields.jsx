@@ -7,11 +7,8 @@ const EMPTY_SLAB = {
 
 function getSlabStartQuantity(minOrderQuantity, slabs, index) {
   const moq = Number(minOrderQuantity);
-  if (!Number.isFinite(moq) || moq < 1) {
-    return "—";
-  }
+  let start = Number.isFinite(moq) && moq >= 1 ? moq : 1;
 
-  let start = moq;
   for (let i = 0; i < index; i += 1) {
     const max = Number(slabs[i]?.maxQuantity);
     if (!Number.isFinite(max)) return "—";
@@ -21,11 +18,42 @@ function getSlabStartQuantity(minOrderQuantity, slabs, index) {
   return start;
 }
 
+function ProductQuantityRulesFields({ minOrderQuantity = "", stepByQuantity = "", onChange }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
+      <div>
+        <label className={labelClass}>MOQ</label>
+        <input
+          type="number"
+          min="1"
+          placeholder="e.g. 50"
+          value={minOrderQuantity}
+          onChange={(e) => onChange({ minOrderQuantity: e.target.value, stepByQuantity })}
+          className={inputClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>Step by QTY</label>
+        <input
+          type="number"
+          min="1"
+          placeholder="e.g. 10"
+          value={stepByQuantity}
+          onChange={(e) => onChange({ minOrderQuantity, stepByQuantity: e.target.value })}
+          className={inputClass}
+        />
+      </div>
+    </div>
+  );
+}
+
 function VariantPricingFields({
   variant,
   onChange,
   showPricingType = true,
   showInStock = true,
+  showQuantityRules = true,
+  slabMinOrderQuantity = "",
 }) {
   const updateField = (field, value) => {
     onChange({ ...variant, [field]: value });
@@ -98,32 +126,14 @@ function VariantPricingFields({
         </div>
       ) : null}
 
-      {isBulk ? (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 [&>div]:min-w-0">
-          <div>
-            <label className={labelClass}>MOQ *</label>
-            <input
-              type="number"
-              required
-              min="1"
-              placeholder="e.g. 50"
-              value={variant.bulkMinOrderQuantity}
-              onChange={(e) => updateField("bulkMinOrderQuantity", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Step by QTY</label>
-            <input
-              type="number"
-              min="1"
-              placeholder="Uses MOQ if empty"
-              value={variant.bulkStepByQuantity}
-              onChange={(e) => updateField("bulkStepByQuantity", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-        </div>
+      {showQuantityRules ? (
+        <ProductQuantityRulesFields
+          minOrderQuantity={variant.minOrderQuantity ?? ""}
+          stepByQuantity={variant.stepByQuantity ?? ""}
+          onChange={({ minOrderQuantity, stepByQuantity }) =>
+            onChange({ ...variant, minOrderQuantity, stepByQuantity })
+          }
+        />
       ) : null}
 
       {!isBulk ? (
@@ -157,7 +167,7 @@ function VariantPricingFields({
           <div className="space-y-3">
             {variant.slabs.map((slab, index) => {
                 const rangeStart = getSlabStartQuantity(
-                  variant.bulkMinOrderQuantity,
+                  showQuantityRules ? variant.minOrderQuantity : slabMinOrderQuantity,
                   variant.slabs,
                   index
                 );
@@ -234,6 +244,6 @@ function VariantPricingFields({
   );
 }
 
-export { EMPTY_SLAB };
+export { EMPTY_SLAB, ProductQuantityRulesFields };
 
 export default VariantPricingFields;

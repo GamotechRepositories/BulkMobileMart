@@ -1,6 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
-import { resolvePricingFields } from "../utils/productPricing.js";
+import { normalizeOptionalQuantity, resolvePricingFields } from "../utils/productPricing.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
@@ -228,14 +228,16 @@ const buildProductPayload = (body) => {
   const sku = body.sku?.trim().toUpperCase() ?? "";
 
   const mapBulkPricingInput = (bulkPricing) => ({
-    minOrderQuantity: bulkPricing?.minOrderQuantity ?? null,
-    stepByQuantity:
-      bulkPricing?.stepByQuantity === "" ||
-      bulkPricing?.stepByQuantity == null ||
-      bulkPricing?.stepByQuantity === undefined
-        ? null
-        : Number(bulkPricing.stepByQuantity),
     slabs: bulkPricing?.slabs || [],
+  });
+
+  const mapQuantityFields = (source = {}) => ({
+    minOrderQuantity: normalizeOptionalQuantity(
+      source.minOrderQuantity ?? source.bulkPricing?.minOrderQuantity
+    ),
+    stepByQuantity: normalizeOptionalQuantity(
+      source.stepByQuantity ?? source.bulkPricing?.stepByQuantity
+    ),
   });
 
   return {
@@ -257,7 +259,8 @@ const buildProductPayload = (body) => {
           bulkPricing:
             variant.pricingType === "bulk"
               ? mapBulkPricingInput(variant.bulkPricing)
-              : { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
+              : { slabs: [] },
+          ...mapQuantityFields(variant),
           price: variant.price,
           discountedPrice: variant.discountedPrice,
           discountedPercent: variant.discountedPercent,
@@ -270,7 +273,8 @@ const buildProductPayload = (body) => {
     bulkPricing:
       pricingType === "bulk"
         ? mapBulkPricingInput(body.bulkPricing)
-        : { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
+        : { slabs: [] },
+    ...mapQuantityFields(body),
     price: body.price ?? body.original_price,
     discountedPrice: body.discountedPrice ?? body.discounted_price,
     discountedPercent: body.discountedPercent ?? body.discount_percent,
@@ -305,6 +309,8 @@ const resolveProductPricing = (payload) => {
       names.add(key);
     }
 
+    const productMinOrderQuantity = normalizeOptionalQuantity(payload.minOrderQuantity);
+    const productStepByQuantity = normalizeOptionalQuantity(payload.stepByQuantity);
     const resolvedVariants = [];
 
     for (const variant of namedVariants) {
@@ -313,6 +319,9 @@ const resolveProductPricing = (payload) => {
       const pricing = resolvePricingFields({
         pricingType: variant.pricingType,
         bulkPricing: variant.bulkPricing,
+        minOrderQuantity:
+          variant.pricingType === "bulk" ? productMinOrderQuantity : null,
+        stepByQuantity: null,
         price: variant.price,
         discountedPrice: variant.discountedPrice,
         discountedPercent: variant.discountedPercent,
@@ -326,6 +335,8 @@ const resolveProductPricing = (payload) => {
         name: variant.name,
         pricingType: pricing.pricingType,
         bulkPricing: pricing.bulkPricing,
+        minOrderQuantity: null,
+        stepByQuantity: null,
         price: pricing.price,
         discountedPrice: pricing.discountedPrice,
         discountedPercent: pricing.discountedPercent,
@@ -350,7 +361,9 @@ const resolveProductPricing = (payload) => {
       stock: legacyStockFromInStock(productInStock),
       colors: [],
       pricingType: hasBulk ? "bulk" : "single",
-      bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
+      bulkPricing: { slabs: [] },
+      minOrderQuantity: productMinOrderQuantity,
+      stepByQuantity: productStepByQuantity,
       price: maxPrice,
       discountedPrice: minDiscounted,
       discountedPercent:
@@ -375,6 +388,8 @@ const resolveProductPricing = (payload) => {
     colors: normalizeColors(payload.colors),
     pricingType: pricing.pricingType,
     bulkPricing: pricing.bulkPricing,
+    minOrderQuantity: pricing.minOrderQuantity,
+    stepByQuantity: pricing.stepByQuantity,
     price: pricing.price,
     discountedPrice: pricing.discountedPrice,
     discountedPercent: pricing.discountedPercent,
@@ -571,6 +586,8 @@ export const addProduct = async (req, res) => {
       variants: pricingFields.variants,
       pricingType: pricingFields.pricingType,
       bulkPricing: pricingFields.bulkPricing,
+      minOrderQuantity: pricingFields.minOrderQuantity,
+      stepByQuantity: pricingFields.stepByQuantity,
       price: pricingFields.price,
       discountedPrice: pricingFields.discountedPrice,
       discountedPercent: pricingFields.discountedPercent,
@@ -652,6 +669,14 @@ export const updateProduct = async (req, res) => {
       warranty: req.body.warranty ?? existing.warranty,
       isActive: req.body.isActive ?? existing.isActive,
       sku: req.body.sku ?? existing.sku,
+      minOrderQuantity:
+        req.body.minOrderQuantity !== undefined
+          ? req.body.minOrderQuantity
+          : existing.minOrderQuantity,
+      stepByQuantity:
+        req.body.stepByQuantity !== undefined
+          ? req.body.stepByQuantity
+          : existing.stepByQuantity,
     });
 
     const requiredError = validateRequiredFields(payload);
@@ -689,6 +714,8 @@ export const updateProduct = async (req, res) => {
         variants: pricingFields.variants,
         pricingType: pricingFields.pricingType,
         bulkPricing: pricingFields.bulkPricing,
+        minOrderQuantity: pricingFields.minOrderQuantity,
+        stepByQuantity: pricingFields.stepByQuantity,
         price: pricingFields.price,
         discountedPrice: pricingFields.discountedPrice,
         discountedPercent: pricingFields.discountedPercent,

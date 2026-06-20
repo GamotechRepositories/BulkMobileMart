@@ -40,6 +40,8 @@ const mapCartItems = (cart) => {
         bulkPricing: item.product.bulkPricing,
         variantType: item.product.variantType,
         variants: item.product.variants,
+        minOrderQuantity: item.product.minOrderQuantity,
+        stepByQuantity: item.product.stepByQuantity,
         productImages: item.product.productImages,
         stock: getVariantStock(item.product, item.variantName || ""),
         quantity: item.quantity,

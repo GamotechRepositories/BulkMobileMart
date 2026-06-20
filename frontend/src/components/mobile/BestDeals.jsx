@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import {
   getCartStepForProduct,
-  getDecreasedCartQuantity,
+  getDecreasedCartQuantityForProduct,
   resolveCartDefaults,
 } from "../../utils/cartDefaults";
 import SectionHeader from "./SectionHeader";
@@ -106,7 +106,11 @@ function BestDeals() {
     const line = getCartLine(product);
     if (!line) return;
     const step = getCartStepForProduct(product, line.variantName || "");
-    const nextQty = getDecreasedCartQuantity(line.quantity, step);
+    const nextQty = getDecreasedCartQuantityForProduct(
+      product,
+      line.quantity,
+      line.variantName || ""
+    );
     if (nextQty <= 0) {
       await removeFromCart(line._id, line.variantName || "", line.colorName || "");
       return;

@@ -8,7 +8,7 @@ import { useCart } from "../context/CartContext";
 import { clearBuyNowCheckout } from "../utils/checkoutSession";
 import {
   getCartStepForItem,
-  getDecreasedCartQuantity,
+  getDecreasedCartQuantityForItem,
 } from "../utils/cartDefaults";
 import {
   calculateShippingCharge,
@@ -119,8 +119,7 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
               disabled={loading}
               compact
               onDecrease={() => {
-                const step = getCartStepForItem(item);
-                const nextQty = getDecreasedCartQuantity(item.quantity, step);
+                const nextQty = getDecreasedCartQuantityForItem(item);
                 if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
                 else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
               }}
@@ -188,8 +187,7 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
             quantity={item.quantity}
             disabled={loading}
             onDecrease={() => {
-              const step = getCartStepForItem(item);
-              const nextQty = getDecreasedCartQuantity(item.quantity, step);
+              const nextQty = getDecreasedCartQuantityForItem(item);
               if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
               else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
             }}

@@ -9,14 +9,16 @@ import {
   getAvailableColors,
   getBulkTierRows,
   getMinOrderQuantity,
-  getQuantityStep,
+  getCartAdjustStep,
+  hasConfiguredMinOrderQuantity,
+  hasConfiguredQuantityStep,
   getUnitPriceForQuantity,
   getVariantStock,
   isBulkPricing,
   isMultiVariant,
 } from "../utils/productPricing";
 import {
-  getDecreasedCartQuantity,
+  getDecreasedCartQuantityForProduct,
 } from "../utils/cartDefaults";
 import {
   buildBuyNowCheckoutItem,
@@ -571,17 +573,67 @@ function QuantitySelector({ quantity, min, max, onDecrease, onIncrease, disabled
   );
 }
 
-function ActionButtons({ inStock, inCart, onAddToCart, onGoToCart, onBuyNow, className = "" }) {
+function CartActionQuantity({ quantity, min, max, disabled, onDecrease, onIncrease }) {
   return (
-    <div className={className}>
+    <div className="flex flex-1 items-center justify-between gap-2 rounded-md border-2 border-primary bg-white px-4 py-2.5">
       <button
         type="button"
-        onClick={inCart ? onGoToCart : (e) => onAddToCart(e.currentTarget)}
-        disabled={!inStock}
-        className="flex-1 rounded-md bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={onDecrease}
+        disabled={disabled}
+        aria-label="Decrease cart quantity"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-lg font-medium text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {inCart ? "Go to Cart" : "Add to Cart"}
+        −
       </button>
+      <span className="min-w-[2rem] text-center text-sm font-bold text-text-primary">
+        {quantity}
+      </span>
+      <button
+        type="button"
+        onClick={onIncrease}
+        disabled={disabled || quantity >= max}
+        aria-label="Increase cart quantity"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-lg font-medium text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function ActionButtons({
+  inStock,
+  inCart,
+  cartQuantity,
+  min,
+  max,
+  onAddToCart,
+  onDecrease,
+  onIncrease,
+  onBuyNow,
+  className = "",
+}) {
+  return (
+    <div className={className}>
+      {inCart ? (
+        <CartActionQuantity
+          quantity={cartQuantity}
+          min={min}
+          max={max}
+          disabled={!inStock}
+          onDecrease={onDecrease}
+          onIncrease={onIncrease}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => onAddToCart(e.currentTarget)}
+          disabled={!inStock}
+          className="flex-1 rounded-md bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Add to Cart
+        </button>
+      )}
       <button
         type="button"
         onClick={onBuyNow}
@@ -714,8 +766,14 @@ function ProductDetail() {
     ? getMinOrderQuantity(product, activeVariantName, DEFAULT_MOQ)
     : DEFAULT_MOQ;
   const quantityStep = product
-    ? getQuantityStep(product, activeVariantName, DEFAULT_MOQ)
+    ? getCartAdjustStep(product, activeVariantName, DEFAULT_MOQ)
     : DEFAULT_MOQ;
+  const showMoq = product
+    ? hasConfiguredMinOrderQuantity(product, activeVariantName)
+    : false;
+  const showStepByQty = product
+    ? hasConfiguredQuantityStep(product, activeVariantName)
+    : false;
 
   const getCartLine = () => {
     if (!product?._id) return null;
@@ -770,7 +828,11 @@ function ProductDetail() {
     const step = quantityStep;
 
     if (line) {
-      const nextQty = getDecreasedCartQuantity(line.quantity, step);
+      const nextQty = getDecreasedCartQuantityForProduct(
+        product,
+        line.quantity,
+        activeVariantName
+      );
       if (nextQty <= 0) {
         await removeFromCart(product._id, activeVariantName, selectedColor);
       } else {
@@ -1039,30 +1101,30 @@ function ProductDetail() {
               </p>
             ) : null}
 
-            {(isBulkPricing(product, activeVariantName) || isMultiVariant(product)) ? (
+            {(showMoq || showStepByQty || isMultiVariant(product)) ? (
               <p className="mt-2 text-sm font-medium text-text-primary">
-                {isBulkPricing(product, activeVariantName)
-                  ? `MOQ: ${minOrderQuantity} Pieces`
-                  : null}
-                {isBulkPricing(product, activeVariantName) && isMultiVariant(product)
-                  ? ` · Stock: ${variantStock}`
-                  : null}
-                {!isBulkPricing(product, activeVariantName) && isMultiVariant(product)
-                  ? `Stock: ${variantStock}`
-                  : null}
+                {[
+                  showMoq ? `MOQ: ${minOrderQuantity} Pieces` : null,
+                  showStepByQty ? `Step by QTY: ${quantityStep} Pieces` : null,
+                  isMultiVariant(product) ? `Stock: ${variantStock}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             ) : null}
 
-            <div className="mt-2">
-              <QuantitySelector
-                quantity={quantity}
-                min={minOrderQuantity}
-                max={maxQuantity}
-                disabled={!inStock}
-                onDecrease={handleQuantityDecrease}
-                onIncrease={handleQuantityIncrease}
-              />
-            </div>
+            {!cartLineQuantity ? (
+              <div className="mt-2">
+                <QuantitySelector
+                  quantity={quantity}
+                  min={minOrderQuantity}
+                  max={maxQuantity}
+                  disabled={!inStock}
+                  onDecrease={handleQuantityDecrease}
+                  onIncrease={handleQuantityIncrease}
+                />
+              </div>
+            ) : null}
 
             {bulkTiers.length > 0 ? (
               <div className="mt-3 lg:mt-4">
@@ -1093,8 +1155,12 @@ function ProductDetail() {
             <ActionButtons
               inStock={inStock}
               inCart={cartLineQuantity != null}
+              cartQuantity={cartLineQuantity ?? quantity}
+              min={minOrderQuantity}
+              max={maxQuantity}
               onAddToCart={handleAddToCart}
-              onGoToCart={() => navigate("/cart")}
+              onDecrease={handleQuantityDecrease}
+              onIncrease={handleQuantityIncrease}
               onBuyNow={handleBuyNow}
               className="mt-5 flex w-full gap-3 lg:mt-auto lg:pt-4"
             />

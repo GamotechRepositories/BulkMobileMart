@@ -2,6 +2,8 @@ import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import {
   getAvailableColors,
+  getCartAdjustStep,
+  getMinOrderQuantity,
   getVariant,
   getVariantStock,
   isMultiVariant,
@@ -19,6 +21,27 @@ const matchesCartItem = (item, productId, variantName, colorName) =>
   String(item?.product || "") === String(productId || "") &&
   normalizeVariantName(item.variantName) === normalizeVariantName(variantName) &&
   normalizeColorName(item.colorName) === normalizeColorName(colorName);
+
+function validateCartQuantity(product, variantName, qty) {
+  const moq = getMinOrderQuantity(product, variantName);
+  const step = getCartAdjustStep(product, variantName);
+
+  if (qty < moq) {
+    return {
+      valid: false,
+      message: `Minimum order quantity is ${moq}`,
+    };
+  }
+
+  if (step > 1 && (qty - moq) % step !== 0) {
+    return {
+      valid: false,
+      message: `Quantity must increase in steps of ${step} from ${moq}`,
+    };
+  }
+
+  return { valid: true };
+}
 
 const populateCart = (query) =>
   query.populate({
@@ -125,6 +148,14 @@ export const addToCart = async (req, res) => {
       }
     }
 
+    const qtyCheck = validateCartQuantity(product, normalizedVariantName, qty);
+    if (!qtyCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: qtyCheck.message,
+      });
+    }
+
     const availableStock = getVariantStock(product, normalizedVariantName);
     if (qty > availableStock) {
       return res.status(400).json({
@@ -156,6 +187,17 @@ export const addToCart = async (req, res) => {
 
       if (existingIndex >= 0) {
         const nextQty = cart.items[existingIndex].quantity + qty;
+        const nextQtyCheck = validateCartQuantity(
+          product,
+          normalizedVariantName,
+          nextQty
+        );
+        if (!nextQtyCheck.valid) {
+          return res.status(400).json({
+            success: false,
+            message: nextQtyCheck.message,
+          });
+        }
         if (nextQty > availableStock) {
           return res.status(400).json({
             success: false,
@@ -272,6 +314,14 @@ export const updateCartItem = async (req, res) => {
       }
 
       const availableStock = getVariantStock(product, normalizedVariantName);
+      const qtyCheck = validateCartQuantity(product, normalizedVariantName, qty);
+      if (!qtyCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: qtyCheck.message,
+        });
+      }
+
       if (qty > availableStock) {
         return res.status(400).json({
           success: false,

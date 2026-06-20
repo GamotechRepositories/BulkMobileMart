@@ -150,9 +150,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final variantStock = getVariantStock(product, activeVariantName);
     final inStock = variantStock > 0;
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
-    final bulkStepByQuantity = getPricingSource(product, activeVariantName)
-        ?.bulkPricing
-        .stepByQuantity;
+    final quantityStep = getCartAdjustStep(product, activeVariantName);
+    final showMoq = hasConfiguredMinOrderQuantity(product, activeVariantName);
+    final showStepByQty = hasConfiguredQuantityStep(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
     final currentUnitPrice =
         getUnitPriceForQuantity(product, _quantity, activeVariantName);
@@ -294,16 +294,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                 ),
-              if (showBulkSection || isMultiVariant(product))
+              if (showMoq || showStepByQty || isMultiVariant(product))
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     [
-                      if (showBulkSection) 'MOQ: $minOrderQuantity Pieces',
-                      if (showBulkSection &&
-                          bulkStepByQuantity != null &&
-                          bulkStepByQuantity > 0)
-                        'Step by QTY: $bulkStepByQuantity Pieces',
+                      if (showMoq) 'MOQ: $minOrderQuantity Pieces',
+                      if (showStepByQty) 'Step by QTY: $quantityStep Pieces',
                       if (isMultiVariant(product)) 'Stock: $variantStock',
                     ].join(' · '),
                     style: const TextStyle(
@@ -312,21 +309,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
-                  _QuantitySelector(
-                    quantity: _quantity,
-                    min: minOrderQuantity,
-                    max: maxQuantity,
-                    disabled: !inStock,
-                    onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
-                    onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
-                  ),
-                ],
-              ),
+              if (!inCart) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
+                    _QuantitySelector(
+                      quantity: _quantity,
+                      min: minOrderQuantity,
+                      max: maxQuantity,
+                      disabled: !inStock,
+                      onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
+                      onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
+                    ),
+                  ],
+                ),
+              ],
               if (bulkTiers.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -434,20 +433,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           child: Row(
             children: [
               Expanded(
-                child: Builder(
-                  builder: (btnContext) => ElevatedButton(
-                    onPressed: inStock
-                        ? () {
-                            if (inCart) {
-                              context.go(RoutePaths.cart);
-                              return;
-                            }
-                            _addToCart(product, activeVariantName, btnContext);
-                          }
-                        : null,
-                    child: Text(inCart ? 'Go to Cart' : 'Add to Cart'),
-                  ),
-                ),
+                child: inCart
+                    ? _CartActionQuantity(
+                        quantity: cartLineQuantity ?? _quantity,
+                        min: minOrderQuantity,
+                        max: maxQuantity,
+                        disabled: !inStock,
+                        onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
+                        onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
+                      )
+                    : Builder(
+                        builder: (btnContext) => ElevatedButton(
+                          onPressed: inStock
+                              ? () => _addToCart(product, activeVariantName, btnContext)
+                              : null,
+                          child: const Text('Add to Cart'),
+                        ),
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -569,7 +571,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     String activeVariantName,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
-    final quantityStep = getQuantityStep(product, activeVariantName);
+    final quantityStep = getCartAdjustStep(product, activeVariantName);
     final line = findCartLine(
       ref.read(cartControllerProvider).items,
       product.id,
@@ -610,7 +612,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     String activeVariantName,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
-    final quantityStep = getQuantityStep(product, activeVariantName);
+    final quantityStep = getCartAdjustStep(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
     final line = findCartLine(
       ref.read(cartControllerProvider).items,
@@ -725,6 +727,73 @@ class _QuantitySelector extends StatelessWidget {
         width: 36,
         height: 36,
         child: Center(child: Text(label, style: const TextStyle(fontSize: 18))),
+      ),
+    );
+  }
+}
+
+class _CartActionQuantity extends StatelessWidget {
+  const _CartActionQuantity({
+    required this.quantity,
+    required this.min,
+    required this.max,
+    required this.disabled,
+    required this.onDecrease,
+    required this.onIncrease,
+  });
+
+  final int quantity;
+  final int min;
+  final int max;
+  final bool disabled;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.primary, width: 2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _actionButton(onDecrease, disabled, '−'),
+          Text(
+            '$quantity',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          _actionButton(onIncrease, disabled || quantity >= max, '+'),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton(VoidCallback onTap, bool isDisabled, String label) {
+    return InkWell(
+      onTap: isDisabled ? null : onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: isDisabled ? AppColors.textSecondary.withValues(alpha: 0.4) : AppColors.primary,
+            ),
+          ),
+        ),
       ),
     );
   }

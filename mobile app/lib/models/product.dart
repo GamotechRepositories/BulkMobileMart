@@ -25,6 +25,8 @@ class Product {
     this.bulkPricing = const BulkPricing(),
     this.colors = const [],
     this.specifications = const [],
+    this.minOrderQuantity,
+    this.stepByQuantity,
   });
 
   final String id;
@@ -49,11 +51,14 @@ class Product {
   final BulkPricing bulkPricing;
   final List<ProductColor> colors;
   final List<ProductSpecification> specifications;
+  final int? minOrderQuantity;
+  final int? stepByQuantity;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final legacyBulk = json['bulkPricing'];
     return Product(
       id: parseJsonId(json),
       name: json['name']?.toString() ?? '',
@@ -83,7 +88,7 @@ class Product {
           .map(ProductVariant.fromJson)
           .toList(),
       pricingType: json['pricingType']?.toString() ?? 'single',
-      bulkPricing: BulkPricing.fromJson(json['bulkPricing']),
+      bulkPricing: BulkPricing.fromJson(legacyBulk),
       colors: (json['colors'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(ProductColor.fromJson)
@@ -92,8 +97,23 @@ class Product {
           .whereType<Map<String, dynamic>>()
           .map(ProductSpecification.fromJson)
           .toList(),
+      minOrderQuantity: _parseOptionalQuantity(
+        json['minOrderQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['minOrderQuantity'] : null,
+      ),
+      stepByQuantity: _parseOptionalQuantity(
+        json['stepByQuantity'],
+        legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
+      ),
     );
   }
+}
+
+int? _parseOptionalQuantity(dynamic primary, dynamic legacy) {
+  final value = primary ?? legacy;
+  if (value == null) return null;
+  final parsed = _toInt(value);
+  return parsed > 0 ? parsed : null;
 }
 
 double _toDouble(dynamic value) {

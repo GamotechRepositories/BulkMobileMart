@@ -18,7 +18,10 @@ import {
   labelClass,
 } from "../adminStyles";
 
-import VariantPricingFields, { EMPTY_SLAB } from "../VariantPricingFields";
+import VariantPricingFields, {
+  EMPTY_SLAB,
+  ProductQuantityRulesFields,
+} from "../VariantPricingFields";
 import ProductSpecificationsField, {
   SPEC_CUSTOM_NAME,
   SPEC_CUSTOM_VALUE,
@@ -46,8 +49,6 @@ const EMPTY_VARIANT = {
   pricingType: "single",
   price: "",
   discountedPrice: "",
-  bulkMinOrderQuantity: "",
-  bulkStepByQuantity: "",
   slabs: [{ ...EMPTY_SLAB }],
   colors: [],
 };
@@ -115,8 +116,6 @@ function mapVariantFromProduct(variant) {
     pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
     price: String(variant.price ?? ""),
     discountedPrice: String(variant.discountedPrice ?? ""),
-    bulkMinOrderQuantity: String(variant.bulkPricing?.minOrderQuantity ?? ""),
-    bulkStepByQuantity: String(variant.bulkPricing?.stepByQuantity ?? ""),
     colors: Array.isArray(variant.colors)
       ? variant.colors.map((color) => ({
           name: color.name || "",
@@ -130,6 +129,17 @@ function mapVariantFromProduct(variant) {
             price: String(slab.pricePerUnit ?? ""),
           }))
         : [{ ...EMPTY_SLAB }],
+  };
+}
+
+function mapQuantityToPayload(variant) {
+  return {
+    minOrderQuantity: variant.minOrderQuantity?.trim()
+      ? Number(variant.minOrderQuantity)
+      : null,
+    stepByQuantity: variant.stepByQuantity?.trim()
+      ? Number(variant.stepByQuantity)
+      : null,
   };
 }
 
@@ -149,10 +159,6 @@ function mapVariantToPayload(variant) {
     return {
       ...base,
       bulkPricing: {
-        minOrderQuantity: Number(variant.bulkMinOrderQuantity),
-        stepByQuantity: variant.bulkStepByQuantity?.trim()
-          ? Number(variant.bulkStepByQuantity)
-          : null,
         slabs: variant.slabs
           .map((slab) => ({
             maxQuantity: slab.maxQuantity.trim()
@@ -170,7 +176,7 @@ function mapVariantToPayload(variant) {
     price: Number(variant.price),
     discountedPrice: Number(variant.discountedPrice),
     discountedPercent: deriveDiscountPercent(variant.price, variant.discountedPrice),
-    bulkPricing: { minOrderQuantity: null, stepByQuantity: null, slabs: [] },
+    bulkPricing: { slabs: [] },
   };
 }
 
@@ -184,8 +190,8 @@ const EMPTY_FORM = {
   pricingType: "single",
   price: "",
   discountedPrice: "",
-  bulkMinOrderQuantity: "",
-  bulkStepByQuantity: "",
+  minOrderQuantity: "",
+  stepByQuantity: "",
   inStock: true,
   colors: [],
   ratings: "0",
@@ -253,8 +259,12 @@ function AddProductSection() {
         pricingType: editProduct.pricingType === "bulk" ? "bulk" : "single",
         price: String(editProduct.price ?? ""),
         discountedPrice: String(editProduct.discountedPrice ?? ""),
-        bulkMinOrderQuantity: String(editProduct.bulkPricing?.minOrderQuantity ?? ""),
-        bulkStepByQuantity: String(editProduct.bulkPricing?.stepByQuantity ?? ""),
+        minOrderQuantity: String(
+          editProduct.minOrderQuantity ?? editProduct.bulkPricing?.minOrderQuantity ?? ""
+        ),
+        stepByQuantity: String(
+          editProduct.stepByQuantity ?? editProduct.bulkPricing?.stepByQuantity ?? ""
+        ),
         inStock: editProduct.inStock !== false,
         colors: Array.isArray(editProduct.colors)
           ? editProduct.colors.map((color) => ({
@@ -340,10 +350,6 @@ function AddProductSection() {
         return;
       }
     } else if (form.pricingType === "bulk") {
-      if (!form.bulkMinOrderQuantity.trim()) {
-        setError("MOQ is required for bulk pricing");
-        return;
-      }
       const validSlabs = bulkSlabs.filter((slab) => slab.price?.trim());
       if (validSlabs.length === 0) {
         setError("Add at least one pricing slab for bulk pricing");
@@ -392,6 +398,7 @@ function AddProductSection() {
               spec.value !== SPEC_CUSTOM_VALUE
           ),
         isActive: form.isActive,
+        ...mapQuantityToPayload(form),
       };
 
       if (form.variantType === "multi") {
@@ -400,10 +407,6 @@ function AddProductSection() {
           .map(mapVariantToPayload);
       } else if (form.pricingType === "bulk") {
         payload.bulkPricing = {
-          minOrderQuantity: Number(form.bulkMinOrderQuantity),
-          stepByQuantity: form.bulkStepByQuantity?.trim()
-            ? Number(form.bulkStepByQuantity)
-            : null,
           slabs: bulkSlabs
             .map((slab) => ({
               maxQuantity: slab.maxQuantity.trim()
@@ -417,7 +420,7 @@ function AddProductSection() {
         payload.price = Number(form.price);
         payload.discountedPrice = Number(form.discountedPrice);
         payload.discountedPercent = deriveDiscountPercent(form.price, form.discountedPrice);
-        payload.bulkPricing = { minOrderQuantity: null, stepByQuantity: null, slabs: [] };
+        payload.bulkPricing = { slabs: [] };
       }
 
       if (editingId) {
@@ -796,6 +799,13 @@ function AddProductSection() {
 
         {isMultiVariant ? (
           <div className="space-y-4">
+            <ProductQuantityRulesFields
+              minOrderQuantity={form.minOrderQuantity}
+              stepByQuantity={form.stepByQuantity}
+              onChange={({ minOrderQuantity, stepByQuantity }) =>
+                setForm((prev) => ({ ...prev, minOrderQuantity, stepByQuantity }))
+              }
+            />
             <div>
               <label className={labelClass}>Product variants *</label>
               <p className="mb-3 text-xs text-text-muted">
@@ -839,6 +849,8 @@ function AddProductSection() {
                 </div>
                 <VariantPricingFields
                   variant={variant}
+                  showQuantityRules={false}
+                  slabMinOrderQuantity={form.minOrderQuantity}
                   onChange={(updated) =>
                     setVariants((prev) =>
                       prev.map((item, i) => (i === index ? updated : item))
@@ -866,8 +878,8 @@ function AddProductSection() {
                 colors: form.colors,
                 price: form.price,
                 discountedPrice: form.discountedPrice,
-                bulkMinOrderQuantity: form.bulkMinOrderQuantity,
-                bulkStepByQuantity: form.bulkStepByQuantity,
+                minOrderQuantity: form.minOrderQuantity,
+                stepByQuantity: form.stepByQuantity,
                 slabs: bulkSlabs,
               }}
               onChange={(updated) => {
@@ -878,8 +890,8 @@ function AddProductSection() {
                   colors: updated.colors || [],
                   price: updated.price,
                   discountedPrice: updated.discountedPrice,
-                  bulkMinOrderQuantity: updated.bulkMinOrderQuantity,
-                  bulkStepByQuantity: updated.bulkStepByQuantity,
+                  minOrderQuantity: updated.minOrderQuantity,
+                  stepByQuantity: updated.stepByQuantity,
                 }));
                 setBulkSlabs(updated.slabs);
               }}

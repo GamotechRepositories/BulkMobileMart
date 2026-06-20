@@ -9,12 +9,16 @@ class PricingSource {
     required this.bulkPricing,
     required this.price,
     required this.discountedPrice,
+    this.minOrderQuantity,
+    this.stepByQuantity,
   });
 
   final String pricingType;
   final BulkPricing bulkPricing;
   final double price;
   final double discountedPrice;
+  final int? minOrderQuantity;
+  final int? stepByQuantity;
 }
 
 class BulkTierRow {
@@ -78,6 +82,9 @@ List<ProductColor> getAvailableColors(Product product, [String variantName = '']
 }
 
 PricingSource? getPricingSource(Product product, [String variantName = '']) {
+  final productMoq = product.minOrderQuantity;
+  final productStep = product.stepByQuantity;
+
   if (isMultiVariant(product)) {
     final variant = getVariant(product, variantName);
     if (variant == null) return null;
@@ -86,6 +93,8 @@ PricingSource? getPricingSource(Product product, [String variantName = '']) {
       bulkPricing: variant.bulkPricing,
       price: variant.price,
       discountedPrice: variant.discountedPrice,
+      minOrderQuantity: productMoq ?? variant.minOrderQuantity,
+      stepByQuantity: productStep ?? variant.stepByQuantity,
     );
   }
 
@@ -94,6 +103,8 @@ PricingSource? getPricingSource(Product product, [String variantName = '']) {
     bulkPricing: product.bulkPricing,
     price: product.price,
     discountedPrice: product.discountedPrice,
+    minOrderQuantity: productMoq,
+    stepByQuantity: productStep,
   );
 }
 
@@ -132,10 +143,9 @@ int getMinOrderQuantity(
   final source = getPricingSource(product, variantName);
   if (source == null) return fallback;
 
-  if (source.pricingType == 'bulk' &&
-      source.bulkPricing.minOrderQuantity != null &&
-      source.bulkPricing.minOrderQuantity! > 0) {
-    return source.bulkPricing.minOrderQuantity!;
+  final moq = source.minOrderQuantity;
+  if (moq != null && moq > 0) {
+    return moq;
   }
 
   return fallback;
@@ -149,19 +159,51 @@ int getQuantityStep(
   final source = getPricingSource(product, variantName);
   if (source == null) return fallback;
 
-  if (source.pricingType == 'bulk') {
-    final step = source.bulkPricing.stepByQuantity;
-    if (step != null && step > 0) return step;
-
-    final moq = source.bulkPricing.minOrderQuantity;
-    if (moq != null && moq > 0) return moq;
+  final step = source.stepByQuantity;
+  if (step != null && step > 0) {
+    return step;
   }
 
   return fallback;
 }
 
+int getCartAdjustStep(
+  Product product, [
+  String variantName = '',
+  int fallback = defaultSingleMoq,
+]) {
+  final source = getPricingSource(product, variantName);
+  if (source == null) return fallback;
+
+  final step = source.stepByQuantity;
+  if (step != null && step > 0) {
+    return step;
+  }
+
+  final moq = source.minOrderQuantity;
+  if (moq != null && moq > 0) {
+    return moq;
+  }
+
+  return fallback;
+}
+
+bool hasConfiguredMinOrderQuantity(Product product, [String variantName = '']) {
+  final source = getPricingSource(product, variantName);
+  if (source == null) return false;
+  final moq = source.minOrderQuantity;
+  return moq != null && moq > 1;
+}
+
+bool hasConfiguredQuantityStep(Product product, [String variantName = '']) {
+  final source = getPricingSource(product, variantName);
+  if (source == null) return false;
+  final step = source.stepByQuantity;
+  return step != null && step > 1;
+}
+
 int getCartStepForProduct(Product product, [String variantName = '']) {
-  return getQuantityStep(product, variantName);
+  return getCartAdjustStep(product, variantName);
 }
 
 int getDecreasedCartQuantityForProduct(
