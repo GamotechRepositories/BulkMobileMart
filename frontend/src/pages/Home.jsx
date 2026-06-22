@@ -14,13 +14,13 @@ function Home() {
     <div className="bg-mobile-bg">
       <HeroBanner />
       <CategoryNav />
+      <TopBrands />
+      <BestDeals />
       <div className="flex flex-col gap-1.5 py-1.5 sm:gap-2 sm:py-2">
         <JustArrived />
         <HotSelling />
         <RecentlyViewed />
       </div>
-      <TopBrands />
-      <BestDeals />
       <WhyChooseUs />
       <PromoBanner />
       <TestimonialsImpact />

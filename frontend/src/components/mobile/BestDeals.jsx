@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getProducts } from "../../api/api";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "./SectionHeader";
 import DealProductCard from "../product/DealProductCard";
+import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
 const HOME_PRODUCT_LIMIT = 12;
-const MOBILE_ITEMS_PER_SLIDE = 4;
 
 const FALLBACK_PRODUCTS = [
   { _id: "1", name: "Fast Charger", sub: "20W", price: 165, discountedPrice: 165 },
@@ -21,14 +21,6 @@ const FALLBACK_PRODUCTS = [
   { _id: "11", name: "BT Speaker", sub: "Mini", price: 599, discountedPrice: 599 },
   { _id: "12", name: "Mobile Cover", sub: "Silicone", price: 149, discountedPrice: 149 },
 ];
-
-function chunkProducts(items, size) {
-  const batches = [];
-  for (let index = 0; index < items.length; index += size) {
-    batches.push(items.slice(index, index + size));
-  }
-  return batches;
-}
 
 function BestDeals() {
   const [products, setProducts] = useState([]);
@@ -53,10 +45,6 @@ function BestDeals() {
   }, []);
 
   const displayProducts = (loading ? FALLBACK_PRODUCTS : products).slice(0, HOME_PRODUCT_LIMIT);
-  const mobileBatches = useMemo(
-    () => chunkProducts(displayProducts, MOBILE_ITEMS_PER_SLIDE),
-    [displayProducts]
-  );
 
   const cardProps = (product) => ({
     product,
@@ -64,35 +52,29 @@ function BestDeals() {
     onIncrease: handleIncrease,
     onDecrease: handleDecrease,
     cartQuantity: getCartQuantity(product),
-    layout: "grid",
+    layout: "scroll",
   });
 
   return (
     <section className="bg-white px-4 sm:px-6 md:px-8">
       <SectionHeader title="Best Prices Unbeatable Deals" viewAllTo="/product" className="mb-2" />
 
-      <div className="md:hidden">
-        <div className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth pb-1">
-          {mobileBatches.map((batch, batchIndex) => (
+      {loading ? (
+        <HorizontalScrollRow>
+          {Array.from({ length: 6 }).map((_, index) => (
             <div
-              key={`deals-batch-${batchIndex}`}
-              className="w-full shrink-0 snap-start"
-            >
-              <div className="grid grid-cols-2 grid-rows-2 gap-2.5">
-                {batch.map((product) => (
-                  <DealProductCard key={product._id} {...cardProps(product)} />
-                ))}
-              </div>
-            </div>
+              key={`deals-skeleton-${index}`}
+              className="h-[258px] w-[150px] shrink-0 animate-pulse rounded-xl border border-border-light bg-gray-100 sm:w-[165px]"
+            />
           ))}
-        </div>
-      </div>
-
-      <div className="hidden grid-cols-4 gap-4 md:grid lg:grid-cols-6">
-        {displayProducts.map((product) => (
-          <DealProductCard key={`desktop-${product._id}`} {...cardProps(product)} />
-        ))}
-      </div>
+        </HorizontalScrollRow>
+      ) : (
+        <HorizontalScrollRow>
+          {displayProducts.map((product) => (
+            <DealProductCard key={product._id} {...cardProps(product)} />
+          ))}
+        </HorizontalScrollRow>
+      )}
     </section>
   );
 }

@@ -25,7 +25,7 @@ function DealProductCard({
   const handleAdd = onIncrease || onAdd;
 
   const layoutClass =
-    layout === "scroll" ? "w-[150px] shrink-0 sm:w-[165px]" : "w-full";
+    layout === "scroll" ? "w-[150px] shrink-0 snap-start sm:w-[165px]" : "w-full";
 
   const productUrl =
     product._id?.length > 10 ? `/product/${product._id}` : "/product";

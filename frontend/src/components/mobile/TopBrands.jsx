@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getBrands } from "../../api/api";
 import SectionHeader from "./SectionHeader";
+import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
 function BrandCard({ brand }) {
   return (
@@ -41,11 +43,11 @@ function TopBrands() {
   return (
     <section className="bg-white px-4 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
       <SectionHeader title="Top Brands" viewAllTo="/product" />
-      <div className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-1 sm:gap-4">
+      <HorizontalScrollRow autoScroll gapClassName="gap-3 sm:gap-4">
         {brands.map((brand) => (
           <BrandCard key={brand._id} brand={brand} />
         ))}
-      </div>
+      </HorizontalScrollRow>
     </section>
   );
 }

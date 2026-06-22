@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../api/api";
+import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
 const MOBILE_ITEMS_PER_SLIDE = 6;
 const DESKTOP_ITEMS_PER_SLIDE = 12;
@@ -218,7 +219,7 @@ function CategoryTwoRowSlider({ sectionKey, categories }) {
   return (
     <div className="mb-6 last:mb-0 sm:mb-8">
       <div className="px-1 sm:px-2">
-        <div className="hide-scrollbar flex snap-x snap-mandatory overflow-x-auto scroll-smooth">
+        <HorizontalScrollRow autoScroll gapClassName="gap-0">
           {batches.map((batch, batchIndex) => (
             <div
               key={`${sectionKey}-batch-${batchIndex}`}
@@ -231,7 +232,7 @@ function CategoryTwoRowSlider({ sectionKey, categories }) {
               </div>
             </div>
           ))}
-        </div>
+        </HorizontalScrollRow>
       </div>
     </div>
   );
