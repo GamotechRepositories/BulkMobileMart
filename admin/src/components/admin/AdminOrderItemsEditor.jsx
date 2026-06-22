@@ -8,7 +8,7 @@ import {
   isMultiVariant,
 } from "../../utils/productPricing";
 import { calculateOrderTotal } from "../../utils/gst";
-import { calculateShippingCharge, getStoreSettings } from "../../utils/orderSettings";
+import { calculateShippingCharge } from "../../utils/orderSettings";
 import {
   adminCompactTableClass,
   adminCompactTdClass,

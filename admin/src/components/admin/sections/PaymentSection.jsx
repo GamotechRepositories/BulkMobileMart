@@ -16,41 +16,17 @@ import PaymentDetailModal from "./PaymentDetailModal";
 import {
   downloadPaymentsCsv,
   formatDate,
+  formatPrice,
   getCustomerName,
   getCustomerPhone,
   getOrderDisplayId,
-  getPaymentMethodLabel,
-  getPaymentStatus,
-  getProductSummary,
+  getPaymentAmount,
+  getRazorpayPaymentId,
   normalizeAdminSearchQuery,
 } from "./adminOrderUtils";
 
 function getErrorMessage(err, fallback) {
   return err.response?.data?.message || err.message || fallback;
-}
-
-function getPaidType(order, proof) {
-  if (proof) {
-    return proof.paymentType === "cod_advance" ? "UPI · COD advance" : "UPI · Online";
-  }
-  if (order.razorpayPaymentId || order.codAdvanceRazorpayPaymentId) return "Razorpay";
-  return getPaymentMethodLabel(order);
-}
-
-function getRowStatus(order, proof) {
-  if (proof) {
-    if (proof.status === "verified") return { label: "Approved", className: "bg-green-100 text-green-800" };
-    if (proof.status === "rejected") return { label: "Rejected", className: "bg-red-100 text-red-800" };
-    return { label: "Pending", className: "bg-amber-100 text-amber-800" };
-  }
-
-  const status = getPaymentStatus(order);
-  if (status === "paid") return { label: "Paid", className: "bg-green-100 text-green-800" };
-  if (status === "refundable") return { label: "Refundable", className: "bg-blue-100 text-blue-800" };
-  if (status === "pending_verification") {
-    return { label: "Pending verification", className: "bg-amber-100 text-amber-800" };
-  }
-  return { label: "Unpaid", className: "bg-neutral-100 text-neutral-700" };
 }
 
 function PaymentSection() {
@@ -203,9 +179,8 @@ function PaymentSection() {
               <tr className={adminTableHeaderClass}>
                 <th className={adminCompactThClass}>Order ID</th>
                 <th className={adminCompactThClass}>Customer</th>
-                <th className={adminCompactThClass}>Product</th>
-                <th className={adminCompactThClass}>Paid type</th>
-                <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Razorpay ID</th>
+                <th className={adminCompactThClass}>Amount</th>
                 <th className={adminCompactThClass}>Date</th>
                 <th className={adminCompactThClass}>Action</th>
               </tr>
@@ -213,7 +188,6 @@ function PaymentSection() {
             <tbody>
               {orders.map((order) => {
                 const proof = proofByOrderId.get(String(order._id));
-                const status = getRowStatus(order, proof);
 
                 return (
                   <tr
@@ -231,20 +205,11 @@ function PaymentSection() {
                         {getCustomerPhone(order)}
                       </p>
                     </td>
-                    <td className={`${adminCompactTdClass} text-neutral-600`}>
-                      <span className="line-clamp-2 break-words">
-                        {getProductSummary(order)}
-                      </span>
+                    <td className={`${adminCompactTdClass} font-mono text-[10px] text-neutral-600`}>
+                      {getRazorpayPaymentId(order, proof) || "—"}
                     </td>
-                    <td className={`${adminCompactTdClass} text-neutral-600`}>
-                      {getPaidType(order, proof)}
-                    </td>
-                    <td className={adminCompactTdClass}>
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${status.className}`}
-                      >
-                        {status.label}
-                      </span>
+                    <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
+                      {formatPrice(getPaymentAmount(order, proof))}
                     </td>
                     <td className={`${adminCompactTdClass} text-neutral-600`}>
                       {formatDate(proof?.verifiedAt || order.createdAt)}

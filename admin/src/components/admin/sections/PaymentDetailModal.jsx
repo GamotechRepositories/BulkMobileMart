@@ -9,10 +9,13 @@ import {
   getOrderDisplayId,
   getOrderMessage,
   getOrderStatusLabel,
+  getPaidTypeLabel,
+  getPaymentAmount,
   getPaymentMethodLabel,
   getPaymentStatus,
   getProductSummary,
-  getTransactionId,
+  getRazorpayPaymentId,
+  getUpiTransactionId,
 } from "./adminOrderUtils";
 
 function getErrorMessage(err, fallback) {
@@ -53,6 +56,15 @@ function getPaymentStatusLabel(status) {
   if (status === "paid") return "Paid";
   if (status === "refundable") return "Refundable";
   return "Unpaid";
+}
+
+function DetailRow({ label, value, mono = false, className = "" }) {
+  return (
+    <p className={className}>
+      <span className="font-semibold text-neutral-700">{label}:</span>{" "}
+      <span className={mono ? "font-mono text-xs break-all" : ""}>{value ?? "—"}</span>
+    </p>
+  );
 }
 
 function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
@@ -112,6 +124,9 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
 
   const paymentStatus = getPaymentStatus(order);
   const items = proof?.items?.length ? proof.items : order?.items || [];
+  const deliveryAddress = proof?.deliveryAddress || order?.deliveryAddress;
+  const customerEmail =
+    proof?.user?.email || proof?.deliveryAddress?.email || order?.deliveryAddress?.email || "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -132,146 +147,178 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
         ) : error && !order && !proof ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : (
-          <div className="space-y-4 text-sm">
+          <div className="space-y-5 text-sm">
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{error}</p>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <p>
-                <span className="font-semibold text-neutral-700">Order ID:</span>{" "}
-                {proof?.orderNumber || getOrderDisplayId(order)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Payment status:</span>{" "}
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                    proof
-                      ? getProofStatusBadgeClass(proof.status)
-                      : getPaymentStatusBadgeClass(paymentStatus)
-                  }`}
-                >
-                  {proof ? getProofStatusLabel(proof.status) : getPaymentStatusLabel(paymentStatus)}
-                </span>
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Order status:</span>{" "}
-                {getOrderStatusLabel(proof?.order?.status || order?.status)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Paid type:</span>{" "}
-                {proof
-                  ? proof.paymentType === "cod_advance"
-                    ? "UPI · COD advance (10%)"
-                    : "UPI · Online full"
-                  : order?.razorpayPaymentId
-                    ? "Razorpay"
-                    : getPaymentMethodLabel(order)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Customer:</span>{" "}
-                {proof?.user?.name || getCustomerName(order)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Phone:</span>{" "}
-                {proof?.user?.phone || proof?.deliveryAddress?.number || getCustomerPhone(order)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Amount paid:</span>{" "}
-                {formatPrice(proof?.amount ?? order?.total)}
-              </p>
-              <p>
-                <span className="font-semibold text-neutral-700">Order total:</span>{" "}
-                {formatPrice(proof?.orderTotal ?? order?.total)}
-              </p>
-              {(proof?.upiTransactionRef || getTransactionId(order)) && (
-                <p className="sm:col-span-2">
-                  <span className="font-semibold text-neutral-700">Transaction / UPI ref:</span>{" "}
-                  {proof?.upiTransactionRef || getTransactionId(order) || "—"}
-                </p>
-              )}
-              <p className="sm:col-span-2">
-                <span className="font-semibold text-neutral-700">Date:</span>{" "}
-                {formatDateTime(proof?.createdAt || order?.createdAt)}
-              </p>
-              {proof?.verifiedAt && (
-                <p className="sm:col-span-2">
-                  <span className="font-semibold text-neutral-700">Reviewed on:</span>{" "}
-                  {formatDateTime(proof.verifiedAt)}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <p className="mb-1 font-semibold text-neutral-700">Products</p>
-              <ul className="rounded-lg bg-neutral-50 p-3 text-neutral-800">
-                {items.map((item, index) => (
-                  <li key={`${item.product || item.name}-${index}`}>
-                    {item.name} × {item.quantity}
-                    {item.price != null ? ` — ${formatPrice(item.price * item.quantity)}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {(proof?.deliveryAddress || order?.deliveryAddress) && (
-              <div>
-                <p className="mb-1 font-semibold text-neutral-700">Delivery address</p>
-                <p className="rounded-lg bg-neutral-50 p-3 text-neutral-800">
-                  {(() => {
-                    const addr = proof?.deliveryAddress || order?.deliveryAddress;
-                    return (
-                      <>
-                        {getAddressFullName(addr)}, {addr.number}
-                        {addr.email ? (
-                          <>
-                            <br />
-                            {addr.email}
-                          </>
-                        ) : null}
-                        <br />
-                        {formatAddressLine(addr)}
-                      </>
-                    );
-                  })()}
-                </p>
+            <section>
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Order
+              </h4>
+              <div className="grid gap-3 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
+                <DetailRow label="Order ID" value={proof?.orderNumber || getOrderDisplayId(order)} />
+                <DetailRow
+                  label="Order status"
+                  value={getOrderStatusLabel(proof?.order?.status || order?.status)}
+                />
+                <DetailRow
+                  label="Payment status"
+                  value={
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        proof
+                          ? getProofStatusBadgeClass(proof.status)
+                          : getPaymentStatusBadgeClass(paymentStatus)
+                      }`}
+                    >
+                      {proof
+                        ? getProofStatusLabel(proof.status)
+                        : getPaymentStatusLabel(paymentStatus)}
+                    </span>
+                  }
+                />
+                <DetailRow label="Payment method" value={getPaymentMethodLabel(order)} />
+                <DetailRow label="Paid type" value={getPaidTypeLabel(order, proof)} />
+                <DetailRow label="Date" value={formatDateTime(proof?.createdAt || order?.createdAt)} />
+                {proof?.verifiedAt ? (
+                  <DetailRow label="Reviewed on" value={formatDateTime(proof.verifiedAt)} />
+                ) : null}
               </div>
-            )}
+            </section>
 
-            {(proof?.customerMessage || getOrderMessage(order)) && (
-              <div>
-                <p className="mb-1 font-semibold text-neutral-700">Customer note</p>
+            <section>
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Customer
+              </h4>
+              <div className="grid gap-3 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
+                <DetailRow label="Name" value={proof?.user?.name || getCustomerName(order)} />
+                <DetailRow
+                  label="Phone"
+                  value={proof?.user?.phone || proof?.deliveryAddress?.number || getCustomerPhone(order)}
+                />
+                <DetailRow label="Email" value={customerEmail} className="sm:col-span-2" />
+              </div>
+            </section>
+
+            <section>
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Payment
+              </h4>
+              <div className="grid gap-3 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
+                <DetailRow
+                  label="Razorpay ID"
+                  value={getRazorpayPaymentId(order, proof) || "—"}
+                  mono
+                  className="sm:col-span-2"
+                />
+                <DetailRow
+                  label="Razorpay order ID"
+                  value={order?.razorpayOrderId || "—"}
+                  mono
+                  className="sm:col-span-2"
+                />
+                <DetailRow
+                  label="UPI / transaction ref"
+                  value={getUpiTransactionId(order, proof) || "—"}
+                  mono
+                  className="sm:col-span-2"
+                />
+                <DetailRow label="Amount paid" value={formatPrice(getPaymentAmount(order, proof))} />
+                <DetailRow
+                  label="Order total"
+                  value={formatPrice(proof?.orderTotal ?? order?.total)}
+                />
+                {order?.subtotal != null ? (
+                  <DetailRow label="Subtotal" value={formatPrice(order.subtotal)} />
+                ) : null}
+                {order?.deliveryCharges != null ? (
+                  <DetailRow label="Delivery" value={formatPrice(order.deliveryCharges)} />
+                ) : null}
+                {proof?.paymentType ? (
+                  <DetailRow label="Proof payment type" value={proof.paymentType} />
+                ) : null}
+                {proof?.source ? (
+                  <DetailRow label="Payment source" value={proof.source} />
+                ) : null}
+              </div>
+            </section>
+
+            <section>
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                Products
+              </h4>
+              <ul className="rounded-lg bg-neutral-50 p-3 text-neutral-800">
+                {items.length > 0 ? (
+                  items.map((item, index) => (
+                    <li key={`${item.product || item.name}-${index}`} className="py-0.5">
+                      {item.name} × {item.quantity}
+                      {item.price != null ? ` — ${formatPrice(item.price * item.quantity)}` : ""}
+                    </li>
+                  ))
+                ) : (
+                  <li>{getProductSummary(order) || "—"}</li>
+                )}
+              </ul>
+            </section>
+
+            {deliveryAddress ? (
+              <section>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                  Delivery address
+                </h4>
+                <p className="rounded-lg bg-neutral-50 p-3 text-neutral-800">
+                  {getAddressFullName(deliveryAddress)}, {deliveryAddress.number}
+                  {deliveryAddress.email ? (
+                    <>
+                      <br />
+                      {deliveryAddress.email}
+                    </>
+                  ) : null}
+                  <br />
+                  {formatAddressLine(deliveryAddress)}
+                </p>
+              </section>
+            ) : null}
+
+            {(proof?.customerMessage || getOrderMessage(order)) ? (
+              <section>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                  Customer note
+                </h4>
                 <p className="rounded-lg bg-neutral-50 p-3 text-neutral-800">
                   {proof?.customerMessage || getOrderMessage(order)}
                 </p>
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {proof?.screenshot && (
-              <div>
-                <p className="mb-2 font-semibold text-neutral-700">Payment screenshot</p>
+            {proof?.screenshot ? (
+              <section>
+                <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                  Payment screenshot
+                </h4>
                 <img
                   src={proof.screenshot}
                   alt={proof.screenshotName || "Payment screenshot"}
                   className="max-h-96 rounded-lg border border-neutral-200 object-contain"
                 />
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {proof?.status === "rejected" && proof.rejectionReason && (
+            {proof?.status === "rejected" && proof.rejectionReason ? (
               <div className="rounded-lg bg-red-50 p-3 text-red-800">
                 <p className="font-semibold">Rejection reason</p>
                 <p className="mt-1">{proof.rejectionReason}</p>
               </div>
-            )}
+            ) : null}
 
-            {proof?.status === "verified" && (
+            {proof?.status === "verified" ? (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-800">
                 Payment approved successfully.
               </div>
-            )}
+            ) : null}
 
-            {proof?.status === "pending" && (
+            {proof?.status === "pending" ? (
               <div className="space-y-3 border-t border-neutral-100 pt-4">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-neutral-600">
@@ -304,7 +351,7 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

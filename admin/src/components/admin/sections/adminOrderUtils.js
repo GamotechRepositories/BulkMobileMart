@@ -149,6 +149,38 @@ export function getTransactionId(order) {
   return order.razorpayPaymentId || order.razorpayOrderId || "";
 }
 
+export function getRazorpayPaymentId(order, proof) {
+  if (proof?.razorpayPaymentId) return proof.razorpayPaymentId;
+  if (!order) return "";
+  return (
+    order.razorpayPaymentId ||
+    order.codAdvanceRazorpayPaymentId ||
+    order.razorpayOrderId ||
+    ""
+  );
+}
+
+export function getUpiTransactionId(_order, proof) {
+  return proof?.upiTransactionRef || "";
+}
+
+export function getPaymentAmount(order, proof) {
+  if (proof?.amount != null) return proof.amount;
+  if (!order) return 0;
+  if (order.paymentStatus === "paid_10" && Number(order.codAdvanceAmount) > 0) {
+    return order.codAdvanceAmount;
+  }
+  return order.total ?? 0;
+}
+
+export function getPaidTypeLabel(order, proof) {
+  if (proof) {
+    return proof.paymentType === "cod_advance" ? "UPI · COD advance (10%)" : "UPI · Online full";
+  }
+  if (order?.razorpayPaymentId || order?.codAdvanceRazorpayPaymentId) return "Razorpay";
+  return getPaymentMethodLabel(order);
+}
+
 function downloadCsv(headers, rows, filename) {
   const csv = [headers, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))

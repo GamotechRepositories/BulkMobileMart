@@ -49,7 +49,7 @@ const NAV_ITEMS = [
       { to: "/products/show", label: "Show Product" },
     ],
   },
-  { type: "link", to: "/orders", label: "Orders", icon: IconOrder },
+  { type: "link", to: "/orders", label: "Orders", icon: IconOrder, resolveActive: isOrdersNavActive },
   { type: "link", to: "/orders/create", label: "Create Order", icon: IconCreateOrder },
   {
     type: "group",
@@ -94,6 +94,17 @@ const navLinkClass = ({ isActive }) =>
       ? "bg-accent text-white"
       : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
   }`;
+
+function isOrdersNavActive(pathname) {
+  return (
+    pathname === "/orders" ||
+    (pathname.startsWith("/orders/") && pathname !== "/orders/create")
+  );
+}
+
+function isOrdersSectionPath(pathname) {
+  return isOrdersNavActive(pathname);
+}
 
 const subNavLinkClass = ({ isActive }) =>
   `block rounded-lg py-2 pl-11 pr-3 text-sm transition ${
@@ -291,6 +302,11 @@ function SidebarContent({
               end={item.end}
               title={collapsed ? item.label : undefined}
               onClick={onNavigate}
+              isActive={
+                item.resolveActive
+                  ? ({ location }) => item.resolveActive(location.pathname)
+                  : undefined
+              }
               className={({ isActive }) =>
                 collapsed
                   ? `flex items-center justify-center rounded-lg p-2.5 transition ${
@@ -336,7 +352,7 @@ function AdminLayout() {
 
   const isDashboard = location.pathname === "/" || location.pathname === "";
   const isSupportPage = location.pathname === "/support";
-  const isOrdersPage = location.pathname === "/orders" || /^\/orders\/[^/]+$/.test(location.pathname);
+  const isOrdersPage = isOrdersSectionPath(location.pathname);
   const isPaymentsPage = location.pathname === "/payments";
 
   useEffect(() => {
