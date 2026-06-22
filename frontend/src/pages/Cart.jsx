@@ -372,6 +372,10 @@ function Cart() {
 
   const handleClearCart = async () => {
     if (!items.length || clearing) return;
+
+    const confirmed = window.confirm("Are you sure you want to clear your cart?");
+    if (!confirmed) return;
+
     setClearing(true);
     try {
       // Delete sequentially to avoid concurrent cart document writes on backend.
