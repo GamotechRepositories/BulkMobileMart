@@ -9,7 +9,7 @@ import {
   getMyOrders,
 } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
-import ProductImageFrame from "../components/product/ProductImageFrame";
+import BuyAgainCard from "../components/product/BuyAgainCard";
 import {
   formatAddressLine,
   getAddressFullName,
@@ -58,13 +58,6 @@ function extractRecentOrderItems(orders, maxItems = 12) {
 
   return items;
 }
-
-const formatPrice = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
 
 function ProfileInfoRow({ icon, label, value, onEdit, showDivider }) {
   return (
@@ -367,25 +360,14 @@ function Profile() {
                 ? [1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
-                      className="h-[168px] w-28 shrink-0 animate-pulse rounded-2xl bg-mobile-surface"
+                      className="h-[210px] w-[140px] shrink-0 animate-pulse rounded-2xl bg-mobile-surface"
                     />
                   ))
                 : recentItems.map((item) => (
-                    <Link
-                      key={`${item.productId}-${item.variantName || "default"}`}
-                      to={`/product/${item.productId}`}
-                      className="w-28 shrink-0 overflow-hidden rounded-2xl border border-border-light bg-white"
-                    >
-                      <div className="aspect-square overflow-hidden border-b border-border-light">
-                        <ProductImageFrame src={item.image} alt={item.name} />
-                      </div>
-                      <div className="space-y-1 p-2">
-                        <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-text-primary">
-                          {item.name}
-                        </p>
-                        <p className="text-xs font-bold text-primary">{formatPrice(item.price)}</p>
-                      </div>
-                    </Link>
+                    <BuyAgainCard
+                      key={`${item.productId}-${item.variantName || "default"}-${item.colorName || "default"}`}
+                      item={item}
+                    />
                   ))}
             </div>
           </section>

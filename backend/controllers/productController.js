@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import mongoose from "mongoose";
 import { normalizeOptionalQuantity, resolvePricingFields } from "../utils/productPricing.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 
@@ -7,6 +8,8 @@ const MOST_PURCHASE_TAG = "Most Purchase";
 
 const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeProductFlag = (value) => value === true || value === "true";
 
 const normalizeImages = (productImages, images) => {
   const source = productImages ?? images;
@@ -289,6 +292,8 @@ const buildProductPayload = (body) => {
     specifications: normalizeSpecifications(body.specifications),
     warranty: body.warranty?.trim() ?? "",
     isActive: body.isActive !== false,
+    justArrived: normalizeProductFlag(body.justArrived),
+    hotSelling: normalizeProductFlag(body.hotSelling),
   };
 };
 
@@ -420,6 +425,25 @@ const sortOptions = { "categories.0": 1, subcategory: 1, createdAt: -1 };
 export const getProducts = async (req, res) => {
   try {
     const filter = { isActive: true };
+
+    if (req.query.justArrived === "true") {
+      filter.justArrived = true;
+    }
+
+    if (req.query.hotSelling === "true") {
+      filter.hotSelling = true;
+    }
+
+    if (req.query.ids) {
+      const ids = String(req.query.ids)
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+      if (ids.length) {
+        filter._id = { $in: ids };
+      }
+    }
 
     if (
       req.query.mostPurchase === "true" ||
@@ -602,6 +626,8 @@ export const addProduct = async (req, res) => {
       specifications: payload.specifications,
       warranty: payload.warranty,
       isActive: payload.isActive ?? true,
+      justArrived: payload.justArrived,
+      hotSelling: payload.hotSelling,
     });
 
     res.status(201).json({ success: true, data: product });
@@ -668,6 +694,14 @@ export const updateProduct = async (req, res) => {
       specifications: req.body.specifications ?? existing.specifications,
       warranty: req.body.warranty ?? existing.warranty,
       isActive: req.body.isActive ?? existing.isActive,
+      justArrived:
+        req.body.justArrived !== undefined
+          ? req.body.justArrived
+          : existing.justArrived,
+      hotSelling:
+        req.body.hotSelling !== undefined
+          ? req.body.hotSelling
+          : existing.hotSelling,
       sku: req.body.sku ?? existing.sku,
       minOrderQuantity:
         req.body.minOrderQuantity !== undefined
@@ -730,6 +764,8 @@ export const updateProduct = async (req, res) => {
         specifications: payload.specifications,
         warranty: payload.warranty,
         isActive: payload.isActive,
+        justArrived: payload.justArrived,
+        hotSelling: payload.hotSelling,
       },
       { new: true, runValidators: true }
     );

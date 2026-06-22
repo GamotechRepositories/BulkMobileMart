@@ -16,6 +16,8 @@ import Contact from "./pages/Contact";
 import Support from "./pages/Support";
 import Product from "./pages/Product";
 import ProductDetail from "./pages/ProductDetail";
+import JustArrivedPage from "./pages/JustArrivedPage";
+import HotSellingPage from "./pages/HotSellingPage";
 import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Checkout from "./pages/Checkout";
@@ -102,6 +104,22 @@ function App() {
             element={
               <MobileLayout>
                 <Checkout />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/just-arrived"
+            element={
+              <MobileLayout>
+                <JustArrivedPage />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/hot-selling"
+            element={
+              <MobileLayout>
+                <HotSellingPage />
               </MobileLayout>
             }
           />

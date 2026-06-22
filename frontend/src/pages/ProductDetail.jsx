@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
@@ -680,6 +681,10 @@ function ProductDetail() {
         setSelectedColor(initialColors[0]?.name || "");
         setActiveMedia(0);
         setActiveTab("description");
+
+        if (nextProduct?._id) {
+          addRecentlyViewed(nextProduct._id);
+        }
       } catch {
         setProduct(null);
         setSelectedVariant("");

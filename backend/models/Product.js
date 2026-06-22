@@ -281,6 +281,16 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    justArrived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    hotSelling: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true }
 );

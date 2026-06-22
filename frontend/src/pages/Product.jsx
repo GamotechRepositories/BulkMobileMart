@@ -174,6 +174,8 @@ function Product() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
+  const justArrived = searchParams.get("justArrived") === "true";
+  const hotSelling = searchParams.get("hotSelling") === "true";
 
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
@@ -190,6 +192,8 @@ function Product() {
         const params = {};
         if (categoryName) params.categoryName = categoryName;
         if (searchQuery) params.q = searchQuery;
+        if (justArrived) params.justArrived = true;
+        if (hotSelling) params.hotSelling = true;
 
         const [categoriesRes, productsRes] = await Promise.all([
           getCategories(),
@@ -207,7 +211,7 @@ function Product() {
     };
 
     fetchData();
-  }, [categoryName, searchQuery]);
+  }, [categoryName, searchQuery, justArrived, hotSelling]);
 
 
   if (searchQuery && !categoryName) {

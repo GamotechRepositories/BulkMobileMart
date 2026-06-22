@@ -200,6 +200,8 @@ const EMPTY_FORM = {
   videoInputType: "url",
   specifications: createDefaultSpecifications(),
   isActive: true,
+  justArrived: false,
+  hotSelling: false,
 };
 
 function AddProductSection() {
@@ -285,6 +287,8 @@ function AddProductSection() {
               }))
             : createDefaultSpecifications(),
         isActive: editProduct.isActive,
+        justArrived: Boolean(editProduct.justArrived),
+        hotSelling: Boolean(editProduct.hotSelling),
       });
       const slabs = editProduct.bulkPricing?.slabs || [];
       setBulkSlabs(
@@ -398,6 +402,8 @@ function AddProductSection() {
               spec.value !== SPEC_CUSTOM_VALUE
           ),
         isActive: form.isActive,
+        justArrived: form.justArrived,
+        hotSelling: form.hotSelling,
         ...mapQuantityToPayload(form),
       };
 
@@ -714,7 +720,7 @@ function AddProductSection() {
 
         <div className="rounded-lg border border-border-light p-4">
           <p className="mb-3 text-sm font-semibold text-text-primary">Product status</p>
-          <div className={`grid gap-3 ${isMultiVariant ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div className={`grid gap-3 ${isMultiVariant ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2"}`}>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -735,6 +741,24 @@ function AddProductSection() {
                 <span>In stock</span>
               </label>
             ) : null}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.justArrived}
+                onChange={(e) => setField("justArrived", e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-primary"
+              />
+              <span>Just arrived</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.hotSelling}
+                onChange={(e) => setField("hotSelling", e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-primary"
+              />
+              <span>Hot selling</span>
+            </label>
           </div>
         </div>
 
