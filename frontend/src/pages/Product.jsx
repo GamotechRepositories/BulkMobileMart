@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getProducts } from "../api/api";
-import { useAuth } from "../context/AuthContext";
-import { useCart } from "../context/CartContext";
+import { useProductCartActions } from "../hooks/useProductCartActions";
 import CategoryProductLayout, {
   AllProductsLayout,
   DesktopCategorySidebar,
   MobileCategoryProductLayout,
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
-import {
-  getCartStepForProduct,
-  getDecreasedCartQuantityForProduct,
-  resolveCartDefaults,
-} from "../utils/cartDefaults";
 
 function FilterIcon() {
   return (
@@ -187,8 +181,7 @@ function Product() {
   const [sortBy, setSortBy] = useState("default");
   const [showSort, setShowSort] = useState(false);
 
-  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
-  const { openAuthModal } = useAuth();
+  const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -216,56 +209,6 @@ function Product() {
     fetchData();
   }, [categoryName, searchQuery]);
 
-  const getCartLine = (product) => {
-    if (!product?._id) return null;
-    const { variantName, colorName } = resolveCartDefaults(product);
-    return (
-      items.find(
-        (item) =>
-          item._id === product._id &&
-          (item.variantName || "") === variantName &&
-          (item.colorName || "") === colorName
-      ) || null
-    );
-  };
-
-  const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
-
-  const handleIncrease = async (product, flySource) => {
-    if (!product._id) return;
-    const { variantName, colorName, quantity } = resolveCartDefaults(product);
-    const step = getCartStepForProduct(product, variantName);
-    const line = getCartLine(product);
-    const addQty = line ? step : quantity;
-    const result = await addToCart(product, addQty, {
-      variantName,
-      colorName,
-      flySource: line ? undefined : flySource,
-    });
-    if (result?.requiresLogin) {
-      openAuthModal("login");
-    }
-  };
-
-  const handleDecrease = async (product) => {
-    const line = getCartLine(product);
-    if (!line) return;
-    const nextQty = getDecreasedCartQuantityForProduct(
-      product,
-      line.quantity,
-      line.variantName || ""
-    );
-    if (nextQty <= 0) {
-      await removeFromCart(line._id, line.variantName || "", line.colorName || "");
-      return;
-    }
-    await updateQuantity(
-      line._id,
-      nextQty,
-      line.variantName || "",
-      line.colorName || ""
-    );
-  };
 
   if (searchQuery && !categoryName) {
     return (

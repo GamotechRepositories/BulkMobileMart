@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getProducts } from "../../api/api";
-import { useAuth } from "../../context/AuthContext";
-import { useCart } from "../../context/CartContext";
-import {
-  getCartStepForProduct,
-  getDecreasedCartQuantityForProduct,
-  resolveCartDefaults,
-} from "../../utils/cartDefaults";
+import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "./SectionHeader";
 import DealProductCard from "../product/DealProductCard";
 
@@ -39,8 +33,8 @@ function chunkProducts(items, size) {
 function BestDeals() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
-  const { openAuthModal } = useAuth();
+  const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
+    useProductCartActions();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -57,71 +51,6 @@ function BestDeals() {
 
     fetchProducts();
   }, []);
-
-  const handleAdd = async (product, flySource) => {
-    if (!product._id || product._id.length < 10) return;
-    const { variantName, colorName, quantity } = resolveCartDefaults(product);
-    const result = await addToCart(product, quantity, {
-      variantName,
-      colorName,
-      flySource,
-    });
-    if (result?.requiresLogin) {
-      openAuthModal("login");
-    }
-  };
-
-  const getCartLine = (product) => {
-    if (!product?._id) return null;
-    const { variantName, colorName } = resolveCartDefaults(product);
-    return (
-      items.find(
-        (item) =>
-          item._id === product._id &&
-          (item.variantName || "") === variantName &&
-          (item.colorName || "") === colorName
-      ) || null
-    );
-  };
-
-  const getCartQuantity = (product) => getCartLine(product)?.quantity || 0;
-
-  const handleIncrease = async (product, flySource) => {
-    if (!product._id || product._id.length < 10) return;
-    const { variantName, colorName, quantity } = resolveCartDefaults(product);
-    const step = getCartStepForProduct(product, variantName);
-    const line = getCartLine(product);
-    const addQty = line ? step : quantity;
-    const result = await addToCart(product, addQty, {
-      variantName,
-      colorName,
-      flySource: line ? undefined : flySource,
-    });
-    if (result?.requiresLogin) {
-      openAuthModal("login");
-    }
-  };
-
-  const handleDecrease = async (product) => {
-    const line = getCartLine(product);
-    if (!line) return;
-    const step = getCartStepForProduct(product, line.variantName || "");
-    const nextQty = getDecreasedCartQuantityForProduct(
-      product,
-      line.quantity,
-      line.variantName || ""
-    );
-    if (nextQty <= 0) {
-      await removeFromCart(line._id, line.variantName || "", line.colorName || "");
-      return;
-    }
-    await updateQuantity(
-      line._id,
-      nextQty,
-      line.variantName || "",
-      line.colorName || ""
-    );
-  };
 
   const displayProducts = (loading ? FALLBACK_PRODUCTS : products).slice(0, HOME_PRODUCT_LIMIT);
   const mobileBatches = useMemo(
