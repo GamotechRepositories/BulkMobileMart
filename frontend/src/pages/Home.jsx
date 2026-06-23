@@ -8,6 +8,7 @@ import BestDeals from "../components/mobile/BestDeals";
 import WhyChooseUs from "../components/mobile/WhyChooseUs";
 import PromoBanner from "../components/mobile/PromoBanner";
 import TestimonialsImpact from "../components/home/TestimonialsImpact";
+import SocialMediaCarousel from "../components/home/SocialMediaCarousel";
 
 function Home() {
   return (
@@ -24,6 +25,7 @@ function Home() {
       <WhyChooseUs />
       <PromoBanner />
       <TestimonialsImpact />
+      <SocialMediaCarousel />
     </div>
   );
 }

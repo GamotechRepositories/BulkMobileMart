@@ -77,11 +77,13 @@ function MobileProductToolbar({ title, backTo, onToggleSort, showActions = true 
   );
 }
 
-function SearchResultsView({
+function FilteredProductsView({
   products,
   categories,
   loading,
-  searchQuery,
+  pageTitle,
+  emptyMessage,
+  backTo = "/",
   sortBy,
   showSort,
   onToggleSort,
@@ -102,15 +104,12 @@ function SearchResultsView({
     return list;
   }, [products, sortBy]);
 
-  const pageTitle = `Results for "${searchQuery}"`;
-  const emptyMessage = `No products found for "${searchQuery}".`;
-
   return (
     <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-108px)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
       <div className="lg:hidden">
         <MobileProductToolbar
           title={pageTitle}
-          backTo="/product"
+          backTo={backTo}
           onToggleSort={onToggleSort}
         />
         {showSort && (
@@ -170,10 +169,24 @@ function SearchResultsView({
   );
 }
 
+function SearchResultsView(props) {
+  const { searchQuery, ...rest } = props;
+
+  return (
+    <FilteredProductsView
+      {...rest}
+      pageTitle={`Results for "${searchQuery}"`}
+      emptyMessage={`No products found for "${searchQuery}".`}
+      backTo="/product"
+    />
+  );
+}
+
 function Product() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
+  const brandName = searchParams.get("brandName")?.trim() || "";
   const justArrived = searchParams.get("justArrived") === "true";
   const hotSelling = searchParams.get("hotSelling") === "true";
 
@@ -192,6 +205,7 @@ function Product() {
         const params = {};
         if (categoryName) params.categoryName = categoryName;
         if (searchQuery) params.q = searchQuery;
+        if (brandName) params.brandName = brandName;
         if (justArrived) params.justArrived = true;
         if (hotSelling) params.hotSelling = true;
 
@@ -211,8 +225,31 @@ function Product() {
     };
 
     fetchData();
-  }, [categoryName, searchQuery, justArrived, hotSelling]);
+  }, [categoryName, searchQuery, brandName, justArrived, hotSelling]);
 
+
+  if (brandName && !categoryName && !searchQuery) {
+    return (
+      <FilteredProductsView
+        products={products}
+        categories={categories}
+        loading={loading}
+        pageTitle={brandName}
+        emptyMessage={`No products found for brand "${brandName}".`}
+        backTo="/"
+        sortBy={sortBy}
+        showSort={showSort}
+        onToggleSort={() => setShowSort((prev) => !prev)}
+        onSortChange={(id) => {
+          setSortBy(id);
+          setShowSort(false);
+        }}
+        onGetCartQuantity={getCartQuantity}
+        onIncrease={handleIncrease}
+        onDecrease={handleDecrease}
+      />
+    );
+  }
 
   if (searchQuery && !categoryName) {
     return (

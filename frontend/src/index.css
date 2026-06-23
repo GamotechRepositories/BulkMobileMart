@@ -265,3 +265,67 @@ input[type="number"] {
 .why-choose-card {
   animation: why-choose-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+@keyframes social-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.social-marquee {
+  overflow: hidden;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent
+  );
+}
+
+.social-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: social-marquee-scroll 32s linear infinite;
+  will-change: transform;
+}
+
+.social-marquee-group {
+  display: flex;
+  gap: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .social-marquee-group {
+    gap: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+.social-marquee:hover .social-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-marquee {
+    overflow-x: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .social-marquee-track {
+    animation: none;
+  }
+}

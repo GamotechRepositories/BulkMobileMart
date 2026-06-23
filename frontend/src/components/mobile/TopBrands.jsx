@@ -6,14 +6,17 @@ import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
 function BrandCard({ brand }) {
   return (
-    <div className="flex h-[100px] w-[120px] shrink-0 snap-start items-center justify-center rounded-xl border border-border-light bg-white px-4 shadow-sm transition hover:border-primary/30 hover:shadow-md sm:h-[112px] sm:w-[132px] md:h-[124px] md:w-[144px]">
+    <Link
+      to={`/product?brandName=${encodeURIComponent(brand.brandName)}`}
+      className="flex h-[100px] w-[120px] shrink-0 snap-start items-center justify-center rounded-xl border border-border-light bg-white px-4 shadow-sm transition hover:border-primary/30 hover:shadow-md sm:h-[112px] sm:w-[132px] md:h-[124px] md:w-[144px]"
+    >
       <img
         src={brand.brandImage}
         alt={brand.brandName}
         className="max-h-14 max-w-full object-contain sm:max-h-16 md:max-h-[72px]"
         loading="lazy"
       />
-    </div>
+    </Link>
   );
 }
 
