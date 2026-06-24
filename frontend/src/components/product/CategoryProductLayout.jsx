@@ -413,7 +413,7 @@ function CategoryProductMain({
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
       />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-0 py-3 lg:px-3 lg:py-4">
+<div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -450,7 +450,7 @@ function AllProductsMain({
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
       />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-0 py-3 lg:px-3 lg:py-4">
+<div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
