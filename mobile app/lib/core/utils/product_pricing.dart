@@ -2,6 +2,7 @@ import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
 
 const int defaultSingleMoq = 1;
+const int inStockMaxQty = 9999;
 
 class PricingSource {
   const PricingSource({
@@ -67,11 +68,17 @@ ProductVariant? getVariant(Product product, String variantName) {
   return null;
 }
 
-int getVariantStock(Product product, [String variantName = '']) {
+bool isProductInStock(Product product, [String variantName = '']) {
   if (isMultiVariant(product)) {
-    return getVariant(product, variantName)?.stock ?? 0;
+    final variant = getVariant(product, variantName);
+    if (variant == null) return false;
+    return variant.stock > 0;
   }
-  return product.stock;
+  return product.stock > 0;
+}
+
+int getVariantStock(Product product, [String variantName = '']) {
+  return isProductInStock(product, variantName) ? inStockMaxQty : 0;
 }
 
 List<ProductColor> getAvailableColors(Product product, [String variantName = '']) {
@@ -211,13 +218,25 @@ int getDecreasedCartQuantityForProduct(
   int currentQty, [
   String variantName = '',
 ]) {
-  final step = getQuantityStep(product, variantName);
+  final step = getCartAdjustStep(product, variantName);
   final moq = getMinOrderQuantity(product, variantName);
   final safeStep = step < 1 ? 1 : step;
   final floor = moq > 0 ? moq : safeStep;
   if (currentQty <= floor) return 0;
   final next = currentQty - safeStep;
   return next < floor ? floor : next;
+}
+
+int getNextCartQuantityForProduct(
+  Product product,
+  int currentQty, [
+  String variantName = '',
+]) {
+  final step = getCartAdjustStep(product, variantName);
+  final min = getMinOrderQuantity(product, variantName);
+  final max = getMaxOrderQuantity(product, variantName);
+  if (currentQty >= max) return currentQty;
+  return (currentQty + step).clamp(min, max);
 }
 
 double getDisplayPriceForSource(PricingSource source) {
@@ -345,7 +364,7 @@ int getMaxOrderQuantity(Product product, String variantName) {
   final minOrderQuantity = getMinOrderQuantity(product, variantName);
   final variantStock = getVariantStock(product, variantName);
   if (variantStock > 0) {
-    return variantStock > minOrderQuantity ? variantStock : minOrderQuantity;
+    return variantStock < minOrderQuantity ? minOrderQuantity : variantStock;
   }
   return minOrderQuantity;
 }

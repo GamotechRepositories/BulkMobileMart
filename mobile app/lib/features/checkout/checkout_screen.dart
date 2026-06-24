@@ -21,6 +21,7 @@ import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
+import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 
 const _maxOrderNoteLength = 200;
@@ -176,6 +177,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
+    final summary = calculateCartSummary(cartItems);
+    final storeSettings = ref.read(storeSettingsProvider).value;
+    final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
+    if (!meetsMinimumOrder(summary.subtotal, minimumOrderValue)) return;
+
     await _startRazorpayPayment();
   }
 
@@ -194,16 +200,39 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'addressId': _selectedAddressId,
         'paymentMode': _apiPaymentMode,
       });
-      final body = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
+      final body = ApiResponseParser.getData(response.data);
+      if (body is! Map<String, dynamic>) {
+        throw ApiException(
+          ApiResponseParser.getMessage(response.data) ??
+              'Invalid payment response from server.',
+        );
+      }
+
+      final keyId = body['keyId']?.toString() ?? '';
+      final razorpayOrderId = body['razorpayOrderId']?.toString() ?? '';
+      final amountRaw = body['amount'];
+      final amountPaise = amountRaw is int
+          ? amountRaw
+          : int.tryParse(amountRaw?.toString() ?? '');
+
+      if (keyId.isEmpty || razorpayOrderId.isEmpty) {
+        throw ApiException(
+          ApiResponseParser.getMessage(response.data) ??
+              'Online payment is not configured. Please contact support.',
+        );
+      }
+      if (amountPaise == null || amountPaise <= 0) {
+        throw ApiException('Invalid payment amount.');
+      }
 
       _pendingPaymentMode = _apiPaymentMode;
       setState(() => _placingOrder = false);
 
       final user = ref.read(authControllerProvider).user!;
-      final options = {
-        'key': body['keyId'],
-        'amount': body['amount'],
-        'order_id': body['razorpayOrderId'],
+      final options = <String, dynamic>{
+        'key': keyId,
+        'amount': amountPaise,
+        'order_id': razorpayOrderId,
         'name': 'Bulk Mobile Mart',
         'description': _paymentPlan == PaymentPlan.advance
             ? '10% advance payment via Razorpay'
@@ -216,14 +245,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       };
       _razorpay.open(options);
     } catch (e) {
+      final message = apiErrorMessage(
+        e,
+        fallback: 'Failed to start payment. Please try again.',
+      );
       setState(() {
         _placingOrder = false;
-        _orderError = e is ApiException
-            ? e.message
-            : 'Failed to start payment. Please try again.';
+        _orderError = message;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderError)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }
@@ -251,9 +282,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     } catch (e) {
       setState(() {
-        _orderError = e is ApiException
-            ? e.message
-            : 'Payment verified but order failed. Contact support.';
+        _orderError = apiErrorMessage(
+          e,
+          fallback: 'Payment verified but order failed. Contact support.',
+        );
         _placingOrder = false;
       });
     }
@@ -318,6 +350,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     _syncSelectedAddress(addressList);
     final summary = calculateCartSummary(cartItems);
+    final storeSettings = ref.watch(storeSettingsProvider).value;
+    final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
+    final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
+    final orderShortfall =
+        minimumOrderShortfall(summary.subtotal, minimumOrderValue);
     final selectedAddress = _selectedAddressId == null
         ? null
         : addressList
@@ -352,6 +389,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                   children: [
+                    if (!minimumOrderMet) ...[
+                      MinimumOrderWarning(
+                        subtotal: summary.subtotal,
+                        minimumOrderValue: minimumOrderValue,
+                        onAddMore: () => context.go(RoutePaths.product),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _StepSection(
                       title: 'Payment via Razorpay',
                       child: RadioGroup<String>(
@@ -493,6 +538,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           _summaryRow('Items', '${summary.itemCount}'),
                           const SizedBox(height: 8),
                           _summaryRow('Subtotal', formatInr(summary.subtotal)),
+                          if (!minimumOrderMet) ...[
+                            const SizedBox(height: 10),
+                            MinimumOrderWarning(
+                              subtotal: summary.subtotal,
+                              minimumOrderValue: minimumOrderValue,
+                              compact: true,
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           _summaryRow(
                             'Shipping',
@@ -643,21 +696,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
       bottomNavigationBar: cartItems.isEmpty
           ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton(
-                  onPressed: _selectedAddressId == null || _placingOrder ? null : _placeOrder,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: Text(
-                    _paymentPlan == PaymentPlan.advance
-                        ? 'Pay ${formatInr(PaymentUtils.payableAmount(summary.total, _paymentPlan), withDecimals: true)} with Razorpay'
-                        : 'Pay ${formatInr(summary.total, withDecimals: true)} with Razorpay',
-                  ),
-                ),
-              ),
+          : _CheckoutPayBar(
+              summary: summary,
+              paymentPlan: _paymentPlan,
+              minimumOrderMet: minimumOrderMet,
+              minimumOrderValue: minimumOrderValue,
+              orderShortfall: orderShortfall,
+              hasAddress: _selectedAddressId != null,
+              placingOrder: _placingOrder,
+              onPay: _placeOrder,
             ),
     );
   }
@@ -678,6 +725,184 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w500),
         ),
       ],
+    );
+  }
+}
+
+class _CheckoutPayBar extends StatelessWidget {
+  const _CheckoutPayBar({
+    required this.summary,
+    required this.paymentPlan,
+    required this.minimumOrderMet,
+    required this.minimumOrderValue,
+    required this.orderShortfall,
+    required this.hasAddress,
+    required this.placingOrder,
+    required this.onPay,
+  });
+
+  final CartSummary summary;
+  final String paymentPlan;
+  final bool minimumOrderMet;
+  final double minimumOrderValue;
+  final double orderShortfall;
+  final bool hasAddress;
+  final bool placingOrder;
+  final VoidCallback onPay;
+
+  @override
+  Widget build(BuildContext context) {
+    final payableNow = PaymentUtils.payableAmount(summary.total, paymentPlan);
+    final balanceOnDelivery = summary.total - payableNow;
+    final readyToPay = hasAddress && minimumOrderMet;
+    final canPay = readyToPay && !placingOrder;
+
+    final buttonLabel = placingOrder
+        ? 'Please wait...'
+        : 'Pay ${formatInr(payableNow, withDecimals: true)} with Razorpay';
+
+    String? helperText;
+    if (!minimumOrderMet) {
+      helperText =
+          'Add ${formatInr(orderShortfall)} more to reach minimum order of ${formatInr(minimumOrderValue)}';
+    } else if (!hasAddress) {
+      helperText = 'Select a delivery address to continue';
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (minimumOrderMet) ...[
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Pay now (Razorpay)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      formatInr(payableNow, withDecimals: true),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                if (paymentPlan == PaymentPlan.advance) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Balance on delivery',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        formatInr(balanceOnDelivery, withDecimals: true),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+              ],
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: canPay ? onPay : null,
+                  style: FilledButton.styleFrom(
+                    disabledBackgroundColor:
+                        placingOrder && readyToPay ? AppColors.primary : AppColors.borderLight,
+                    disabledForegroundColor:
+                        placingOrder && readyToPay ? Colors.white : AppColors.textMuted,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: readyToPay ? 1 : 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (placingOrder)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      else
+                        const Icon(Icons.lock_outline_rounded, size: 18),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          buttonLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (helperText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  helperText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: !minimumOrderMet
+                        ? const Color(0xFF9A3412)
+                        : AppColors.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

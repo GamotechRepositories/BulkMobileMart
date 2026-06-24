@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/constants.dart';
 import '../../config/theme.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/auth/auth_controller.dart';
@@ -24,6 +25,25 @@ class CartScreen extends ConsumerStatefulWidget {
 
 class _CartScreenState extends ConsumerState<CartScreen> {
   bool _clearing = false;
+  late final TabScrollRegistry _tabScrollRegistry;
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.cart, _scrollController);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.cart, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadCart() async {
     await ref.read(cartControllerProvider.notifier).loadCart();
@@ -45,7 +65,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
     setState(() => _clearing = true);
     await ref.read(cartControllerProvider.notifier).clearCart();
-    if (mounted) setState(() => _clearing = false);
+    if (!mounted) return;
+    setState(() => _clearing = false);
+
+    final remaining = ref.read(cartControllerProvider).items;
+    if (remaining.isNotEmpty) {
+      final message = ref.read(cartControllerProvider).errorMessage ??
+          'Could not clear all items. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -91,6 +121,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         color: AppColors.primary,
         onRefresh: _loadCart,
         child: ListView.builder(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
           itemCount: items.length + 3,

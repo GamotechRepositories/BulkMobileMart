@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
@@ -26,6 +27,25 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String? _selectedCategoryName;
   String? _selectedSubcategory;
+  late final TabScrollRegistry _tabScrollRegistry;
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.categories, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Category? _findCategory(List<Category> categories, String? name) {
     if (name == null || name.isEmpty) return null;
@@ -142,6 +162,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         error: (error, _) {
           final fallback = resolveDisplayCategories(const []);
           return _CategoriesProductLayout(
+            scrollController: _scrollController,
             categories: fallback,
             productsAsync: productsAsync,
             selectedCategoryName: _selectedCategoryName,
@@ -169,6 +190,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         data: (categories) {
           final displayCategories = resolveDisplayCategories(categories);
           return _CategoriesProductLayout(
+            scrollController: _scrollController,
             categories: displayCategories,
             productsAsync: productsAsync,
             selectedCategoryName: _selectedCategoryName,
@@ -201,6 +223,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
 class _CategoriesProductLayout extends StatelessWidget {
   const _CategoriesProductLayout({
+    required this.scrollController,
     required this.categories,
     required this.productsAsync,
     required this.selectedCategoryName,
@@ -215,6 +238,7 @@ class _CategoriesProductLayout extends StatelessWidget {
     required this.filterBySubcategory,
   });
 
+  final ScrollController scrollController;
   final List<Category> categories;
   final AsyncValue<List<Product>> productsAsync;
   final String? selectedCategoryName;
@@ -238,6 +262,7 @@ class _CategoriesProductLayout extends StatelessWidget {
       onRefresh: onRefresh,
       color: AppColors.primary,
       child: CustomScrollView(
+        controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
@@ -346,7 +371,7 @@ class _CategoryDealCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final qty = ref.watch(cartProductQuantityProvider(product));
+    final qty = ref.watch(cartProductQuantityProvider(product.id));
 
     return DealProductCard(
       product: product,

@@ -51,6 +51,7 @@ dependencies:
   flutter_svg: ^2.2.0
   package_info_plus: ^8.3.0
   video_player: ^2.11.1
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -63,19 +64,22 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/images/app_logo.png
+  image_path: assets/images/app_icon_launcher.png
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: assets/images/app_logo.png
-  adaptive_icon_foreground_inset: 18
+  adaptive_icon_foreground: assets/images/app_icon_launcher.png
+  adaptive_icon_foreground_inset: 8
   min_sdk_android: 21
   remove_alpha_ios: true
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/images/app_logo.png
+  image: assets/images/app_icon.png
+  android_gravity: center
+  ios_content_mode: center
   android_12:
     color: "#FFFFFF"
-    image: assets/images/app_logo.png
+    image: assets/images/app_icon.png
+    icon_background_color: "#FFFFFF"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -90,9 +94,13 @@ flutter:
 
   assets:
     - .env
+    - assets/images/app_icon.png
+    - assets/images/app_icon_launcher.png
+    - assets/images/favicon.png
     - assets/images/app_logo.png
     - assets/images/whatsapp.svg
     - assets/images/payment/
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

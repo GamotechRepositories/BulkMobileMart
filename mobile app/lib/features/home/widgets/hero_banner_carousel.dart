@@ -16,6 +16,7 @@ class HeroBannerCarousel extends ConsumerStatefulWidget {
 }
 
 class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
+  static const _bannerHeight = 228.0;
   final _pageController = PageController(viewportFraction: 0.92);
   int _current = 0;
 
@@ -58,7 +59,7 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
       child: Column(
         children: [
           SizedBox(
-            height: 176,
+            height: _bannerHeight,
             child: PageView.builder(
               controller: _pageController,
               itemCount: slides.length,
@@ -105,25 +106,21 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
-          child: SizedBox(
-            height: 176,
-            width: width,
-            child: AppNetworkImage(
-              imageUrl: banner.imageUrl,
-              fit: BoxFit.cover,
-              width: width,
-              height: 176,
-              cacheWidth: width.round(),
-              cacheHeight: 176,
-            ),
-          ),
-        );
-      },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
+      child: SizedBox(
+        height: _HeroBannerCarouselState._bannerHeight,
+        width: double.infinity,
+        child: AppNetworkImage(
+          imageUrl: banner.imageUrl,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          width: double.infinity,
+          height: _HeroBannerCarouselState._bannerHeight,
+          cacheWidth: 400,
+          cacheHeight: _HeroBannerCarouselState._bannerHeight.toInt(),
+        ),
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../models/order.dart';
@@ -19,10 +20,25 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+  late final TabScrollRegistry _tabScrollRegistry;
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOrders());
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.orders, _scrollController);
+      _loadOrders();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.orders, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadOrders() async {
@@ -96,6 +112,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       onRefresh: _loadOrders,
       color: AppColors.primary,
       child: ListView.separated(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
         itemCount: orders.length,

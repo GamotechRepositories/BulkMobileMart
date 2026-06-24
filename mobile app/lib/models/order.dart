@@ -10,6 +10,8 @@ class OrderItem {
     required this.price,
     required this.quantity,
     this.image = '',
+    this.variantName = '',
+    this.colorName = '',
   });
 
   final String id;
@@ -19,6 +21,8 @@ class OrderItem {
   final double price;
   final int quantity;
   final String image;
+  final String variantName;
+  final String colorName;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     final product = json['product'];
@@ -36,6 +40,8 @@ class OrderItem {
                   ?.toString() ??
               ''
               : ''),
+      variantName: json['variantName']?.toString() ?? '',
+      colorName: json['colorName']?.toString() ?? '',
     );
   }
 }

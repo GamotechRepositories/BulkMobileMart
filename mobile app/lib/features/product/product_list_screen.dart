@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_search.dart';
 import '../../core/utils/product_utils.dart';
@@ -47,11 +48,25 @@ class ProductListScreen extends ConsumerStatefulWidget {
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   bool _showSort = false;
   late ProductSortOption _sort;
+  late final TabScrollRegistry _tabScrollRegistry;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
     _sort = ProductSortOption.fromId(widget.sortId) ?? ProductSortOption.defaultOrder;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.categories, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -65,7 +80,13 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   ProductQuery get _query => ProductQuery(
         categoryName: widget.categoryName,
         search: widget.searchQuery,
+        brandName: widget.brand,
       );
+
+  bool get _isBrandOnly =>
+      (widget.brand?.isNotEmpty ?? false) &&
+      (widget.categoryName == null || widget.categoryName!.isEmpty) &&
+      (widget.searchQuery == null || widget.searchQuery!.isEmpty);
 
   String get _title {
     if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
@@ -73,6 +94,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     }
     if (widget.categoryName != null && widget.categoryName!.isNotEmpty) {
       return widget.categoryName!;
+    }
+    if (widget.brand != null && widget.brand!.isNotEmpty) {
+      return widget.brand!;
     }
     return 'All Products';
   }
@@ -166,7 +190,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           title: _title,
           onBack: widget.searchQuery != null && widget.searchQuery!.isNotEmpty
               ? () => context.go(RoutePaths.product)
-              : null,
+              : _isBrandOnly
+                  ? () => context.go(RoutePaths.home)
+                  : null,
           onSort: () => setState(() => _showSort = !_showSort),
           onFilter: productsAsync.hasValue
               ? () => _openFilters(productsAsync.requireValue)
@@ -190,6 +216,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                 onRetry: _refreshProducts,
               ),
               data: (products) => _ProductResultsView(
+                scrollController: _scrollController,
                 products: products,
                 searchQuery: widget.searchQuery,
                 categoryName: widget.categoryName,
@@ -210,6 +237,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
 class _ProductResultsView extends ConsumerStatefulWidget {
   const _ProductResultsView({
+    required this.scrollController,
     required this.products,
     required this.searchQuery,
     required this.categoryName,
@@ -221,6 +249,7 @@ class _ProductResultsView extends ConsumerStatefulWidget {
     required this.onAdd,
   });
 
+  final ScrollController scrollController;
   final List<Product> products;
   final String? searchQuery;
   final String? categoryName;
@@ -337,9 +366,11 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
     if (_filtered.isEmpty) {
       return Center(
         child: Text(
-          widget.searchQuery != null
-              ? 'No products found for "${widget.searchQuery}".'
-              : 'No products available yet.',
+          widget.brand != null && widget.brand!.isNotEmpty
+              ? 'No products found for brand "${widget.brand}".'
+              : widget.searchQuery != null
+                  ? 'No products found for "${widget.searchQuery}".'
+                  : 'No products available yet.',
           style: const TextStyle(color: AppColors.textSecondary),
         ),
       );
@@ -351,6 +382,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
 
     if (isSearchOnly) {
       return ListView.separated(
+        controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         itemCount: _filtered.length,
@@ -366,6 +398,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
     }
 
     return CustomScrollView(
+      controller: widget.scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
@@ -383,7 +416,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
                 return DealProductCard(
                   product: product,
                   fillCell: true,
-                  cartQuantity: ref.watch(cartProductQuantityProvider(product)),
+                  cartQuantity: ref.watch(cartProductQuantityProvider(product.id)),
                   onAdd: (context) => widget.onAdd(product, context),
                   onIncrease: () => _handleIncrease(product),
                   onDecrease: () => _handleDecrease(product),

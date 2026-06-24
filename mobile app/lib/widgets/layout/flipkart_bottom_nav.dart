@@ -1,48 +1,228 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../config/theme.dart';
-import '../cart/cart_nav_icon_key.dart';
+import '../common/fly_target_anchor.dart';
+import '../common/nav_icon_locator.dart';
 
-/// Flipkart-style bottom bar — flat white strip, hairline top border, icon + label tabs.
-class FlipkartBottomNav extends StatelessWidget {
+/// Floating pill bottom bar — frosted white glass, sliding active pill, haptics.
+class FlipkartBottomNav extends StatefulWidget {
   const FlipkartBottomNav({
     super.key,
     required this.currentIndex,
     required this.items,
     required this.onTap,
     this.cartBadgeCount = 0,
+    this.accountInitial,
   });
 
   final int currentIndex;
   final List<FlipkartNavItem> items;
   final ValueChanged<int> onTap;
   final int cartBadgeCount;
+  final String? accountInitial;
+
+  static const barHeight = 58.0;
+  static const _horizontalMargin = 22.0;
+  static const _bottomMargin = 14.0;
+  static const _pillHeight = 40.0;
+
+  static final barColor = Colors.white.withValues(alpha: 0.78);
+  static final activePillColor = Colors.black.withValues(alpha: 0.07);
+  static const iconActive = AppColors.primary;
+  static const iconInactive = AppColors.navUnselected;
+
+  @override
+  State<FlipkartBottomNav> createState() => _FlipkartBottomNavState();
+}
+
+class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
+  double _indicatorIndex = 0;
+  bool _isDragging = false;
+  int _lastHapticIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _indicatorIndex = widget.currentIndex.toDouble();
+    _lastHapticIndex = widget.currentIndex;
+  }
+
+  @override
+  void didUpdateWidget(FlipkartBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_isDragging && oldWidget.currentIndex != widget.currentIndex) {
+      setState(() => _indicatorIndex = widget.currentIndex.toDouble());
+      _lastHapticIndex = widget.currentIndex;
+    }
+  }
+
+  int _indexFromX(double x, double width, int count) {
+    final tabWidth = width / count;
+    return ((x / tabWidth) - 0.5).round().clamp(0, count - 1);
+  }
+
+  double _fractionFromX(double x, double width, int count) {
+    final tabWidth = width / count;
+    return ((x / tabWidth) - 0.5).clamp(0.0, count - 1.0);
+  }
+
+  void _onDragStart() {
+    setState(() => _isDragging = true);
+    HapticFeedback.heavyImpact();
+  }
+
+  void _onDragUpdate(double x, double width) {
+    final count = widget.items.length;
+    final fraction = _fractionFromX(x, width, count);
+    final hoverIndex = fraction.round();
+
+    setState(() => _indicatorIndex = fraction);
+
+    if (hoverIndex != _lastHapticIndex) {
+      HapticFeedback.heavyImpact();
+      _lastHapticIndex = hoverIndex;
+    }
+  }
+
+  void _commitNavigation(int index, {required bool changedTab}) {
+    HapticFeedback.heavyImpact();
+
+    setState(() {
+      _isDragging = false;
+      _indicatorIndex = index.toDouble();
+      _lastHapticIndex = index;
+    });
+
+    widget.onTap(index);
+  }
+
+  void _onTapUp(TapUpDetails details, double width) {
+    final count = widget.items.length;
+    final index = _indexFromX(details.localPosition.dx, width, count);
+    _commitNavigation(index, changedTab: index != widget.currentIndex);
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details, double width) {
+    final count = widget.items.length;
+    final velocity = details.primaryVelocity ?? 0;
+    int target;
+
+    if (velocity.abs() >= 280) {
+      target = velocity < 0
+          ? (_indicatorIndex + 1).round().clamp(0, count - 1)
+          : (_indicatorIndex - 1).round().clamp(0, count - 1);
+    } else {
+      target = _indicatorIndex.round().clamp(0, count - 1);
+    }
+
+    _commitNavigation(target, changedTab: target != widget.currentIndex);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.navBorder, width: 0.6),
-        ),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final visualIndex =
+        _isDragging ? _indicatorIndex.round() : widget.currentIndex;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        FlipkartBottomNav._horizontalMargin,
+        0,
+        FlipkartBottomNav._horizontalMargin,
+        FlipkartBottomNav._bottomMargin + bottomInset,
       ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 52,
-          child: Row(
-            children: [
-              for (var i = 0; i < items.length; i++)
-                Expanded(
-                  child: _FlipkartNavTab(
-                    item: items[i],
-                    selected: currentIndex == i,
-                    badgeCount: items[i].showBadge ? cartBadgeCount : 0,
-                    onTap: () => onTap(i),
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: FlipkartBottomNav.barColor,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: AppColors.borderLight,
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
-            ],
+              ],
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final count = widget.items.length;
+                final tabWidth = width / count;
+                final pillWidth = tabWidth * 0.78;
+                final pillLeft =
+                    tabWidth * (_indicatorIndex + 0.5) - pillWidth / 2;
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (details) => _onTapUp(details, width),
+                  onHorizontalDragStart: (_) => _onDragStart(),
+                  onHorizontalDragUpdate: (details) =>
+                      _onDragUpdate(details.localPosition.dx, width),
+                  onHorizontalDragEnd: (details) =>
+                      _onHorizontalDragEnd(details, width),
+                  child: SizedBox(
+                    height: FlipkartBottomNav.barHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        AnimatedPositioned(
+                          duration: _isDragging
+                              ? Duration.zero
+                              : const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          left: pillLeft,
+                          top: (FlipkartBottomNav.barHeight -
+                                  FlipkartBottomNav._pillHeight) /
+                              2,
+                          width: pillWidth,
+                          height: FlipkartBottomNav._pillHeight,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: FlipkartBottomNav.activePillColor,
+                              borderRadius: BorderRadius.circular(22),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            for (var i = 0; i < count; i++)
+                              Expanded(
+                                child: _FloatingNavTab(
+                                  item: widget.items[i],
+                                  selected: visualIndex == i,
+                                  isAccount: i == count - 1,
+                                  accountInitial: widget.accountInitial,
+                                  badgeCount: widget.items[i].showBadge
+                                      ? widget.cartBadgeCount
+                                      : 0,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -64,75 +244,114 @@ class FlipkartNavItem {
   final bool showBadge;
 }
 
-class _FlipkartNavTab extends StatelessWidget {
-  const _FlipkartNavTab({
+class _FloatingNavTab extends StatelessWidget {
+  const _FloatingNavTab({
     required this.item,
     required this.selected,
-    required this.badgeCount,
-    required this.onTap,
+    required this.isAccount,
+    this.accountInitial,
+    this.badgeCount = 0,
   });
 
   final FlipkartNavItem item;
   final bool selected;
+  final bool isAccount;
+  final String? accountInitial;
   final int badgeCount;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.navSelected : AppColors.navUnselected;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: _buildIcon(),
+      ),
+    );
+  }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: AppColors.navSelected.withValues(alpha: 0.08),
-        highlightColor: AppColors.navSelected.withValues(alpha: 0.04),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              key: item.showBadge ? cartNavIconKey : null,
-              height: 26,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    selected ? item.activeIcon : item.icon,
-                    size: 23,
-                    color: color,
-                  ),
-                  if (badgeCount > 0)
-                    Positioned(
-                      right: -10,
-                      top: -2,
-                      child: _CartBadge(count: badgeCount),
-                    ),
-                ],
-              ),
+  Widget _buildIcon() {
+    final iconWidget = isAccount && accountInitial != null
+        ? _AccountAvatar(
+            initial: accountInitial!,
+            selected: selected,
+          )
+        : Icon(
+            selected ? item.activeIcon : item.icon,
+            size: 23,
+            color: selected
+                ? FlipkartBottomNav.iconActive
+                : FlipkartBottomNav.iconInactive,
+          );
+
+    if (!item.showBadge) {
+      return iconWidget;
+    }
+
+    return FlyTargetAnchor(
+      onReport: NavIconLocator.reportCart,
+      onClear: NavIconLocator.clearCart,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          iconWidget,
+          if (badgeCount > 0)
+            Positioned(
+              right: -7,
+              top: -5,
+              child: _CartCountBadge(count: badgeCount),
             ),
-            const SizedBox(height: 2),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                height: 1.1,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: color,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({
+    required this.initial,
+    required this.selected,
+  });
+
+  final String initial;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        border: Border.all(
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.85)
+              : AppColors.navUnselected.withValues(alpha: 0.55),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: selected
+              ? FlipkartBottomNav.iconActive
+              : FlipkartBottomNav.iconInactive,
+          height: 1,
         ),
       ),
     );
   }
 }
 
-class _CartBadge extends StatelessWidget {
-  const _CartBadge({required this.count});
+class _CartCountBadge extends StatelessWidget {
+  const _CartCountBadge({required this.count});
 
   final int count;
 

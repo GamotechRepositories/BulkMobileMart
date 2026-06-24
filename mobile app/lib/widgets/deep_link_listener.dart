@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,6 +21,7 @@ class DeepLinkListener extends ConsumerStatefulWidget {
 class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscription;
+  Uri? _pendingUri;
 
   @override
   void initState() {
@@ -28,16 +30,38 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   }
 
   Future<void> _init() async {
-    final initial = await _appLinks.getInitialLink();
-    _handleUri(initial);
+    _subscription = _appLinks.uriLinkStream.listen(_queueUri);
 
-    _subscription = _appLinks.uriLinkStream.listen(_handleUri);
+    final initial = await _appLinks.getInitialLink();
+    if (initial != null) {
+      _queueUri(initial);
+    }
   }
 
-  void _handleUri(Uri? uri) {
+  void _queueUri(Uri? uri) {
     if (uri == null || !mounted) return;
+    _pendingUri = uri;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flushPendingUri());
+  }
+
+  void _flushPendingUri() {
+    if (!mounted || _pendingUri == null) return;
+
+    final uri = _pendingUri!;
+    _pendingUri = null;
+
     final route = mapDeepLinkToRoute(uri);
-    if (route == null) return;
+    if (route == null) {
+      if (kDebugMode) {
+        debugPrint('DeepLinkListener: unhandled uri=$uri');
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('DeepLinkListener: navigate to $route from $uri');
+    }
+
     ref.read(routerProvider).go(route);
   }
 

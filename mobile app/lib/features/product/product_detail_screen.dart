@@ -6,8 +6,11 @@ import '../../config/theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
+import '../../core/utils/recently_viewed.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../models/cart_item.dart';
+import '../../features/home/home_providers.dart';
 import '../../features/product/product_providers.dart';
 import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
@@ -114,7 +117,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productAsync = ref.watch(productDetailProvider(widget.productId));
 
     ref.listen(productDetailProvider(widget.productId), (previous, next) {
-      next.whenData(_initSelectionsForProduct);
+      next.whenData((product) {
+        if (!mounted) return;
+        _initSelectionsForProduct(product);
+        RecentlyViewedStore.add(product.id).then((_) {
+          if (!mounted) return;
+          ref.invalidate(recentlyViewedProductsProvider);
+        });
+      });
     });
 
     return Scaffold(
@@ -135,16 +145,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildContent(BuildContext context, Product product) {
     final activeVariantName = resolveActiveVariantName(product, _selectedVariant);
-    final cartLineQuantity = ref.watch(
-      cartControllerProvider.select(
-        (state) => findCartLine(
-          state.items,
-          product.id,
-          activeVariantName,
-          _selectedColor,
-        )?.quantity,
-      ),
+    final selectionColor =
+        resolveSelectionColor(product, activeVariantName, _selectedColor);
+    final cartItems = ref.watch(
+      cartControllerProvider.select((state) => state.items),
     );
+    final cartLine = findCartLineForProductDetail(
+      cartItems,
+      product,
+      activeVariantName,
+      selectionColor,
+    );
+    final cartLineQuantity = cartLine?.quantity;
     _syncQuantityForProduct(product, activeVariantName, cartLineQuantity);
 
     final variantStock = getVariantStock(product, activeVariantName);
@@ -200,7 +212,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => showProductShareSheet(context, product),
+                    onPressed: () => showProductShareSheet(
+                      context,
+                      product,
+                      variantName: activeVariantName,
+                    ),
                     icon: const Icon(Icons.share_outlined),
                   ),
                 ],
@@ -301,7 +317,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     [
                       if (showMoq) 'MOQ: $minOrderQuantity Pieces',
                       if (showStepByQty) 'Step by QTY: $quantityStep Pieces',
-                      if (isMultiVariant(product)) 'Stock: $variantStock',
+                      if (isMultiVariant(product))
+                        isProductInStock(product, activeVariantName)
+                            ? 'In Stock'
+                            : 'Out of Stock',
                     ].join(' · '),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
@@ -320,8 +339,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       min: minOrderQuantity,
                       max: maxQuantity,
                       disabled: !inStock,
-                      onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
-                      onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
+                      onDecrease: () => _handleQuantityDecrease(
+                        product,
+                        activeVariantName,
+                        selectionColor,
+                      ),
+                      onIncrease: () => _handleQuantityIncrease(
+                        product,
+                        activeVariantName,
+                        selectionColor,
+                      ),
                     ),
                   ],
                 ),
@@ -435,17 +462,30 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               Expanded(
                 child: inCart
                     ? _CartActionQuantity(
-                        quantity: cartLineQuantity ?? _quantity,
+                        quantity: cartLineQuantity,
                         min: minOrderQuantity,
                         max: maxQuantity,
                         disabled: !inStock,
-                        onDecrease: () => _handleQuantityDecrease(product, activeVariantName),
-                        onIncrease: () => _handleQuantityIncrease(product, activeVariantName),
+                      onDecrease: () => _handleQuantityDecrease(
+                        product,
+                        activeVariantName,
+                        selectionColor,
+                      ),
+                      onIncrease: () => _handleQuantityIncrease(
+                        product,
+                        activeVariantName,
+                        selectionColor,
+                      ),
                       )
                     : Builder(
                         builder: (btnContext) => ElevatedButton(
                           onPressed: inStock
-                              ? () => _addToCart(product, activeVariantName, btnContext)
+                              ? () => _addToCart(
+                                    product,
+                                    activeVariantName,
+                                    selectionColor,
+                                    btnContext,
+                                  )
                               : null,
                           child: const Text('Add to Cart'),
                         ),
@@ -454,7 +494,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: inStock ? () => _buyNow(product, activeVariantName) : null,
+                  onPressed: inStock
+                      ? () => _buyNow(product, activeVariantName, selectionColor)
+                      : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary, width: 2),
@@ -566,38 +608,63 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
+  CartItem? _resolveCartLine(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+  ) {
+    final items = ref.read(cartControllerProvider).items;
+    return findCartLineForProductDetail(
+      items,
+      product,
+      activeVariantName,
+      selectionColor,
+    );
+  }
+
+  void _showQuantityMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _handleQuantityDecrease(
     Product product,
     String activeVariantName,
+    String selectionColor,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
     final quantityStep = getCartAdjustStep(product, activeVariantName);
-    final line = findCartLine(
-      ref.read(cartControllerProvider).items,
-      product.id,
-      activeVariantName,
-      _selectedColor,
-    );
+    final line = _resolveCartLine(product, activeVariantName, selectionColor);
 
     if (line != null) {
       final nextQty = getDecreasedCartQuantityForProduct(
         product,
         line.quantity,
-        activeVariantName,
+        line.variantName,
       );
       if (nextQty <= 0) {
         await ref.read(cartControllerProvider.notifier).removeFromCartLine(
-              productId: product.id,
-              variantName: activeVariantName,
-              colorName: _selectedColor,
+              productId: line.id,
+              variantName: line.variantName,
+              colorName: line.colorName,
             );
       } else {
-        await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-              productId: product.id,
+        final ok = await ref
+            .read(cartControllerProvider.notifier)
+            .updateCartLineQuantity(
+              productId: line.id,
               quantity: nextQty,
-              variantName: activeVariantName,
-              colorName: _selectedColor,
+              variantName: line.variantName,
+              colorName: line.colorName,
             );
+        if (!ok) {
+          _showQuantityMessage(
+            ref.read(cartControllerProvider).errorMessage ??
+                'Could not update quantity',
+          );
+        }
       }
       return;
     }
@@ -610,25 +677,54 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Future<void> _handleQuantityIncrease(
     Product product,
     String activeVariantName,
+    String selectionColor,
   ) async {
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
     final quantityStep = getCartAdjustStep(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
-    final line = findCartLine(
-      ref.read(cartControllerProvider).items,
-      product.id,
-      activeVariantName,
-      _selectedColor,
-    );
+    var line = _resolveCartLine(product, activeVariantName, selectionColor);
 
     if (line != null) {
-      final nextQty = (line.quantity + quantityStep).clamp(minOrderQuantity, maxQuantity);
-      await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-            productId: product.id,
+      final nextQty = getNextCartQuantityForProduct(
+        product,
+        line.quantity,
+        line.variantName,
+      );
+      if (nextQty <= line.quantity) {
+        _showQuantityMessage(
+          maxQuantity <= line.quantity
+              ? 'Maximum $maxQuantity units available'
+              : 'Cannot increase quantity further',
+        );
+        return;
+      }
+
+      final ok = await ref
+          .read(cartControllerProvider.notifier)
+          .updateCartLineQuantity(
+            productId: line.id,
             quantity: nextQty,
-            variantName: activeVariantName,
-            colorName: _selectedColor,
+            variantName: line.variantName,
+            colorName: line.colorName,
           );
+      if (!ok) {
+        _showQuantityMessage(
+          ref.read(cartControllerProvider).errorMessage ??
+              'Could not update quantity',
+        );
+      }
+      return;
+    }
+
+    // Cart may be stale — refresh once then retry.
+    await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+    line = _resolveCartLine(product, activeVariantName, selectionColor);
+    if (line != null) {
+      await _handleQuantityIncrease(
+        product,
+        activeVariantName,
+        selectionColor,
+      );
       return;
     }
 
@@ -640,33 +736,55 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   Future<void> _addToCart(
     Product product,
     String activeVariantName,
+    String selectionColor,
     BuildContext flySourceContext,
   ) async {
     final availableColors = getAvailableColors(product, activeVariantName);
-    if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
+    if (availableColors.isNotEmpty && selectionColor.isEmpty) return;
+
+    final existingLine = findCartLineForProductDetail(
+      ref.read(cartControllerProvider).items,
+      product,
+      activeVariantName,
+      selectionColor,
+    );
+    if (existingLine != null) {
+      await _handleQuantityIncrease(
+        product,
+        activeVariantName,
+        selectionColor,
+      );
+      return;
+    }
 
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
           _quantity,
           variantName: activeVariantName,
-          colorName: _selectedColor,
+          colorName: selectionColor,
           flySourceContext: flySourceContext,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();
+    } else if (result == AddToCartResult.success) {
+      setState(() => _quantitySyncedKey = null);
     }
   }
 
-  Future<void> _buyNow(Product product, String activeVariantName) async {
+  Future<void> _buyNow(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+  ) async {
     final availableColors = getAvailableColors(product, activeVariantName);
-    if (availableColors.isNotEmpty && _selectedColor.isEmpty) return;
+    if (availableColors.isNotEmpty && selectionColor.isEmpty) return;
 
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
           _quantity,
           buyNow: true,
           variantName: activeVariantName,
-          colorName: _selectedColor,
+          colorName: selectionColor,
         );
     if (result == AddToCartResult.requiresLogin && mounted) {
       ref.read(authControllerProvider.notifier).openAuthModal();

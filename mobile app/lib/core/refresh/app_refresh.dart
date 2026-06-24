@@ -7,11 +7,17 @@ Future<void> refreshHomeData(WidgetRef ref) async {
   ref.invalidate(categoriesProvider);
   ref.invalidate(brandsProvider);
   ref.invalidate(homeDealsProvider);
+  ref.invalidate(justArrivedProvider);
+  ref.invalidate(hotSellingProvider);
+  ref.invalidate(recentlyViewedProductsProvider);
 
   await Future.wait([
     ref.read(heroBannersProvider.future),
     ref.read(categoriesProvider.future),
     ref.read(brandsProvider.future),
     ref.read(homeDealsProvider.future),
+    ref.read(justArrivedProvider.future),
+    ref.read(hotSellingProvider.future),
+    ref.read(recentlyViewedProductsProvider.future),
   ]);
 }

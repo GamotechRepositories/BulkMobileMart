@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../models/product.dart';
+import '../../core/utils/ui_sound_effects.dart';
 import '../../widgets/cart/fly_product_animator.dart';
 import '../auth/auth_controller.dart';
 
@@ -115,6 +118,7 @@ class WishlistController extends Notifier<WishlistState> {
       final body = response.data;
       final added = body is Map<String, dynamic> && body['added'] == true;
       if (added) {
+        unawaited(UiSoundEffects.playWishlistAdd());
         if (flySourceContext != null && flySourceContext.mounted) {
           triggerFlyToWishlist(
             sourceContext: flySourceContext,

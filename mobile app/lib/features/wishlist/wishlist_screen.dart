@@ -182,7 +182,7 @@ class _WishlistDealCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final qty = ref.watch(cartProductQuantityProvider(product));
+    final qty = ref.watch(cartProductQuantityProvider(product.id));
 
     return DealProductCard(
       product: product,

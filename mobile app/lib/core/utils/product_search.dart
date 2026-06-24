@@ -18,7 +18,7 @@ class ProductSearch {
     if (q.isNotEmpty) params['q'] = q;
     if (category.isNotEmpty) params['categoryName'] = category;
     if (sub.isNotEmpty) params['subcategory'] = sub;
-    if (brand.trim().isNotEmpty) params['brand'] = brand.trim();
+    if (brand.trim().isNotEmpty) params['brandName'] = brand.trim();
     if (minPrice.trim().isNotEmpty) params['minPrice'] = minPrice.trim();
     if (maxPrice.trim().isNotEmpty) params['maxPrice'] = maxPrice.trim();
     if (sort.trim().isNotEmpty && sort != 'default') params['sort'] = sort.trim();

@@ -34,6 +34,7 @@ import {
   shareProduct,
   updateProductShareMeta,
 } from "../utils/productShare";
+import { tryOpenProductInApp } from "../utils/openMobileApp";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -664,6 +665,11 @@ function ProductDetail() {
   const [downloadingImage, setDownloadingImage] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
+    tryOpenProductInApp(id);
+  }, [id]);
+
+  useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
       setError("");
@@ -736,7 +742,7 @@ function ProductDetail() {
 
   const shareUrl =
     typeof window !== "undefined" && product?._id
-      ? `${window.location.origin}/product/${product._id}`
+      ? `${window.location.origin}/product/${product._id}?openInApp=1`
       : "";
 
   const shareImageUrl = images[0] || "";

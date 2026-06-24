@@ -28,6 +28,15 @@ class Env {
   static String get merchantUpiName =>
       dotenv.env['MERCHANT_UPI_NAME']?.trim() ?? 'BulkMobileMart';
 
+  /// Public storefront URL used in product share links (must match live website).
+  static String get storeUrl {
+    final raw = dotenv.env['STORE_URL']?.trim();
+    final url = raw != null && raw.isNotEmpty
+        ? raw
+        : 'https://www.bulkmobilemart.in';
+    return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+  }
+
   /// Warnings for misconfigured `.env` (logged at startup in debug).
   static List<String> validate() {
     final issues = <String>[];

@@ -73,7 +73,7 @@
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Used to upload payment proof and support attachments.</string>
 		<key>FlutterDeepLinkingEnabled</key>
-		<true/>
+		<false/>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

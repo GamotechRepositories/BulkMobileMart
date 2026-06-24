@@ -1,6 +1,7 @@
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
+import 'product_pricing.dart';
 
 class BulkTier {
   const BulkTier({required this.qtyLabel, required this.price});
@@ -45,15 +46,102 @@ CartItem? findCartLine(
   String variantName,
   String colorName,
 ) {
-  final variant = variantName.trim();
-  final color = colorName.trim();
   for (final item in items) {
-    if (item.id != productId) continue;
-    if (item.variantName.trim() != variant) continue;
-    if (item.colorName.trim() != color) continue;
-    return item;
+    if (cartLineMatches(item, productId, variantName, colorName)) {
+      return item;
+    }
   }
   return null;
+}
+
+bool cartLineMatches(
+  CartItem item,
+  String productId,
+  String variantName,
+  String colorName,
+) {
+  if (item.id != productId) return false;
+  if (item.variantName.trim().toLowerCase() !=
+      variantName.trim().toLowerCase()) {
+    return false;
+  }
+  if (item.colorName.trim().toLowerCase() != colorName.trim().toLowerCase()) {
+    return false;
+  }
+  return true;
+}
+
+/// Product detail — exact match first, then best single-line fallback.
+CartItem? findCartLineForProductDetail(
+  List<CartItem> items,
+  Product product,
+  String variantName,
+  String colorName,
+) {
+  final exact = findCartLine(items, product.id, variantName, colorName);
+  if (exact != null) return exact;
+
+  final productLines =
+      items.where((item) => item.id == product.id).toList(growable: false);
+  if (productLines.isEmpty) return null;
+  if (productLines.length == 1) return productLines.first;
+
+  final variant = variantName.trim().toLowerCase();
+  if (variant.isNotEmpty) {
+    final byVariant = productLines
+        .where((item) => item.variantName.trim().toLowerCase() == variant)
+        .toList(growable: false);
+    if (byVariant.length == 1) return byVariant.first;
+  }
+
+  final color = colorName.trim().toLowerCase();
+  if (color.isNotEmpty) {
+    final byColor = productLines
+        .where((item) => item.colorName.trim().toLowerCase() == color)
+        .toList(growable: false);
+    if (byColor.length == 1) return byColor.first;
+  }
+
+  return null;
+}
+
+CartItem cartItemFromProduct(
+  Product product,
+  int quantity, {
+  String variantName = '',
+  String colorName = '',
+}) {
+  final base = CartItem.fromProduct(product, quantity: quantity);
+  return CartItem(
+    id: base.id,
+    name: base.name,
+    brandName: base.brandName,
+    price: base.price,
+    discountedPrice: base.discountedPrice,
+    productImages: base.productImages,
+    stock: base.stock,
+    quantity: quantity,
+    variantName: variantName.trim(),
+    colorName: colorName.trim(),
+    pricingType: base.pricingType,
+    bulkPricing: base.bulkPricing,
+    variantType: base.variantType,
+    variants: base.variants,
+    minOrderQuantity: base.minOrderQuantity,
+    stepByQuantity: base.stepByQuantity,
+  );
+}
+
+/// Resolves the color used for cart line matching and API calls.
+String resolveSelectionColor(
+  Product product,
+  String activeVariantName,
+  String selectedColor,
+) {
+  final trimmed = selectedColor.trim();
+  if (trimmed.isNotEmpty) return trimmed;
+  final colors = getAvailableColors(product, activeVariantName);
+  return colors.isNotEmpty ? colors.first.name : '';
 }
 
 List<ProductSpecification> getResolvedSpecifications(Product product) {

@@ -1,10 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/utils/viewport_utils.dart';
+import 'home_section_card.dart';
 
-class WhyChooseUsSection extends StatelessWidget {
+const _cardHeight = 96.0;
+
+class WhyChooseUsSection extends StatefulWidget {
   const WhyChooseUsSection({super.key});
 
+  @override
+  State<WhyChooseUsSection> createState() => _WhyChooseUsSectionState();
+}
+
+class _WhyChooseUsSectionState extends State<WhyChooseUsSection>
+    with WidgetsBindingObserver {
   static const _features = [
     _WhyChooseFeature(
       line1: 'Lowest wholesale rates',
@@ -35,13 +47,6 @@ class WhyChooseUsSection extends StatelessWidget {
       icon: Icons.local_shipping_outlined,
     ),
     _WhyChooseFeature(
-      line1: '7-day return policy',
-      line2: 'Simple & hassle-free',
-      color: Color(0xFF7C3AED),
-      iconBg: Color(0xFFEDE9FE),
-      icon: Icons.replay_outlined,
-    ),
-    _WhyChooseFeature(
       line1: 'Always here to help',
       line2: 'Quick expert support',
       color: Color(0xFFE11D48),
@@ -50,69 +55,156 @@ class WhyChooseUsSection extends StatelessWidget {
     ),
   ];
 
+  static const _viewportFraction = 0.88;
+  static const _autoSlideInterval = Duration(milliseconds: 3200);
+  static const _transitionDuration = Duration(milliseconds: 550);
+
+  late final PageController _pageController;
+  Timer? _autoTimer;
+  int _currentPage = 0;
+  bool _paused = false;
+  bool _appActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _pageController = PageController(
+      viewportFraction: _viewportFraction,
+    );
+    _startAutoSlide();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    if (_appActive == active) return;
+    _appActive = active;
+    if (active) {
+      _startAutoSlide();
+    } else {
+      _autoTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlide() {
+    _autoTimer?.cancel();
+    if (!_appActive || _features.length <= 1) return;
+
+    _autoTimer = Timer.periodic(_autoSlideInterval, (_) {
+      if (!mounted || _paused || !_pageController.hasClients) return;
+      if (!isWidgetRoughlyVisible(context)) return;
+
+      final next = (_currentPage + 1) % _features.length;
+      _pageController.animateToPage(
+        next,
+        duration: _transitionDuration,
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  void _setPaused(bool value) {
+    if (_paused == value) return;
+    setState(() => _paused = value);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 28, 16, 28),
-        child: Column(
-          children: [
-            Text(
-              '— Why Choose Us —',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2.4,
-                    fontSize: 11,
-                  ),
+    return HomeSectionCard(
+      margin: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+      showDivider: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+                color: AppColors.textPrimary,
+              ),
+              children: [
+                TextSpan(text: 'Why Choose '),
+                TextSpan(
+                  text: 'BulkMobileMart?',
+                  style: TextStyle(color: AppColors.primary),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                      fontSize: 22,
-                    ),
-                children: const [
-                  TextSpan(text: 'Why Choose '),
-                  TextSpan(
-                    text: 'BulkMobileMart?',
-                    style: TextStyle(color: AppColors.primary),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Wholesale prices, genuine products & reliable delivery',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.35,
+              color: AppColors.textSecondary.withValues(alpha: 0.95),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: _cardHeight,
+            child: Listener(
+              onPointerDown: (_) => _setPaused(true),
+              onPointerUp: (_) => _setPaused(false),
+              onPointerCancel: (_) => _setPaused(false),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification &&
+                      notification.dragDetails != null) {
+                    _setPaused(true);
+                  } else if (notification is ScrollEndNotification) {
+                    _setPaused(false);
+                  }
+                  return false;
+                },
+                child: PageView.builder(
+                  controller: _pageController,
+                  padEnds: true,
+                  itemCount: _features.length,
+                  onPageChanged: (index) => setState(() => _currentPage = index),
+                  itemBuilder: (context, index) {
+                    final feature = _features[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _WhyChooseCard(feature: feature),
+                    );
+                  },
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'We are committed to providing the best quality mobile accessories '
-              'at wholesale prices with a seamless shopping experience.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _features.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.85,
-              ),
-              itemBuilder: (context, index) {
-                return _WhyChooseCard(feature: _features[index]);
-              },
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_features.length, (index) {
+              final active = index == _currentPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active
+                      ? AppColors.primary
+                      : AppColors.borderLight,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
@@ -141,73 +233,101 @@ class _WhyChooseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+    return SizedBox(
+      height: _cardHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.borderLight.withValues(alpha: 0.85),
           ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: feature.iconBg,
-              shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
-            child: Icon(feature.icon, color: feature.color, size: 18),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ColoredBox(
+                color: feature.color.withValues(alpha: 0.12),
+                child: const SizedBox(width: 4),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: feature.iconBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          feature.icon,
+                          color: feature.color,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              feature.line1,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              feature.line2,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                height: 1.2,
+                                color: AppColors.textSecondary
+                                    .withValues(alpha: 0.95),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 28,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: feature.color,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  feature.line1,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  feature.line2,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    height: 1.2,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  width: 20,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: feature.color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

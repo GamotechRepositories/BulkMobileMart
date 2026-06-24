@@ -2,7 +2,7 @@ class AppConstants {
   AppConstants._();
 
   static const String authStorageKey = 'bmm_auth';
-  static const String logoAsset = 'assets/images/app_logo.png';
+  static const String logoAsset = 'assets/images/favicon.png';
   static const String logoUrl =
       'https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png';
 
@@ -22,5 +22,6 @@ class AppConstants {
   static const String whatsAppGroupUrl =
       'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8';
 
-  static const String webShareBaseUrl = 'https://bulkmobilemart.com';
+  /// @deprecated Use [Env.storeUrl] for share links.
+  static const String webShareBaseUrl = 'https://www.bulkmobilemart.in';
 }

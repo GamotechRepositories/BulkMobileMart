@@ -11,6 +11,7 @@ class AppNetworkImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.width,
     this.height,
+    this.alignment = Alignment.center,
     this.cacheWidth,
     this.cacheHeight,
     this.placeholder,
@@ -22,6 +23,7 @@ class AppNetworkImage extends StatelessWidget {
   final BoxFit fit;
   final double? width;
   final double? height;
+  final Alignment alignment;
   /// Logical px — converted to memCacheWidth using device pixel ratio.
   final int? cacheWidth;
   /// Logical px — converted to memCacheHeight using device pixel ratio.
@@ -46,8 +48,9 @@ class AppNetworkImage extends StatelessWidget {
     final memH = _memDim(context, height, cacheHeight);
 
     return CachedNetworkImage(
-      imageUrl: imageUrl,
+      imageUrl: imageUrl.trim(),
       fit: fit,
+      alignment: alignment,
       width: width,
       height: height,
       memCacheWidth: memW,

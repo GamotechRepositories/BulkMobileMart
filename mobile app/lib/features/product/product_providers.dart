@@ -5,13 +5,21 @@ import '../../models/product.dart';
 
 final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
-  ref.keepAlive();
   final params = <String, dynamic>{'limit': 50};
   if (query.categoryName != null && query.categoryName!.isNotEmpty) {
     params['categoryName'] = query.categoryName;
   }
   if (query.search != null && query.search!.isNotEmpty) {
     params['q'] = query.search;
+  }
+  if (query.brandName != null && query.brandName!.isNotEmpty) {
+    params['brandName'] = query.brandName;
+  }
+  if (query.justArrived) {
+    params['justArrived'] = true;
+  }
+  if (query.hotSelling) {
+    params['hotSelling'] = true;
   }
 
   final products = await ref.read(apiServiceProvider).fetchProducts(params);
@@ -20,23 +28,40 @@ final productListProvider =
 
 final productDetailProvider =
     FutureProvider.family<Product, String>((ref, id) async {
-  ref.keepAlive();
   return ref.read(apiServiceProvider).fetchProductById(id);
 });
 
 class ProductQuery {
-  const ProductQuery({this.categoryName, this.search});
+  const ProductQuery({
+    this.categoryName,
+    this.search,
+    this.brandName,
+    this.justArrived = false,
+    this.hotSelling = false,
+  });
 
   final String? categoryName;
   final String? search;
+  final String? brandName;
+  final bool justArrived;
+  final bool hotSelling;
 
   @override
   bool operator ==(Object other) {
     return other is ProductQuery &&
         other.categoryName == categoryName &&
-        other.search == search;
+        other.search == search &&
+        other.brandName == brandName &&
+        other.justArrived == justArrived &&
+        other.hotSelling == hotSelling;
   }
 
   @override
-  int get hashCode => Object.hash(categoryName, search);
+  int get hashCode => Object.hash(
+        categoryName,
+        search,
+        brandName,
+        justArrived,
+        hotSelling,
+      );
 }

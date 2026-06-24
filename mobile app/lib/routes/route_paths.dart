@@ -7,6 +7,8 @@ class RoutePaths {
   static const productDetail = '/product/:id';
   static const cart = '/cart';
   static const wishlist = '/wishlist';
+  static const justArrived = '/just-arrived';
+  static const hotSelling = '/hot-selling';
   static const checkout = '/checkout';
   static const orders = '/orders';
   static const orderDetail = '/orders/:id';

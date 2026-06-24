@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../features/cart/cart_screen.dart';
 import '../features/categories/categories_screen.dart';
 import '../features/checkout/checkout_screen.dart';
+import '../features/home/home_providers.dart';
 import '../features/home/home_screen.dart';
+import '../features/product/featured_products_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/product/product_list_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -18,6 +20,7 @@ import '../features/static/static_content.dart';
 import '../features/static/static_screens.dart';
 import '../features/support/support_screen.dart';
 import '../widgets/app_shell.dart';
+import '../widgets/layout/tab_swipe_shell.dart';
 import 'route_paths.dart';
 
 /// Root navigator for full-screen routes and global overlays (auth sheet, etc.).
@@ -27,6 +30,19 @@ final _shellNavigatorProductKey = GlobalKey<NavigatorState>(debugLabel: 'product
 final _shellNavigatorOrdersKey = GlobalKey<NavigatorState>(debugLabel: 'orders');
 final _shellNavigatorCartKey = GlobalKey<NavigatorState>(debugLabel: 'cart');
 final _shellNavigatorProfileKey = GlobalKey<NavigatorState>(debugLabel: 'profile');
+
+final shellBranchNavigatorKeys = <GlobalKey<NavigatorState>>[
+  _shellNavigatorHomeKey,
+  _shellNavigatorProductKey,
+  _shellNavigatorOrdersKey,
+  _shellNavigatorCartKey,
+  _shellNavigatorProfileKey,
+];
+
+final shellBranchNavigatorObservers = List.generate(
+  5,
+  (_) => ShellBranchNavigatorObserver(),
+);
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -38,10 +54,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           return AppShell(navigationShell: navigationShell);
         },
         navigatorContainerBuilder: (context, navigationShell, children) {
-          return children[navigationShell.currentIndex];
+          return TabSwipeShell(
+            navigationShell: navigationShell,
+            branchNavigatorKeys: shellBranchNavigatorKeys,
+            children: children,
+          );
         },
         branches: [
           StatefulShellBranch(
+            observers: [shellBranchNavigatorObservers[0]],
             navigatorKey: _shellNavigatorHomeKey,
             routes: [
               GoRoute(
@@ -51,6 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [shellBranchNavigatorObservers[1]],
             navigatorKey: _shellNavigatorProductKey,
             routes: [
               GoRoute(
@@ -65,7 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     searchQuery: params['q'],
                     categoryName: params['categoryName'],
                     subcategory: params['subcategory'],
-                    brand: params['brand'],
+                    brand: params['brandName'] ?? params['brand'],
                     minPrice: params['minPrice'],
                     maxPrice: params['maxPrice'],
                     sortId: params['sort'],
@@ -75,6 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [shellBranchNavigatorObservers[2]],
             navigatorKey: _shellNavigatorOrdersKey,
             routes: [
               GoRoute(
@@ -84,6 +107,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [shellBranchNavigatorObservers[3]],
             navigatorKey: _shellNavigatorCartKey,
             routes: [
               GoRoute(
@@ -93,6 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
+            observers: [shellBranchNavigatorObservers[4]],
             navigatorKey: _shellNavigatorProfileKey,
             routes: [
               GoRoute(
@@ -161,6 +186,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.wishlist,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const WishlistScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.justArrived,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const FeaturedProductsScreen(
+          title: 'Just Arrived',
+          filter: FeaturedProductFilter.justArrived,
+          emptyMessage: 'No just arrived products yet.',
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.hotSelling,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const FeaturedProductsScreen(
+          title: 'Hot Selling Products',
+          filter: FeaturedProductFilter.hotSelling,
+          emptyMessage: 'No hot selling products yet.',
+        ),
       ),
       GoRoute(
         path: '/product/:id',

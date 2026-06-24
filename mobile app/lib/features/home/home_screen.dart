@@ -3,15 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/refresh/app_refresh.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../widgets/layout/mobile_search_bar.dart';
 import 'home_search_focus.dart';
 import 'widgets/best_deals_section.dart';
 import 'widgets/category_nav_section.dart';
 import 'widgets/deferred_home_section.dart';
 import 'widgets/hero_banner_carousel.dart';
-import 'widgets/home_quick_chips.dart';
+import 'widgets/hot_selling_section.dart';
+import 'widgets/just_arrived_section.dart';
+import 'widgets/recently_viewed_section.dart';
+import 'widgets/social_media_carousel_section.dart';
 import 'widgets/testimonials_section.dart';
-import 'widgets/home_trust_strip.dart';
 import 'widgets/home_wholesale_banner.dart';
 import 'widgets/top_brands_section.dart';
 import 'widgets/why_choose_us_section.dart';
@@ -25,18 +28,27 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final FocusNode _searchFocusNode;
+  late final TabScrollRegistry _tabScrollRegistry;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
     _searchFocusNode = FocusNode();
     HomeSearchFocus.attach(_searchFocusNode);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.home, _scrollController);
+    });
   }
 
   @override
   void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.home, _scrollController);
     HomeSearchFocus.detach();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -48,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         color: const Color(0xFFFF7A00),
         onRefresh: () => refreshHomeData(ref),
         child: CustomScrollView(
-          primary: true,
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
@@ -76,15 +88,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
-            const SliverToBoxAdapter(child: HomeQuickChips()),
             const SliverToBoxAdapter(
               child: RepaintBoundary(child: CategoryNavSection()),
             ),
             const SliverToBoxAdapter(
               child: RepaintBoundary(
                 child: DeferredHomeSection(
-                  delay: Duration(milliseconds: 80),
-                  placeholderHeight: 600,
+                  delay: Duration(milliseconds: 150),
+                  placeholderHeight: 140,
+                  child: TopBrandsSection(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 300),
+                  placeholderHeight: 280,
                   child: BestDealsSection(),
                 ),
               ),
@@ -92,23 +112,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SliverToBoxAdapter(
               child: RepaintBoundary(
                 child: DeferredHomeSection(
-                  delay: Duration(milliseconds: 160),
-                  placeholderHeight: 140,
-                  child: TopBrandsSection(),
+                  delay: Duration(milliseconds: 450),
+                  placeholderHeight: 280,
+                  child: JustArrivedSection(),
                 ),
-              ),
-            ),
-            const SliverToBoxAdapter(
-              child: DeferredHomeSection(
-                delay: Duration(milliseconds: 240),
-                placeholderHeight: 168,
-                child: HomeWholesaleBanner(),
               ),
             ),
             const SliverToBoxAdapter(
               child: RepaintBoundary(
                 child: DeferredHomeSection(
-                  delay: Duration(milliseconds: 320),
+                  delay: Duration(milliseconds: 600),
+                  placeholderHeight: 280,
+                  child: HotSellingSection(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 750),
+                  placeholderHeight: 280,
+                  child: RecentlyViewedSection(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 280),
                   placeholderHeight: 280,
                   child: WhyChooseUsSection(),
                 ),
@@ -116,16 +147,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SliverToBoxAdapter(
               child: DeferredHomeSection(
-                delay: Duration(milliseconds: 400),
-                child: HomeTrustStrip(),
+                delay: Duration(milliseconds: 320),
+                placeholderHeight: 168,
+                child: HomeWholesaleBanner(),
               ),
             ),
             const SliverToBoxAdapter(
               child: RepaintBoundary(
                 child: DeferredHomeSection(
-                  delay: Duration(milliseconds: 480),
+                  delay: Duration(milliseconds: 360),
                   placeholderHeight: 180,
                   child: TestimonialsSection(),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: RepaintBoundary(
+                child: DeferredHomeSection(
+                  delay: Duration(milliseconds: 400),
+                  placeholderHeight: 160,
+                  child: SocialMediaCarouselSection(),
                 ),
               ),
             ),

@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
 import '../../features/home/home_fallback_data.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../auth/auth_controller.dart';
+import '../../core/utils/ui_sound_effects.dart';
 import '../../widgets/cart/fly_product_animator.dart';
 
 enum AddToCartResult { success, requiresLogin, failed }
@@ -71,29 +75,36 @@ final cartControllerProvider =
 
 int cartLineQuantityForProduct(List<CartItem> items, Product product) {
   final defaults = resolveCartDefaults(product);
-  for (final item in items) {
-    if (item.id != product.id) continue;
-    if (item.variantName.trim() != defaults.variantName.trim()) continue;
-    if (item.colorName.trim() != defaults.colorName.trim()) continue;
-    return item.quantity;
-  }
-  return 0;
+  final line = findCartLine(
+    items,
+    product.id,
+    defaults.variantName,
+    defaults.colorName,
+  );
+  return line?.quantity ?? 0;
 }
 
 /// Rebuilds only when this product's cart quantity changes.
-final cartProductQuantityProvider = Provider.family<int, Product>((ref, product) {
+final cartProductQuantityProvider = Provider.family<int, String>((ref, productId) {
   return ref.watch(
-    cartControllerProvider.select(
-      (state) => cartLineQuantityForProduct(state.items, product),
-    ),
+    cartControllerProvider.select((state) {
+      for (final item in state.items) {
+        if (item.id == productId) {
+          return item.quantity;
+        }
+      }
+      return 0;
+    }),
   );
 });
 
 class CartController extends Notifier<CartState> {
   PendingCartAction? _pending;
+  Timer? _toastClearTimer;
 
   @override
   CartState build() {
+    ref.onDispose(() => _toastClearTimer?.cancel());
     ref.listen(authControllerProvider, (previous, next) {
       final wasLoggedOut = previous?.isLoggedIn != true;
       if (wasLoggedOut && next.isLoggedIn) {
@@ -185,9 +196,15 @@ class CartController extends Notifier<CartState> {
         'variantName': effectiveVariant,
         'colorName': effectiveColor,
       });
-      await loadCart(silent: true);
+      _mergeCartLineLocally(
+        product,
+        quantity,
+        variantName: effectiveVariant,
+        colorName: effectiveColor,
+      );
 
       if (!buyNow) {
+        unawaited(UiSoundEffects.playCartAdd());
         if (flySourceContext != null && flySourceContext.mounted) {
           triggerFlyToCart(
             sourceContext: flySourceContext,
@@ -195,7 +212,8 @@ class CartController extends Notifier<CartState> {
           );
         } else {
           state = state.copyWith(toastImage: product.primaryImage, clearError: true);
-          Future.delayed(const Duration(milliseconds: 2600), () {
+          _toastClearTimer?.cancel();
+          _toastClearTimer = Timer(const Duration(milliseconds: 2600), () {
             if (ref.mounted) clearToast();
           });
         }
@@ -235,15 +253,15 @@ class CartController extends Notifier<CartState> {
     if (!auth.isLoggedIn) return;
 
     final previous = state.items;
-    final v = variantName.trim();
-    final c = colorName.trim();
     state = state.copyWith(
       items: previous
           .where(
-            (item) =>
-                item.id != productId ||
-                item.variantName.trim() != v ||
-                item.colorName.trim() != c,
+            (item) => !cartLineMatches(
+              item,
+              productId,
+              variantName,
+              colorName,
+            ),
           )
           .toList(),
     );
@@ -263,14 +281,14 @@ class CartController extends Notifier<CartState> {
     await updateCartLineQuantity(productId: productId, quantity: quantity);
   }
 
-  Future<void> updateCartLineQuantity({
+  Future<bool> updateCartLineQuantity({
     required String productId,
     required int quantity,
     String variantName = '',
     String colorName = '',
   }) async {
     final auth = ref.read(authControllerProvider);
-    if (!auth.isLoggedIn) return;
+    if (!auth.isLoggedIn) return false;
 
     if (quantity < 1) {
       await removeFromCartLine(
@@ -278,22 +296,24 @@ class CartController extends Notifier<CartState> {
         variantName: variantName,
         colorName: colorName,
       );
-      return;
+      return true;
     }
 
     final previous = state.items;
-    final v = variantName.trim();
-    final c = colorName.trim();
     state = state.copyWith(
       items: previous
           .map(
-            (item) => item.id == productId &&
-                    item.variantName.trim() == v &&
-                    item.colorName.trim() == c
+            (item) => cartLineMatches(
+              item,
+              productId,
+              variantName,
+              colorName,
+            )
                 ? item.copyWith(quantity: quantity)
                 : item,
           )
           .toList(),
+      clearError: true,
     );
 
     try {
@@ -303,8 +323,14 @@ class CartController extends Notifier<CartState> {
             variantName: variantName,
             colorName: colorName,
           );
-    } catch (_) {
-      state = state.copyWith(items: previous);
+      await loadCart(silent: true);
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        items: previous,
+        errorMessage: authErrorMessage(error),
+      );
+      return false;
     }
   }
 
@@ -312,24 +338,49 @@ class CartController extends Notifier<CartState> {
     final items = List<CartItem>.from(state.items);
     if (items.isEmpty) return;
 
-    final previous = state.items;
-    state = state.copyWith(items: const []);
+    state = state.copyWith(items: const [], clearError: true);
 
     try {
-      await Future.wait(
-        items.map(
-          (item) => ref.read(apiServiceProvider).removeFromCartItem(
-                item.id,
-                variantName: item.variantName,
-                colorName: item.colorName,
-              ),
-        ),
-      );
-    } catch (_) {
+      // Sequential deletes — parallel writes race on the same cart document.
+      for (final item in items) {
+        await ref.read(apiServiceProvider).removeFromCartItem(
+              item.id,
+              variantName: item.variantName,
+              colorName: item.colorName,
+            );
+      }
       await loadCart(silent: true);
-      if (state.items.isEmpty) {
-        state = state.copyWith(items: previous);
+    } catch (error) {
+      await loadCart(silent: true);
+      if (state.items.isNotEmpty) {
+        state = state.copyWith(errorMessage: authErrorMessage(error));
       }
     }
+  }
+
+  void _mergeCartLineLocally(
+    Product product,
+    int quantity, {
+    required String variantName,
+    required String colorName,
+  }) {
+    final items = List<CartItem>.from(state.items);
+    final existing = findCartLine(items, product.id, variantName, colorName);
+
+    if (existing != null) {
+      final index = items.indexOf(existing);
+      items[index] = existing.copyWith(quantity: existing.quantity + quantity);
+    } else {
+      items.add(
+        cartItemFromProduct(
+          product,
+          quantity,
+          variantName: variantName,
+          colorName: colorName,
+        ),
+      );
+    }
+
+    state = state.copyWith(items: items, clearError: true);
   }
 }

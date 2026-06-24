@@ -41,3 +41,17 @@ CartSummary calculateCartSummary(List<CartItem> items) {
     savings: calculateCartSavings(items),
   );
 }
+
+bool meetsMinimumOrder(double subtotal, double minimumOrderValue) {
+  return subtotal >= minimumOrderValue;
+}
+
+double minimumOrderShortfall(double subtotal, double minimumOrderValue) {
+  if (meetsMinimumOrder(subtotal, minimumOrderValue)) return 0;
+  return minimumOrderValue - subtotal;
+}
+
+double minimumOrderProgress(double subtotal, double minimumOrderValue) {
+  if (minimumOrderValue <= 0) return 1;
+  return (subtotal / minimumOrderValue).clamp(0.0, 1.0);
+}

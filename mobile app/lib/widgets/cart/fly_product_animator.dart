@@ -3,8 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../common/app_network_image.dart';
-import 'cart_nav_icon_key.dart';
-import '../wishlist/wishlist_nav_icon_key.dart';
+import '../common/nav_icon_locator.dart';
 
 class FlyProductRequest {
   const FlyProductRequest({
@@ -23,13 +22,11 @@ void Function(FlyProductRequest request)? _flyProductTrigger;
 void triggerFlyProduct({
   required BuildContext sourceContext,
   required String? imageUrl,
-  required GlobalKey targetKey,
+  required RenderBox? targetBox,
 }) {
   if (imageUrl == null || imageUrl.isEmpty) return;
 
   final sourceBox = sourceContext.findRenderObject() as RenderBox?;
-  final targetContext = targetKey.currentContext;
-  final targetBox = targetContext?.findRenderObject() as RenderBox?;
   if (sourceBox == null || targetBox == null || _flyProductTrigger == null) return;
 
   final start = sourceBox.localToGlobal(sourceBox.size.center(Offset.zero));
@@ -47,7 +44,7 @@ void triggerFlyToCart({
   triggerFlyProduct(
     sourceContext: sourceContext,
     imageUrl: imageUrl,
-    targetKey: cartNavIconKey,
+    targetBox: NavIconLocator.cartIconBox,
   );
 }
 
@@ -58,7 +55,7 @@ void triggerFlyToWishlist({
   triggerFlyProduct(
     sourceContext: sourceContext,
     imageUrl: imageUrl,
-    targetKey: wishlistNavIconKey,
+    targetBox: NavIconLocator.wishlistIconBox,
   );
 }
 
@@ -75,9 +72,9 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
 
   FlyProductRequest? _request;
   late final AnimationController _controller;
-  Animation<double>? _progress;
-  Animation<double>? _scale;
-  Animation<double>? _opacity;
+  late final Animation<double> _progress;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
@@ -86,6 +83,20 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _progress = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.78), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.78, end: 0.36), weight: 37),
+      TweenSequenceItem(tween: Tween(begin: 0.36, end: 0.1), weight: 18),
+    ]).animate(_controller);
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 45),
+      TweenSequenceItem(tween: Tween(begin: 0.96, end: 0.82), weight: 37),
+      TweenSequenceItem(tween: Tween(begin: 0.82, end: 0.0), weight: 18),
+    ]).animate(_controller);
     _flyProductTrigger = _startAnimation;
   }
 
@@ -99,24 +110,7 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
   }
 
   void _startAnimation(FlyProductRequest request) {
-    if (!mounted) return;
-
-    _progress = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
-
-    _scale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.78), weight: 45),
-      TweenSequenceItem(tween: Tween(begin: 0.78, end: 0.36), weight: 37),
-      TweenSequenceItem(tween: Tween(begin: 0.36, end: 0.1), weight: 18),
-    ]).animate(_controller);
-
-    _opacity = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.96), weight: 45),
-      TweenSequenceItem(tween: Tween(begin: 0.96, end: 0.82), weight: 37),
-      TweenSequenceItem(tween: Tween(begin: 0.82, end: 0.0), weight: 18),
-    ]).animate(_controller);
+    if (!mounted || _controller.isAnimating) return;
 
     setState(() => _request = request);
     _controller.forward(from: 0).whenComplete(() {
@@ -135,23 +129,20 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
   @override
   Widget build(BuildContext context) {
     final request = _request;
-    final progress = _progress;
-    final scale = _scale;
-    final opacity = _opacity;
-    if (request == null || progress == null || scale == null || opacity == null) {
+    if (request == null) {
       return const SizedBox.shrink();
     }
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final currentScale = scale.value;
-        final position = _positionAt(request, progress.value);
+        final currentScale = _scale.value;
+        final position = _positionAt(request, _progress.value);
         return Positioned(
           left: position.dx - (_size * currentScale) / 2,
           top: position.dy - (_size * currentScale) / 2,
           child: Opacity(
-            opacity: opacity.value,
+            opacity: _opacity.value,
             child: Transform.scale(
               scale: currentScale,
               child: child,

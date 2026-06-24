@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/utils/viewport_utils.dart';
 import '../../../models/testimonial.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import '../home_providers.dart';
@@ -16,22 +17,43 @@ class TestimonialsSection extends ConsumerStatefulWidget {
       _TestimonialsSectionState();
 }
 
-class _TestimonialsSectionState extends ConsumerState<TestimonialsSection> {
+class _TestimonialsSectionState extends ConsumerState<TestimonialsSection>
+    with WidgetsBindingObserver {
   int _current = 0;
   Timer? _timer;
   int _lastCount = 0;
+  bool _appActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    if (_appActive == active) return;
+    _appActive = active;
+    if (active && _lastCount > 1) {
+      _startTimer(_lastCount);
+    } else {
+      _timer?.cancel();
+    }
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
 
   void _startTimer(int count) {
     _timer?.cancel();
-    if (count <= 1) return;
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
+    if (!_appActive || count <= 1) return;
+    _timer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted || !isWidgetRoughlyVisible(context)) return;
       setState(() => _current = (_current + 1) % count);
     });
   }

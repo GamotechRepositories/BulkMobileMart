@@ -10,6 +10,11 @@ import 'core/storage/auth_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Keep decoded images bounded on low-RAM devices.
+  PaintingBinding.instance.imageCache.maximumSize = 80;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;
+
   await Env.load();
 
   // Prefetch app font so first frames don't hitch on network font download.

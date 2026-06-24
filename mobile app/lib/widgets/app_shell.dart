@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/bootstrap/app_bootstrap.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import 'common/offline_banner.dart';
@@ -61,7 +63,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     bootstrapUserSession(ref);
   }
 
-  void _onTap(int index) {
+  Future<void> _onTap(int index) async {
     final auth = ref.read(authControllerProvider);
 
     if (_authRequiredIndices.contains(index) && !auth.isLoggedIn) {
@@ -69,10 +71,15 @@ class _AppShellState extends ConsumerState<AppShell> {
       return;
     }
 
-    widget.navigationShell.goBranch(
-      index,
-      initialLocation: index == widget.navigationShell.currentIndex,
-    );
+    final isCurrentTab = index == widget.navigationShell.currentIndex;
+
+    if (isCurrentTab) {
+      await ref.read(tabScrollRegistryProvider).scrollToTop(index);
+      widget.navigationShell.goBranch(index, initialLocation: true);
+      return;
+    }
+
+    widget.navigationShell.goBranch(index, initialLocation: false);
   }
 
   @override
@@ -80,30 +87,51 @@ class _AppShellState extends ConsumerState<AppShell> {
     final cartCount = ref.watch(
       cartControllerProvider.select((s) => s.cartCount),
     );
+    final accountInitial = ref.watch(
+      authControllerProvider.select((s) {
+        final name = s.user?.name;
+        if (name == null || name.trim().isEmpty) return null;
+        return name.trim()[0].toUpperCase();
+      }),
+    );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7),
-      body: OfflineBannerHost(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                MobileHeader(
-                  showSearchBar: widget.navigationShell.currentIndex != 0,
-                ),
-                Expanded(child: widget.navigationShell),
-              ],
-            ),
-            const _ShellSideEffects(),
-            const WishlistToast(),
-          ],
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      bottomNavigationBar: FlipkartBottomNav(
-        currentIndex: widget.navigationShell.currentIndex,
-        items: _tabs,
-        cartBadgeCount: cartCount,
-        onTap: _onTap,
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: const Color(0xFFF4F5F7),
+        body: OfflineBannerHost(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  MobileHeader(
+                    showSearchBar: widget.navigationShell.currentIndex != 0,
+                  ),
+                  Expanded(child: widget.navigationShell),
+                ],
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: FlipkartBottomNav(
+                  currentIndex: widget.navigationShell.currentIndex,
+                  items: _tabs,
+                  cartBadgeCount: cartCount,
+                  accountInitial: accountInitial,
+                  onTap: _onTap,
+                ),
+              ),
+              const _ShellSideEffects(),
+              const WishlistToast(),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -50,7 +50,33 @@ void main() {
 
       expect(getMinOrderQuantity(product), defaultSingleMoq);
       expect(hasConfiguredMinOrderQuantity(product), isFalse);
-      expect(getMaxOrderQuantity(product, ''), 12);
+      expect(getMaxOrderQuantity(product, ''), inStockMaxQty);
+    });
+
+    test('bulk MOQ product allows quantity above stock field when in stock', () {
+      final product = Product.fromJson({
+        'id': 'bulk5',
+        'name': 'Bulk Adapter',
+        'categories': ['Accessories'],
+        'subcategory': 'Adapters',
+        'brandName': 'Brand',
+        'price': 175,
+        'discountedPrice': 170,
+        'discountedPercent': 3,
+        'stock': 3,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'minOrderQuantity': 3,
+        'bulkPricing': {
+          'slabs': [
+            {'minQuantity': 3, 'maxQuantity': 5, 'pricePerUnit': 175},
+            {'minQuantity': 6, 'maxQuantity': 20, 'pricePerUnit': 170},
+          ],
+        },
+      });
+
+      expect(getMaxOrderQuantity(product, ''), inStockMaxQty);
+      expect(getNextCartQuantityForProduct(product, 3), 6);
     });
 
     test('uses step by quantity when defined', () {

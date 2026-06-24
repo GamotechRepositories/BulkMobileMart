@@ -6,8 +6,8 @@ import '../../config/app_info.dart';
 import '../../config/theme.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/address_utils.dart';
-import '../../core/utils/currency_formatter.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../models/address.dart';
@@ -15,9 +15,9 @@ import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
-import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../widgets/product/buy_again_card.dart';
 import 'profile_recent_items.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -28,6 +28,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
   final _addressesSectionKey = GlobalKey();
   final _addressPageController = PageController();
@@ -43,11 +44,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
     Future.microtask(_loadRecentItems);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _tabScrollRegistry.register(ShellTabIndex.account, _scrollController);
+    });
   }
 
   @override
   void dispose() {
+    _tabScrollRegistry.unregister(ShellTabIndex.account, _scrollController);
     _scrollController.dispose();
     _addressPageController.dispose();
     super.dispose();
@@ -724,80 +731,15 @@ class _RecentOrderItemsSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 168,
+            height: 220,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return _RecentItemCard(item: item);
-              },
+              itemBuilder: (context, index) => BuyAgainCard(item: items[index]),
             ),
           ),
       ],
-    );
-  }
-}
-
-class _RecentItemCard extends StatelessWidget {
-  const _RecentItemCard({required this.item});
-
-  final OrderItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push('/product/${item.productId}'),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: 112,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: AppNetworkImage(
-                  imageUrl: item.image,
-                  cacheWidth: 112,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, height: 1.2),
-                    ),
-                    const Spacer(),
-                    Text(
-                      formatInr(item.price),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

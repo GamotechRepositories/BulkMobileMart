@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../core/utils/recently_viewed.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 
+const homeProductLimit = 12;
+
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
-  ref.keepAlive();
   final categories = await ref.read(apiServiceProvider).fetchCategories();
   return categories
       .where(
@@ -17,7 +19,6 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
 });
 
 final homeDealsProvider = FutureProvider<List<Product>>((ref) async {
-  ref.keepAlive();
   final products = await ref.read(apiServiceProvider).fetchProducts({
     'limit': 12,
   });
@@ -25,30 +26,63 @@ final homeDealsProvider = FutureProvider<List<Product>>((ref) async {
 });
 
 final brandsProvider = FutureProvider((ref) async {
-  ref.keepAlive();
   final brands = await ref.read(apiServiceProvider).fetchBrands();
   return brands.where((brand) => brand.isActive).toList();
 });
 
 final testimonialsProvider = FutureProvider((ref) async {
-  ref.keepAlive();
   final items = await ref.read(apiServiceProvider).fetchTestimonials();
   return items.where((item) => item.isActive).toList();
 });
 
 final heroBannersProvider = FutureProvider((ref) async {
-  ref.keepAlive();
-  final api = ref.read(apiServiceProvider);
-  final results = await Future.wait([
-    api.fetchHeroBanners(device: 'mobile'),
-    api.fetchHeroBanners(device: 'desktop'),
-  ]);
-  var banners = results[0];
-  if (banners.isEmpty && results[1].isNotEmpty) {
-    banners = results[1];
-  }
+  final banners = await ref.read(apiServiceProvider).fetchHeroBanners(
+        device: 'mobile',
+      );
   return banners
       .where((banner) => banner.isActive && banner.imageUrl.trim().isNotEmpty)
       .toList()
     ..sort((a, b) => a.order.compareTo(b.order));
+});
+
+final justArrivedProvider = FutureProvider<List<Product>>((ref) async {
+  final products = await ref.read(apiServiceProvider).fetchProducts({
+    'justArrived': true,
+    'limit': homeProductLimit,
+  });
+  return products.where((product) => product.isActive).take(homeProductLimit).toList();
+});
+
+final hotSellingProvider = FutureProvider<List<Product>>((ref) async {
+  final products = await ref.read(apiServiceProvider).fetchProducts({
+    'hotSelling': true,
+    'limit': homeProductLimit,
+  });
+  return products.where((product) => product.isActive).take(homeProductLimit).toList();
+});
+
+final recentlyViewedProductsProvider = FutureProvider<List<Product>>((ref) async {
+  final ids = (await RecentlyViewedStore.getIds()).take(homeProductLimit).toList();
+  if (ids.isEmpty) return const [];
+
+  final products = await ref.read(apiServiceProvider).fetchProducts({
+    'ids': ids.join(','),
+    'limit': homeProductLimit,
+  });
+  final active = products.where((product) => product.isActive).toList();
+  final byId = {for (final product in active) product.id: product};
+
+  return ids.map((id) => byId[id]).whereType<Product>().toList();
+});
+
+enum FeaturedProductFilter { justArrived, hotSelling }
+
+final featuredProductsProvider =
+    FutureProvider.family<List<Product>, FeaturedProductFilter>((ref, filter) async {
+  final params = filter == FeaturedProductFilter.justArrived
+      ? {'justArrived': true}
+      : {'hotSelling': true};
+
+  final products = await ref.read(apiServiceProvider).fetchProducts(params);
+  return products.where((product) => product.isActive).toList();
 });

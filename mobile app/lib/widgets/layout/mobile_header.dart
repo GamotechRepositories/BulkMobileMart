@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/utils/product_search.dart';
+import '../../core/utils/external_link.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/home/home_providers.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
 import '../common/app_logo.dart';
+import '../common/fly_target_anchor.dart';
+import '../common/nav_icon_locator.dart';
 import '../common/whatsapp_icon.dart';
-import '../wishlist/wishlist_nav_icon_key.dart';
 import 'mobile_search_bar.dart';
 
 class MobileHeader extends ConsumerStatefulWidget {
@@ -31,6 +32,8 @@ class MobileHeader extends ConsumerStatefulWidget {
 }
 
 class _MobileHeaderState extends ConsumerState<MobileHeader> {
+  static const _homeBottomRadius = 22.0;
+
   final _searchFocusNode = FocusNode();
 
   void _openMenu() {
@@ -60,10 +63,11 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
   }
 
   Future<void> _openWhatsAppGroup() async {
-    final uri = Uri.parse(AppConstants.whatsAppGroupUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    await openExternalUrl(
+      AppConstants.whatsAppGroupUrl,
+      context: context,
+      errorMessage: 'Could not open WhatsApp.',
+    );
   }
 
   @override
@@ -85,47 +89,58 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.headerPrimary,
-                  AppColors.headerPrimaryLight,
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(top: topInset),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                child: Row(
-                  children: [
-                    _HeaderIconButton(
-                      icon: Icons.menu_rounded,
-                      onPressed: _openMenu,
-                      light: true,
-                    ),
-                    const Expanded(
-                      child: Center(
-                        child: AppLogo(height: 42),
-                      ),
-                    ),
-                    _HeaderIconButton(
-                      onPressed: _openWhatsAppGroup,
-                      light: true,
-                      child: const WhatsAppIcon(size: 22),
-                    ),
-                    const SizedBox(width: 4),
-                    _HeaderIconButton(
-                      key: wishlistNavIconKey,
-                      icon: Icons.favorite_border_rounded,
-                      onPressed: () => context.go(RoutePaths.wishlist),
-                      light: true,
-                      badgeCount: wishlistCount,
-                    ),
+          ClipRRect(
+            borderRadius: widget.showSearchBar
+                ? BorderRadius.zero
+                : const BorderRadius.only(
+                    bottomLeft: Radius.circular(_homeBottomRadius),
+                    bottomRight: Radius.circular(_homeBottomRadius),
+                  ),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.headerPrimary,
+                    AppColors.headerPrimaryLight,
                   ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(top: topInset),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                  child: Row(
+                    children: [
+                      _HeaderIconButton(
+                        icon: Icons.menu_rounded,
+                        onPressed: _openMenu,
+                        light: true,
+                      ),
+                      const Expanded(
+                        child: Center(
+                          child: AppLogo(height: 42),
+                        ),
+                      ),
+                      _HeaderIconButton(
+                        onPressed: _openWhatsAppGroup,
+                        light: true,
+                        child: const WhatsAppIcon(size: 22),
+                      ),
+                      const SizedBox(width: 4),
+                      FlyTargetAnchor(
+                        onReport: NavIconLocator.reportWishlist,
+                        onClear: NavIconLocator.clearWishlist,
+                        child: _HeaderIconButton(
+                          icon: Icons.favorite_border_rounded,
+                          onPressed: () => context.go(RoutePaths.wishlist),
+                          light: true,
+                          badgeCount: wishlistCount,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

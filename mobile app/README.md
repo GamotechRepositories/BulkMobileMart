@@ -100,12 +100,23 @@ CI runs automatically on pull requests that touch `mobile app/` (see `.github/wo
 
 ## Deep links
 
-Shared product links open directly in the app:
+Shared product links open directly in the app when it is installed:
 
-- `https://bulkmobilemart.com/product/<id>`
-- `bulkmobilemart://product/<id>` (custom scheme)
+- `https://www.bulkmobilemart.in/product/<id>` (App Links / Universal Links)
+- `bulkmobilemart://product/<id>` (custom scheme fallback)
 
-Android intent filters and iOS URL schemes are configured. For universal links on iOS, host `apple-app-site-association` on your domain.
+### Android App Links
+
+1. Host `frontend/public/.well-known/assetlinks.json` on `www.bulkmobilemart.in` (deploy the frontend).
+2. Add your **Play Console → App integrity → App signing** SHA-256 fingerprint to `sha256_cert_fingerprints` (debug builds already include the local debug cert).
+3. Reinstall the app after manifest changes (`android:autoVerify="true"`).
+4. Verify: `adb shell pm get-app-links com.bulkmobilemart.app`
+
+### iOS Universal Links
+
+1. Replace `TEAM_ID` in `frontend/public/.well-known/apple-app-site-association` with your Apple Developer Team ID.
+2. Deploy the frontend so both `/.well-known/apple-app-site-association` and `/apple-app-site-association` are served as JSON.
+3. `Runner.entitlements` includes associated domains for `.in` and `.com` hosts.
 
 ## iOS release
 

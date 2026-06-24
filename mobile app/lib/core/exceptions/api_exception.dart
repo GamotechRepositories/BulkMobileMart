@@ -49,3 +49,18 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+String apiErrorMessage(
+  Object error, {
+  String fallback = 'Something went wrong. Please try again.',
+}) {
+  if (error is ApiException) return error.message;
+  if (error is DioException) {
+    if (error.error is ApiException) {
+      return (error.error as ApiException).message;
+    }
+    final message = error.message;
+    if (message != null && message.isNotEmpty) return message;
+  }
+  return fallback;
+}

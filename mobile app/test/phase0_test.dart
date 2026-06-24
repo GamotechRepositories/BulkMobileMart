@@ -109,6 +109,10 @@ void main() {
         mapDeepLinkToRoute(Uri.parse('https://bulkmobilemart.com/product/abc123def456')),
         '/product/abc123def456',
       );
+      expect(
+        mapDeepLinkToRoute(Uri.parse('https://www.bulkmobilemart.in/product/abc123def456')),
+        '/product/abc123def456',
+      );
     });
 
     test('maps static routes', () {
