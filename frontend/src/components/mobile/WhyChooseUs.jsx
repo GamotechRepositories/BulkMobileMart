@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const FEATURES = [
   {
     title: "Best Wholesale Prices",
@@ -64,22 +66,6 @@ const FEATURES = [
     ),
   },
   {
-    title: "Easy Returns",
-    mobileLine1: "7-day return policy",
-    mobileLine2: "Simple & hassle-free",
-    description: "Hassle-free return policy within 7 days of delivery.",
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
-    accent: "bg-violet-500",
-    icon: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 12c0-1.232-.046-2.286-.138-3.163a11.87 11.87 0 00-6.7-6.7C12.286 2.046 11.232 2 10 2 5.582 2 2 5.582 2 10s3.582 8 8 8c1.232 0 2.286-.046 3.163-.138a11.87 11.87 0 006.7-6.7C19.954 12.286 20 11.232 20 10m0 0V6m0 4h4"
-      />
-    ),
-  },
-  {
     title: "Dedicated Support",
     mobileLine1: "Always here to help",
     mobileLine2: "Quick expert support",
@@ -101,7 +87,10 @@ function FeatureIcon({ children, iconBg, iconColor, compact = false }) {
   const sizeClass = compact
     ? "h-11 w-11 sm:h-16 sm:w-16"
     : "h-14 w-14 sm:h-16 sm:w-16";
-  const iconSizeClass = compact ? "h-5 w-5 sm:h-8 sm:w-8" : "h-7 w-7 sm:h-8 sm:w-8";
+
+  const iconSizeClass = compact
+    ? "h-5 w-5 sm:h-8 sm:w-8"
+    : "h-7 w-7 sm:h-8 sm:w-8";
 
   return (
     <div
@@ -135,6 +124,7 @@ function FeatureCard({ feature, index }) {
         <h3 className="hidden text-base font-bold leading-snug text-text-primary transition-colors duration-300 group-hover:text-primary sm:block">
           {feature.title}
         </h3>
+
         <div className="sm:hidden">
           <p className="text-[11px] font-bold leading-snug text-text-primary transition-colors duration-300 group-hover:text-primary">
             {feature.mobileLine1}
@@ -143,9 +133,11 @@ function FeatureCard({ feature, index }) {
             {feature.mobileLine2}
           </p>
         </div>
+
         <p className="mt-1 hidden text-xs leading-relaxed text-text-secondary sm:block sm:text-sm">
           {feature.description}
         </p>
+
         <span
           className={`mt-2 block h-0.5 w-6 rounded-full transition-all duration-300 group-hover:w-12 sm:mt-3 sm:w-8 sm:group-hover:w-16 ${feature.accent}`}
           aria-hidden="true"
@@ -156,6 +148,47 @@ function FeatureCard({ feature, index }) {
 }
 
 function WhyChooseUs() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const desktopVisible = 3;
+  const mobileVisible = 2;
+
+  const desktopSlides = [
+    ...FEATURES.slice(-desktopVisible),
+    ...FEATURES,
+    ...FEATURES.slice(0, desktopVisible),
+  ];
+
+  const mobileSlides = [
+    ...FEATURES.slice(-mobileVisible),
+    ...FEATURES,
+    ...FEATURES.slice(0, mobileVisible),
+  ];
+
+  useEffect(() => {
+    if (isPaused) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => prev + 1);
+      setIsTransitioning(true);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isPaused]);
+
+  const handleTransitionEnd = () => {
+    if (currentIndex >= FEATURES.length) {
+      setIsTransitioning(false);
+      setCurrentIndex(0);
+
+      setTimeout(() => {
+        setIsTransitioning(true);
+      }, 50);
+    }
+  };
+
   return (
     <section className="bg-white px-4 py-8 sm:px-6 sm:py-10 md:px-8 md:py-12">
       <div className="mx-auto max-w-[1200px]">
@@ -163,19 +196,67 @@ function WhyChooseUs() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary sm:text-sm">
             — Why Choose Us —
           </p>
+
           <h2 className="mt-3 text-2xl font-bold text-text-primary sm:text-3xl md:text-4xl">
             Why Choose <span className="text-primary">BulkMobileMart?</span>
           </h2>
+
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-text-secondary sm:text-base">
             We are committed to providing the best quality mobile accessories at wholesale prices
             with a seamless shopping experience.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-5">
-          {FEATURES.map((feature, index) => (
-            <FeatureCard key={feature.title} feature={feature} index={index} />
-          ))}
+        <div
+          className="overflow-hidden"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
+        >
+          <div className="block sm:hidden">
+            <div
+              className={`flex ${
+                isTransitioning
+                  ? "transition-transform duration-700 ease-in-out"
+                  : ""
+              }`}
+              style={{
+                transform: `translateX(-${
+                  (currentIndex + mobileVisible) * 50
+                }%)`,
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {mobileSlides.map((feature, index) => (
+                <div key={index} className="w-1/2 flex-shrink-0 px-1.5">
+                  <FeatureCard feature={feature} index={index} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden sm:block">
+            <div
+              className={`flex ${
+                isTransitioning
+                  ? "transition-transform duration-700 ease-in-out"
+                  : ""
+              }`}
+              style={{
+                transform: `translateX(-${
+                  (currentIndex + desktopVisible) * 33.333333
+                }%)`,
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {desktopSlides.map((feature, index) => (
+                <div key={index} className="w-1/3 flex-shrink-0 px-2.5">
+                  <FeatureCard feature={feature} index={index} />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
