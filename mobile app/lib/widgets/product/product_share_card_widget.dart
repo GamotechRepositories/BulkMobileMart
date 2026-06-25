@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../common/app_network_image.dart';
 
 /// Visual product card baked into the shared PNG (matches web share card).
@@ -52,11 +54,12 @@ class ProductShareCardWidget extends StatelessWidget {
                     child: imageUrl.trim().isNotEmpty
                         ? AppNetworkImage(
                             imageUrl: imageUrl,
+                            variant: ImageVariant.large,
                             width: cardWidth - 32,
                             height: imageHeight,
                             fit: BoxFit.cover,
-                            cacheWidth: 900,
-                            cacheHeight: 700,
+                            cacheWidth: ImageConstants.productDetail.width,
+                            cacheHeight: ImageConstants.productDetail.height,
                             errorIcon: Icons.image_outlined,
                             errorIconSize: 48,
                           )

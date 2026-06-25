@@ -18,8 +18,7 @@ class BlinkitOrderCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ratings = ref.watch(deliveryRatingsProvider);
-    final deliveryRating = ratings[order.id];
+    final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final isDelivered = order.status == 'delivered';
     final productId = getPrimaryProductId(order);
 
@@ -342,18 +341,17 @@ class _OrderFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isDelivered && !hasRating) {
-      return IntrinsicHeight(
-        child: Row(
-          children: [
-            Expanded(child: _FooterAction(label: 'Rate Order', onTap: onRate)),
-            const VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: AppColors.borderLight,
-            ),
-            Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
-          ],
-        ),
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: _FooterAction(label: 'Rate Order', onTap: onRate)),
+          const VerticalDivider(
+            width: 1,
+            thickness: 1,
+            color: AppColors.borderLight,
+          ),
+          Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
+        ],
       );
     }
 

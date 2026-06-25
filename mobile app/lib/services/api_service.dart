@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../core/exceptions/api_exception.dart';
 import '../core/network/api_client.dart';
+import '../core/network/api_isolate_parsers.dart';
 import '../core/network/api_response_parser.dart';
 import '../core/utils/upload_folders.dart';
 import '../models/address.dart';
@@ -137,7 +138,7 @@ class ApiService {
   Future<Response<dynamic>> submitSupportMessage(Map<String, dynamic> data) =>
       _dio.post('/api/support', data: data);
 
-  /// Uploads via presigned S3 URL (same flow as admin panel).
+  /// Uploads via server multipart (same flow as web frontend / admin panel).
   Future<String> uploadImageFile(String filePath, String folder) async {
     final file = File(filePath);
     if (!await file.exists()) {
@@ -152,55 +153,27 @@ class ApiService {
     final fileName = _fileNameFromPath(filePath);
     final mimeType = _mimeTypeFromPath(filePath);
 
-    final presignRes = await _dio.post(
-      '/api/upload/presign',
-      data: {
-        'folder': folder,
-        'mimeType': mimeType,
-        'filename': fileName,
-      },
-    );
+    final formData = FormData.fromMap({
+      'folder': folder,
+      'image': await MultipartFile.fromFile(
+        filePath,
+        filename: fileName,
+        contentType: DioMediaType.parse(mimeType),
+      ),
+    });
 
-    final data = ApiResponseParser.getData(presignRes.data);
+    final response = await _dio.post('/api/upload/image', data: formData);
+    final data = ApiResponseParser.getData(response.data);
     if (data is! Map<String, dynamic>) {
-      throw const FormatException('Invalid presign response');
+      throw const FormatException('Invalid upload response');
     }
 
-    final uploadUrl = data['uploadUrl']?.toString();
-    final cloudFrontUrl = data['cloudFrontUrl']?.toString();
-    if (uploadUrl == null ||
-        uploadUrl.isEmpty ||
-        cloudFrontUrl == null ||
-        cloudFrontUrl.isEmpty) {
-      throw const FormatException('Presign response missing URLs');
+    final url = data['url']?.toString() ?? data['original']?.toString() ?? '';
+    if (url.isEmpty) {
+      throw const FormatException('Upload response missing image URL');
     }
 
-    final s3Dio = Dio(
-      BaseOptions(
-        sendTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 60),
-      ),
-    );
-
-    final putRes = await s3Dio.put<List<int>>(
-      uploadUrl,
-      data: bytes,
-      options: Options(
-        headers: {'Content-Type': mimeType},
-        responseType: ResponseType.bytes,
-        validateStatus: (status) => status != null && status < 500,
-      ),
-    );
-
-    final status = putRes.statusCode ?? 0;
-    if (status < 200 || status >= 300) {
-      throw ApiException(
-        'Failed to upload image to storage ($status)',
-        statusCode: status,
-      );
-    }
-
-    return cloudFrontUrl;
+    return url;
   }
 
   static String _fileNameFromPath(String path) {
@@ -222,57 +195,42 @@ class ApiService {
 
   Future<List<HeroBanner>> fetchHeroBanners({String device = 'mobile'}) async {
     final response = await getHeroBanners(device: device);
-    return ApiResponseParser.parseList(response.data, HeroBanner.fromJson);
+    return parseOnBackground(parseHeroBannersResponse, response.data);
   }
 
   Future<List<Category>> fetchCategories() async {
     final response = await getCategories();
-    return ApiResponseParser.parseList(response.data, Category.fromJson);
+    return parseOnBackground(parseCategoriesResponse, response.data);
   }
 
   Future<List<Brand>> fetchBrands() async {
     final response = await getBrands();
-    return ApiResponseParser.parseList(response.data, Brand.fromJson);
+    return parseOnBackground(parseBrandsResponse, response.data);
   }
 
   Future<List<Testimonial>> fetchTestimonials() async {
     final response = await getTestimonials();
-    return ApiResponseParser.parseList(response.data, Testimonial.fromJson);
+    return parseOnBackground(parseTestimonialsResponse, response.data);
   }
 
   Future<StoreSettings> fetchStoreSettings() async {
     final response = await getStoreSettings();
-    return ApiResponseParser.parseObject(response.data, StoreSettings.fromJson);
+    return parseOnBackground(parseStoreSettingsResponse, response.data);
   }
 
   Future<List<Product>> fetchProducts([Map<String, dynamic>? params]) async {
     final response = await getProducts(params);
-    return ApiResponseParser.parseList(response.data, Product.fromJson);
+    return parseOnBackground(parseProductsResponse, response.data);
   }
 
   Future<Product> fetchProductById(String id) async {
     final response = await getProductById(id);
-    return ApiResponseParser.parseObject(response.data, Product.fromJson);
+    return parseOnBackground(parseProductResponse, response.data);
   }
 
   Future<List<CartItem>> fetchCartItems() async {
     final response = await getCart();
-    final data = ApiResponseParser.getData(response.data);
-    if (data is! Map<String, dynamic>) return [];
-
-    final items = data['items'];
-    if (items is! List) return [];
-
-    return items
-        .whereType<Map<String, dynamic>>()
-        .where((item) => item['product'] != null)
-        .where((item) {
-          final product = item['product'];
-          if (product is! Map<String, dynamic>) return false;
-          return product['isActive'] as bool? ?? true;
-        })
-        .map(CartItem.fromApiItem)
-        .toList();
+    return parseOnBackground(parseCartItemsResponse, response.data);
   }
 
   Future<AuthSession> login({
@@ -308,17 +266,17 @@ class ApiService {
 
   Future<User> fetchMe() async {
     final response = await getMe();
-    return ApiResponseParser.parseObject(response.data, User.fromJson);
+    return parseOnBackground(parseUserResponse, response.data);
   }
 
   Future<User> updateProfile(Map<String, dynamic> data) async {
     final response = await updateMe(data);
-    return ApiResponseParser.parseObject(response.data, User.fromJson);
+    return parseOnBackground(parseUserResponse, response.data);
   }
 
   Future<List<Address>> fetchAddresses() async {
     final response = await getAddresses();
-    return ApiResponseParser.parseList(response.data, Address.fromJson);
+    return parseOnBackground(parseAddressesResponse, response.data);
   }
 
   Future<Address> createAddress(Map<String, dynamic> data) async {
@@ -343,17 +301,17 @@ class ApiService {
 
   Future<List<Order>> fetchMyOrders() async {
     final response = await getMyOrders();
-    return ApiResponseParser.parseList(response.data, Order.fromJson);
+    return parseOnBackground(parseOrdersResponse, response.data);
   }
 
   Future<Order> fetchOrderById(String id) async {
     final response = await getOrderById(id);
-    return ApiResponseParser.parseObject(response.data, Order.fromJson);
+    return parseOnBackground(parseOrderResponse, response.data);
   }
 
   Future<Order> cancelOrderById(String id) async {
     final response = await cancelOrder(id);
-    return ApiResponseParser.parseObject(response.data, Order.fromJson);
+    return parseOnBackground(parseOrderResponse, response.data);
   }
 
   Future<String> submitSupportTicket(Map<String, dynamic> data) async {
@@ -364,18 +322,7 @@ class ApiService {
 
   Future<List<Product>> fetchWishlistProducts() async {
     final response = await getWishlist();
-    final data = ApiResponseParser.getData(response.data);
-    if (data is! Map<String, dynamic>) return [];
-
-    final items = data['items'];
-    if (items is! List) return [];
-
-    return items
-        .whereType<Map<String, dynamic>>()
-        .where((item) => item['product'] != null)
-        .map((item) => Product.fromJson(item['product'] as Map<String, dynamic>))
-        .where((product) => product.isActive)
-        .toList();
+    return parseOnBackground(parseWishlistProductsResponse, response.data);
   }
 
   Map<String, dynamic> _buildAddressPayload(Map<String, dynamic> data) {

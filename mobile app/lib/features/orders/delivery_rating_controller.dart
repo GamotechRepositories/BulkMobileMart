@@ -10,6 +10,11 @@ final deliveryRatingsProvider =
   DeliveryRatingsController.new,
 );
 
+/// Rebuilds only when this order's rating changes.
+final deliveryRatingProvider = Provider.family<int?, String>((ref, orderId) {
+  return ref.watch(deliveryRatingsProvider.select((m) => m[orderId]));
+});
+
 class DeliveryRatingsController extends Notifier<Map<String, int>> {
   @override
   Map<String, int> build() {

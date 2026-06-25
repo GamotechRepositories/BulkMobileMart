@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../common/app_network_image.dart';
 import '../common/nav_icon_locator.dart';
 
@@ -166,11 +168,12 @@ class _FlyProductAnimatorState extends State<FlyProductAnimator>
           borderRadius: BorderRadius.circular(8),
           child: AppNetworkImage(
             imageUrl: request.imageUrl,
+            variant: ImageVariant.thumbnail,
             width: _size,
             height: _size,
             fit: BoxFit.contain,
-            cacheWidth: 80,
-            cacheHeight: 80,
+            cacheWidth: ImageConstants.productThumbnail.width,
+            cacheHeight: ImageConstants.productThumbnail.height,
             errorIcon: Icons.image_outlined,
           ),
         ),

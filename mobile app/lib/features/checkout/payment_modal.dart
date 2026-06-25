@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,9 +9,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../config/env.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/upi_payment.dart';
 import '../../models/store_settings.dart';
+import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/image_source_sheet.dart';
 
 class PaymentModal extends StatefulWidget {
@@ -743,11 +745,14 @@ class _PayStepCard extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
+                    child: AppNetworkImage(
                       imageUrl: qrUrl,
+                      variant: ImageVariant.small,
                       width: 130,
                       height: 130,
                       fit: BoxFit.contain,
+                      cacheWidth: ImageConstants.paymentIcon.width,
+                      cacheHeight: ImageConstants.paymentIcon.height,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -869,8 +874,9 @@ class _UploadStepCard extends StatelessWidget {
                             width: double.infinity,
                             fit: BoxFit.contain,
                           )
-                        : CachedNetworkImage(
+                        : AppNetworkImage(
                             imageUrl: screenshotUrl!,
+                            variant: ImageVariant.medium,
                             height: 140,
                             width: double.infinity,
                             fit: BoxFit.contain,

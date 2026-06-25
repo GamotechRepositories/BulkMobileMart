@@ -333,78 +333,18 @@ class _MobileMenuDrawer extends ConsumerWidget {
                 ),
               const Divider(height: 24),
               Expanded(
-                child: ListView(
+                child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  children: [
-                    _MenuTile(
-                      icon: Icons.home_outlined,
-                      label: 'Home',
-                      onTap: () => navigate(RoutePaths.home),
-                    ),
-                    _MenuTile(
-                      icon: Icons.grid_view_rounded,
-                      label: 'All Products',
-                      onTap: () => navigate(RoutePaths.product),
-                    ),
-                    _MenuTile(
-                      icon: Icons.favorite_border,
-                      label: 'Wishlist',
-                      onTap: () =>
-                          navigate(RoutePaths.wishlist, requiresAuth: true),
-                    ),
-                    _MenuTile(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'My Orders',
-                      onTap: () =>
-                          navigate(RoutePaths.orders, requiresAuth: true),
-                    ),
-                    _MenuTile(
-                      icon: Icons.person_outline,
-                      label: 'Account',
-                      onTap: () => navigate(RoutePaths.profile),
-                    ),
-                    _MenuTile(
-                      icon: Icons.support_agent_outlined,
-                      label: 'Support',
-                      onTap: () => navigate(RoutePaths.support),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(
-                        'CATEGORIES',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textMuted,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                    ...categories.map(
-                      (category) => _MenuTile(
-                        label: category.categoryName,
-                        onTap: () {
-                          onClose();
-                          context.go(
-                            ProductSearch.buildPath(
-                              categoryName: category.categoryName,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (isLoggedIn) ...[
-                      const Divider(),
-                      _MenuTile(
-                        icon: Icons.logout_rounded,
-                        label: 'Logout',
-                        onTap: () {
-                          onClose();
-                          ref.read(authControllerProvider.notifier).logout();
-                        },
-                      ),
-                    ],
-                  ],
+                  itemCount: _menuItemCount(categories.length, isLoggedIn),
+                  itemBuilder: (context, index) => _buildMenuItem(
+                    context,
+                    index,
+                    categories,
+                    isLoggedIn,
+                    navigate,
+                    onClose,
+                    ref,
+                  ),
                 ),
               ),
             ],
@@ -413,6 +353,82 @@ class _MobileMenuDrawer extends ConsumerWidget {
       ),
     );
   }
+}
+
+int _menuItemCount(int categoryCount, bool isLoggedIn) {
+  var count = 7 + categoryCount;
+  if (isLoggedIn) count += 2;
+  return count;
+}
+
+Widget _buildMenuItem(
+  BuildContext context,
+  int index,
+  List<Category> categories,
+  bool isLoggedIn,
+  void Function(String path, {bool requiresAuth}) navigate,
+  VoidCallback onClose,
+  WidgetRef ref,
+) {
+  const fixedMenus = <({IconData icon, String label, String path, bool auth})>[
+    (icon: Icons.home_outlined, label: 'Home', path: RoutePaths.home, auth: false),
+    (icon: Icons.grid_view_rounded, label: 'All Products', path: RoutePaths.product, auth: false),
+    (icon: Icons.favorite_border, label: 'Wishlist', path: RoutePaths.wishlist, auth: true),
+    (icon: Icons.receipt_long_outlined, label: 'My Orders', path: RoutePaths.orders, auth: true),
+    (icon: Icons.person_outline, label: 'Account', path: RoutePaths.profile, auth: false),
+    (icon: Icons.support_agent_outlined, label: 'Support', path: RoutePaths.support, auth: false),
+  ];
+
+  if (index < fixedMenus.length) {
+    final item = fixedMenus[index];
+    return _MenuTile(
+      icon: item.icon,
+      label: item.label,
+      onTap: () => navigate(item.path, requiresAuth: item.auth),
+    );
+  }
+
+  if (index == fixedMenus.length) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        'CATEGORIES',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textMuted,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  final categoryIndex = index - fixedMenus.length - 1;
+  if (categoryIndex < categories.length) {
+    final category = categories[categoryIndex];
+    return _MenuTile(
+      label: category.categoryName,
+      onTap: () {
+        onClose();
+        context.go(
+          ProductSearch.buildPath(categoryName: category.categoryName),
+        );
+      },
+    );
+  }
+
+  if (!isLoggedIn) return const SizedBox.shrink();
+
+  final logoutStart = fixedMenus.length + 1 + categories.length;
+  if (index == logoutStart) return const Divider();
+  return _MenuTile(
+    icon: Icons.logout_rounded,
+    label: 'Logout',
+    onTap: () {
+      onClose();
+      ref.read(authControllerProvider.notifier).logout();
+    },
+  );
 }
 
 class _MenuTile extends StatelessWidget {

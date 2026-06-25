@@ -44,20 +44,19 @@ class SocialMediaCarouselSection extends StatelessWidget {
           const SizedBox(height: 14),
           AutoHorizontalScroll(
             height: _cardHeight,
-            child: Row(
-              children: [
-                for (var i = 0; i < links.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 12),
-                  _SocialLinkCard(
-                    link: links[i],
-                    onTap: () => openExternalUrl(
-                      links[i].href,
-                      context: context,
-                      errorMessage: 'Could not open ${links[i].label}.',
-                    ),
-                  ),
-                ],
-              ],
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: links.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => _SocialLinkCard(
+                link: links[i],
+                onTap: () => openExternalUrl(
+                  links[i].href,
+                  context: context,
+                  errorMessage: 'Could not open ${links[i].label}.',
+                ),
+              ),
             ),
           ),
         ],

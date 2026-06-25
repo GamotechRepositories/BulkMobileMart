@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { uploadImageFile } from "../../api/api";
+import { uploadImageFile, parseUploadedImageUrl } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import {
   buildMerchantUpiConfig,
@@ -132,7 +132,10 @@ function PaymentModal({
 
     try {
       const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.PAYMENT_PROOFS);
-      const url = data.data.url;
+      const url = parseUploadedImageUrl(data);
+      if (!url) {
+        throw new Error("Upload succeeded but no image URL was returned");
+      }
       setScreenshot({ name: file.name, url });
       setScreenshotPreview(url);
     } catch (err) {

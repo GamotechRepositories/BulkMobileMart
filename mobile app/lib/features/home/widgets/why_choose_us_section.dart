@@ -104,11 +104,15 @@ class _WhyChooseUsSectionState extends State<WhyChooseUsSection>
       if (!isWidgetRoughlyVisible(context)) return;
 
       final next = (_currentPage + 1) % _features.length;
-      _pageController.animateToPage(
-        next,
-        duration: _transitionDuration,
-        curve: Curves.easeInOutCubic,
-      );
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _pageController.jumpToPage(next);
+      } else {
+        _pageController.animateToPage(
+          next,
+          duration: _transitionDuration,
+          curve: Curves.easeInOutCubic,
+        );
+      }
     });
   }
 

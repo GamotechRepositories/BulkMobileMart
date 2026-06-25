@@ -5,6 +5,8 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../config/constants.dart';
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/network/api_response_parser.dart';
 import '../../core/providers/app_providers.dart';
@@ -929,7 +931,16 @@ class _CheckoutLineItem extends StatelessWidget {
           child: image != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: AppNetworkImage(imageUrl: image, fit: BoxFit.contain, errorIcon: Icons.image_outlined),
+                  child: AppNetworkImage(
+                    imageUrl: image,
+                    variant: ImageVariant.thumbnail,
+                    fit: BoxFit.contain,
+                    width: 56,
+                    height: 56,
+                    cacheWidth: ImageConstants.productThumbnail.width,
+                    cacheHeight: ImageConstants.productThumbnail.height,
+                    errorIcon: Icons.image_outlined,
+                  ),
                 )
               : const Icon(Icons.image_outlined, color: AppColors.textMuted),
         ),

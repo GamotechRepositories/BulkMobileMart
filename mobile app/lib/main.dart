@@ -5,20 +5,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app.dart';
 import 'config/env.dart';
+import 'core/perf/first_frame_profiler.dart';
 import 'core/providers/app_providers.dart';
 import 'core/storage/auth_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FirstFrameProfiler.markAppStart();
 
-  // Keep decoded images bounded on low-RAM devices.
-  PaintingBinding.instance.imageCache.maximumSize = 80;
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;
+  // Keep decoded images bounded on low-RAM devices (3–6 GB class hardware).
+  PaintingBinding.instance.imageCache.maximumSize = 60;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 32 << 20;
 
   await Env.load();
-
-  // Prefetch app font so first frames don't hitch on network font download.
-  await GoogleFonts.pendingFonts([GoogleFonts.plusJakartaSans()]);
 
   if (kDebugMode) {
     for (final issue in Env.validate()) {
@@ -36,4 +35,18 @@ Future<void> main() async {
       child: const BulkMobileMartApp(),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FirstFrameProfiler.markFirstFrame();
+    if (kProfileMode || kDebugMode) {
+      Future<void>.delayed(const Duration(seconds: 5), () {
+        FirstFrameProfiler.writeReport();
+      });
+    }
+  });
+
+  // Font fetch after first frame — never block runApp.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    GoogleFonts.pendingFonts([GoogleFonts.plusJakartaSans()]);
+  });
 }

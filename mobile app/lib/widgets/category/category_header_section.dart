@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../models/category.dart';
 import '../common/app_network_image.dart';
 import 'category_grid_tile.dart';
@@ -44,7 +46,10 @@ class CategoryHeaderSection extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: AppNetworkImage(
                           imageUrl: imageUrl,
+                          variant: ImageVariant.thumbnail,
                           fit: BoxFit.contain,
+                          cacheWidth: ImageConstants.categoryIcon.width,
+                          cacheHeight: ImageConstants.categoryIcon.height,
                           errorIcon: Icons.category_outlined,
                         ),
                       )

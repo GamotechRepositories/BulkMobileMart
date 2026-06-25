@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../config/app_decorations.dart';
 import '../../../config/constants.dart';
 import '../../../config/theme.dart';
+import '../../../core/image/image_constants.dart';
+import '../../../core/image/image_variant.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 
@@ -31,9 +33,10 @@ class HomeWholesaleBanner extends StatelessWidget {
               width: double.infinity,
               child: AppNetworkImage(
                 imageUrl: AppConstants.promoBannerImage,
+                variant: ImageVariant.banner,
                 fit: BoxFit.cover,
-                cacheWidth: 800,
-                cacheHeight: 336,
+                cacheWidth: ImageConstants.heroBanner.width,
+                cacheHeight: ImageConstants.heroBanner.height,
               ),
             ),
             Positioned.fill(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/image/image_prefetch.dart';
+import '../../../core/perf/first_frame_profiler.dart';
 import '../../../core/utils/product_search.dart';
 import '../../../models/category.dart';
 import '../../../routes/route_paths.dart';
@@ -43,9 +45,10 @@ class CategoryNavSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = ref.watch(categoriesProvider);
+    return FirstFrameProfiler.traceBuild('CategoryNavSection', () {
+      final categoriesAsync = ref.watch(categoriesProvider);
 
-    return categoriesAsync.when(
+      return categoriesAsync.when(
       loading: () => const HomeSectionCard(
         margin: EdgeInsets.fromLTRB(0, 8, 0, 4),
         padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -64,6 +67,16 @@ class CategoryNavSection extends ConsumerWidget {
 
         final categoriesAZ = sortCategories(filtered, ascending: true);
 
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ImagePrefetchManager.instance.prefetchCategories(
+            context,
+            categoriesAZ
+                .map((category) => resolveCategoryImageUrl(category) ?? '')
+                .where((url) => url.isNotEmpty)
+                .toList(),
+          );
+        });
+
         return HomeSectionCard(
           margin: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -81,6 +94,7 @@ class CategoryNavSection extends ConsumerWidget {
         );
       },
     );
+    });
   }
 }
 
@@ -119,6 +133,10 @@ class CategoryTwoRowSlider extends StatelessWidget {
         final columns = _columnsForWidth(pageWidth);
         final batches = chunkItems(categories, itemsPerSlide);
         final gridHeight = _gridHeight(pageWidth, columns);
+        final iconByCategoryId = {
+          for (var i = 0; i < categories.length; i++)
+            categories[i].id: categoryIconTypes[i % categoryIconTypes.length],
+        };
 
         return SizedBox(
           height: gridHeight,
@@ -143,13 +161,11 @@ class CategoryTwoRowSlider extends StatelessWidget {
                   itemCount: batch.length,
                   itemBuilder: (context, index) {
                     final category = batch[index];
-                    final globalIndex =
-                        categories.indexWhere((c) => c.id == category.id);
 
                     return CategoryGridTile.fromCategory(
                       category: category,
-                      icon: categoryIconTypes[
-                          globalIndex % categoryIconTypes.length],
+                      icon: iconByCategoryId[category.id] ??
+                          categoryIconTypes.first,
                       style: CategoryTileStyle.card,
                       onTap: () {
                         context.go(

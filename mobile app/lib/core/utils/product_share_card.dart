@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../config/env.dart';
+import '../../core/image/image_url_resolver.dart';
+import '../../core/image/image_variant.dart';
 
 const _cardWidth = 400.0;
 const _outerPadding = 16.0;
@@ -122,7 +124,11 @@ Future<Uint8List?> createProductShareCardPng({
 }) async {
   final innerWidth = _cardWidth - _outerPadding * 2;
   final textMaxWidth = innerWidth - _bodyPaddingH * 2;
-  final productImage = await _loadNetworkImage(imageUrl);
+  final resolvedUrl = ImageUrlResolver.resolve(
+    imageUrl,
+    variant: ImageVariant.large,
+  );
+  final productImage = await _loadNetworkImage(resolvedUrl);
 
   final brandStyle = const TextStyle(
     fontSize: 11,

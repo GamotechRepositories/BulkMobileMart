@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/constants.dart';
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -258,11 +260,12 @@ class _CartItemRow extends StatelessWidget {
                   child: image != null
                       ? AppNetworkImage(
                           imageUrl: image,
+                          variant: ImageVariant.thumbnail,
                           fit: BoxFit.contain,
                           width: 72,
                           height: 72,
-                          cacheWidth: 144,
-                          cacheHeight: 144,
+                          cacheWidth: ImageConstants.productThumbnail.width,
+                          cacheHeight: ImageConstants.productThumbnail.height,
                           errorIcon: Icons.image_outlined,
                         )
                       : const Icon(Icons.image_outlined, color: AppColors.textMuted),

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,7 +27,7 @@ class FlipkartBottomNav extends StatefulWidget {
   static const _bottomMargin = 14.0;
   static const _pillHeight = 40.0;
 
-  static final barColor = Colors.white.withValues(alpha: 0.78);
+  static final barColor = const Color(0xF5FFFFFF);
   static final activePillColor = Colors.black.withValues(alpha: 0.07);
   static const iconActive = AppColors.primary;
   static const iconInactive = AppColors.navUnselected;
@@ -134,10 +132,9 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
         FlipkartBottomNav._horizontalMargin,
         FlipkartBottomNav._bottomMargin + bottomInset,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+      child: RepaintBoundary(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: FlipkartBottomNav.barColor,

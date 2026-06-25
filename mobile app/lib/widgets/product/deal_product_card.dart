@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../models/product.dart';
 import '../common/app_network_image.dart';
 import 'product_price_display.dart';
@@ -196,11 +198,12 @@ class DealProductCard extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     child: AppNetworkImage(
                       imageUrl: product.primaryImage!,
+                      variant: ImageVariant.thumbnail,
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.contain,
-                      cacheWidth: 152,
-                      cacheHeight: 152,
+                      cacheWidth: ImageConstants.productThumbnail.width,
+                      cacheHeight: ImageConstants.productThumbnail.height,
                       errorIcon: Icons.image_outlined,
                     ),
                   )

@@ -103,30 +103,22 @@ export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);
 
 /**
- * Upload an image directly to S3 via a presigned URL.
+ * Extract CDN URL from POST /api/upload/image response.
+ */
+export function parseUploadedImageUrl(responseBody) {
+  const payload = responseBody?.data ?? responseBody;
+  return payload?.url || payload?.original || "";
+}
+
+/**
+ * Upload an image through the server — generates WebP variants (thumb/medium/large).
  */
 export const uploadImageFile = async (file, folder) => {
-  const { data: presignRes } = await api.post("/api/upload/presign", {
-    folder,
-    mimeType: file.type,
-    filename: file.name,
-  });
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("folder", folder);
 
-  const { uploadUrl, cloudFrontUrl } = presignRes.data;
-
-  // 2. PUT the file directly to S3 — no auth header, just the correct Content-Type
-  const s3Res = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
-
-  if (!s3Res.ok) {
-    throw new Error(`S3 upload failed (${s3Res.status}). Check your S3 CORS configuration.`);
-  }
-
-  // 3. Return in the same shape the old route returned so callers need no changes
-  return { data: { data: { url: cloudFrontUrl } } };
+  return api.post("/api/upload/image", formData);
 };
 
 export const uploadVideoFile = async (file, folder, { onProgress } = {}) => {

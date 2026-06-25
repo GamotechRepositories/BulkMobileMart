@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/image/image_prefetch.dart';
 import '../../../core/utils/product_pricing.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
@@ -107,11 +108,18 @@ class HomeProductRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!loading && products.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ImagePrefetchManager.instance.prefetchProducts(
+          context,
+          products.map((product) => product.primaryImage ?? '').toList(),
+        );
+      });
+    }
+
     if (!loading && products.isEmpty) {
       return const SizedBox.shrink();
     }
-
-    final cartItems = ref.watch(cartControllerProvider.select((s) => s.items));
 
     return HomeSectionCard(
       margin: const EdgeInsets.fromLTRB(0, 2, 0, 2),
@@ -146,10 +154,8 @@ class HomeProductRow extends ConsumerWidget {
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
                       final product = products[index];
-                      final qty = cartLineQuantityForProduct(cartItems, product);
-                      return DealProductCard(
+                      return _HomeDealProductCard(
                         product: product,
-                        cartQuantity: qty,
                         onAdd: (ctx) => _handleAdd(ref, product, ctx),
                         onIncrease: () => _handleIncrease(ref, product),
                         onDecrease: () => _handleDecrease(ref, product),
@@ -160,5 +166,33 @@ class HomeProductRow extends ConsumerWidget {
         ],
       ),
         );
+  }
+}
+
+/// Isolates cart rebuilds to the single card whose quantity changed.
+class _HomeDealProductCard extends ConsumerWidget {
+  const _HomeDealProductCard({
+    required this.product,
+    required this.onAdd,
+    required this.onIncrease,
+    required this.onDecrease,
+  });
+
+  final Product product;
+  final void Function(BuildContext context) onAdd;
+  final VoidCallback onIncrease;
+  final VoidCallback onDecrease;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qty = ref.watch(cartProductQuantityProvider(product.id));
+
+    return DealProductCard(
+      product: product,
+      cartQuantity: qty,
+      onAdd: onAdd,
+      onIncrease: onIncrease,
+      onDecrease: onDecrease,
+    );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import 'app_network_image.dart';
 
 /// GPU-friendly product thumbnail — gradient depth + flat ground tint (no blur shadow).
@@ -10,18 +12,19 @@ class Product3DImage extends StatelessWidget {
     super.key,
     required this.imageUrl,
     this.size = 56,
+    this.variant = ImageVariant.thumbnail,
     this.borderRadius = AppDecorations.radiusSm,
     this.padding = 4,
   });
 
   final String imageUrl;
   final double size;
+  final ImageVariant variant;
   final double borderRadius;
   final double padding;
 
   @override
   Widget build(BuildContext context) {
-    final cache = (size * 2).toInt();
     final imageSize = size - padding * 2;
 
     return SizedBox(
@@ -54,11 +57,12 @@ class Product3DImage extends StatelessWidget {
                 child: imageUrl.trim().isNotEmpty
                     ? AppNetworkImage(
                         imageUrl: imageUrl,
+                        variant: variant,
                         fit: BoxFit.contain,
                         width: imageSize,
                         height: imageSize,
-                        cacheWidth: cache,
-                        cacheHeight: cache,
+                        cacheWidth: ImageConstants.productThumbnail.width,
+                        cacheHeight: ImageConstants.productThumbnail.height,
                         errorIcon: Icons.image_outlined,
                       )
                     : const Center(

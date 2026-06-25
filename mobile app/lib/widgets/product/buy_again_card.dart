@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
@@ -93,8 +95,17 @@ class BuyAgainCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartLine = _findCartLine(ref.watch(cartControllerProvider).items);
-    final cartQuantity = cartLine?.quantity ?? 0;
+    final cartQuantity = ref.watch(
+      cartControllerProvider.select((s) {
+        for (final cartItem in s.items) {
+          if (cartItem.id != item.productId) continue;
+          if (cartItem.variantName.trim() != item.variantName.trim()) continue;
+          if (cartItem.colorName.trim() != item.colorName.trim()) continue;
+          return cartItem.quantity;
+        }
+        return 0;
+      }),
+    );
 
     return SizedBox(
       width: 140,
@@ -118,7 +129,9 @@ class BuyAgainCard extends ConsumerWidget {
                   ),
                   child: AppNetworkImage(
                     imageUrl: item.image,
-                    cacheWidth: 140,
+                    variant: ImageVariant.thumbnail,
+                    cacheWidth: ImageConstants.productThumbnail.width,
+                    cacheHeight: ImageConstants.productThumbnail.height,
                   ),
                 ),
               ),

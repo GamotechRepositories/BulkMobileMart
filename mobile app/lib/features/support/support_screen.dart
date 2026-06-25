@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,8 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/providers/app_providers.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/image_source_sheet.dart';
 import 'support_constants.dart';
 import '../../routes/route_paths.dart';
@@ -335,8 +336,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                                 width: double.infinity,
                                 fit: BoxFit.contain,
                               )
-                            : CachedNetworkImage(
+                            : AppNetworkImage(
                                 imageUrl: _attachmentUrl!,
+                                variant: ImageVariant.medium,
                                 height: 120,
                                 width: double.infinity,
                                 fit: BoxFit.contain,

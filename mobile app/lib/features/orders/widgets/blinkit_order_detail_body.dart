@@ -56,8 +56,7 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     final order = widget.order;
     final shipments = splitOrderShipments(order.items);
     final shipmentItems = shipments[_selectedShipment.clamp(0, shipments.length - 1)];
-    final ratings = ref.watch(deliveryRatingsProvider);
-    final deliveryRating = ratings[order.id];
+    final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final orderCode = getOrderDisplayCode(order);
     final totalItems = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
     final statusLabel = getBlinkitShipmentStatusLabel(order.status);

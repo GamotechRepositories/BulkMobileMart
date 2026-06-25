@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/image/image_constants.dart';
+import '../../core/image/image_variant.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
@@ -22,6 +26,46 @@ import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
 import '../../widgets/product/product_video_player.dart';
 
+@immutable
+class ProductDetailCartKey {
+  const ProductDetailCartKey({
+    required this.productId,
+    required this.variantName,
+    required this.colorName,
+  });
+
+  final String productId;
+  final String variantName;
+  final String colorName;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ProductDetailCartKey &&
+        productId == other.productId &&
+        variantName == other.variantName &&
+        colorName == other.colorName;
+  }
+
+  @override
+  int get hashCode => Object.hash(productId, variantName, colorName);
+}
+
+/// Rebuilds only when this product variant's cart quantity changes.
+final productDetailCartQuantityProvider =
+    Provider.family<int?, ProductDetailCartKey>((ref, key) {
+  return ref.watch(
+    cartControllerProvider.select((state) {
+      for (final item in state.items) {
+        if (item.id != key.productId) continue;
+        if (item.variantName.trim() != key.variantName.trim()) continue;
+        if (item.colorName.trim() != key.colorName.trim()) continue;
+        return item.quantity;
+      }
+      return null;
+    }),
+  );
+});
+
 class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({super.key, required this.productId});
 
@@ -38,6 +82,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   String _selectedVariant = '';
   String _selectedColor = '';
   String? _quantitySyncedKey;
+  Timer? _recentlyViewedDebounce;
 
   static const _tabs = [
     _DetailTab(id: 'description', label: 'Description'),
@@ -113,6 +158,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   @override
+  void dispose() {
+    _recentlyViewedDebounce?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productDetailProvider(widget.productId));
 
@@ -120,9 +171,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       next.whenData((product) {
         if (!mounted) return;
         _initSelectionsForProduct(product);
-        RecentlyViewedStore.add(product.id).then((_) {
-          if (!mounted) return;
-          ref.invalidate(recentlyViewedProductsProvider);
+        _recentlyViewedDebounce?.cancel();
+        _recentlyViewedDebounce = Timer(const Duration(seconds: 2), () {
+          RecentlyViewedStore.add(product.id).then((_) {
+            if (!mounted) return;
+            ref.invalidate(recentlyViewedProductsProvider);
+          });
         });
       });
     });
@@ -147,17 +201,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final activeVariantName = resolveActiveVariantName(product, _selectedVariant);
     final selectionColor =
         resolveSelectionColor(product, activeVariantName, _selectedColor);
-    final cartItems = ref.watch(
-      cartControllerProvider.select((state) => state.items),
+    final cartKey = ProductDetailCartKey(
+      productId: product.id,
+      variantName: activeVariantName,
+      colorName: selectionColor,
     );
-    final cartLine = findCartLineForProductDetail(
-      cartItems,
-      product,
-      activeVariantName,
-      selectionColor,
-    );
-    final cartLineQuantity = cartLine?.quantity;
-    _syncQuantityForProduct(product, activeVariantName, cartLineQuantity);
+
+    ref.listen<int?>(productDetailCartQuantityProvider(cartKey), (previous, next) {
+      _syncQuantityForProduct(product, activeVariantName, next);
+    });
 
     final variantStock = getVariantStock(product, activeVariantName);
     final inStock = variantStock > 0;
@@ -176,7 +228,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final rating = product.ratings > 0 ? product.ratings : 4.5;
     final availableColors = getAvailableColors(product, activeVariantName);
     final specifications = getResolvedSpecifications(product);
-    final inCart = cartLineQuantity != null;
 
     return Column(
       children: [
@@ -328,31 +379,43 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                 ),
-              if (!inCart) ...[
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Quantity (Pieces)', style: TextStyle(fontWeight: FontWeight.w600)),
-                    _QuantitySelector(
-                      quantity: _quantity,
-                      min: minOrderQuantity,
-                      max: maxQuantity,
-                      disabled: !inStock,
-                      onDecrease: () => _handleQuantityDecrease(
-                        product,
-                        activeVariantName,
-                        selectionColor,
+              Consumer(
+                builder: (context, ref, _) {
+                  final inCart =
+                      ref.watch(productDetailCartQuantityProvider(cartKey)) != null;
+                  if (inCart) return const SizedBox.shrink();
+                  return Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Quantity (Pieces)',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          _QuantitySelector(
+                            quantity: _quantity,
+                            min: minOrderQuantity,
+                            max: maxQuantity,
+                            disabled: !inStock,
+                            onDecrease: () => _handleQuantityDecrease(
+                              product,
+                              activeVariantName,
+                              selectionColor,
+                            ),
+                            onIncrease: () => _handleQuantityIncrease(
+                              product,
+                              activeVariantName,
+                              selectionColor,
+                            ),
+                          ),
+                        ],
                       ),
-                      onIncrease: () => _handleQuantityIncrease(
-                        product,
-                        activeVariantName,
-                        selectionColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  );
+                },
+              ),
               if (bulkTiers.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -451,62 +514,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: AppColors.borderLight)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: inCart
-                    ? _CartActionQuantity(
-                        quantity: cartLineQuantity,
-                        min: minOrderQuantity,
-                        max: maxQuantity,
-                        disabled: !inStock,
-                      onDecrease: () => _handleQuantityDecrease(
-                        product,
-                        activeVariantName,
-                        selectionColor,
-                      ),
-                      onIncrease: () => _handleQuantityIncrease(
-                        product,
-                        activeVariantName,
-                        selectionColor,
-                      ),
-                      )
-                    : Builder(
-                        builder: (btnContext) => ElevatedButton(
-                          onPressed: inStock
-                              ? () => _addToCart(
-                                    product,
-                                    activeVariantName,
-                                    selectionColor,
-                                    btnContext,
-                                  )
-                              : null,
-                          child: const Text('Add to Cart'),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: inStock
-                      ? () => _buyNow(product, activeVariantName, selectionColor)
-                      : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary, width: 2),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Buy Now', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
-          ),
+        _ProductDetailBottomBar(
+          product: product,
+          cartKey: cartKey,
+          activeVariantName: activeVariantName,
+          selectionColor: selectionColor,
+          inStock: inStock,
+          minOrderQuantity: minOrderQuantity,
+          maxQuantity: maxQuantity,
+          onAddToCart: _addToCart,
+          onBuyNow: _buyNow,
+          onQuantityDecrease: _handleQuantityDecrease,
+          onQuantityIncrease: _handleQuantityIncrease,
         ),
       ],
     );
@@ -792,6 +811,118 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 }
 
+class _ProductDetailBottomBar extends ConsumerWidget {
+  const _ProductDetailBottomBar({
+    required this.product,
+    required this.cartKey,
+    required this.activeVariantName,
+    required this.selectionColor,
+    required this.inStock,
+    required this.minOrderQuantity,
+    required this.maxQuantity,
+    required this.onAddToCart,
+    required this.onBuyNow,
+    required this.onQuantityDecrease,
+    required this.onQuantityIncrease,
+  });
+
+  final Product product;
+  final ProductDetailCartKey cartKey;
+  final String activeVariantName;
+  final String selectionColor;
+  final bool inStock;
+  final int minOrderQuantity;
+  final int maxQuantity;
+  final Future<void> Function(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+    BuildContext flySourceContext,
+  ) onAddToCart;
+  final Future<void> Function(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+  ) onBuyNow;
+  final Future<void> Function(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+  ) onQuantityDecrease;
+  final Future<void> Function(
+    Product product,
+    String activeVariantName,
+    String selectionColor,
+  ) onQuantityIncrease;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartLineQuantity = ref.watch(productDetailCartQuantityProvider(cartKey));
+    final inCart = cartLineQuantity != null;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.borderLight)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: inCart
+                ? _CartActionQuantity(
+                    quantity: cartLineQuantity,
+                    min: minOrderQuantity,
+                    max: maxQuantity,
+                    disabled: !inStock,
+                    onDecrease: () => onQuantityDecrease(
+                      product,
+                      activeVariantName,
+                      selectionColor,
+                    ),
+                    onIncrease: () => onQuantityIncrease(
+                      product,
+                      activeVariantName,
+                      selectionColor,
+                    ),
+                  )
+                : Builder(
+                    builder: (btnContext) => ElevatedButton(
+                      onPressed: inStock
+                          ? () => onAddToCart(
+                                product,
+                                activeVariantName,
+                                selectionColor,
+                                btnContext,
+                              )
+                          : null,
+                      child: const Text('Add to Cart'),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: inStock
+                  ? () => onBuyNow(product, activeVariantName, selectionColor)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 2),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: const Text(
+                'Buy Now',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailTab {
   const _DetailTab({required this.id, required this.label});
 
@@ -987,9 +1118,10 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                         ? ProductVideoPlayer(url: activeItem.url, embedded: true)
                         : AppNetworkImage(
                             imageUrl: activeItem.url,
+                            variant: ImageVariant.large,
                             fit: BoxFit.contain,
-                            cacheWidth: 560,
-                            cacheHeight: 560,
+                            cacheWidth: ImageConstants.productDetail.width,
+                            cacheHeight: ImageConstants.productDetail.height,
                             errorIcon: Icons.image_outlined,
                             errorIconSize: 64,
                           ),
@@ -1035,11 +1167,12 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                             )
                           : AppNetworkImage(
                               imageUrl: item.url,
+                              variant: ImageVariant.thumbnail,
                               fit: BoxFit.contain,
                               width: 64,
                               height: 64,
-                              cacheWidth: 128,
-                              cacheHeight: 128,
+                              cacheWidth: ImageConstants.productThumbnail.width,
+                              cacheHeight: ImageConstants.productThumbnail.height,
                               errorIcon: Icons.image_outlined,
                             ),
                     ),

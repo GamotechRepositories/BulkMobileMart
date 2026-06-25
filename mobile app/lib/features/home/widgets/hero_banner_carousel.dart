@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_decorations.dart';
 import '../../../config/theme.dart';
+import '../../../core/image/image_constants.dart';
+import '../../../core/image/image_prefetch.dart';
+import '../../../core/image/image_variant.dart';
+import '../../../core/perf/first_frame_profiler.dart';
 import '../../../models/hero_banner.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
@@ -18,7 +22,6 @@ class HeroBannerCarousel extends ConsumerStatefulWidget {
 class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
   static const _bannerHeight = 228.0;
   final _pageController = PageController(viewportFraction: 0.92);
-  int _current = 0;
 
   @override
   void dispose() {
@@ -35,10 +38,10 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final bannersAsync = ref.watch(heroBannersProvider);
+    return FirstFrameProfiler.traceBuild('HeroBannerCarousel', () {
+      final bannersAsync = ref.watch(heroBannersProvider);
 
-    return RepaintBoundary(
-      child: bannersAsync.when(
+      return bannersAsync.when(
         loading: () => const Padding(
           padding: EdgeInsets.only(top: 4, bottom: 12),
           child: SkeletonHeroBanner(),
@@ -47,13 +50,25 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
         data: (banners) {
           final slides = _visibleBanners(banners);
           if (slides.isEmpty) return const SizedBox.shrink();
-          return _buildCarousel(slides);
+          return FirstFrameProfiler.traceBuildFirst(
+            'Provider rebuild',
+            () => _buildCarousel(slides),
+          );
         },
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildCarousel(List<HeroBanner> slides) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (slides.length > 1) {
+        ImagePrefetchManager.instance.prefetchBanners(
+          context,
+          slides.skip(1).map((slide) => slide.imageUrl).toList(),
+        );
+      }
+    });
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
       child: Column(
@@ -64,7 +79,6 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
               controller: _pageController,
               itemCount: slides.length,
               allowImplicitScrolling: false,
-              onPageChanged: (index) => setState(() => _current = index),
               itemBuilder: (context, index) {
                 final banner = slides[index];
                 return Padding(
@@ -76,25 +90,78 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
           ),
           if (slides.length > 1) ...[
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(slides.length, (index) {
-                final active = index == _current;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active ? AppColors.primary : AppColors.borderLight,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                );
-              }),
+            _BannerPageDots(
+              controller: _pageController,
+              itemCount: slides.length,
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _BannerPageDots extends StatefulWidget {
+  const _BannerPageDots({
+    required this.controller,
+    required this.itemCount,
+  });
+
+  final PageController controller;
+  final int itemCount;
+
+  @override
+  State<_BannerPageDots> createState() => _BannerPageDotsState();
+}
+
+class _BannerPageDotsState extends State<_BannerPageDots> {
+  int _current = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.controller.initialPage;
+    widget.controller.addListener(_onPageChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _BannerPageDots oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onPageChanged);
+      widget.controller.addListener(_onPageChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onPageChanged);
+    super.dispose();
+  }
+
+  void _onPageChanged() {
+    final page = widget.controller.page?.round() ?? 0;
+    if (page == _current) return;
+    setState(() => _current = page);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(widget.itemCount, (index) {
+        final active = index == _current;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: active ? 18 : 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: active ? AppColors.primary : AppColors.borderLight,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }),
     );
   }
 }
@@ -106,21 +173,22 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    return FirstFrameProfiler.traceBuildFirst('Banner paint', () => ClipRRect(
       borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
       child: SizedBox(
         height: _HeroBannerCarouselState._bannerHeight,
         width: double.infinity,
         child: AppNetworkImage(
           imageUrl: banner.imageUrl,
+          variant: ImageVariant.banner,
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
           width: double.infinity,
           height: _HeroBannerCarouselState._bannerHeight,
-          cacheWidth: 400,
-          cacheHeight: _HeroBannerCarouselState._bannerHeight.toInt(),
+          cacheWidth: ImageConstants.heroBanner.width,
+          cacheHeight: ImageConstants.heroBanner.height,
         ),
       ),
-    );
+    ));
   }
 }

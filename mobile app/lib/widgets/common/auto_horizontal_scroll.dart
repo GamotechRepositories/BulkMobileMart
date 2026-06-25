@@ -12,7 +12,7 @@ class AutoHorizontalScroll extends StatefulWidget {
     required this.child,
     this.enabled = true,
     this.speed = 1.2,
-    this.interval = const Duration(milliseconds: 50),
+    this.interval = const Duration(milliseconds: 120),
     this.resumeDelay = const Duration(milliseconds: 2500),
   });
 
@@ -109,7 +109,7 @@ class _AutoHorizontalScrollState extends State<AutoHorizontalScroll>
     _paused = true;
     _resumeTimer?.cancel();
     _resumeTimer = Timer(widget.resumeDelay, () {
-      if (mounted) setState(() => _paused = false);
+      if (mounted) _paused = false;
     });
   }
 
