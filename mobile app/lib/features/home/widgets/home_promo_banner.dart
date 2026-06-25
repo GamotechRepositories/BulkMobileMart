@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../config/app_decorations.dart';
 import '../../../config/constants.dart';
 import '../../../config/theme.dart';
-import '../../../core/image/image_constants.dart';
-import '../../../core/image/image_variant.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 
@@ -48,10 +46,7 @@ class HomePromoBanner extends StatelessWidget {
                 height: 150,
                 child: AppNetworkImage(
                   imageUrl: AppConstants.promoBannerImage,
-                  variant: ImageVariant.medium,
                   fit: BoxFit.contain,
-                  cacheWidth: ImageConstants.productCard.width,
-                  cacheHeight: ImageConstants.productCard.height,
                   errorIcon: Icons.headphones_outlined,
                 ),
               ),

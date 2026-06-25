@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../models/product.dart';
 import '../common/app_network_image.dart';
 import 'product_price_display.dart';
@@ -45,12 +43,11 @@ class MobileProductCard extends StatelessWidget {
                   child: product.primaryImage != null
                       ? AppNetworkImage(
                           imageUrl: product.primaryImage!,
-                          variant: ImageVariant.thumbnail,
                           fit: BoxFit.contain,
                           width: 84,
                           height: 104,
-                          cacheWidth: ImageConstants.productThumbnail.width,
-                          cacheHeight: ImageConstants.productThumbnail.height,
+                          cacheWidth: 168,
+                          cacheHeight: 208,
                           errorIcon: Icons.image_outlined,
                         )
                       : const Icon(Icons.image_outlined, color: AppColors.textMuted),

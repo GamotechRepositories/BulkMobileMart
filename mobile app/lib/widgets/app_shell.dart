@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/bootstrap/app_bootstrap.dart';
-import '../../core/perf/first_frame_profiler.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
@@ -89,8 +88,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return FirstFrameProfiler.traceBuild('AppShell', () {
-      final cartCount = ref.watch(
+    final cartCount = ref.watch(
       cartControllerProvider.select((s) => s.cartCount),
     );
     final accountInitial = ref.watch(
@@ -140,7 +138,6 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
       ),
     );
-    });
   }
 }
 

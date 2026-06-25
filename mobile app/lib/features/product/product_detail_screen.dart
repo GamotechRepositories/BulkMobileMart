@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
@@ -1118,10 +1116,9 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                         ? ProductVideoPlayer(url: activeItem.url, embedded: true)
                         : AppNetworkImage(
                             imageUrl: activeItem.url,
-                            variant: ImageVariant.large,
                             fit: BoxFit.contain,
-                            cacheWidth: ImageConstants.productDetail.width,
-                            cacheHeight: ImageConstants.productDetail.height,
+                            cacheWidth: 560,
+                            cacheHeight: 560,
                             errorIcon: Icons.image_outlined,
                             errorIconSize: 64,
                           ),
@@ -1167,12 +1164,11 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                             )
                           : AppNetworkImage(
                               imageUrl: item.url,
-                              variant: ImageVariant.thumbnail,
                               fit: BoxFit.contain,
                               width: 64,
                               height: 64,
-                              cacheWidth: ImageConstants.productThumbnail.width,
-                              cacheHeight: ImageConstants.productThumbnail.height,
+                              cacheWidth: 128,
+                              cacheHeight: 128,
                               errorIcon: Icons.image_outlined,
                             ),
                     ),

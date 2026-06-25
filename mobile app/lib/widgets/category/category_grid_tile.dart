@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../models/category.dart';
 import '../common/app_network_image.dart';
 
@@ -179,10 +177,9 @@ class CategoryGridTile extends StatelessWidget {
                           : resolvedImage != null
                               ? AppNetworkImage(
                                   imageUrl: resolvedImage,
-                                  variant: ImageVariant.thumbnail,
                                   fit: BoxFit.contain,
-                                  cacheWidth: ImageConstants.categoryIcon.width,
-                                  cacheHeight: ImageConstants.categoryIcon.height,
+                                  cacheWidth: 112,
+                                  cacheHeight: 112,
                                   errorIcon: tileIcon,
                                   errorIconSize: 32,
                                 )
@@ -255,10 +252,9 @@ class CategoryGridTile extends StatelessWidget {
                                     padding: const EdgeInsets.all(10),
                                     child: AppNetworkImage(
                                       imageUrl: resolvedImage,
-                                      variant: ImageVariant.thumbnail,
                                       fit: BoxFit.contain,
-                                      cacheWidth: ImageConstants.categoryIcon.width,
-                                      cacheHeight: ImageConstants.categoryIcon.height,
+                                      cacheWidth: 96,
+                                      cacheHeight: 96,
                                       errorIcon: tileIcon,
                                       errorIconSize: 28,
                                     ),
@@ -344,10 +340,9 @@ class CategoryGridTile extends StatelessWidget {
                           : resolvedImage != null
                               ? AppNetworkImage(
                                   imageUrl: resolvedImage,
-                                  variant: ImageVariant.thumbnail,
                                   fit: BoxFit.contain,
-                                  cacheWidth: ImageConstants.categoryIcon.width,
-                                  cacheHeight: ImageConstants.categoryIcon.height,
+                                  cacheWidth: 120,
+                                  cacheHeight: 120,
                                   errorIcon: tileIcon,
                                   errorIconSize: 38,
                                 )
@@ -488,10 +483,9 @@ class CategorySliderTile extends StatelessWidget {
                             : imageUrl != null
                                 ? AppNetworkImage(
                                     imageUrl: imageUrl!,
-                                    variant: ImageVariant.thumbnail,
                                     fit: BoxFit.contain,
-                                    cacheWidth: ImageConstants.categoryIcon.width,
-                                    cacheHeight: ImageConstants.categoryIcon.height,
+                                    cacheWidth: 96,
+                                    cacheHeight: 96,
                                     errorIcon: tileIcon,
                                     errorIconSize: 36,
                                   )

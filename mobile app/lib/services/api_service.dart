@@ -138,7 +138,7 @@ class ApiService {
   Future<Response<dynamic>> submitSupportMessage(Map<String, dynamic> data) =>
       _dio.post('/api/support', data: data);
 
-  /// Uploads via server multipart (same flow as web frontend / admin panel).
+  /// Uploads via presigned S3 URL (same flow as admin panel).
   Future<String> uploadImageFile(String filePath, String folder) async {
     final file = File(filePath);
     if (!await file.exists()) {
@@ -153,27 +153,55 @@ class ApiService {
     final fileName = _fileNameFromPath(filePath);
     final mimeType = _mimeTypeFromPath(filePath);
 
-    final formData = FormData.fromMap({
-      'folder': folder,
-      'image': await MultipartFile.fromFile(
-        filePath,
-        filename: fileName,
-        contentType: DioMediaType.parse(mimeType),
-      ),
-    });
+    final presignRes = await _dio.post(
+      '/api/upload/presign',
+      data: {
+        'folder': folder,
+        'mimeType': mimeType,
+        'filename': fileName,
+      },
+    );
 
-    final response = await _dio.post('/api/upload/image', data: formData);
-    final data = ApiResponseParser.getData(response.data);
+    final data = ApiResponseParser.getData(presignRes.data);
     if (data is! Map<String, dynamic>) {
-      throw const FormatException('Invalid upload response');
+      throw const FormatException('Invalid presign response');
     }
 
-    final url = data['url']?.toString() ?? data['original']?.toString() ?? '';
-    if (url.isEmpty) {
-      throw const FormatException('Upload response missing image URL');
+    final uploadUrl = data['uploadUrl']?.toString();
+    final cloudFrontUrl = data['cloudFrontUrl']?.toString();
+    if (uploadUrl == null ||
+        uploadUrl.isEmpty ||
+        cloudFrontUrl == null ||
+        cloudFrontUrl.isEmpty) {
+      throw const FormatException('Presign response missing URLs');
     }
 
-    return url;
+    final s3Dio = Dio(
+      BaseOptions(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+
+    final putRes = await s3Dio.put<List<int>>(
+      uploadUrl,
+      data: bytes,
+      options: Options(
+        headers: {'Content-Type': mimeType},
+        responseType: ResponseType.bytes,
+        validateStatus: (status) => status != null && status < 500,
+      ),
+    );
+
+    final status = putRes.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      throw ApiException(
+        'Failed to upload image to storage ($status)',
+        statusCode: status,
+      );
+    }
+
+    return cloudFrontUrl;
   }
 
   static String _fileNameFromPath(String path) {

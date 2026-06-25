@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/perf/first_frame_profiler.dart';
 import '../../features/auth/auth_controller.dart';
 
 /// Broadcast hub for shell branch stack changes.
@@ -149,7 +148,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return FirstFrameProfiler.traceBuild('TabSwipeShell', () => PageView.builder(
+    return PageView.builder(
       controller: _pageController,
       physics: _isOnBranchRoot
           ? const PageScrollPhysics()
@@ -158,6 +157,6 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
       allowImplicitScrolling: false,
       itemCount: widget.children.length,
       itemBuilder: (context, index) => widget.children[index],
-    ));
+    );
   }
 }

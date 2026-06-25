@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
-import '../../core/perf/first_frame_profiler.dart';
 import '../../core/utils/product_search.dart';
 
 class MobileSearchBar extends StatefulWidget {
@@ -50,7 +49,7 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    return FirstFrameProfiler.traceBuild('MobileSearchBar', () => Container(
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -99,6 +98,6 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
           ),
         ],
       ),
-    ));
+    );
   }
 }

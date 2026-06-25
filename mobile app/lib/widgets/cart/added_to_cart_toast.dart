@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../features/cart/cart_controller.dart';
 import '../common/app_network_image.dart';
 
@@ -35,12 +33,11 @@ class AddedToCartToast extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
                 child: AppNetworkImage(
                   imageUrl: toastImage,
-                  variant: ImageVariant.thumbnail,
                   width: 48,
                   height: 48,
                   fit: BoxFit.cover,
-                  cacheWidth: ImageConstants.productThumbnail.width,
-                  cacheHeight: ImageConstants.productThumbnail.height,
+                  cacheWidth: 96,
+                  cacheHeight: 96,
                   errorIcon: Icons.image_outlined,
                 ),
               ),

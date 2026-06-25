@@ -20,7 +20,7 @@ const MIME_TO_EXT = {
   "video/x-m4v": "m4v",
 };
 
-export function getS3Client() {
+function getS3Client() {
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     throw new Error("AWS credentials are not configured");
   }

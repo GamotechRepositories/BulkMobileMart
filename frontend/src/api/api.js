@@ -121,15 +121,6 @@ export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
 export const submitSupportMessage = (data) => api.post("/api/support", data);
 
-/**
- * Extract CDN URL from POST /api/upload/image response.
- * Stores original URL — variants are resolved client-side.
- */
-export function parseUploadedImageUrl(responseBody) {
-  const payload = responseBody?.data ?? responseBody;
-  return payload?.url || payload?.original || "";
-}
-
 export const uploadImageFile = (file, folder) => {
   const formData = new FormData();
   formData.append("image", file);

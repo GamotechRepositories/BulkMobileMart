@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { uploadImageFile, parseUploadedImageUrl } from "../../api/api";
+import { uploadImageFile } from "../../api/api";
 import {
   DEFAULT_MAX_UPLOAD_BYTES,
   formatMaxUploadMb,
@@ -43,11 +43,7 @@ function ImagePicker({
 
     try {
       const { data } = await uploadImageFile(file, folder);
-      const url = parseUploadedImageUrl(data);
-      if (!url) {
-        throw new Error("Upload succeeded but no image URL was returned");
-      }
-      onChange(url);
+      onChange(data.data.url);
     } catch (err) {
       setError(
         err.response?.data?.message ||

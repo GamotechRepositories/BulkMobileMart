@@ -3,10 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_decorations.dart';
 import '../../../config/theme.dart';
-import '../../../core/image/image_constants.dart';
-import '../../../core/image/image_prefetch.dart';
-import '../../../core/image/image_variant.dart';
-import '../../../core/perf/first_frame_profiler.dart';
 import '../../../models/hero_banner.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
@@ -38,37 +34,23 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    return FirstFrameProfiler.traceBuild('HeroBannerCarousel', () {
-      final bannersAsync = ref.watch(heroBannersProvider);
+    final bannersAsync = ref.watch(heroBannersProvider);
 
-      return bannersAsync.when(
-        loading: () => const Padding(
-          padding: EdgeInsets.only(top: 4, bottom: 12),
-          child: SkeletonHeroBanner(),
-        ),
-        error: (_, _) => const SizedBox.shrink(),
-        data: (banners) {
-          final slides = _visibleBanners(banners);
-          if (slides.isEmpty) return const SizedBox.shrink();
-          return FirstFrameProfiler.traceBuildFirst(
-            'Provider rebuild',
-            () => _buildCarousel(slides),
-          );
-        },
-      );
-    });
+    return bannersAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: 4, bottom: 12),
+        child: SkeletonHeroBanner(),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (banners) {
+        final slides = _visibleBanners(banners);
+        if (slides.isEmpty) return const SizedBox.shrink();
+        return _buildCarousel(slides);
+      },
+    );
   }
 
   Widget _buildCarousel(List<HeroBanner> slides) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (slides.length > 1) {
-        ImagePrefetchManager.instance.prefetchBanners(
-          context,
-          slides.skip(1).map((slide) => slide.imageUrl).toList(),
-        );
-      }
-    });
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
       child: Column(
@@ -173,22 +155,21 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FirstFrameProfiler.traceBuildFirst('Banner paint', () => ClipRRect(
+    return ClipRRect(
       borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
       child: SizedBox(
         height: _HeroBannerCarouselState._bannerHeight,
         width: double.infinity,
         child: AppNetworkImage(
           imageUrl: banner.imageUrl,
-          variant: ImageVariant.banner,
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
           width: double.infinity,
           height: _HeroBannerCarouselState._bannerHeight,
-          cacheWidth: ImageConstants.heroBanner.width,
-          cacheHeight: ImageConstants.heroBanner.height,
+          cacheWidth: 400,
+          cacheHeight: _HeroBannerCarouselState._bannerHeight.toInt(),
         ),
       ),
-    ));
+    );
   }
 }

@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
@@ -129,9 +127,7 @@ class BuyAgainCard extends ConsumerWidget {
                   ),
                   child: AppNetworkImage(
                     imageUrl: item.image,
-                    variant: ImageVariant.thumbnail,
-                    cacheWidth: ImageConstants.productThumbnail.width,
-                    cacheHeight: ImageConstants.productThumbnail.height,
+                    cacheWidth: 140,
                   ),
                 ),
               ),

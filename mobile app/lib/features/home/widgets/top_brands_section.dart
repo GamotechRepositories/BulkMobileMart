@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/app_decorations.dart';
 import '../../../config/theme.dart';
-import '../../../core/image/image_constants.dart';
-import '../../../core/image/image_variant.dart';
 import '../../../core/utils/product_search.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
@@ -102,10 +100,9 @@ class _BrandTile extends StatelessWidget {
             child: imageUrl.trim().isNotEmpty
                 ? AppNetworkImage(
                     imageUrl: imageUrl,
-                    variant: ImageVariant.small,
                     fit: BoxFit.contain,
-                    cacheWidth: ImageConstants.brandLogo.width,
-                    cacheHeight: ImageConstants.brandLogo.height,
+                    cacheWidth: 112,
+                    cacheHeight: 72,
                     errorIcon: Icons.storefront_outlined,
                     errorIconSize: 28,
                   )

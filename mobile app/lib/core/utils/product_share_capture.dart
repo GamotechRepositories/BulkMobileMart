@@ -7,8 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../config/env.dart';
-import '../image/image_url_resolver.dart';
-import '../image/image_variant.dart';
 import 'product_share_card.dart';
 import '../../widgets/product/product_share_card_widget.dart';
 
@@ -20,12 +18,7 @@ String proxyImageUrl(String imageUrl) {
 Future<void> precacheShareImage(BuildContext context, String imageUrl) async {
   if (imageUrl.trim().isEmpty) return;
 
-  final resolved = ImageUrlResolver.resolve(
-    imageUrl,
-    variant: ImageVariant.large,
-  );
-
-  for (final source in [resolved, imageUrl.trim(), proxyImageUrl(imageUrl)]) {
+  for (final source in [imageUrl.trim(), proxyImageUrl(imageUrl)]) {
     try {
       await precacheImage(NetworkImage(source), context);
       return;

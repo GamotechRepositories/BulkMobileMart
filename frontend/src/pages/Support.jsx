@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { submitSupportMessage, uploadImageFile, parseUploadedImageUrl } from "../api/api";
+import { submitSupportMessage, uploadImageFile } from "../api/api";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders";
 import { SUPPORT_ISSUE_OPTIONS } from "../utils/supportConstants";
 
@@ -187,10 +187,7 @@ function Support() {
 
     try {
       const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.SUPPORT);
-      const url = parseUploadedImageUrl(data);
-      if (!url) {
-        throw new Error("Upload succeeded but no image URL was returned");
-      }
+      const url = data.data.url;
       setAttachment({ name: file.name, url });
       setAttachmentPreview(url);
     } catch (err) {

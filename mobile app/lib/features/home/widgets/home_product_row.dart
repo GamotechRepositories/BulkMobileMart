@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/theme.dart';
-import '../../../core/image/image_prefetch.dart';
 import '../../../core/utils/product_pricing.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
@@ -108,15 +107,6 @@ class HomeProductRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!loading && products.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ImagePrefetchManager.instance.prefetchProducts(
-          context,
-          products.map((product) => product.primaryImage ?? '').toList(),
-        );
-      });
-    }
-
     if (!loading && products.isEmpty) {
       return const SizedBox.shrink();
     }

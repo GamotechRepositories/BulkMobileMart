@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../config/theme.dart';
-import '../../core/image/image_constants.dart';
-import '../../core/image/image_variant.dart';
 import '../../models/category.dart';
 import '../common/app_network_image.dart';
 import 'category_grid_tile.dart';
@@ -108,10 +106,9 @@ class _CategoryStripItem extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                             child: AppNetworkImage(
                               imageUrl: imageUrl!,
-                              variant: ImageVariant.thumbnail,
                               fit: BoxFit.contain,
-                              cacheWidth: ImageConstants.categoryIcon.width,
-                              cacheHeight: ImageConstants.categoryIcon.height,
+                              cacheWidth: 96,
+                              cacheHeight: 96,
                               errorIcon: Icons.category_outlined,
                             ),
                           )

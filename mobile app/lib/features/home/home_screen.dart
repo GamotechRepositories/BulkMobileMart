@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 
-import '../../core/perf/first_frame_profiler.dart';
-
 import '../../core/refresh/app_refresh.dart';
 
 import '../../core/scroll/tab_scroll_registry.dart';
@@ -136,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget build(BuildContext context) {
 
-    return FirstFrameProfiler.traceBuild('HomeScreen', () => ColoredBox(
+    return ColoredBox(
 
       color: AppColors.pageBackground,
 
@@ -340,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       ),
 
-    ));
+    );
 
   }
 
