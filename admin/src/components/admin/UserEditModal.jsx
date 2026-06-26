@@ -56,9 +56,11 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
     e.preventDefault();
     const payload = {
       name: form.name.trim(),
-      email: form.email.trim(),
       phone: form.phone.trim(),
     };
+    if (form.email.trim()) {
+      payload.email = form.email.trim();
+    }
     if (form.password.trim()) {
       payload.password = form.password;
     }
@@ -100,13 +102,13 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
             />
           </div>
           <div>
-            <label className={labelClass}>Email *</label>
+            <label className={labelClass}>Email</label>
             <input
               type="email"
-              required
               value={form.email}
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               className={inputClass}
+              placeholder="Optional"
             />
           </div>
           <div>
@@ -121,13 +123,10 @@ function UserEditModal({ user, isAdd = false, onClose, onSave, saving }) {
             />
           </div>
           <div>
-            <label className={labelClass}>
-              {isAdd ? "Password *" : "New password"}
-            </label>
+            <label className={labelClass}>Password</label>
             <input
               type="password"
-              required={isAdd}
-              placeholder={isAdd ? "Minimum 6 characters" : "Leave blank to keep current password"}
+              placeholder={isAdd ? "Optional — users sign in with OTP" : "Leave blank to keep current password"}
               value={form.password}
               onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
               className={inputClass}

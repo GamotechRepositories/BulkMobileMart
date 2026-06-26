@@ -76,8 +76,7 @@ function UserSection() {
         setSuccess("User updated successfully");
       } else {
         if (!payload.password) {
-          setError("Password is required for new users");
-          return;
+          delete payload.password;
         }
         await createUser(payload);
         setSuccess("User added successfully");
