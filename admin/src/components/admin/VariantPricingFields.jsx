@@ -144,6 +144,7 @@ function VariantPricingFields({
               type="number"
               required
               min="0"
+              step="0.01"
               value={variant.price}
               onChange={(e) => updateField("price", e.target.value)}
               className={inputClass}
@@ -155,6 +156,7 @@ function VariantPricingFields({
               type="number"
               required
               min="0"
+              step="0.01"
               value={variant.discountedPrice}
               onChange={(e) => updateField("discountedPrice", e.target.value)}
               className={inputClass}
@@ -210,6 +212,7 @@ function VariantPricingFields({
                         type="number"
                         required
                         min="0"
+                        step="0.01"
                         value={slab.price}
                         onChange={(e) => updateSlab(index, "price", e.target.value)}
                         className={`${inputClass} !px-2 !py-2 text-xs sm:!px-3 sm:!py-2.5 sm:text-sm`}
