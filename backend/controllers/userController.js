@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import User from "../models/user.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
@@ -28,57 +27,11 @@ const formatAuthUser = (user) => ({
   role: user.role,
 });
 
-export const signup = async (req, res) => {
-  try {
-    const { name, email, phone, password } = req.body;
-
-    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, email, phone, and password are required",
-      });
-    }
-
-    const existingUser = await User.findOne({
-      $or: [{ email: email.trim().toLowerCase() }, { phone: phone.trim() }],
-    });
-
-    if (existingUser) {
-      const field =
-        existingUser.email === email.trim().toLowerCase() ? "Email" : "Phone";
-      return res.status(409).json({
-        success: false,
-        message: `${field} is already registered`,
-      });
-    }
-
-    const user = await User.create({
-      name: name.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      password,
-      role: "user",
-    });
-
-    const token = signToken(user._id);
-
-    res.status(201).json({
-      success: true,
-      data: {
-        user: formatAuthUser(user),
-        token,
-      },
-    });
-  } catch (error) {
-    if (error.name === "ValidationError") {
-      const message = Object.values(error.errors)
-        .map((err) => err.message)
-        .join(", ");
-      return res.status(400).json({ success: false, message });
-    }
-
-    res.status(500).json({ success: false, message: error.message });
-  }
+export const signup = async (_req, res) => {
+  res.status(403).json({
+    success: false,
+    message: "Please sign up with your phone number and OTP.",
+  });
 };
 
 export const login = async (req, res) => {
@@ -100,6 +53,13 @@ export const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
+      });
+    }
+
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Please sign in with OTP on the website or app.",
       });
     }
 
@@ -133,10 +93,7 @@ export const sendOtpLogin = async (req, res) => {
     res.status(200).json({
       success: true,
       message: result.message,
-      data: {
-        phone,
-        devOtp: result.devOtp,
-      },
+      data: { phone },
     });
   } catch (error) {
     res.status(500).json({
@@ -149,7 +106,7 @@ export const sendOtpLogin = async (req, res) => {
 export const verifyOtpLogin = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
-    const { otp, name, email } = req.body;
+    const { otp, name } = req.body;
 
     if (!phone) {
       return res.status(400).json({
@@ -169,7 +126,7 @@ export const verifyOtpLogin = async (req, res) => {
     let user = await User.findOne({ phone });
 
     if (!user) {
-      if (!name?.trim() || !email?.trim()) {
+      if (!name?.trim()) {
         markPhoneOtpVerified(phone);
         return res.status(200).json({
           success: true,
@@ -180,22 +137,9 @@ export const verifyOtpLogin = async (req, res) => {
         });
       }
 
-      const existingUser = await User.findOne({
-        email: email.trim().toLowerCase(),
-      });
-
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          message: "Email is already registered",
-        });
-      }
-
       user = await User.create({
         name: name.trim(),
-        email: email.trim(),
         phone,
-        password: crypto.randomBytes(24).toString("hex"),
         role: "user",
       });
     }
@@ -231,7 +175,7 @@ export const verifyOtpLogin = async (req, res) => {
 export const completeOtpSignup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
-    const { name, email } = req.body;
+    const { name } = req.body;
 
     if (!phone) {
       return res.status(400).json({
@@ -247,10 +191,10 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
-    if (!name?.trim() || !email?.trim()) {
+    if (!name?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Name and email are required",
+        message: "Name is required",
       });
     }
 
@@ -266,22 +210,9 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
-    const existingEmailUser = await User.findOne({
-      email: email.trim().toLowerCase(),
-    });
-
-    if (existingEmailUser) {
-      return res.status(409).json({
-        success: false,
-        message: "Email is already registered",
-      });
-    }
-
     const user = await User.create({
       name: name.trim(),
-      email: email.trim(),
       phone,
-      password: crypto.randomBytes(24).toString("hex"),
       role: "user",
     });
 
@@ -348,6 +279,13 @@ export const changeMyPassword = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password change is not available for OTP sign-in accounts",
+      });
+    }
+
     const isCurrentValid = await user.comparePassword(currentPassword);
     if (!isCurrentValid) {
       return res.status(401).json({
@@ -387,10 +325,12 @@ export const updateMe = async (req, res) => {
     }
 
     if (email !== undefined) {
-      if (!String(email).trim()) {
-        return res.status(400).json({ success: false, message: "Email is required" });
+      const trimmedEmail = String(email).trim();
+      if (trimmedEmail) {
+        updates.email = trimmedEmail.toLowerCase();
+      } else {
+        updates.email = undefined;
       }
-      updates.email = String(email).trim().toLowerCase();
     }
 
     if (phone !== undefined) {
@@ -426,10 +366,18 @@ export const updateMe = async (req, res) => {
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.user._id, updates, {
-      new: true,
-      runValidators: true,
-    });
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (updates.name) user.name = updates.name;
+    if (updates.phone) user.phone = updates.phone;
+    if (email !== undefined) {
+      user.email = updates.email;
+    }
+
+    await user.save();
 
     res.status(200).json({
       success: true,
@@ -460,20 +408,22 @@ export const createUser = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
+    if (!name?.trim() || !phone?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, phone, and password are required",
+        message: "Name and phone are required",
       });
     }
 
-    const existingUser = await User.findOne({
-      $or: [{ email: email.trim().toLowerCase() }, { phone: phone.trim() }],
-    });
+    const conflictFilters = [{ phone: phone.trim() }];
+    if (email?.trim()) {
+      conflictFilters.push({ email: email.trim().toLowerCase() });
+    }
+
+    const existingUser = await User.findOne({ $or: conflictFilters });
 
     if (existingUser) {
-      const field =
-        existingUser.email === email.trim().toLowerCase() ? "Email" : "Phone";
+      const field = existingUser.phone === phone.trim() ? "Phone" : "Email";
       return res.status(409).json({
         success: false,
         message: `${field} is already registered`,
@@ -482,9 +432,9 @@ export const createUser = async (req, res) => {
 
     const user = await User.create({
       name: name.trim(),
-      email: email.trim(),
+      ...(email?.trim() ? { email: email.trim().toLowerCase() } : {}),
       phone: phone.trim(),
-      password,
+      ...(password ? { password } : {}),
       role: "user",
     });
 

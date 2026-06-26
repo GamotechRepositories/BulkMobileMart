@@ -108,24 +108,30 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
 
         {/* Items table */}
         <div className="mt-6 overflow-hidden rounded-lg border border-border-light">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-[11px] sm:text-sm">
             <thead>
-              <tr className="border-b border-border-light bg-mobile-surface text-left text-xs font-bold uppercase tracking-wide text-text-secondary">
-                <th className="px-4 py-3 sm:px-5">Sr No.</th>
-                <th className="px-4 py-3 sm:px-5">Item Name</th>
-                <th className="px-4 py-3 text-right sm:px-5">Qty</th>
-                <th className="px-4 py-3 text-right sm:px-5">Rate</th>
-                <th className="px-4 py-3 text-right sm:px-5">Amount</th>
+              <tr className="border-b border-border-light bg-mobile-surface text-left text-[10px] font-bold uppercase tracking-wide text-text-secondary sm:text-xs">
+                <th className="w-8 px-1 py-2 text-center sm:w-auto sm:px-5 sm:py-3">
+                  <span className="sm:hidden">Sr</span>
+                  <span className="hidden sm:inline">Sr No.</span>
+                </th>
+                <th className="px-1.5 py-2 sm:px-5 sm:py-3">Item Name</th>
+                <th className="w-8 px-1 py-2 text-right sm:w-auto sm:px-5 sm:py-3">Qty</th>
+                <th className="w-14 px-1 py-2 text-right sm:w-auto sm:px-5 sm:py-3">Rate</th>
+                <th className="w-14 px-1 py-2 text-right sm:w-auto sm:px-5 sm:py-3">
+                  <span className="sm:hidden">AM</span>
+                  <span className="hidden sm:inline">Amount</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {order.items.map((item, index) => (
                 <tr key={item._id} className="border-b border-border-light last:border-b-0">
-                  <td className="px-4 py-3 sm:px-5">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium sm:px-5">{item.name}</td>
-                  <td className="px-4 py-3 text-right sm:px-5">{item.quantity}</td>
-                  <td className="px-4 py-3 text-right sm:px-5">{formatPrice(item.price)}</td>
-                  <td className="px-4 py-3 text-right font-medium sm:px-5">
+                  <td className="px-1 py-2 text-center tabular-nums sm:px-5 sm:py-3">{index + 1}</td>
+                  <td className="px-1.5 py-2 font-medium sm:px-5 sm:py-3">{item.name}</td>
+                  <td className="px-1 py-2 text-right tabular-nums sm:px-5 sm:py-3">{item.quantity}</td>
+                  <td className="px-1 py-2 text-right tabular-nums sm:px-5 sm:py-3">{formatPrice(item.price)}</td>
+                  <td className="px-1 py-2 text-right font-medium tabular-nums sm:px-5 sm:py-3">
                     {formatPrice(item.price * item.quantity)}
                   </td>
                 </tr>

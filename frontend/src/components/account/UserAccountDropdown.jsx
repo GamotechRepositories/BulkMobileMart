@@ -85,7 +85,7 @@ function UserAccountDropdown({ user }) {
         <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border-light bg-white py-1 shadow-lg">
           <div className="border-b border-border-light px-4 py-3">
             <p className="truncate text-sm font-semibold text-text-primary">{user.name}</p>
-            <p className="truncate text-xs text-text-secondary">{user.email}</p>
+            <p className="truncate text-xs text-text-secondary">{user.email || user.phone}</p>
           </div>
 
           <DropdownItem to="/orders" onClick={close}>

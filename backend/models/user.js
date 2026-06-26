@@ -24,11 +24,17 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
-      unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"],
+      unique: true,
+      sparse: true,
+      validate: {
+        validator(value) {
+          if (!value) return true;
+          return /^\S+@\S+\.\S+$/.test(value);
+        },
+        message: "Please provide a valid email",
+      },
     },
     phone: {
       type: String,
@@ -44,7 +50,6 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
@@ -69,14 +74,26 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.pre("validate", function requireAdminCredentials() {
+  if (this.role !== "admin") return;
+
+  if (!this.email?.trim()) {
+    this.invalidate("email", "Email is required for admin accounts");
+  }
+  if (!this.password) {
+    this.invalidate("password", "Password is required for admin accounts");
+  }
+});
+
 userSchema.pre("save", async function hashPassword() {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.comparePassword = async function comparePassword(candidate) {
+  if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
 

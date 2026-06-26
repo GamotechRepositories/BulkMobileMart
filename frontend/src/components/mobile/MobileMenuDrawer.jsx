@@ -234,7 +234,7 @@ function MobileMenuDrawer({ open, onClose, categories }) {
             {user ? (
               <>
                 <p className="truncate text-base font-bold text-text-primary">{user.name}</p>
-                <p className="truncate text-xs text-text-secondary">{user.email}</p>
+                <p className="truncate text-xs text-text-secondary">{user.email || user.phone}</p>
               </>
             ) : (
               <button

@@ -293,8 +293,8 @@ function Profile() {
               </svg>
             }
             label="Email"
-            value={user.email}
-            onEdit={() => handleEditProfileField("email", "Email", user.email)}
+            value={user.email || "Not provided"}
+            onEdit={() => handleEditProfileField("email", "Email", user.email || "")}
             showDivider
           />
           <ProfileInfoRow
