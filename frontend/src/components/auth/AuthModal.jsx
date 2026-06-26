@@ -62,13 +62,22 @@ const inputClass =
 const labelClass = "block text-sm font-semibold text-black mb-1.5";
 
 function AuthModal({ mode, onClose, onSwitchMode }) {
-  const { signup, login } = useAuth();
+  const { signup, login, sendOtp, loginWithOtp, completeOtpSignupProfile } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
   });
+  const [otpForm, setOtpForm] = useState({
+    phone: "",
+    otp: "",
+    name: "",
+    email: "",
+  });
+  const [loginMethod, setLoginMethod] = useState("password");
+  const [otpStep, setOtpStep] = useState("phone");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -78,8 +87,20 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
 
   const handleModeSwitch = (nextMode) => {
     setError("");
+    setLoginMethod("password");
+    setOtpStep("phone");
     onSwitchMode(nextMode);
   };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((value) => (value > 0 ? value - 1 : 0));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     const handleEscape = (e) => {
@@ -97,6 +118,91 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setError("");
+  };
+
+  const handleOtpChange = (e) => {
+    const { name, value } = e.target;
+    setOtpForm((prev) => ({ ...prev, [name]: value }));
+    setError("");
+  };
+
+  const handleSendOtp = async () => {
+    if (!PHONE_PATTERN.test(otpForm.phone.trim())) {
+      setError("Phone must be 10 digits starting with 6, 7, 8, or 9");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      await sendOtp(otpForm.phone.trim());
+      setOtpStep("verify");
+      setResendCooldown(60);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+
+    if (!/^\d{4,8}$/.test(otpForm.otp.trim())) {
+      setError("Please enter the OTP sent to your phone");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const result = await loginWithOtp({
+        phone: otpForm.phone.trim(),
+        otp: otpForm.otp.trim(),
+      });
+
+      if (result?.needsSignup) {
+        setOtpStep("signup");
+        return;
+      }
+
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "OTP verification failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCompleteOtpSignup = async (e) => {
+    e.preventDefault();
+
+    if (!validateName(otpForm.name)) {
+      setError("Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)");
+      return;
+    }
+    if (!otpForm.email.trim()) {
+      setError("Email is required to complete sign up");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      await completeOtpSignupProfile({
+        phone: otpForm.phone.trim(),
+        name: otpForm.name.trim(),
+        email: otpForm.email.trim(),
+      });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Could not complete sign up.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const validate = () => {
@@ -177,9 +283,201 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
           <p className="text-sm text-gray-500 mb-6">
             {isSignup
               ? "Create your account to get started."
-              : "Enter your credentials to access your account."}
+              : loginMethod === "otp"
+                ? otpStep === "signup"
+                  ? "Complete your profile to finish sign up."
+                  : "Sign in securely with a one-time password on your phone."
+                : "Enter your credentials to access your account."}
           </p>
 
+          {!isSignup && (
+            <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod("password");
+                  setOtpStep("phone");
+                  setError("");
+                }}
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                  loginMethod === "password"
+                    ? "bg-white text-black shadow-sm"
+                    : "text-gray-500"
+                }`}
+              >
+                Password
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod("otp");
+                  setOtpStep("phone");
+                  setError("");
+                }}
+                className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                  loginMethod === "otp"
+                    ? "bg-white text-black shadow-sm"
+                    : "text-gray-500"
+                }`}
+              >
+                OTP
+              </button>
+            </div>
+          )}
+
+          {!isSignup && loginMethod === "otp" ? (
+            <form
+              onSubmit={otpStep === "signup" ? handleCompleteOtpSignup : handleVerifyOtp}
+              className="space-y-4"
+            >
+              {otpStep === "phone" ? (
+                <div>
+                  <label htmlFor="otp-phone" className={labelClass}>
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                      <PhoneIcon />
+                    </span>
+                    <input
+                      id="otp-phone"
+                      name="phone"
+                      type="tel"
+                      value={otpForm.phone}
+                      onChange={handleOtpChange}
+                      placeholder="9876543210"
+                      maxLength={10}
+                      className={`${inputClass} pl-9 pr-3`}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="otp-code" className={labelClass}>
+                      Enter OTP
+                    </label>
+                    <input
+                      id="otp-code"
+                      name="otp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={otpForm.otp}
+                      onChange={handleOtpChange}
+                      placeholder="6-digit OTP"
+                      maxLength={6}
+                      className={`${inputClass} px-4 tracking-[0.3em]`}
+                      required
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500">
+                      OTP sent to +91 {otpForm.phone}
+                    </p>
+                  </div>
+
+                  {otpStep === "signup" && (
+                    <>
+                      <div>
+                        <label htmlFor="otp-name" className={labelClass}>
+                          Name
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <UserIcon />
+                          </span>
+                          <input
+                            id="otp-name"
+                            name="name"
+                            type="text"
+                            value={otpForm.name}
+                            onChange={handleOtpChange}
+                            placeholder="Rahul"
+                            className={`${inputClass} pl-9 pr-3`}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="otp-email" className={labelClass}>
+                          Email Address
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                            <EnvelopeIcon />
+                          </span>
+                          <input
+                            id="otp-email"
+                            name="email"
+                            type="email"
+                            value={otpForm.email}
+                            onChange={handleOtpChange}
+                            placeholder="Enter your email"
+                            className={`${inputClass} pl-10 pr-4`}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {otpStep !== "signup" && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtpStep("phone");
+                          setOtpForm((prev) => ({ ...prev, otp: "" }));
+                          setError("");
+                        }}
+                        className="font-medium text-accent hover:underline"
+                      >
+                        Change number
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        disabled={submitting || resendCooldown > 0}
+                        className="font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {error}
+                </p>
+              )}
+
+              {otpStep === "phone" ? (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={submitting}
+                  className="w-full rounded-lg bg-accent text-white py-3 text-sm font-bold tracking-wide uppercase hover:brightness-110 transition disabled:opacity-60"
+                >
+                  {submitting ? "Sending OTP..." : "Send OTP"}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full rounded-lg bg-accent text-white py-3 text-sm font-bold tracking-wide uppercase hover:brightness-110 transition disabled:opacity-60"
+                >
+                  {submitting
+                    ? "Please wait..."
+                    : otpStep === "signup"
+                      ? "Complete Sign Up"
+                      : "Verify & Sign In"}
+                </button>
+              )}
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignup && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -312,6 +610,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
               {submitting ? "Please wait..." : isSignup ? "Sign Up" : "Login"}
             </button>
           </form>
+          )}
 
           <p className="text-center text-sm text-gray-500 mt-5">
             {isSignup ? (

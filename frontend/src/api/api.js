@@ -71,6 +71,9 @@ export const removeFromWishlistItem = (productId) =>
 
 export const signupUser = (data) => api.post("/api/users/signup", data);
 export const loginUser = (data) => api.post("/api/users/login", data);
+export const sendOtpLogin = (data) => api.post("/api/users/otp/send", data);
+export const verifyOtpLogin = (data) => api.post("/api/users/otp/verify", data);
+export const completeOtpSignup = (data) => api.post("/api/users/otp/complete-signup", data);
 export const getMe = () => api.get("/api/users/me");
 export const updateMe = (data) => api.patch("/api/users/me", data);
 

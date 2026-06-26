@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import api, { loginUser, signupUser, updateMe } from "../api/api";
+import api, { completeOtpSignup, loginUser, sendOtpLogin, signupUser, updateMe, verifyOtpLogin } from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
@@ -101,6 +101,43 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  const sendOtp = async (phone) => {
+    const res = await sendOtpLogin({ phone });
+    return res.data;
+  };
+
+  const loginWithOtp = async ({ phone, otp }) => {
+    const res = await verifyOtpLogin({ phone, otp });
+    const payload = res.data.data;
+
+    if (payload?.needsSignup) {
+      return { needsSignup: true, phone: payload.phone };
+    }
+
+    const { user: authUser, token: authToken } = payload;
+
+    if (authUser.role === "admin") {
+      throw new Error("Please use the admin panel to sign in.");
+    }
+
+    persistCustomerAuth(authUser, authToken);
+    closeAuthModal();
+    return res.data;
+  };
+
+  const completeOtpSignupProfile = async ({ phone, name, email }) => {
+    const res = await completeOtpSignup({ phone, name, email });
+    const { user: authUser, token: authToken } = res.data.data;
+
+    if (authUser.role === "admin") {
+      throw new Error("Please use the admin panel to sign in.");
+    }
+
+    persistCustomerAuth(authUser, authToken);
+    closeAuthModal();
+    return res.data;
+  };
+
   const logout = () => {
     clearCustomerAuth();
   };
@@ -120,6 +157,9 @@ export function AuthProvider({ children }) {
         loading,
         signup,
         login,
+        sendOtp,
+        loginWithOtp,
+        completeOtpSignupProfile,
         logout,
         updateProfile,
         authModal,

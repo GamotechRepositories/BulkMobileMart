@@ -1,7 +1,15 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/user.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
+import {
+  normalizeIndianPhone,
+  sendLoginOtp as dispatchLoginOtp,
+  verifyLoginOtp as validateLoginOtp,
+  markPhoneOtpVerified,
+  consumeVerifiedPhone,
+} from "../utils/msg91.js";
 
 const signToken = (userId) => {
   if (!process.env.JWT_SECRET) {
@@ -11,6 +19,14 @@ const signToken = (userId) => {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 };
+
+const formatAuthUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+});
 
 export const signup = async (req, res) => {
   try {
@@ -49,13 +65,7 @@ export const signup = async (req, res) => {
     res.status(201).json({
       success: true,
       data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-        },
+        user: formatAuthUser(user),
         token,
       },
     });
@@ -98,17 +108,200 @@ export const login = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-        },
+        user: formatAuthUser(user),
         token,
       },
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const sendOtpLogin = async (req, res) => {
+  try {
+    const phone = normalizeIndianPhone(req.body.phone);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    const result = await dispatchLoginOtp(phone);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: {
+        phone,
+        devOtp: result.devOtp,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to send OTP",
+    });
+  }
+};
+
+export const verifyOtpLogin = async (req, res) => {
+  try {
+    const phone = normalizeIndianPhone(req.body.phone);
+    const { otp, name, email } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    const verification = await validateLoginOtp(phone, otp);
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message,
+      });
+    }
+
+    let user = await User.findOne({ phone });
+
+    if (!user) {
+      if (!name?.trim() || !email?.trim()) {
+        markPhoneOtpVerified(phone);
+        return res.status(200).json({
+          success: true,
+          data: {
+            needsSignup: true,
+            phone,
+          },
+        });
+      }
+
+      const existingUser = await User.findOne({
+        email: email.trim().toLowerCase(),
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Email is already registered",
+        });
+      }
+
+      user = await User.create({
+        name: name.trim(),
+        email: email.trim(),
+        phone,
+        password: crypto.randomBytes(24).toString("hex"),
+        role: "user",
+      });
+    }
+
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Please use the admin panel to sign in.",
+      });
+    }
+
+    const token = signToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: formatAuthUser(user),
+        token,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const completeOtpSignup = async (req, res) => {
+  try {
+    const phone = normalizeIndianPhone(req.body.phone);
+    const { name, email } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    if (!consumeVerifiedPhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP verification expired. Please verify your phone again.",
+      });
+    }
+
+    if (!name?.trim() || !email?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and email are required",
+      });
+    }
+
+    const existingPhoneUser = await User.findOne({ phone });
+    if (existingPhoneUser) {
+      const token = signToken(existingPhoneUser._id);
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: formatAuthUser(existingPhoneUser),
+          token,
+        },
+      });
+    }
+
+    const existingEmailUser = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (existingEmailUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Email is already registered",
+      });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: email.trim(),
+      phone,
+      password: crypto.randomBytes(24).toString("hex"),
+      role: "user",
+    });
+
+    const token = signToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        user: formatAuthUser(user),
+        token,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
     res.status(500).json({ success: false, message: error.message });
   }
 };
