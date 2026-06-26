@@ -48,6 +48,24 @@ const userSchema = new mongoose.Schema(
           "Phone must be 10 digits and start with 6, 7, 8, or 9",
       },
     },
+    shopNo: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    gstNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      validate: {
+        validator(value) {
+          if (!value) return true;
+          return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value);
+        },
+        message: "Please provide a valid GST number",
+      },
+    },
     password: {
       type: String,
       minlength: [6, "Password must be at least 6 characters"],

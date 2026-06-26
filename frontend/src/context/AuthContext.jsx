@@ -80,11 +80,13 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const loginWithOtp = async ({ phone, otp, name }) => {
+  const loginWithOtp = async ({ phone, otp, name, shopNo, gstNumber }) => {
     const res = await verifyOtpLogin({
       phone,
       otp,
       ...(name?.trim() ? { name: name.trim() } : {}),
+      ...(shopNo?.trim() ? { shopNo: shopNo.trim() } : {}),
+      ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
     });
     const payload = res.data.data;
 
@@ -103,8 +105,13 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const completeOtpSignupProfile = async ({ phone, name }) => {
-    const res = await completeOtpSignup({ phone, name });
+  const completeOtpSignupProfile = async ({ phone, name, shopNo, gstNumber }) => {
+    const res = await completeOtpSignup({
+      phone,
+      name,
+      ...(shopNo?.trim() ? { shopNo: shopNo.trim() } : {}),
+      ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
+    });
     const { user: authUser, token: authToken } = res.data.data;
 
     if (authUser.role === "admin") {

@@ -24,8 +24,17 @@ const formatAuthUser = (user) => ({
   name: user.name,
   email: user.email,
   phone: user.phone,
+  shopNo: user.shopNo || "",
+  gstNumber: user.gstNumber || "",
   role: user.role,
 });
+
+function pickOptionalSignupFields(body) {
+  const fields = {};
+  if (body.shopNo?.trim()) fields.shopNo = body.shopNo.trim();
+  if (body.gstNumber?.trim()) fields.gstNumber = body.gstNumber.trim().toUpperCase();
+  return fields;
+}
 
 export const signup = async (_req, res) => {
   res.status(403).json({
@@ -107,6 +116,7 @@ export const verifyOtpLogin = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { otp, name } = req.body;
+    const optionalSignupFields = pickOptionalSignupFields(req.body);
 
     if (!phone) {
       return res.status(400).json({
@@ -141,6 +151,7 @@ export const verifyOtpLogin = async (req, res) => {
         name: name.trim(),
         phone,
         role: "user",
+        ...optionalSignupFields,
       });
     }
 
@@ -176,6 +187,7 @@ export const completeOtpSignup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { name } = req.body;
+    const optionalSignupFields = pickOptionalSignupFields(req.body);
 
     if (!phone) {
       return res.status(400).json({
@@ -214,6 +226,7 @@ export const completeOtpSignup = async (req, res) => {
       name: name.trim(),
       phone,
       role: "user",
+      ...optionalSignupFields,
     });
 
     const token = signToken(user._id);
@@ -246,6 +259,8 @@ export const getMe = async (req, res) => {
         name: req.user.name,
         email: req.user.email,
         phone: req.user.phone,
+        shopNo: req.user.shopNo || "",
+        gstNumber: req.user.gstNumber || "",
         role: req.user.role,
         createdAt: req.user.createdAt,
         updatedAt: req.user.updatedAt,
@@ -387,6 +402,8 @@ export const updateMe = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        shopNo: user.shopNo || "",
+        gstNumber: user.gstNumber || "",
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
