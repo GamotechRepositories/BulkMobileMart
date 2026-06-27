@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_controller.dart';
 import 'notification_navigator.dart';
 import 'notification_repository.dart';
-import 'notifications_controller.dart';
 import '../../models/push_notification_payload.dart';
 import '../../routes/app_router.dart';
 import '../../services/notification_service.dart';
 
+/// Wires FCM to the phone system notification tray only (no in-app notification UI).
 class NotificationBootstrap extends ConsumerStatefulWidget {
   const NotificationBootstrap({super.key, required this.child});
 
@@ -34,7 +34,8 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
     final service = NotificationService.instance;
     service.tokenSyncHandler = _syncToken;
     service.onNotificationOpened = _onNotificationOpened;
-    service.onForegroundMessage = _onForegroundMessage;
+    // Foreground pushes are shown in the Android notification shade only.
+    service.onForegroundMessage = null;
 
     unawaited(_syncTokenIfReady());
     unawaited(NotificationNavigator.flushPending(context, ref));
@@ -59,13 +60,7 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
     }
   }
 
-  void _onForegroundMessage(PushNotificationPayload payload) {
-    ref.read(notificationsControllerProvider.notifier).notifyIncomingPush();
-  }
-
   Future<void> _onNotificationOpened(PushNotificationPayload payload) async {
-    ref.read(notificationsControllerProvider.notifier).notifyIncomingPush();
-
     if (!ref.read(authControllerProvider).isLoggedIn) {
       NotificationPendingNavigation.store(payload);
       ref.read(authControllerProvider.notifier).openAuthModal();
@@ -91,11 +86,6 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
     if (state != AppLifecycleState.resumed) return;
 
     unawaited(_syncTokenIfReady());
-    unawaited(
-      ref
-          .read(notificationsControllerProvider.notifier)
-          .refreshIfLoggedIn(force: true),
-    );
     unawaited(NotificationNavigator.flushPending(context, ref));
   }
 
@@ -119,11 +109,6 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
 
       if (becameLoggedIn || sessionReady) {
         unawaited(_syncTokenIfReady());
-        unawaited(
-          ref
-              .read(notificationsControllerProvider.notifier)
-              .refreshIfLoggedIn(force: true),
-        );
         unawaited(NotificationNavigator.flushPending(context, ref));
       }
     });

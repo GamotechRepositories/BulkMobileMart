@@ -64,12 +64,8 @@ abstract final class NotificationNavigator {
       return;
     }
 
-    if (resolvedNotificationId != null && resolvedNotificationId.isNotEmpty) {
-      _push(context, '${RoutePaths.notifications}/$resolvedNotificationId');
-      return;
-    }
-
-    _push(context, RoutePaths.notifications);
+    // General / test notifications — stay on current screen (system tray only).
+    return;
   }
 
   static Future<void> openFromAppNotification(
@@ -107,8 +103,6 @@ abstract final class NotificationNavigator {
       _push(context, '/orders/${notification.orderId}');
       return;
     }
-
-    _push(context, '${RoutePaths.notifications}/${notification.id}');
   }
 
   static Future<void> flushPending(BuildContext context, WidgetRef ref) async {

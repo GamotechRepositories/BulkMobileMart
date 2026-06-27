@@ -104,7 +104,13 @@ export function getFirebaseAdmin() {
     if (initError) {
       throw initError;
     }
-    return null;
+
+    // Credentials may have been added after a failed boot — retry once.
+    if (loadServiceAccount()) {
+      initAttempted = false;
+    } else {
+      return null;
+    }
   }
 
   initAttempted = true;

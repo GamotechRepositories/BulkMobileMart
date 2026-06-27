@@ -17,7 +17,6 @@ import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
-import '../../features/notifications/notifications_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
@@ -317,9 +316,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _showSuccessModal = true;
     });
     await ref.read(cartControllerProvider.notifier).loadCart();
-    ref
-        .read(notificationsControllerProvider.notifier)
-        .refreshIfLoggedIn(force: true);
   }
 
   @override

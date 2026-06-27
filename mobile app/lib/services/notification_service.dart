@@ -180,7 +180,10 @@ class NotificationService {
       ordersChannelId,
       ordersChannelName,
       description: 'Order updates and delivery notifications',
-      importance: Importance.high,
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      showBadge: true,
     );
 
     final androidPlugin = _localNotifications
@@ -277,9 +280,13 @@ class NotificationService {
         ordersChannelId,
         ordersChannelName,
         channelDescription: 'Order updates and delivery notifications',
-        importance: Importance.high,
+        importance: Importance.max,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+        visibility: NotificationVisibility.public,
+        playSound: true,
+        enableVibration: true,
+        ticker: 'BulkMobileMart',
       );
 
       const notificationDetails = NotificationDetails(android: androidDetails);
