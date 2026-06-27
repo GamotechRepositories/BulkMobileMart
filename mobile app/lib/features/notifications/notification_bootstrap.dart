@@ -36,14 +36,16 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
     service.onNotificationOpened = _onNotificationOpened;
     service.onForegroundMessage = _onForegroundMessage;
 
-    if (ref.read(authControllerProvider).isLoggedIn) {
-      unawaited(NotificationService.instance.registerToken());
-      unawaited(
-        ref.read(notificationsControllerProvider.notifier).refreshIfLoggedIn(),
-      );
-    }
-
+    unawaited(_syncTokenIfReady());
     unawaited(NotificationNavigator.flushPending(context, ref));
+  }
+
+  Future<void> _syncTokenIfReady() async {
+    final auth = ref.read(authControllerProvider);
+    if (!auth.isLoggedIn || auth.loading) return;
+
+    await NotificationService.instance.requestPermission();
+    await NotificationService.instance.dispatchCachedToken();
   }
 
   Future<void> _syncToken(String token) async {
@@ -51,8 +53,9 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
 
     try {
       await ref.read(notificationRepositoryProvider).registerToken(token);
-    } catch (_) {
-      // Token sync is retried on refresh and login.
+      debugPrint('NotificationService: FCM token saved to backend');
+    } catch (error) {
+      debugPrint('NotificationService: FCM token sync failed — $error');
     }
   }
 
@@ -87,6 +90,7 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
 
+    unawaited(_syncTokenIfReady());
     unawaited(
       ref
           .read(notificationsControllerProvider.notifier)
@@ -108,8 +112,13 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
   @override
   Widget build(BuildContext context) {
     ref.listen(authControllerProvider, (previous, next) {
-      if (previous?.isLoggedIn != true && next.isLoggedIn) {
-        unawaited(NotificationService.instance.registerToken());
+      final becameLoggedIn =
+          next.isLoggedIn && !next.loading && previous?.isLoggedIn != true;
+      final sessionReady =
+          next.isLoggedIn && !next.loading && previous?.loading == true;
+
+      if (becameLoggedIn || sessionReady) {
+        unawaited(_syncTokenIfReady());
         unawaited(
           ref
               .read(notificationsControllerProvider.notifier)

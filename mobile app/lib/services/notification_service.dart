@@ -34,6 +34,7 @@ class NotificationService {
   void Function(PushNotificationPayload payload)? onForegroundMessage;
 
   bool _initialized = false;
+  String? _cachedToken;
 
   Future<void> initialize() async {
     if (_initialized) {
@@ -65,6 +66,11 @@ class NotificationService {
   }
 
   Future<void> requestPermission() async {
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+
     final settings = await _messaging.requestPermission(
       alert: true,
       announcement: false,
@@ -75,17 +81,13 @@ class NotificationService {
       sound: true,
     );
 
-    if (kDebugMode) {
-      debugPrint(
-        'NotificationService: permission status ${settings.authorizationStatus.name}',
-      );
-    }
-
-    final androidPlugin = _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
+    debugPrint(
+      'NotificationService: permission status ${settings.authorizationStatus.name}',
+    );
   }
+
+  /// Re-fetches the device token after login or when permission may have changed.
+  Future<void> syncTokenWithBackend() => registerToken();
 
   Future<String?> getToken() async {
     if (Firebase.apps.isEmpty) {
@@ -106,12 +108,28 @@ class NotificationService {
   Future<void> registerToken() async {
     final token = await getToken();
     if (token == null || token.isEmpty) {
+      debugPrint('NotificationService: no FCM token available yet');
       return;
     }
 
-    if (kDebugMode) {
-      debugPrint('NotificationService: FCM token $token');
+    _cachedToken = token;
+    debugPrint('NotificationService: FCM token $token');
+
+    final handler = tokenSyncHandler;
+    if (handler != null) {
+      await handler(token);
+      return;
     }
+
+    debugPrint(
+      'NotificationService: token cached — waiting for login to sync with backend',
+    );
+  }
+
+  Future<void> dispatchCachedToken() async {
+    final token = _cachedToken ?? await getToken();
+    if (token == null || token.isEmpty) return;
+    _cachedToken = token;
 
     final handler = tokenSyncHandler;
     if (handler != null) {
@@ -183,6 +201,9 @@ class NotificationService {
   void _registerForegroundListener() {
     _foregroundSubscription =
         FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint(
+        'NotificationService: foreground message ${message.messageId ?? ''}',
+      );
       final payload = PushNotificationPayload.fromRemoteMessage(message);
       onForegroundMessage?.call(payload);
       await _showLocalNotification(payload);
@@ -251,23 +272,29 @@ class NotificationService {
       return;
     }
 
-    const androidDetails = AndroidNotificationDetails(
-      ordersChannelId,
-      ordersChannelName,
-      channelDescription: 'Order updates and delivery notifications',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        ordersChannelId,
+        ordersChannelName,
+        channelDescription: 'Order updates and delivery notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      );
 
-    const notificationDetails = NotificationDetails(android: androidDetails);
+      const notificationDetails = NotificationDetails(android: androidDetails);
 
-    await _localNotifications.show(
-      id: payload.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
-      title: title ?? ordersChannelName,
-      body: body ?? '',
-      notificationDetails: notificationDetails,
-      payload: jsonEncode(payload.toNavigationMap()),
-    );
+      await _localNotifications.show(
+        id: payload.messageId?.hashCode ??
+            DateTime.now().millisecondsSinceEpoch,
+        title: title ?? ordersChannelName,
+        body: body ?? '',
+        notificationDetails: notificationDetails,
+        payload: jsonEncode(payload.toNavigationMap()),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('NotificationService: local notification failed — $error');
+      debugPrint('$stackTrace');
+    }
   }
 }

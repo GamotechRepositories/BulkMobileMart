@@ -5,6 +5,7 @@ import '../../features/cart/cart_controller.dart';
 import '../../features/notifications/notifications_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../features/wishlist/wishlist_controller.dart';
+import '../../services/notification_service.dart';
 
 /// Loads user-specific data after login or on app resume.
 Future<void> bootstrapUserSession(WidgetRef ref) async {
@@ -19,4 +20,6 @@ Future<void> bootstrapUserSession(WidgetRef ref) async {
   ref.read(ordersControllerProvider.notifier).loadOrders();
   await Future<void>.delayed(const Duration(milliseconds: 140));
   ref.read(notificationsControllerProvider.notifier).refreshIfLoggedIn();
+  await NotificationService.instance.requestPermission();
+  await NotificationService.instance.dispatchCachedToken();
 }
