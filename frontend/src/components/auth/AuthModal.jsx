@@ -43,6 +43,15 @@ function DocumentIcon({ className = "h-3.5 w-3.5" }) {
   );
 }
 
+function LocationIcon({ className = "h-3.5 w-3.5" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+    </svg>
+  );
+}
+
 function ArrowRightIcon({ className = "h-3.5 w-3.5" }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -62,8 +71,8 @@ function LockIcon() {
 function getAuthUi(isSignup) {
   if (isSignup) {
     return {
-      modal: "max-w-[380px]",
-      panel: "px-5 pb-5 pt-5",
+      modal: "max-w-[440px]",
+      panel: "px-5 pb-5 pt-5 max-h-[90vh] overflow-y-auto",
       form: "space-y-3",
       label: "mb-1 block text-xs font-semibold text-gray-800",
       field:
@@ -256,7 +265,8 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const { sendOtp, loginWithOtp, completeOtpSignupProfile } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [shopNo, setShopNo] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState("details");
@@ -270,7 +280,8 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const resetFlow = () => {
     setStep("details");
     setOtp("");
-    setShopNo("");
+    setShopName("");
+    setShopAddress("");
     setGstNumber("");
     setError("");
   };
@@ -313,6 +324,18 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
     if (!PHONE_PATTERN.test(phone.trim())) {
       return "Phone must be 10 digits starting with 6, 7, 8, or 9";
     }
+    if (isSignup && !shopName.trim()) {
+      return "Shop name is required";
+    }
+    if (isSignup && shopName.trim().length < 2) {
+      return "Shop name must be at least 2 characters";
+    }
+    if (isSignup && !shopAddress.trim()) {
+      return "Shop address is required";
+    }
+    if (isSignup && shopAddress.trim().length < 5) {
+      return "Please enter a complete shop address";
+    }
     if (isSignup && gstNumber.trim() && !GST_PATTERN.test(gstNumber.trim().toUpperCase())) {
       return "Please enter a valid GST number";
     }
@@ -322,7 +345,8 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const signupProfile = isSignup
     ? {
         name: name.trim(),
-        shopNo: shopNo.trim(),
+        shopName: shopName.trim(),
+        shopAddress: shopAddress.trim(),
         gstNumber: gstNumber.trim(),
       }
     : null;
@@ -443,79 +467,129 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
                       />
                     </IconField>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <IconField
-                        label="Shop No."
-                        htmlFor="auth-shop-no"
-                        labelClassName={ui.label}
-                        optional
-                        icon={<ShopIcon />}
+                    <div>
+                      <label htmlFor="auth-phone" className={ui.label}>
+                        Mobile Number
+                      </label>
+                      <div
+                        className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap}`}
                       >
+                        <div
+                          className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
+                        >
+                          <PhoneIcon className={ui.phoneIcon} />
+                          <span>+91</span>
+                        </div>
                         <input
-                          id="auth-shop-no"
-                          type="text"
-                          value={shopNo}
+                          id="auth-phone"
+                          type="tel"
+                          value={phone}
                           onChange={(event) => {
-                            setShopNo(event.target.value);
+                            setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
                             setError("");
                           }}
-                          placeholder="e.g. 12A"
-                          className={`${ui.field} ${ui.fieldPad}`}
+                          placeholder="Enter your phone number"
+                          maxLength={10}
+                          className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
+                          required
                         />
-                      </IconField>
-
-                      <IconField
-                        label="GST Number"
-                        htmlFor="auth-gst"
-                        labelClassName={ui.label}
-                        optional
-                        icon={<DocumentIcon />}
-                      >
-                        <input
-                          id="auth-gst"
-                          type="text"
-                          value={gstNumber}
-                          onChange={(event) => {
-                            setGstNumber(event.target.value.toUpperCase());
-                            setError("");
-                          }}
-                          placeholder="e.g. 22AAAAA0000A1Z5"
-                          maxLength={15}
-                          className={`${ui.field} ${ui.fieldPad}`}
-                        />
-                      </IconField>
+                      </div>
                     </div>
-                  </>
-                ) : null}
 
-                <div>
-                  <label htmlFor="auth-phone" className={ui.label}>
-                    Phone Number
-                  </label>
-                  <div
-                    className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap} ${!isSignup ? "focus-within:ring-2" : ""}`}
-                  >
-                    <div
-                      className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
+                    <IconField
+                      label="Shop Name"
+                      htmlFor="auth-shop-name"
+                      labelClassName={ui.label}
+                      icon={<ShopIcon />}
                     >
-                      <PhoneIcon className={ui.phoneIcon} />
-                      <span>+91</span>
+                      <input
+                        id="auth-shop-name"
+                        type="text"
+                        value={shopName}
+                        onChange={(event) => {
+                          setShopName(event.target.value);
+                          setError("");
+                        }}
+                        placeholder="Enter your shop name"
+                        className={`${ui.field} ${ui.fieldPad}`}
+                        required
+                      />
+                    </IconField>
+
+                    <div>
+                      <label htmlFor="auth-shop-address" className={ui.label}>
+                        Shop Address
+                      </label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-2.5 top-2.5 text-gray-400">
+                          <LocationIcon />
+                        </span>
+                        <textarea
+                          id="auth-shop-address"
+                          value={shopAddress}
+                          onChange={(event) => {
+                            setShopAddress(event.target.value);
+                            setError("");
+                          }}
+                          placeholder="Building, street, area, city"
+                          rows={3}
+                          className={`${ui.field} resize-none py-2 pl-8 pr-2.5`}
+                          required
+                        />
+                      </div>
                     </div>
-                    <input
-                      id="auth-phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(event) => {
-                        setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
-                        setError("");
-                      }}
-                      placeholder="Enter your phone number"
-                      maxLength={10}
-                      className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
-                      required
-                    />
+
+                    <IconField
+                      label="GST Number"
+                      htmlFor="auth-gst"
+                      labelClassName={ui.label}
+                      optional
+                      icon={<DocumentIcon />}
+                    >
+                      <input
+                        id="auth-gst"
+                        type="text"
+                        value={gstNumber}
+                        onChange={(event) => {
+                          setGstNumber(event.target.value.toUpperCase());
+                          setError("");
+                        }}
+                        placeholder="e.g. 22AAAAA0000A1Z5"
+                        maxLength={15}
+                        className={`${ui.field} ${ui.fieldPad}`}
+                      />
+                    </IconField>
+                  </>
+                ) : (
+                  <div>
+                    <label htmlFor="auth-phone" className={ui.label}>
+                      Phone Number
+                    </label>
+                    <div
+                      className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 ${ui.phoneWrap}`}
+                    >
+                      <div
+                        className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
+                      >
+                        <PhoneIcon className={ui.phoneIcon} />
+                        <span>+91</span>
+                      </div>
+                      <input
+                        id="auth-phone"
+                        type="tel"
+                        value={phone}
+                        onChange={(event) => {
+                          setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
+                          setError("");
+                        }}
+                        placeholder="Enter your phone number"
+                        maxLength={10}
+                        className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             ) : (
               <>

@@ -19,6 +19,8 @@ import '../features/static/info_page_screen.dart';
 import '../features/static/static_content.dart';
 import '../features/static/static_screens.dart';
 import '../features/support/support_screen.dart';
+import '../screens/notification_detail_screen.dart';
+import '../screens/notification_screen.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/layout/tab_swipe_shell.dart';
 import 'route_paths.dart';
@@ -186,6 +188,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.wishlist,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const WishlistScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.notifications,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const NotificationScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (context, state) => NotificationDetailScreen(
+              notificationId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: RoutePaths.justArrived,

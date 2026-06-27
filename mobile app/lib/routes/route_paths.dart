@@ -14,6 +14,8 @@ class RoutePaths {
   static const orderDetail = '/orders/:id';
   static const orderInvoice = '/orders/:id/invoice';
   static const profile = '/profile';
+  static const notifications = '/notifications';
+  static const notificationDetail = '/notifications/:id';
   static const about = '/about';
   static const contact = '/contact';
   static const support = '/support';

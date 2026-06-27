@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/constants.dart';
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/settings/store_settings_provider.dart';
 import '../../models/cart_item.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
+import '../../widgets/cart/important_message_cards.dart';
 import '../../widgets/common/app_network_image.dart';
-import '../../widgets/common/cart_terms_box.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 
@@ -47,6 +50,34 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Future<void> _loadCart() async {
     await ref.read(cartControllerProvider.notifier).loadCart();
+  }
+
+  Future<void> _confirmRemoveItem(CartItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove item?'),
+        content: Text('Remove "${item.name}" from your cart?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await ref.read(cartControllerProvider.notifier).removeFromCartLine(
+          productId: item.id,
+          variantName: item.variantName,
+          colorName: item.colorName,
+        );
   }
 
   Future<void> _clearCart() async {
@@ -114,6 +145,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     }
 
     final summary = calculateCartSummary(items);
+    final storeSettings = ref.watch(storeSettingsProvider).value;
 
     return ColoredBox(
       color: AppColors.pageBackground,
@@ -122,8 +154,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         onRefresh: _loadCart,
         child: ListView.builder(
           controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          physics: AppScrollConfig.listPhysics,
+          cacheExtent: AppScrollConfig.cacheExtent,
+          padding: ShellBottomInsets.listPadding(context, top: 8),
           itemCount: items.length + 3,
           itemBuilder: (context, index) {
             if (index == 0) {
@@ -157,12 +190,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               return Column(
                 children: [
                   const SizedBox(height: 8),
+                  ImportantMessageCards(settings: storeSettings),
+                  const SizedBox(height: 12),
                   _OrderSummary(
                     summary: summary,
                     onCheckout: () => context.push(RoutePaths.checkout),
                   ),
-                  const SizedBox(height: 8),
-                  const CartTermsBox(),
                 ],
               );
             }
@@ -174,21 +207,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               children: [
                 _CartItemRow(
                   item: item,
-                  onRemove: () => ref.read(cartControllerProvider.notifier).removeFromCartLine(
-                        productId: item.id,
-                        variantName: item.variantName,
-                        colorName: item.colorName,
-                      ),
-                  onDecrease: () {
+                  onRemove: () => _confirmRemoveItem(item),
+                  onDecrease: () async {
                     final nextQty = getDecreasedCartQuantityForCartItem(item);
                     if (nextQty <= 0) {
-                      ref.read(cartControllerProvider.notifier).removeFromCartLine(
-                            productId: item.id,
-                            variantName: item.variantName,
-                            colorName: item.colorName,
-                          );
+                      await _confirmRemoveItem(item);
                     } else {
-                      ref
+                      await ref
                           .read(cartControllerProvider.notifier)
                           .updateCartLineQuantity(
                             productId: item.id,

@@ -9,6 +9,7 @@ import '../../core/utils/product_search.dart';
 import '../../core/utils/external_link.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/home/home_providers.dart';
+import '../../features/notifications/notifications_controller.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
@@ -83,6 +84,12 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
     final wishlistCount = ref.watch(
       wishlistControllerProvider.select((s) => s.items.length),
     );
+    final unreadNotifications = ref.watch(
+      notificationsControllerProvider.select((s) => s.unreadCount),
+    );
+    final isLoggedIn = ref.watch(
+      authControllerProvider.select((s) => s.isLoggedIn),
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.storefrontHeaderOverlay,
@@ -127,6 +134,21 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                         onPressed: _openWhatsAppGroup,
                         light: true,
                         child: const WhatsAppIcon(size: 22),
+                      ),
+                      const SizedBox(width: 4),
+                      _HeaderIconButton(
+                        icon: Icons.notifications_none_rounded,
+                        onPressed: () {
+                          if (!isLoggedIn) {
+                            ref
+                                .read(authControllerProvider.notifier)
+                                .openAuthModal();
+                            return;
+                          }
+                          context.push(RoutePaths.notifications);
+                        },
+                        light: true,
+                        badgeCount: isLoggedIn ? unreadNotifications : 0,
                       ),
                       const SizedBox(width: 4),
                       FlyTargetAnchor(
@@ -261,8 +283,8 @@ class _MobileMenuDrawer extends ConsumerWidget {
     final userName = ref.watch(
       authControllerProvider.select((s) => s.user?.name ?? ''),
     );
-    final userEmail = ref.watch(
-      authControllerProvider.select((s) => s.user?.email ?? ''),
+    final userContact = ref.watch(
+      authControllerProvider.select((s) => s.user?.contactLabel ?? ''),
     );
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
@@ -328,7 +350,7 @@ class _MobileMenuDrawer extends ConsumerWidget {
                       userName,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: Text(userEmail),
+                    subtitle: Text(userContact),
                   ),
                 ),
               const Divider(height: 24),
@@ -356,7 +378,7 @@ class _MobileMenuDrawer extends ConsumerWidget {
 }
 
 int _menuItemCount(int categoryCount, bool isLoggedIn) {
-  var count = 7 + categoryCount;
+  var count = 8 + categoryCount;
   if (isLoggedIn) count += 2;
   return count;
 }
@@ -374,6 +396,7 @@ Widget _buildMenuItem(
     (icon: Icons.home_outlined, label: 'Home', path: RoutePaths.home, auth: false),
     (icon: Icons.grid_view_rounded, label: 'All Products', path: RoutePaths.product, auth: false),
     (icon: Icons.favorite_border, label: 'Wishlist', path: RoutePaths.wishlist, auth: true),
+    (icon: Icons.notifications_none_rounded, label: 'Notifications', path: RoutePaths.notifications, auth: true),
     (icon: Icons.receipt_long_outlined, label: 'My Orders', path: RoutePaths.orders, auth: true),
     (icon: Icons.person_outline, label: 'Account', path: RoutePaths.profile, auth: false),
     (icon: Icons.support_agent_outlined, label: 'Support', path: RoutePaths.support, auth: false),

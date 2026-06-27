@@ -312,12 +312,46 @@ class _InvoiceDocument extends StatelessWidget {
                               color: AppColors.mobileSurface,
                               borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Expanded(flex: 3, child: Text('Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                Expanded(child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                Expanded(child: Text('Rate', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                Expanded(child: Text('Amt', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                const SizedBox(
+                                  width: 28,
+                                  child: Text(
+                                    'Sr',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                const Expanded(
+                                  child: Text(
+                                    'Item Name',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                ),
+                                const SizedBox(
+                                  width: 28,
+                                  child: Text(
+                                    'Qty',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                const SizedBox(
+                                  width: 52,
+                                  child: Text(
+                                    'Rate',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
+                                const SizedBox(
+                                  width: 52,
+                                  child: Text(
+                                    'Amt',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -325,19 +359,54 @@ class _InvoiceDocument extends StatelessWidget {
                             final index = entry.key;
                             final item = entry.value;
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                               decoration: const BoxDecoration(
                                 border: Border(top: BorderSide(color: AppColors.borderLight)),
                               ),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text('${index + 1}. ${item.name}', style: const TextStyle(fontSize: 12)),
+                                  SizedBox(
+                                    width: 28,
+                                    child: Text(
+                                      '${index + 1}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
                                   ),
-                                  Expanded(child: Text('${item.quantity}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
-                                  Expanded(child: Text(formatInr(item.price), textAlign: TextAlign.right, style: const TextStyle(fontSize: 12))),
-                                  Expanded(child: Text(formatInr(item.price * item.quantity), textAlign: TextAlign.right, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: const TextStyle(fontSize: 11, height: 1.3),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 28,
+                                    child: Text(
+                                      '${item.quantity}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      formatInr(item.price),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      formatInr(item.price * item.quantity),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             );

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../config/env.dart';
+import 'network_image_bytes.dart';
 
 const _cardWidth = 400.0;
 const _outerPadding = 16.0;
@@ -14,30 +14,8 @@ const _bodyPaddingH = 16.0;
 const _bodyPaddingTop = 14.0;
 const _bodyPaddingBottom = 16.0;
 
-Future<Uint8List?> _downloadImageBytes(String url) async {
-  if (url.trim().isEmpty) return null;
-
-  final sources = [
-    url.trim(),
-    '${Env.apiUrl}/api/proxy/image?url=${Uri.encodeComponent(url.trim())}',
-  ];
-
-  for (final source in sources) {
-    try {
-      final client = HttpClient();
-      final request = await client.getUrl(Uri.parse(source));
-      final response = await request.close();
-      if (response.statusCode != HttpStatus.ok) continue;
-      return consolidateHttpClientResponseBytes(response);
-    } catch (_) {
-      continue;
-    }
-  }
-  return null;
-}
-
 Future<ui.Image?> _loadNetworkImage(String url) async {
-  final bytes = await compute(_downloadImageBytes, url);
+  final bytes = await compute(downloadNetworkImageBytes, url);
   if (bytes == null) return null;
 
   try {

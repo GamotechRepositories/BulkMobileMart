@@ -72,6 +72,8 @@
 		<string>Used to capture payment proof and support attachments.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Used to upload payment proof and support attachments.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Used to save product images to your photo gallery.</string>
 		<key>FlutterDeepLinkingEnabled</key>
 		<false/>
 		<key>CFBundleURLTypes</key>

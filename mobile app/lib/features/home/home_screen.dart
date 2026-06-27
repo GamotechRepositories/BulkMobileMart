@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +9,9 @@ import '../../config/theme.dart';
 
 import '../../core/refresh/app_refresh.dart';
 
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
+import '../../core/scroll/vertical_scroll_pause_scope.dart';
 
 import '../../widgets/layout/mobile_search_bar.dart';
 
@@ -16,6 +19,7 @@ import 'home_load_gate.dart';
 
 import 'home_search_focus.dart';
 
+import '../../widgets/layout/shell_bottom_insets.dart';
 import 'widgets/best_deals_section.dart';
 
 import 'widgets/category_nav_section.dart';
@@ -61,8 +65,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
 
   final _scrollController = ScrollController();
+  final _verticalScrolling = ValueNotifier<bool>(false);
 
   bool _scrollGateTriggered = false;
+  bool _scrollActivityAttached = false;
 
 
 
@@ -85,8 +91,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
 
       _tabScrollRegistry.register(ShellTabIndex.home, _scrollController);
+      _attachVerticalScrollActivityListener();
 
-      ref.read(homeLoadGateProvider.notifier).enableBrands();
+      // Give first frame time to settle before starting non-critical home fetch.
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 260), () {
+          if (!mounted) return;
+          ref.read(homeLoadGateProvider.notifier).enableBrands();
+        }),
+      );
 
     });
 
@@ -94,7 +107,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
 
+  void _attachVerticalScrollActivityListener() {
+    if (_scrollActivityAttached || !_scrollController.hasClients) return;
+    _scrollActivityAttached = true;
+    _scrollController.position.isScrollingNotifier
+        .addListener(_onVerticalScrollActivity);
+    _onVerticalScrollActivity();
+  }
+
+  void _onVerticalScrollActivity() {
+    if (!_scrollController.hasClients) return;
+    final scrolling =
+        _scrollController.position.isScrollingNotifier.value;
+    if (_verticalScrolling.value != scrolling) {
+      _verticalScrolling.value = scrolling;
+    }
+  }
+
   void _onScroll() {
+
+    _attachVerticalScrollActivityListener();
 
     if (_scrollGateTriggered) return;
 
@@ -115,6 +147,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void dispose() {
 
     _scrollController.removeListener(_onScroll);
+    if (_scrollActivityAttached && _scrollController.hasClients) {
+      _scrollController.position.isScrollingNotifier
+          .removeListener(_onVerticalScrollActivity);
+    }
+    _verticalScrolling.dispose();
 
     _tabScrollRegistry.unregister(ShellTabIndex.home, _scrollController);
 
@@ -133,8 +170,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
 
   Widget build(BuildContext context) {
+    final bottomContentSpacer = ShellBottomInsets.of(context);
 
-    return ColoredBox(
+    return VerticalScrollPauseScope(
+      isScrolling: _verticalScrolling,
+      child: ColoredBox(
 
       color: AppColors.pageBackground,
 
@@ -148,7 +188,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           controller: _scrollController,
 
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: AppScrollConfig.listPhysics,
+
+          cacheExtent: AppScrollConfig.cacheExtent,
 
           slivers: [
 
@@ -330,7 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            SliverToBoxAdapter(child: SizedBox(height: bottomContentSpacer)),
 
           ],
 
@@ -338,6 +380,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       ),
 
+    ),
     );
 
   }

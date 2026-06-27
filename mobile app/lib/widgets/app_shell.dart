@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,7 +66,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _maybeBootstrap() {
-    bootstrapUserSession(ref);
+    unawaited(bootstrapUserSession(ref));
   }
 
   Future<void> _onTap(int index) async {
@@ -149,7 +151,7 @@ class _ShellSideEffects extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(authControllerProvider, (previous, next) {
       if (previous?.isLoggedIn != true && next.isLoggedIn) {
-        bootstrapUserSession(ref);
+        unawaited(bootstrapUserSession(ref));
       }
     });
 

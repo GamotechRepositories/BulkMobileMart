@@ -67,7 +67,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
           orderCode: orderCode,
           itemCount: totalItems,
           onBack: () => context.pop(),
-          onGetHelp: () => _showHelpSheet(context),
         ),
         if (shipments.length > 1)
           _ShipmentTabs(
@@ -119,47 +118,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
       ],
     );
   }
-
-  void _showHelpSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Get Help',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Need help with this order? View invoice, order details, or contact support.',
-                  style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.description_outlined),
-                  title: const Text('Download invoice'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onInvoice();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _DetailHeader extends StatelessWidget {
@@ -167,13 +125,11 @@ class _DetailHeader extends StatelessWidget {
     required this.orderCode,
     required this.itemCount,
     required this.onBack,
-    required this.onGetHelp,
   });
 
   final String orderCode;
   final int itemCount;
   final VoidCallback onBack;
-  final VoidCallback onGetHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -222,24 +178,6 @@ class _DetailHeader extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: onGetHelp,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: blinkitPink,
-                side: const BorderSide(color: blinkitPink),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              icon: const Icon(Icons.chat_bubble_outline, size: 16),
-              label: const Text(
-                'Get Help',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
           ],

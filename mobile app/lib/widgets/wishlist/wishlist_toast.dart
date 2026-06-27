@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
+import '../layout/shell_bottom_insets.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../common/app_network_image.dart';
 
@@ -20,7 +21,7 @@ class WishlistToast extends ConsumerWidget {
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 88,
+      bottom: ShellBottomInsets.of(context),
       child: Material(
         elevation: 8,
         borderRadius: BorderRadius.circular(12),

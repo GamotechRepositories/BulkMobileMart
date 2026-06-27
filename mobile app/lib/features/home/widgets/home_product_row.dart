@@ -127,6 +127,7 @@ class HomeProductRow extends ConsumerWidget {
             child: loading
                 ? ListView.separated(
                     scrollDirection: Axis.horizontal,
+                    cacheExtent: 240,
                     itemCount: 6,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (_, _) => Container(
@@ -140,6 +141,7 @@ class HomeProductRow extends ConsumerWidget {
                 : ListView.separated(
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
+                    cacheExtent: 240,
                     itemCount: products.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {

@@ -53,6 +53,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    shopName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    shopAddress: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     gstNumber: {
       type: String,
       trim: true,
@@ -75,6 +85,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "admin"],
       default: "user",
+    },
+    fcmToken: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    deviceType: {
+      type: String,
+      enum: ["", "android", "ios", "web"],
+      default: "",
+    },
+    lastTokenUpdatedAt: {
+      type: Date,
+      default: null,
     },
     addresses: [
       {

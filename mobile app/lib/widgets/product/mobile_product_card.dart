@@ -12,10 +12,16 @@ class MobileProductCard extends StatelessWidget {
     super.key,
     required this.product,
     required this.onAdd,
+    this.cartQuantity = 0,
+    this.onIncrease,
+    this.onDecrease,
   });
 
   final Product product;
   final void Function(BuildContext context) onAdd;
+  final int cartQuantity;
+  final VoidCallback? onIncrease;
+  final VoidCallback? onDecrease;
 
   @override
   Widget build(BuildContext context) {
@@ -91,26 +97,84 @@ class MobileProductCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    Builder(
-                      builder: (btnContext) => ElevatedButton(
-                        onPressed: inStock ? () => onAdd(btnContext) : null,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(72, 34),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        child: const Text('Add'),
-                      ),
-                    ),
+                    _buildCartAction(context, inStock),
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCartAction(BuildContext context, bool inStock) {
+    if (cartQuantity > 0) {
+      return SizedBox(
+        height: 34,
+        width: 96,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderLight),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: Row(
+            children: [
+              _qtyButton(onDecrease, label: '−'),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '$cartQuantity',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              _qtyButton(inStock ? onIncrease : null, label: '+'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Builder(
+      builder: (btnContext) => ElevatedButton(
+        onPressed: inStock ? () => onAdd(btnContext) : null,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(72, 34),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          textStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        child: const Text('Add'),
+      ),
+    );
+  }
+
+  Widget _qtyButton(VoidCallback? onTap, {required String label}) {
+    return SizedBox(
+      width: 32,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

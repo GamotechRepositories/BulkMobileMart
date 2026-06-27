@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_search.dart';
@@ -15,6 +16,7 @@ import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/common/api_error_view.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/deal_product_card.dart';
@@ -210,7 +212,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           child: RefreshIndicator(
             onRefresh: _refreshProducts,
             child: productsAsync.when(
-              loading: () => const SkeletonProductGrid(),
+              loading: () => const SkeletonProductGrid(useShellBottomInset: true),
               error: (_, _) => ApiErrorView(
                 message: 'Could not load products',
                 onRetry: _refreshProducts,
@@ -383,15 +385,19 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
     if (isSearchOnly) {
       return ListView.separated(
         controller: widget.scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        physics: AppScrollConfig.listPhysics,
+        cacheExtent: AppScrollConfig.cacheExtent,
+        padding: ShellBottomInsets.listPadding(context, top: 16),
         itemCount: _filtered.length,
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final product = _filtered[index];
           return MobileProductCard(
             product: product,
+            cartQuantity: ref.watch(cartProductQuantityProvider(product.id)),
             onAdd: (context) => widget.onAdd(product, context),
+            onIncrease: () => _handleIncrease(product),
+            onDecrease: () => _handleDecrease(product),
           );
         },
       );
@@ -399,10 +405,11 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
 
     return CustomScrollView(
       controller: widget.scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: AppScrollConfig.listPhysics,
+      cacheExtent: AppScrollConfig.cacheExtent,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          padding: ShellBottomInsets.listPadding(context, top: 16),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,

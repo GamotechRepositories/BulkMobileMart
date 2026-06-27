@@ -6,6 +6,7 @@ import '../../config/app_info.dart';
 import '../../config/theme.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/address_utils.dart';
 import '../../features/address/address_controller.dart';
@@ -14,6 +15,7 @@ import '../../models/address.dart';
 import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
@@ -314,8 +316,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       onRefresh: _refreshProfile,
       child: ListView(
         controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        physics: AppScrollConfig.listPhysics,
+        cacheExtent: AppScrollConfig.cacheExtent,
+        padding: ShellBottomInsets.listPadding(context, top: 12),
         children: [
           _ProfileHeader(user: user),
           const SizedBox(height: 16),
@@ -508,7 +511,7 @@ class _ProfileInfoCard extends StatelessWidget {
           _ProfileInfoRow(
             icon: Icons.mail_outline_rounded,
             label: 'Email',
-            value: user.email,
+            value: user.email.isNotEmpty ? user.email : 'Not provided',
             onEdit: onEditEmail,
             showDivider: true,
           ),

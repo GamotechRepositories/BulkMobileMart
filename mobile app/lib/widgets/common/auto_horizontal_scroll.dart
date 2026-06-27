@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
+import '../../core/scroll/vertical_scroll_pause_scope.dart';
 import '../../core/utils/viewport_utils.dart';
 
 /// Slowly auto-scrolls a horizontal [child] — pauses on user interaction and off-screen.
@@ -11,8 +13,8 @@ class AutoHorizontalScroll extends StatefulWidget {
     required this.height,
     required this.child,
     this.enabled = true,
-    this.speed = 1.2,
-    this.interval = const Duration(milliseconds: 120),
+    this.speed = 0.85,
+    this.interval = const Duration(milliseconds: 180),
     this.resumeDelay = const Duration(milliseconds: 2500),
   });
 
@@ -34,6 +36,7 @@ class _AutoHorizontalScrollState extends State<AutoHorizontalScroll>
   Timer? _resumeTimer;
   bool _paused = false;
   bool _appActive = true;
+  bool _scrollQueued = false;
 
   @override
   void initState() {
@@ -86,17 +89,32 @@ class _AutoHorizontalScrollState extends State<AutoHorizontalScroll>
 
     _timer = Timer.periodic(widget.interval, (_) {
       if (!mounted || _paused || !_controller.hasClients) return;
+      if (VerticalScrollPauseScope.isParentVerticalScrolling(context)) return;
       if (!isWidgetRoughlyVisible(context)) return;
 
       final maxScroll = _controller.position.maxScrollExtent;
       if (maxScroll <= 0) return;
 
-      if (_controller.offset >= maxScroll - 1) {
-        _controller.jumpTo(0);
+      final target = _controller.offset >= maxScroll - 1
+          ? 0.0
+          : (_controller.offset + widget.speed).clamp(0.0, maxScroll);
+      _queueSafeJump(target);
+    });
+  }
+
+  void _queueSafeJump(double offset) {
+    if (_scrollQueued) return;
+    _scrollQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollQueued = false;
+      if (!mounted || !_controller.hasClients) return;
+      // Avoid mutating scroll position in layout/paint phase.
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        _queueSafeJump(offset);
         return;
       }
-
-      _controller.jumpTo(_controller.offset + widget.speed);
+      _controller.jumpTo(offset);
     });
   }
 

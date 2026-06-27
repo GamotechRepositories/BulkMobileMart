@@ -52,7 +52,9 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
   void didUpdateWidget(FlipkartBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isDragging && oldWidget.currentIndex != widget.currentIndex) {
-      setState(() => _indicatorIndex = widget.currentIndex.toDouble());
+      // Parent rebuild already reflects currentIndex; avoid triggering an extra
+      // layout pass from didUpdateWidget.
+      _indicatorIndex = widget.currentIndex.toDouble();
       _lastHapticIndex = widget.currentIndex;
     }
   }

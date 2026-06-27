@@ -43,21 +43,22 @@ class TopBrandsSection extends ConsumerWidget {
               const SizedBox(height: 12),
               AutoHorizontalScroll(
                 height: _rowHeight,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: brands.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => _BrandTile(
-                    width: _tileWidth,
-                    height: _tileHeight,
-                    imageUrl: brands[i].brandImage,
-                    onTap: () {
-                      context.go(
-                        ProductSearch.buildPath(brand: brands[i].brandName),
-                      );
-                    },
-                  ),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < brands.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      _BrandTile(
+                        width: _tileWidth,
+                        height: _tileHeight,
+                        imageUrl: brands[i].brandImage,
+                        onTap: () {
+                          context.go(
+                            ProductSearch.buildPath(brand: brands[i].brandName),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

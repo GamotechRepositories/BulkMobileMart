@@ -342,13 +342,14 @@ class _OrderFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isDelivered && !hasRating) {
       return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: _FooterAction(label: 'Rate Order', onTap: onRate)),
-          const VerticalDivider(
-            width: 1,
-            thickness: 1,
-            color: AppColors.borderLight,
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: SizedBox(
+              width: 1,
+              child: ColoredBox(color: AppColors.borderLight),
+            ),
           ),
           Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
         ],

@@ -86,16 +86,6 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
               ),
             ),
           ),
-          IconButton(
-            onPressed: () => context.go(ProductSearch.buildPath()),
-            icon: const Icon(
-              Icons.qr_code_scanner_outlined,
-              color: AppColors.textPrimary,
-              size: 22,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
         ],
       ),
     );

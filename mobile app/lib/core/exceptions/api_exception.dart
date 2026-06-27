@@ -54,13 +54,31 @@ String apiErrorMessage(
   Object error, {
   String fallback = 'Something went wrong. Please try again.',
 }) {
-  if (error is ApiException) return error.message;
+  if (error is ApiException) {
+    return _sanitizeApiMessage(error.message, fallback: fallback);
+  }
   if (error is DioException) {
     if (error.error is ApiException) {
-      return (error.error as ApiException).message;
+      return _sanitizeApiMessage(
+        (error.error as ApiException).message,
+        fallback: fallback,
+      );
     }
     final message = error.message;
-    if (message != null && message.isNotEmpty) return message;
+    if (message != null && message.isNotEmpty) {
+      return _sanitizeApiMessage(message, fallback: fallback);
+    }
   }
   return fallback;
+}
+
+String _sanitizeApiMessage(String? value, {required String fallback}) {
+  if (value == null) return fallback;
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return fallback;
+  final lower = trimmed.toLowerCase();
+  if (lower == 'undefined' || lower == 'null' || lower == 'nan') {
+    return fallback;
+  }
+  return trimmed;
 }

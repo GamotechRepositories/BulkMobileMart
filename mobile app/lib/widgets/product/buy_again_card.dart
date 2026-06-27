@@ -134,34 +134,39 @@ class BuyAgainCard extends ConsumerWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    InkWell(
-                      onTap: () => context.push('/product/${item.productId}'),
-                      child: Text(
-                        item.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          color: AppColors.textPrimary,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InkWell(
+                          onTap: () => context.push('/product/${item.productId}'),
+                          child: Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatInr(item.price),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatInr(item.price),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const Spacer(),
                     if (cartQuantity > 0)
                       DecoratedBox(
                         decoration: BoxDecoration(
@@ -195,7 +200,8 @@ class BuyAgainCard extends ConsumerWidget {
                       )
                     else
                       SizedBox(
-                        height: 32,
+                        height: 28,
+                        width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () => _handleAdd(ref, context),
                           style: ElevatedButton.styleFrom(

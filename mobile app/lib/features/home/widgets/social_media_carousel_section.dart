@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../config/contact.dart';
 import '../../../config/theme.dart';
 import '../../../core/utils/external_link.dart';
-import '../../../widgets/common/auto_horizontal_scroll.dart';
+import '../../../core/scroll/vertical_scroll_pause_scope.dart';
+import '../../../core/utils/viewport_utils.dart';
 import 'home_section_card.dart';
 
 class SocialMediaCarouselSection extends StatelessWidget {
@@ -42,24 +46,165 @@ class SocialMediaCarouselSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          AutoHorizontalScroll(
-            height: _cardHeight,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: links.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) => _SocialLinkCard(
-                link: links[i],
-                onTap: () => openExternalUrl(
-                  links[i].href,
-                  context: context,
-                  errorMessage: 'Could not open ${links[i].label}.',
-                ),
-              ),
-            ),
-          ),
+          _SocialLinksScroller(links: links),
         ],
+      ),
+    );
+  }
+}
+
+class _SocialLinksScroller extends StatefulWidget {
+  const _SocialLinksScroller({required this.links});
+
+  final List<SocialLink> links;
+
+  @override
+  State<_SocialLinksScroller> createState() => _SocialLinksScrollerState();
+}
+
+class _SocialLinksScrollerState extends State<_SocialLinksScroller>
+    with WidgetsBindingObserver {
+  static const _cardSpacing = 12.0;
+  static const _scrollSpeed = 0.85;
+  static const _scrollInterval = Duration(milliseconds: 180);
+  static const _resumeDelay = Duration(milliseconds: 2500);
+
+  final _controller = ScrollController();
+  Timer? _autoTimer;
+  Timer? _resumeTimer;
+  bool _paused = false;
+  bool _appActive = true;
+  bool _scrollQueued = false;
+  double _loopWidth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startAutoScroll();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    if (_appActive == active) return;
+    _appActive = active;
+    if (active) {
+      _startAutoScroll();
+    } else {
+      _stopAutoScroll();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopAutoScroll();
+    _resumeTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _stopAutoScroll();
+    if (!_appActive || widget.links.length <= 1) return;
+    if (MediaQuery.disableAnimationsOf(context)) return;
+
+    _autoTimer = Timer.periodic(_scrollInterval, (_) {
+      if (!mounted || _paused || !_controller.hasClients) return;
+      if (VerticalScrollPauseScope.isParentVerticalScrolling(context)) return;
+      if (!isWidgetRoughlyVisible(context)) return;
+
+      final maxScroll = _controller.position.maxScrollExtent;
+      if (maxScroll <= 0) return;
+
+      var next = _controller.offset + _scrollSpeed;
+      if (_loopWidth > 0 && next >= _loopWidth) {
+        next -= _loopWidth;
+      } else if (next >= maxScroll) {
+        next = 0;
+      }
+      _queueSafeJump(next);
+    });
+  }
+
+  void _queueSafeJump(double offset) {
+    if (_scrollQueued) return;
+    _scrollQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollQueued = false;
+      if (!mounted || !_controller.hasClients) return;
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        _queueSafeJump(offset);
+        return;
+      }
+      _controller.jumpTo(offset);
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+  }
+
+  void _pauseForInteraction() {
+    _paused = true;
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(_resumeDelay, () {
+      if (mounted) _paused = false;
+    });
+  }
+
+  double _singleSetWidth() {
+    final count = widget.links.length;
+    if (count == 0) return 0;
+    return count * SocialMediaCarouselSection._cardWidth +
+        (count - 1) * _cardSpacing;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final links = widget.links;
+    if (links.isEmpty) return const SizedBox.shrink();
+
+    _loopWidth = _singleSetWidth();
+    final loopedLinks = [...links, ...links];
+
+    return SizedBox(
+      height: SocialMediaCarouselSection._cardHeight,
+      child: Listener(
+        onPointerDown: (_) => _pauseForInteraction(),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification is ScrollStartNotification &&
+                notification.dragDetails != null) {
+              _pauseForInteraction();
+            }
+            return false;
+          },
+          child: ListView.separated(
+            controller: _controller,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            clipBehavior: Clip.none,
+            itemCount: loopedLinks.length,
+            separatorBuilder: (_, _) => const SizedBox(width: _cardSpacing),
+            itemBuilder: (context, index) {
+              final link = loopedLinks[index];
+              return _SocialLinkCard(
+                link: link,
+                onTap: () => openExternalUrl(
+                  link.href,
+                  context: context,
+                  errorMessage: 'Could not open ${link.label}.',
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

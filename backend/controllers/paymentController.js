@@ -11,6 +11,11 @@ import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 import { calculatePayableAmount } from "../utils/paymentHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import {
+  notifyOrderCreated,
+  notifyPaymentFailed,
+  notifyPaymentSuccess,
+} from "../services/orderNotificationDispatcher.js";
 
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
@@ -176,6 +181,11 @@ export const verifyRazorpayPayment = async (req, res) => {
       attemptedOrderId,
     });
 
+    void notifyOrderCreated(order, {
+      previousStatus: attemptedOrderId ? "attempted" : null,
+    });
+    void notifyPaymentSuccess(order, { paymentMode });
+
     res.status(201).json({
       success: true,
       message: "Order placed successfully",
@@ -260,6 +270,10 @@ export const submitUpiPaymentProof = async (req, res) => {
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
       attemptedOrderId,
+    });
+
+    void notifyOrderCreated(order, {
+      previousStatus: attemptedOrderId ? "attempted" : null,
     });
 
     const payment = await Payment.create({
@@ -430,6 +444,8 @@ export const updatePaymentStatus = async (req, res) => {
 
     await payment.save();
 
+    const order = await Order.findById(payment.order);
+
     if (status === "verified") {
       if (payment.paymentType === "online") {
         await Order.findByIdAndUpdate(payment.order, {
@@ -444,11 +460,19 @@ export const updatePaymentStatus = async (req, res) => {
           codAdvancePaidAt: new Date(),
         });
       }
+
+      if (order) {
+        void notifyPaymentSuccess(order, { source: "upi_manual" });
+      }
     } else {
       await Order.findByIdAndUpdate(payment.order, {
         status: "cancelled",
         paymentStatus: "unpaid",
       });
+
+      if (order) {
+        void notifyPaymentFailed(order, { source: "upi_manual", reason: "payment_rejected" });
+      }
     }
 
     res.status(200).json({

@@ -63,6 +63,7 @@ class CategoryNavSection extends ConsumerWidget {
         if (filtered.isEmpty) return const SizedBox.shrink();
 
         final categoriesAZ = sortCategories(filtered, ascending: true);
+        final categoriesZA = sortCategories(filtered, ascending: false);
 
         return HomeSectionCard(
           margin: const EdgeInsets.fromLTRB(0, 8, 0, 4),
@@ -76,6 +77,8 @@ class CategoryNavSection extends ConsumerWidget {
                 onViewAll: () => context.go(RoutePaths.categories),
               ),
               CategoryTwoRowSlider(categories: categoriesAZ, sectionKey: 'az'),
+              const SizedBox(height: 12),
+              CategoryTwoRowSlider(categories: categoriesZA, sectionKey: 'za'),
             ],
           ),
         );
@@ -181,6 +184,8 @@ class SkeletonCategoryTwoRowSliders extends StatelessWidget {
       children: [
         SkeletonBox(width: 200, height: 24, borderRadius: 6),
         SizedBox(height: 16),
+        SkeletonCategoryTwoRowPage(),
+        SizedBox(height: 12),
         SkeletonCategoryTwoRowPage(),
       ],
     );

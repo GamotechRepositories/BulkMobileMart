@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
@@ -132,7 +133,8 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
       body = RefreshIndicator(
         onRefresh: _loadWishlist,
         child: GridView.builder(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: AppScrollConfig.listPhysics,
+          cacheExtent: AppScrollConfig.cacheExtent,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,

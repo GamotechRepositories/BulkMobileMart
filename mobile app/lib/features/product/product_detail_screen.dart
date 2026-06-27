@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/image_gallery_save.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
 import '../../core/utils/recently_viewed.dart';
@@ -232,6 +234,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
+            cacheExtent: AppScrollConfig.cacheExtent,
             children: [
               _ProductImageGallery(
                 images: images,
@@ -857,9 +860,10 @@ class _ProductDetailBottomBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cartLineQuantity = ref.watch(productDetailCartQuantityProvider(cartKey));
     final inCart = cartLineQuantity != null;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: AppColors.borderLight)),
@@ -1128,6 +1132,15 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                 top: 8,
                 child: WishlistButton(product: widget.product, size: 40),
               ),
+              if (activeItem != null && !isVideoActive)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: _GalleryDownloadButton(
+                    imageUrl: activeItem.url,
+                    productId: widget.product.id,
+                  ),
+                ),
             ],
           ),
           if (items.length > 1) ...[
@@ -1178,6 +1191,75 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _GalleryDownloadButton extends StatefulWidget {
+  const _GalleryDownloadButton({
+    required this.imageUrl,
+    required this.productId,
+  });
+
+  final String imageUrl;
+  final String productId;
+
+  @override
+  State<_GalleryDownloadButton> createState() => _GalleryDownloadButtonState();
+}
+
+class _GalleryDownloadButtonState extends State<_GalleryDownloadButton> {
+  bool _saving = false;
+
+  Future<void> _download() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    final result = await saveProductImageToGallery(
+      imageUrl: widget.imageUrl,
+      productId: widget.productId,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (result.success) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Image saved to gallery')),
+      );
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Could not save image.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.92),
+      shape: const CircleBorder(),
+      elevation: 1,
+      child: InkWell(
+        onTap: _saving ? null : _download,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: _saving
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(
+                  Icons.download_rounded,
+                  size: 22,
+                  color: AppColors.textPrimary,
+                ),
+        ),
       ),
     );
   }

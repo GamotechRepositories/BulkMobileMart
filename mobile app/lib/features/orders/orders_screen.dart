@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../models/order.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import 'widgets/blinkit_order_card.dart';
@@ -113,8 +115,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       color: AppColors.primary,
       child: ListView.separated(
         controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+        physics: AppScrollConfig.listPhysics,
+        cacheExtent: AppScrollConfig.cacheExtent,
+        padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
         itemCount: orders.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {

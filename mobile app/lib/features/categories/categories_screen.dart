@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
+import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../models/cart_item.dart';
@@ -11,6 +12,7 @@ import '../../widgets/category/category_grid_tile.dart';
 import '../../widgets/category/category_header_section.dart';
 import '../../widgets/category/category_horizontal_strip.dart';
 import '../../widgets/common/app_loading.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/product/deal_product_card.dart';
 import '../auth/auth_controller.dart';
 import '../cart/cart_controller.dart';
@@ -263,7 +265,8 @@ class _CategoriesProductLayout extends StatelessWidget {
       color: AppColors.primary,
       child: CustomScrollView(
         controller: scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: AppScrollConfig.listPhysics,
+        cacheExtent: AppScrollConfig.cacheExtent,
         slivers: [
           SliverToBoxAdapter(
             child: CategoryHorizontalStrip(
@@ -326,7 +329,7 @@ class _CategoriesProductLayout extends StatelessWidget {
               }
 
               return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -349,6 +352,9 @@ class _CategoriesProductLayout extends StatelessWidget {
                 ),
               );
             },
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: ShellBottomInsets.of(context)),
           ),
         ],
       ),

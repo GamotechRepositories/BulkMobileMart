@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../category/category_grid_tile.dart';
+import '../layout/shell_bottom_insets.dart';
 
 class SkeletonBox extends StatelessWidget {
   const SkeletonBox({
@@ -76,7 +77,7 @@ class SkeletonOrderList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+      padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
       itemCount: count,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (_, _) => const SkeletonBox(height: 180, borderRadius: 12),
@@ -111,7 +112,7 @@ class SkeletonCartPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: ShellBottomInsets.listPadding(context, top: 8),
       children: [
         const SkeletonBox(width: 120, height: 28, borderRadius: 6),
         const SizedBox(height: 16),
@@ -126,12 +127,16 @@ class SkeletonCartPage extends StatelessWidget {
 }
 
 class SkeletonProductGrid extends StatelessWidget {
-  const SkeletonProductGrid({super.key});
+  const SkeletonProductGrid({super.key, this.useShellBottomInset = false});
+
+  final bool useShellBottomInset;
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: useShellBottomInset
+          ? ShellBottomInsets.listPadding(context, top: 16)
+          : const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 12,

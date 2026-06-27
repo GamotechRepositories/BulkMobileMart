@@ -18,6 +18,10 @@ import {
   calculateAdvanceAmount,
   PAYMENT_STATUS,
 } from "../utils/paymentHelpers.js";
+import {
+  notifyOrderCreated,
+  notifyOrderStatusChange,
+} from "../services/orderNotificationDispatcher.js";
 
 const PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -245,6 +249,8 @@ export const adminPlaceOrder = async (req, res) => {
         : {}),
     });
 
+    void notifyOrderCreated(order);
+
     res.status(201).json({
       success: true,
       message: "Order created successfully",
@@ -304,6 +310,10 @@ export const placeOrder = async (req, res) => {
       paymentStatus: "unpaid",
       message: orderMessage,
       attemptedOrderId,
+    });
+
+    void notifyOrderCreated(order, {
+      previousStatus: attemptedOrderId ? "attempted" : null,
     });
 
     res.status(201).json({
@@ -731,7 +741,7 @@ export const getAllOrders = async (req, res) => {
 
 export const updateOrder = async (req, res) => {
   try {
-    const { status, paymentStatus, items } = req.body;
+    const { status, paymentStatus, items, notificationStage } = req.body;
     const updates = {};
 
     const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
@@ -750,6 +760,8 @@ export const updateOrder = async (req, res) => {
         message: "Order not found",
       });
     }
+
+    const previousStatus = existingOrder.status;
 
     if (items !== undefined) {
       const rebuilt = await rebuildOrderFromItemsInput(items);
@@ -813,6 +825,8 @@ export const updateOrder = async (req, res) => {
     const order = await populateOrderItems(
       Order.findById(req.params.id).populate("user", "name email phone")
     );
+
+    void notifyOrderStatusChange(order, previousStatus, { notificationStage });
 
     res.status(200).json({
       success: true,

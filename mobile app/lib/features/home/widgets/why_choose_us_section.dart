@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/scroll/vertical_scroll_pause_scope.dart';
 import '../../../core/utils/viewport_utils.dart';
 import 'home_section_card.dart';
 
@@ -64,6 +66,7 @@ class _WhyChooseUsSectionState extends State<WhyChooseUsSection>
   int _currentPage = 0;
   bool _paused = false;
   bool _appActive = true;
+  bool _pageMoveQueued = false;
 
   @override
   void initState() {
@@ -101,17 +104,33 @@ class _WhyChooseUsSectionState extends State<WhyChooseUsSection>
 
     _autoTimer = Timer.periodic(_autoSlideInterval, (_) {
       if (!mounted || _paused || !_pageController.hasClients) return;
+      if (VerticalScrollPauseScope.isParentVerticalScrolling(context)) return;
       if (!isWidgetRoughlyVisible(context)) return;
 
       final next = (_currentPage + 1) % _features.length;
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _pageController.jumpToPage(next);
-      } else {
+      _queueSafePageMove(next, animated: !MediaQuery.disableAnimationsOf(context));
+    });
+  }
+
+  void _queueSafePageMove(int page, {required bool animated}) {
+    if (_pageMoveQueued) return;
+    _pageMoveQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pageMoveQueued = false;
+      if (!mounted || !_pageController.hasClients) return;
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        _queueSafePageMove(page, animated: animated);
+        return;
+      }
+      if (animated) {
         _pageController.animateToPage(
-          next,
+          page,
           duration: _transitionDuration,
           curve: Curves.easeInOutCubic,
         );
+      } else {
+        _pageController.jumpToPage(page);
       }
     });
   }

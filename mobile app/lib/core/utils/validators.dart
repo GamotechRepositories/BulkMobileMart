@@ -19,5 +19,18 @@ class Validators {
   static bool isValidPincode(String value) =>
       _pincodePattern.hasMatch(value.trim());
 
+  static final RegExp _gstPattern = RegExp(
+    r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$',
+  );
+
+  static bool isValidGst(String value) =>
+      _gstPattern.hasMatch(value.trim().toUpperCase());
+
+  static bool isValidShopName(String value) =>
+      value.trim().length >= 2;
+
+  static bool isValidShopAddress(String value) =>
+      value.trim().length >= 5;
+
   static bool isValidPassword(String value) => value.length >= 6;
 }

@@ -8,6 +8,7 @@ import '../core/network/api_isolate_parsers.dart';
 import '../core/network/api_response_parser.dart';
 import '../core/utils/upload_folders.dart';
 import '../models/address.dart';
+import '../models/app_notification.dart';
 import '../models/brand.dart';
 import '../models/cart_item.dart';
 import '../models/category.dart';
@@ -93,10 +94,55 @@ class ApiService {
   Future<Response<dynamic>> loginUser(Map<String, dynamic> data) =>
       _dio.post('/api/users/login', data: data);
 
+  Future<Response<dynamic>> sendOtpLogin(Map<String, dynamic> data) =>
+      _dio.post('/api/users/otp/send', data: data);
+
+  Future<Response<dynamic>> verifyOtpLogin(Map<String, dynamic> data) =>
+      _dio.post('/api/users/otp/verify', data: data);
+
+  Future<Response<dynamic>> completeOtpSignup(Map<String, dynamic> data) =>
+      _dio.post('/api/users/otp/complete-signup', data: data);
+
   Future<Response<dynamic>> getMe() => _dio.get('/api/users/me');
 
   Future<Response<dynamic>> updateMe(Map<String, dynamic> data) =>
       _dio.patch('/api/users/me', data: data);
+
+  Future<Response<dynamic>> postFcmToken(
+    String token, {
+    String deviceType = 'android',
+  }) =>
+      _dio.post(
+        '/api/users/fcm-token',
+        data: {
+          'token': token,
+          'deviceType': deviceType,
+        },
+      );
+
+  Future<Response<dynamic>> getNotifications({
+    int page = 1,
+    int limit = 20,
+  }) =>
+      _dio.get(
+        '/api/notifications',
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+        },
+      );
+
+  Future<Response<dynamic>> getUnreadNotificationCount() =>
+      _dio.get('/api/notifications/unread-count');
+
+  Future<Response<dynamic>> putNotificationRead(String id) =>
+      _dio.put('/api/notifications/$id/read');
+
+  Future<Response<dynamic>> putNotificationsReadAll() =>
+      _dio.put('/api/notifications/read-all');
+
+  Future<Response<dynamic>> deleteNotificationById(String id) =>
+      _dio.delete('/api/notifications/$id');
 
   Future<Response<dynamic>> getAddresses() => _dio.get('/api/addresses');
 
@@ -273,6 +319,51 @@ class ApiService {
     );
   }
 
+  Future<void> sendOtp(String phone) async {
+    final response = await sendOtpLogin({'phone': phone.trim()});
+    if (response.data is Map<String, dynamic>) {
+      final success = response.data['success'];
+      if (success == false) {
+        throw ApiException(
+          ApiResponseParser.getMessage(response.data) ?? 'Failed to send OTP',
+        );
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyOtp(Map<String, dynamic> data) async {
+    final response = await verifyOtpLogin(data);
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'OTP verification failed',
+      );
+    }
+    final body = ApiResponseParser.getData(raw);
+    if (body is! Map<String, dynamic>) {
+      throw ApiException('Invalid OTP verification response');
+    }
+    return body;
+  }
+
+  Future<AuthSession> completeOtpSignupProfile(Map<String, dynamic> data) async {
+    final response = await completeOtpSignup(data);
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Could not complete sign up',
+      );
+    }
+    final body = ApiResponseParser.getData(raw);
+    if (body is! Map<String, dynamic>) {
+      throw ApiException('Invalid signup response');
+    }
+    return AuthSession(
+      user: User.fromJson(body['user'] as Map<String, dynamic>),
+      token: body['token']?.toString() ?? '',
+    );
+  }
+
   Future<AuthSession> signup({
     required String name,
     required String email,
@@ -351,6 +442,100 @@ class ApiService {
   Future<List<Product>> fetchWishlistProducts() async {
     final response = await getWishlist();
     return parseOnBackground(parseWishlistProductsResponse, response.data);
+  }
+
+  Future<void> registerFcmToken(
+    String token, {
+    String deviceType = 'android',
+  }) async {
+    final response = await postFcmToken(token, deviceType: deviceType);
+    if (response.data is Map<String, dynamic> &&
+        response.data['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(response.data) ??
+            'Failed to register FCM token',
+      );
+    }
+  }
+
+  Future<NotificationsPageResult> fetchNotifications({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await getNotifications(page: page, limit: limit);
+    final raw = response.data;
+    final items = ApiResponseParser.parseList(
+      raw,
+      AppNotification.fromJson,
+    );
+
+    int parsedPage = page;
+    int parsedLimit = limit;
+    int parsedTotal = items.length;
+    int parsedPages = 1;
+
+    if (raw is Map<String, dynamic>) {
+      final pagination = raw['pagination'];
+      if (pagination is Map<String, dynamic>) {
+        parsedPage = int.tryParse(pagination['page']?.toString() ?? '') ?? page;
+        parsedLimit =
+            int.tryParse(pagination['limit']?.toString() ?? '') ?? limit;
+        parsedTotal =
+            int.tryParse(pagination['total']?.toString() ?? '') ?? items.length;
+        parsedPages =
+            int.tryParse(pagination['pages']?.toString() ?? '') ?? 1;
+      }
+    }
+
+    return NotificationsPageResult(
+      items: items,
+      page: parsedPage,
+      limit: parsedLimit,
+      total: parsedTotal,
+      pages: parsedPages,
+    );
+  }
+
+  Future<int> fetchUnreadNotificationCount() async {
+    final response = await getUnreadNotificationCount();
+    final data = ApiResponseParser.getData(response.data);
+    if (data is Map<String, dynamic>) {
+      return int.tryParse(data['count']?.toString() ?? '') ?? 0;
+    }
+    return 0;
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    final response = await putNotificationRead(id);
+    if (response.data is Map<String, dynamic> &&
+        response.data['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(response.data) ??
+            'Failed to mark notification as read',
+      );
+    }
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    final response = await putNotificationsReadAll();
+    if (response.data is Map<String, dynamic> &&
+        response.data['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(response.data) ??
+            'Failed to mark notifications as read',
+      );
+    }
+  }
+
+  Future<void> deleteNotification(String id) async {
+    final response = await deleteNotificationById(id);
+    if (response.data is Map<String, dynamic> &&
+        response.data['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(response.data) ??
+            'Failed to delete notification',
+      );
+    }
   }
 
   Map<String, dynamic> _buildAddressPayload(Map<String, dynamic> data) {

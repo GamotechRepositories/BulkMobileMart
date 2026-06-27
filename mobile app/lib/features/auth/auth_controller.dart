@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/exceptions/api_exception.dart';
@@ -8,6 +7,18 @@ import 'auth_state.dart';
 
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
+
+class OtpVerifyResult {
+  const OtpVerifyResult({
+    this.needsSignup = false,
+    this.phone,
+    this.user,
+  });
+
+  final bool needsSignup;
+  final String? phone;
+  final User? user;
+}
 
 class AuthController extends Notifier<AuthState> {
   @override
@@ -53,42 +64,88 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(authModal: mode);
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
-  }) async {
-    final session = await ref.read(apiServiceProvider).login(
-          email: email.trim(),
-          password: password,
-        );
-
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
-
-    await _persistSession(session);
-    closeAuthModal();
+  Future<void> sendOtp(String phone) async {
+    await ref.read(apiServiceProvider).sendOtp(phone.trim());
   }
 
-  Future<void> signup({
-    required String name,
-    required String email,
+  Future<OtpVerifyResult> verifyOtp({
     required String phone,
-    required String password,
+    required String otp,
+    String? name,
+    String? shopName,
+    String? shopAddress,
+    String? gstNumber,
   }) async {
-    final session = await ref.read(apiServiceProvider).signup(
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          password: password,
-        );
+    final payload = <String, dynamic>{
+      'phone': phone.trim(),
+      'otp': otp.trim(),
+    };
+    final trimmedName = name?.trim();
+    if (trimmedName != null && trimmedName.isNotEmpty) {
+      payload['name'] = trimmedName;
+    }
+    final trimmedShopName = shopName?.trim();
+    if (trimmedShopName != null && trimmedShopName.isNotEmpty) {
+      payload['shopName'] = trimmedShopName;
+    }
+    final trimmedShopAddress = shopAddress?.trim();
+    if (trimmedShopAddress != null && trimmedShopAddress.isNotEmpty) {
+      payload['shopAddress'] = trimmedShopAddress;
+    }
+    final trimmedGst = gstNumber?.trim().toUpperCase();
+    if (trimmedGst != null && trimmedGst.isNotEmpty) {
+      payload['gstNumber'] = trimmedGst;
+    }
+
+    final body = await ref.read(apiServiceProvider).verifyOtp(payload);
+
+    if (body['needsSignup'] == true) {
+      return OtpVerifyResult(
+        needsSignup: true,
+        phone: body['phone']?.toString() ?? phone.trim(),
+      );
+    }
+
+    final session = AuthSession(
+      user: User.fromJson(body['user'] as Map<String, dynamic>),
+      token: body['token']?.toString() ?? '',
+    );
 
     if (session.user.isAdmin) {
       throw ApiException('Please use the admin panel to sign in.');
     }
 
     await _persistSession(session);
-    closeAuthModal();
+    return OtpVerifyResult(user: session.user);
+  }
+
+  Future<User> completeOtpSignupProfile({
+    required String phone,
+    required String name,
+    required String shopName,
+    required String shopAddress,
+    String? gstNumber,
+  }) async {
+    final payload = <String, dynamic>{
+      'phone': phone.trim(),
+      'name': name.trim(),
+      'shopName': shopName.trim(),
+      'shopAddress': shopAddress.trim(),
+    };
+    final trimmedGst = gstNumber?.trim().toUpperCase();
+    if (trimmedGst != null && trimmedGst.isNotEmpty) {
+      payload['gstNumber'] = trimmedGst;
+    }
+
+    final session =
+        await ref.read(apiServiceProvider).completeOtpSignupProfile(payload);
+
+    if (session.user.isAdmin) {
+      throw ApiException('Please use the admin panel to sign in.');
+    }
+
+    await _persistSession(session);
+    return session.user;
   }
 
   Future<void> logout() async {

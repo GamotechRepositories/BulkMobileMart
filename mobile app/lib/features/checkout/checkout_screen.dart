@@ -11,11 +11,13 @@ import '../../core/providers/app_providers.dart';
 import '../../core/utils/address_utils.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/razorpay_error_message.dart';
 import '../../core/utils/payment_utils.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/notifications/notifications_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
@@ -292,10 +294,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _handleRazorpayError(PaymentFailureResponse response) {
+    final message = razorpayErrorMessage(response);
     setState(() {
       _placingOrder = false;
-      _orderError = response.message ?? 'Payment cancelled. Your order was not placed.';
+      _orderError = message;
     });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -311,6 +317,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _showSuccessModal = true;
     });
     await ref.read(cartControllerProvider.notifier).loadCart();
+    ref
+        .read(notificationsControllerProvider.notifier)
+        .refreshIfLoggedIn(force: true);
   }
 
   @override

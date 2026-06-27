@@ -64,6 +64,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
   late final PageController _pageController;
   bool _syncingFromShell = false;
   bool _stackRebuildScheduled = false;
+  bool _isOnBranchRoot = true;
 
   @override
   void initState() {
@@ -72,6 +73,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
       initialPage: widget.navigationShell.currentIndex,
     );
     shellBranchNavigatorHub.addListener(_onBranchStackChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncBranchRootState());
   }
 
   void _onBranchStackChanged() {
@@ -79,7 +81,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     _stackRebuildScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _stackRebuildScheduled = false;
-      if (mounted) setState(() {});
+      _syncBranchRootState();
     });
   }
 
@@ -87,18 +89,20 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
   void didUpdateWidget(TabSwipeShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     final target = widget.navigationShell.currentIndex;
-    if (target == _pageController.page?.round()) return;
+    if (target != _pageController.page?.round()) {
+      _syncingFromShell = true;
+      _pageController
+          .animateToPage(
+            target,
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {
+        if (mounted) _syncingFromShell = false;
+      });
+    }
 
-    _syncingFromShell = true;
-    _pageController
-        .animateToPage(
-          target,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-        )
-        .whenComplete(() {
-      if (mounted) _syncingFromShell = false;
-    });
+    _syncBranchRootState();
   }
 
   @override
@@ -113,13 +117,20 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     return ref.read(authControllerProvider).isLoggedIn;
   }
 
-  bool get _isOnBranchRoot {
+  bool _computeIsOnBranchRoot() {
     final index = widget.navigationShell.currentIndex;
     if (index < 0 || index >= widget.branchNavigatorKeys.length) {
       return true;
     }
     final navigator = widget.branchNavigatorKeys[index].currentState;
     return !(navigator?.canPop() ?? false);
+  }
+
+  void _syncBranchRootState() {
+    if (!mounted) return;
+    final next = _computeIsOnBranchRoot();
+    if (next == _isOnBranchRoot) return;
+    setState(() => _isOnBranchRoot = next);
   }
 
   void _onPageChanged(int index) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/scroll/vertical_scroll_pause_scope.dart';
 import '../../../core/utils/viewport_utils.dart';
 import '../../../models/testimonial.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
@@ -54,6 +55,7 @@ class _TestimonialsSectionState extends ConsumerState<TestimonialsSection>
     if (!_appActive || count <= 1) return;
     _timer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted || !isWidgetRoughlyVisible(context)) return;
+      if (VerticalScrollPauseScope.isParentVerticalScrolling(context)) return;
       setState(() => _current = (_current + 1) % count);
     });
   }

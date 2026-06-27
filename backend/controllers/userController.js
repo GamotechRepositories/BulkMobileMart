@@ -19,21 +19,42 @@ const signToken = (userId) => {
   });
 };
 
+const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
 const formatAuthUser = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
   phone: user.phone,
   shopNo: user.shopNo || "",
+  shopName: user.shopName || "",
+  shopAddress: user.shopAddress || "",
   gstNumber: user.gstNumber || "",
   role: user.role,
 });
 
-function pickOptionalSignupFields(body) {
+function pickSignupProfileFields(body) {
   const fields = {};
+  if (body.shopName?.trim()) fields.shopName = body.shopName.trim();
+  if (body.shopAddress?.trim()) fields.shopAddress = body.shopAddress.trim();
   if (body.shopNo?.trim()) fields.shopNo = body.shopNo.trim();
   if (body.gstNumber?.trim()) fields.gstNumber = body.gstNumber.trim().toUpperCase();
   return fields;
+}
+
+function validateSignupProfile(body) {
+  const shopName = body.shopName?.trim() || "";
+  const shopAddress = body.shopAddress?.trim() || "";
+  const gstNumber = body.gstNumber?.trim() || "";
+
+  if (!shopName) return "Shop name is required";
+  if (shopName.length < 2) return "Shop name must be at least 2 characters";
+  if (!shopAddress) return "Shop address is required";
+  if (shopAddress.length < 5) return "Please enter a complete shop address";
+  if (gstNumber && !GST_PATTERN.test(gstNumber.toUpperCase())) {
+    return "Please provide a valid GST number";
+  }
+  return null;
 }
 
 export const signup = async (_req, res) => {
@@ -116,7 +137,7 @@ export const verifyOtpLogin = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { otp, name } = req.body;
-    const optionalSignupFields = pickOptionalSignupFields(req.body);
+    const optionalSignupFields = pickSignupProfileFields(req.body);
 
     if (!phone) {
       return res.status(400).json({
@@ -144,6 +165,14 @@ export const verifyOtpLogin = async (req, res) => {
             needsSignup: true,
             phone,
           },
+        });
+      }
+
+      const profileError = validateSignupProfile(req.body);
+      if (profileError) {
+        return res.status(400).json({
+          success: false,
+          message: profileError,
         });
       }
 
@@ -187,7 +216,7 @@ export const completeOtpSignup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { name } = req.body;
-    const optionalSignupFields = pickOptionalSignupFields(req.body);
+    const optionalSignupFields = pickSignupProfileFields(req.body);
 
     if (!phone) {
       return res.status(400).json({
@@ -207,6 +236,14 @@ export const completeOtpSignup = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Name is required",
+      });
+    }
+
+    const profileError = validateSignupProfile(req.body);
+    if (profileError) {
+      return res.status(400).json({
+        success: false,
+        message: profileError,
       });
     }
 
@@ -260,6 +297,8 @@ export const getMe = async (req, res) => {
         email: req.user.email,
         phone: req.user.phone,
         shopNo: req.user.shopNo || "",
+        shopName: req.user.shopName || "",
+        shopAddress: req.user.shopAddress || "",
         gstNumber: req.user.gstNumber || "",
         role: req.user.role,
         createdAt: req.user.createdAt,
@@ -403,6 +442,8 @@ export const updateMe = async (req, res) => {
         email: user.email,
         phone: user.phone,
         shopNo: user.shopNo || "",
+        shopName: user.shopName || "",
+        shopAddress: user.shopAddress || "",
         gstNumber: user.gstNumber || "",
         role: user.role,
         createdAt: user.createdAt,
