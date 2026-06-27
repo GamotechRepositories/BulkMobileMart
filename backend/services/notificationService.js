@@ -247,16 +247,40 @@ async function deliverToUser(userId, { title, body, type, order = null, data = {
   };
 }
 
-function orderLabel(order) {
-  return order?.orderNumber ? `#${order.orderNumber}` : "your order";
+function orderRef(order) {
+  const num = order?.orderNumber;
+  return num ? `Order #${num}` : "Your order";
+}
+
+function paymentSuccessMessage(order, extra = {}) {
+  const ref = orderRef(order);
+
+  if (extra.paymentMode === "cod_advance") {
+    return `${ref}: 10% advance payment received. Pay the remaining amount on delivery.`;
+  }
+
+  if (extra.source === "upi_manual") {
+    return `${ref}: UPI payment verified. Your order is confirmed.`;
+  }
+
+  return `${ref}: Payment received successfully. We are processing your order.`;
+}
+
+function paymentFailedMessage(order, extra = {}) {
+  const ref = orderRef(order);
+
+  if (extra.reason === "payment_rejected") {
+    return `${ref}: UPI payment was not approved. Please pay again or contact support.`;
+  }
+
+  return `${ref}: Payment could not be completed. Open the app to retry or contact support.`;
 }
 
 export async function sendOrderPlaced(order) {
-  const title = "Order Placed";
-  const body = `Your order ${orderLabel(order)} has been placed successfully.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Order Received",
+    body: `${ref} is placed successfully. We will confirm it shortly.`,
     type: "order_placed",
     order,
     data: buildOrderData(order, { type: "order_placed" }),
@@ -264,11 +288,10 @@ export async function sendOrderPlaced(order) {
 }
 
 export async function sendOrderConfirmed(order) {
-  const title = "Order Confirmed";
-  const body = `Your order ${orderLabel(order)} has been confirmed.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Order Confirmed",
+    body: `${ref} is confirmed. We will start packing your items soon.`,
     type: "order_confirmed",
     order,
     data: buildOrderData(order, { type: "order_confirmed" }),
@@ -276,11 +299,10 @@ export async function sendOrderConfirmed(order) {
 }
 
 export async function sendOrderPacked(order) {
-  const title = "Order Packed";
-  const body = `Your order ${orderLabel(order)} has been packed and is ready to ship.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Order Packed",
+    body: `${ref} is packed and ready to ship.`,
     type: "order_packed",
     order,
     data: buildOrderData(order, { type: "order_packed" }),
@@ -288,11 +310,10 @@ export async function sendOrderPacked(order) {
 }
 
 export async function sendOrderShipped(order) {
-  const title = "Order Shipped";
-  const body = `Your order ${orderLabel(order)} has been shipped.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Order Shipped",
+    body: `${ref} has been shipped. You will receive it soon.`,
     type: "order_shipped",
     order,
     data: buildOrderData(order, { type: "order_shipped" }),
@@ -300,11 +321,10 @@ export async function sendOrderShipped(order) {
 }
 
 export async function sendOutForDelivery(order) {
-  const title = "Out For Delivery";
-  const body = `Your order ${orderLabel(order)} is out for delivery.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Out for Delivery",
+    body: `${ref} is on the way. Please keep your phone available.`,
     type: "out_for_delivery",
     order,
     data: buildOrderData(order, { type: "out_for_delivery" }),
@@ -312,11 +332,10 @@ export async function sendOutForDelivery(order) {
 }
 
 export async function sendDelivered(order) {
-  const title = "Order Delivered";
-  const body = `Your order ${orderLabel(order)} has been delivered.`;
+  const ref = orderRef(order);
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Order Delivered",
+    body: `${ref} has been delivered. Thank you for shopping with Bulk Mobile Mart!`,
     type: "order_delivered",
     order,
     data: buildOrderData(order, { type: "order_delivered" }),
@@ -324,11 +343,9 @@ export async function sendDelivered(order) {
 }
 
 export async function sendPaymentSuccess(order, extra = {}) {
-  const title = "Payment Successful";
-  const body = `Payment for order ${orderLabel(order)} was successful.`;
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Payment Received",
+    body: paymentSuccessMessage(order, extra),
     type: "payment_success",
     order,
     data: buildOrderData(order, { type: "payment_success", ...extra }),
@@ -336,11 +353,9 @@ export async function sendPaymentSuccess(order, extra = {}) {
 }
 
 export async function sendPaymentFailed(order, extra = {}) {
-  const title = "Payment Failed";
-  const body = `Payment for order ${orderLabel(order)} could not be completed.`;
   return deliverToUser(order.user, {
-    title,
-    body,
+    title: "Payment Failed",
+    body: paymentFailedMessage(order, extra),
     type: "payment_failed",
     order,
     data: buildOrderData(order, { type: "payment_failed", ...extra }),
@@ -367,8 +382,8 @@ export async function sendCustomNotification(userId, { title, body, type = "cust
 
 export async function sendTestNotification(userId) {
   return deliverToUser(userId, {
-    title: "Test Notification",
-    body: "BulkMobileMart push notifications are working correctly.",
+    title: "Bulk Mobile Mart",
+    body: "Notifications are working. You will receive order updates here.",
     type: "test",
     data: { type: "test" },
   });
