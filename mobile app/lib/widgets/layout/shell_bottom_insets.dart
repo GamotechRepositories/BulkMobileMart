@@ -22,4 +22,8 @@ abstract final class ShellBottomInsets {
   }) {
     return EdgeInsets.fromLTRB(left, top, right, of(context));
   }
+
+  /// Extra bottom padding for bottom sheets inside the shell (above floating nav).
+  static const double navBarOverlay =
+      FlipkartBottomNav.barHeight + _barBottomMargin + _extraBuffer;
 }

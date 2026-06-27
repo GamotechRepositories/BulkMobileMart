@@ -14,8 +14,11 @@ dist-ssr
 .env
 serviceAccount.json
 config/serviceAccount.json
+bulkserviceAccount.json
+config/bulkserviceAccount.json
 **/serviceAccount.json
-!config/serviceAccount.json.example
+**/bulkserviceAccount.json
+!config/bulkserviceAccount.json.example
 
 # Editor directories and files
 .vscode/*

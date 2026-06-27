@@ -6,6 +6,7 @@ import '../../../config/theme.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/order_utils.dart';
 import '../../../models/order.dart';
+import '../../../routes/app_router.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../delivery_rating_controller.dart';
 
@@ -86,8 +87,10 @@ class BlinkitOrderCard extends ConsumerWidget {
 
   void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
     var selected = 5;
+    final rootContext = rootNavigatorKey.currentContext ?? context;
     showModalBottomSheet<void>(
-      context: context,
+      context: rootContext,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -146,13 +149,12 @@ class BlinkitOrderCard extends ConsumerWidget {
   }
 
   void _showOrderMenu(BuildContext context, Order order, String? productId) {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
+    final rootContext = rootNavigatorKey.currentContext ?? context;
+    showDialog<void>(
+      context: rootContext,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -160,27 +162,30 @@ class BlinkitOrderCard extends ConsumerWidget {
                 leading: const Icon(Icons.receipt_long_outlined),
                 title: const Text('View order details'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   context.push('/orders/${order.id}');
                 },
               ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.description_outlined),
                 title: const Text('Download invoice'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                   context.push('/orders/${order.id}/invoice');
                 },
               ),
-              if (productId != null)
+              if (productId != null) ...[
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.shopping_bag_outlined),
                   title: const Text('Order again'),
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                     context.push('/product/$productId');
                   },
                 ),
+              ],
             ],
           ),
         );

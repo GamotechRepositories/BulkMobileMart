@@ -6,7 +6,7 @@ import admin from "firebase-admin";
 import { getMessaging } from "firebase-admin/messaging";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_SERVICE_ACCOUNT_PATH = path.resolve(__dirname, "serviceAccount.json");
+const DEFAULT_SERVICE_ACCOUNT_PATH = path.resolve(__dirname, "bulkserviceAccount.json");
 
 let adminApp = null;
 let initAttempted = false;
@@ -43,7 +43,7 @@ function readServiceAccountFromFile(filePath) {
  * Resolves Firebase credentials in priority order:
  * 1. FIREBASE_SERVICE_ACCOUNT_JSON
  * 2. FIREBASE_SERVICE_ACCOUNT_PATH
- * 3. backend/config/serviceAccount.json (when neither env var is set)
+ * 3. backend/config/bulkserviceAccount.json (when neither env var is set)
  *
  * @returns {{ serviceAccount: object, source: string } | null}
  */
@@ -83,7 +83,7 @@ function loadServiceAccount() {
 
   return {
     serviceAccount,
-    source: `default config/serviceAccount.json (${DEFAULT_SERVICE_ACCOUNT_PATH})`,
+    source: `default config/bulkserviceAccount.json (${DEFAULT_SERVICE_ACCOUNT_PATH})`,
   };
 }
 
@@ -120,7 +120,7 @@ export function getFirebaseAdmin() {
     if (!credentials) {
       console.warn(
         "Firebase Admin: credentials not configured. Set FIREBASE_SERVICE_ACCOUNT_JSON, " +
-          "FIREBASE_SERVICE_ACCOUNT_PATH, or place serviceAccount.json at " +
+          "FIREBASE_SERVICE_ACCOUNT_PATH, or place bulkserviceAccount.json at " +
           `${DEFAULT_SERVICE_ACCOUNT_PATH}.`
       );
       return null;
