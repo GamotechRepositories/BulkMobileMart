@@ -127,6 +127,12 @@ userSchema.pre("validate", function requireAdminCredentials() {
   }
 });
 
+userSchema.pre("save", function normalizeOptionalEmail() {
+  if (!this.email?.trim()) {
+    this.email = undefined;
+  }
+});
+
 userSchema.pre("save", async function hashPassword() {
   if (!this.isModified("password") || !this.password) return;
 

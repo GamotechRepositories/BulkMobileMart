@@ -133,11 +133,41 @@ export const sendOtpLogin = async (req, res) => {
   }
 };
 
+function respondWithControllerError(res, error) {
+  if (error.name === "ValidationError") {
+    const message = Object.values(error.errors)
+      .map((err) => err.message)
+      .join(", ");
+    return res.status(400).json({ success: false, message });
+  }
+
+  if (error.code === 11000) {
+    const field = Object.keys(error.keyPattern || {})[0];
+    if (field === "phone") {
+      return res.status(400).json({
+        success: false,
+        message: "An account with this phone number already exists. Try logging in instead.",
+      });
+    }
+    if (field === "email") {
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: "An account with these details already exists.",
+    });
+  }
+
+  return res.status(500).json({ success: false, message: error.message });
+}
+
 export const verifyOtpLogin = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
-    const { otp, name } = req.body;
-    const optionalSignupFields = pickSignupProfileFields(req.body);
+    const { otp } = req.body;
 
     if (!phone) {
       return res.status(400).json({
@@ -154,33 +184,16 @@ export const verifyOtpLogin = async (req, res) => {
       });
     }
 
-    let user = await User.findOne({ phone });
+    const user = await User.findOne({ phone });
 
     if (!user) {
-      if (!name?.trim()) {
-        markPhoneOtpVerified(phone);
-        return res.status(200).json({
-          success: true,
-          data: {
-            needsSignup: true,
-            phone,
-          },
-        });
-      }
-
-      const profileError = validateSignupProfile(req.body);
-      if (profileError) {
-        return res.status(400).json({
-          success: false,
-          message: profileError,
-        });
-      }
-
-      user = await User.create({
-        name: name.trim(),
-        phone,
-        role: "user",
-        ...optionalSignupFields,
+      markPhoneOtpVerified(phone);
+      return res.status(200).json({
+        success: true,
+        data: {
+          needsSignup: true,
+          phone,
+        },
       });
     }
 
@@ -201,14 +214,7 @@ export const verifyOtpLogin = async (req, res) => {
       },
     });
   } catch (error) {
-    if (error.name === "ValidationError") {
-      const message = Object.values(error.errors)
-        .map((err) => err.message)
-        .join(", ");
-      return res.status(400).json({ success: false, message });
-    }
-
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error);
   }
 };
 
@@ -276,14 +282,7 @@ export const completeOtpSignup = async (req, res) => {
       },
     });
   } catch (error) {
-    if (error.name === "ValidationError") {
-      const message = Object.values(error.errors)
-        .map((err) => err.message)
-        .join(", ");
-      return res.status(400).json({ success: false, message });
-    }
-
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error);
   }
 };
 

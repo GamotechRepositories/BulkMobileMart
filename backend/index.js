@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import connectDB from "./config/dbconfig.js";
+import { ensureUserIndexes } from "./utils/ensureUserIndexes.js";
 import "./models/user.js";
 import heroBannerRoutes from "./routes/heroBannerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -68,7 +69,13 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/test", testFcmRoutes);
 
-connectDB().then(() => {
+connectDB().then(async () => {
+  try {
+    await ensureUserIndexes();
+  } catch (error) {
+    console.error("User index setup failed:", error.message);
+  }
+
   try {
     getFirebaseAdmin();
   } catch (error) {

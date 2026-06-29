@@ -36,9 +36,9 @@ const cartSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
       lowercase: true,
       trim: true,
+      default: "",
     },
     items: {
       type: [cartItemSchema],

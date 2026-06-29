@@ -10,6 +10,7 @@ import {
   PRODUCT_PRICING_SELECT,
 } from "../utils/productPricing.js";
 import { pruneUnavailableCartItems } from "../utils/orderHelpers.js";
+import { getUserContactEmail } from "../utils/userContact.js";
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -58,7 +59,7 @@ export const getCart = async (req, res) => {
         success: true,
         data: {
           user: req.user._id,
-          email: req.user.email,
+          email: getUserContactEmail(req.user),
           items: [],
         },
       });
@@ -169,7 +170,7 @@ export const addToCart = async (req, res) => {
     if (!cart) {
       cart = await Cart.create({
         user: req.user._id,
-        email: req.user.email,
+        email: getUserContactEmail(req.user),
         items: [
           {
             product: productId,
@@ -180,7 +181,7 @@ export const addToCart = async (req, res) => {
         ],
       });
     } else {
-      cart.email = req.user.email;
+      cart.email = getUserContactEmail(req.user);
       const existingIndex = cart.items.findIndex((item) =>
         matchesCartItem(item, productId, normalizedVariantName, normalizedColorName)
       );
@@ -245,7 +246,7 @@ export const removeFromCart = async (req, res) => {
 
     // Keep legacy carts valid if email field was missing previously.
     if (!cart.email && req.user?.email) {
-      cart.email = req.user.email;
+      cart.email = getUserContactEmail(req.user);
     }
 
     cart.items = cart.items.filter(
@@ -290,7 +291,7 @@ export const updateCartItem = async (req, res) => {
 
     // Keep legacy carts valid if email field was missing previously.
     if (!cart.email && req.user?.email) {
-      cart.email = req.user.email;
+      cart.email = getUserContactEmail(req.user);
     }
 
     const itemIndex = cart.items.findIndex((item) =>

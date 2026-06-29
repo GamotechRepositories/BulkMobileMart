@@ -1,6 +1,7 @@
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import { PRODUCT_PRICING_SELECT } from "../utils/productPricing.js";
+import { getUserContactEmail } from "../utils/userContact.js";
 
 const populateWishlist = (query) =>
   query.populate({
@@ -19,7 +20,7 @@ export const getWishlist = async (req, res) => {
         success: true,
         data: {
           user: req.user._id,
-          email: req.user.email,
+          email: getUserContactEmail(req.user),
           items: [],
         },
       });
@@ -56,12 +57,12 @@ export const toggleWishlistItem = async (req, res) => {
     if (!wishlist) {
       wishlist = await Wishlist.create({
         user: req.user._id,
-        email: req.user.email,
+        email: getUserContactEmail(req.user),
         items: [{ product: productId }],
       });
       added = true;
     } else {
-      wishlist.email = req.user.email;
+      wishlist.email = getUserContactEmail(req.user);
       const existingIndex = wishlist.items.findIndex(
         (item) => item.product.toString() === productId
       );

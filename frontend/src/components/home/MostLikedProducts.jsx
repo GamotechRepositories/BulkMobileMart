@@ -8,11 +8,7 @@ const MAX_DISPLAY = 15;
 const GRID_COLS = 5;
 
 function ProductCard({ product }) {
-  const feature =
-    product.features?.[0] ||
-    product.description?.slice(0, 28) ||
-    product.subcategory;
-
+  const categoryLabel = product.subcategory || product.categories?.[0] || "";
   const image = product.productImages?.[0];
 
   return (
@@ -30,7 +26,7 @@ function ProductCard({ product }) {
       </div>
 
       <div className="flex items-center justify-between gap-2 bg-[#facc15] px-2.5 py-1.5 text-[10px] sm:text-xs font-semibold text-black">
-        <span className="truncate">{feature}</span>
+        <span className="truncate">{categoryLabel || "Featured"}</span>
         <span className="shrink-0 flex items-center gap-0.5">
           <span className="text-black">★</span>
           {product.ratings?.toFixed(1) ?? "0.0"}
@@ -38,7 +34,10 @@ function ProductCard({ product }) {
       </div>
 
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex-1 flex flex-col">
-        <h3 className="text-sm sm:text-base font-bold text-white leading-snug line-clamp-2 mb-3 min-h-[2.5rem]">
+        <h3
+          className="mb-3 truncate text-sm font-bold leading-tight text-white sm:text-base"
+          title={product.name}
+        >
           {product.name}
         </h3>
 

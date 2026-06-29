@@ -262,7 +262,7 @@ function AuthModalHeader({ isSignup, step, phone, ui }) {
 }
 
 function AuthModal({ mode, onClose, onSwitchMode }) {
-  const { sendOtp, loginWithOtp, completeOtpSignupProfile } = useAuth();
+  const { sendOtp, loginWithOtp } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [shopName, setShopName] = useState("");
@@ -273,6 +273,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const verifyInFlight = useRef(false);
 
   const isSignup = mode === "signup";
   const ui = getAuthUi(isSignup);
@@ -376,11 +377,14 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const handleVerifyOtp = async (event) => {
     event.preventDefault();
 
+    if (verifyInFlight.current) return;
+
     if (!/^\d{6}$/.test(otp.trim())) {
       setError("Please enter the 6-digit OTP sent to your phone");
       return;
     }
 
+    verifyInFlight.current = true;
     setSubmitting(true);
     setError("");
 
@@ -392,15 +396,6 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
       });
 
       if (result?.needsSignup) {
-        if (isSignup) {
-          await completeOtpSignupProfile({
-            phone: phone.trim(),
-            ...signupProfile,
-          });
-          onClose();
-          return;
-        }
-
         setError("No account found with this number. Please sign up first.");
         return;
       }
@@ -409,6 +404,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
     } catch (err) {
       setError(err.response?.data?.message || err.message || "OTP verification failed.");
     } finally {
+      verifyInFlight.current = false;
       setSubmitting(false);
     }
   };

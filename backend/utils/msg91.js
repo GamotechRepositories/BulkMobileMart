@@ -81,26 +81,26 @@ export async function verifyLoginOtp(phone10, otp) {
     return { ok: false, message: "Please enter a valid OTP" };
   }
 
-  assertMsg91Configured();
-
-  const { authKey } = msg91Config;
-  const params = new URLSearchParams({
-    mobile: toMsg91Mobile(phone10),
-    otp: String(otp).trim(),
-  });
-
-  const response = await fetch(
-    `https://control.msg91.com/api/v5/otp/verify?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        authkey: authKey,
-        accept: "application/json",
-      },
-    }
-  );
-
   try {
+    assertMsg91Configured();
+
+    const { authKey } = msg91Config;
+    const params = new URLSearchParams({
+      mobile: toMsg91Mobile(phone10),
+      otp: String(otp).trim(),
+    });
+
+    const response = await fetch(
+      `https://control.msg91.com/api/v5/otp/verify?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          authkey: authKey,
+          accept: "application/json",
+        },
+      }
+    );
+
     const data = await parseMsg91Response(response);
     if (data.type === "error") {
       return { ok: false, message: data.message || "Invalid OTP" };

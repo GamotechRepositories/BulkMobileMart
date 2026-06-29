@@ -80,22 +80,15 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const loginWithOtp = async ({ phone, otp, name, shopName, shopAddress, gstNumber }) => {
-    const res = await verifyOtpLogin({
+  const completeOtpSignupProfile = async ({ phone, name, shopName, shopAddress, gstNumber }) => {
+    const res = await completeOtpSignup({
       phone,
-      otp,
-      ...(name?.trim() ? { name: name.trim() } : {}),
-      ...(shopName?.trim() ? { shopName: shopName.trim() } : {}),
-      ...(shopAddress?.trim() ? { shopAddress: shopAddress.trim() } : {}),
+      name,
+      shopName: shopName?.trim() || "",
+      shopAddress: shopAddress?.trim() || "",
       ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
     });
-    const payload = res.data.data;
-
-    if (payload?.needsSignup) {
-      return { needsSignup: true, phone: payload.phone };
-    }
-
-    const { user: authUser, token: authToken } = payload;
+    const { user: authUser, token: authToken } = res.data.data;
 
     if (authUser.role === "admin") {
       throw new Error("Please use the admin panel to sign in.");
@@ -106,15 +99,25 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const completeOtpSignupProfile = async ({ phone, name, shopName, shopAddress, gstNumber }) => {
-    const res = await completeOtpSignup({
-      phone,
-      name,
-      shopName: shopName.trim(),
-      shopAddress: shopAddress.trim(),
-      ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
-    });
-    const { user: authUser, token: authToken } = res.data.data;
+  const loginWithOtp = async ({ phone, otp, name, shopName, shopAddress, gstNumber }) => {
+    const res = await verifyOtpLogin({ phone, otp });
+    const payload = res.data.data;
+
+    if (payload?.needsSignup) {
+      if (name?.trim() && shopName?.trim() && shopAddress?.trim()) {
+        return completeOtpSignupProfile({
+          phone,
+          name,
+          shopName,
+          shopAddress,
+          gstNumber,
+        });
+      }
+
+      return { needsSignup: true, phone: payload.phone };
+    }
+
+    const { user: authUser, token: authToken } = payload;
 
     if (authUser.role === "admin") {
       throw new Error("Please use the admin panel to sign in.");

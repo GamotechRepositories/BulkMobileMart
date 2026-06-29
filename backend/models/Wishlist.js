@@ -21,9 +21,9 @@ const wishlistSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, "Email is required"],
       lowercase: true,
       trim: true,
+      default: "",
     },
     items: {
       type: [wishlistItemSchema],
