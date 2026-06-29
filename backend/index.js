@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import connectDB from "./config/dbconfig.js";
 import { ensureUserIndexes } from "./utils/ensureUserIndexes.js";
+import { ensureCartCompatibility } from "./utils/ensureCartCompatibility.js";
 import "./models/user.js";
 import heroBannerRoutes from "./routes/heroBannerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -74,6 +75,12 @@ connectDB().then(async () => {
     await ensureUserIndexes();
   } catch (error) {
     console.error("User index setup failed:", error.message);
+  }
+
+  try {
+    await ensureCartCompatibility();
+  } catch (error) {
+    console.error("Cart compatibility setup failed:", error.message);
   }
 
   try {

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
 import {
@@ -11,6 +12,7 @@ import {
 } from "../utils/productPricing.js";
 import { pruneUnavailableCartItems } from "../utils/orderHelpers.js";
 import { getUserContactEmail } from "../utils/userContact.js";
+import { respondWithControllerError } from "../utils/controllerErrors.js";
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -72,7 +74,7 @@ export const getCart = async (req, res) => {
 
     res.status(200).json({ success: true, data: cart });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error, "Get cart");
   }
 };
 
@@ -86,6 +88,13 @@ export const addToCart = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Product ID is required",
+      });
+    }
+
+    if (!mongoose.isValidObjectId(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
       });
     }
 
@@ -173,18 +182,45 @@ export const addToCart = async (req, res) => {
     let cart = await Cart.findOne({ user: req.user._id });
 
     if (!cart) {
-      cart = await Cart.create({
-        user: req.user._id,
-        email: getUserContactEmail(req.user),
-        items: [
-          {
-            product: productId,
-            quantity: qty,
-            variantName: normalizedVariantName,
-            colorName: resolvedColorName,
-          },
-        ],
-      });
+      try {
+        cart = await Cart.create({
+          user: req.user._id,
+          email: getUserContactEmail(req.user),
+          items: [
+            {
+              product: productId,
+              quantity: qty,
+              variantName: normalizedVariantName,
+              colorName: resolvedColorName,
+            },
+          ],
+        });
+      } catch (error) {
+        if (error.code === 11000) {
+          cart = await Cart.findOne({ user: req.user._id });
+          if (!cart) throw error;
+
+          cart.email = getUserContactEmail(req.user);
+          const existingIndex = cart.items.findIndex((item) =>
+            matchesCartItem(item, productId, normalizedVariantName, resolvedColorName)
+          );
+
+          if (existingIndex >= 0) {
+            cart.items[existingIndex].quantity += qty;
+          } else {
+            cart.items.push({
+              product: productId,
+              quantity: qty,
+              variantName: normalizedVariantName,
+              colorName: resolvedColorName,
+            });
+          }
+
+          await cart.save();
+        } else {
+          throw error;
+        }
+      }
     } else {
       cart.email = getUserContactEmail(req.user);
       const existingIndex = cart.items.findIndex((item) =>
@@ -231,7 +267,7 @@ export const addToCart = async (req, res) => {
       data: cart,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error, "Add to cart");
   }
 };
 
@@ -267,7 +303,7 @@ export const removeFromCart = async (req, res) => {
       data: updated,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error, "Remove from cart");
   }
 };
 
@@ -352,6 +388,6 @@ export const updateCartItem = async (req, res) => {
       data: updated,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    respondWithControllerError(res, error, "Update cart");
   }
 };
