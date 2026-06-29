@@ -84,11 +84,15 @@ function DealProductCard({
         <div className="mt-auto pt-1.5">
           <div className="lg:hidden">
             {multiVariant ? (
-              <AddToCartButton
-                onClick={() => setVariantSheetOpen(true)}
-                disabled={disabled}
-                className="w-full"
-              />
+              cartQuantity > 0 ? (
+                quantityStepper
+              ) : (
+                <AddToCartButton
+                  onClick={() => setVariantSheetOpen(true)}
+                  disabled={disabled}
+                  className="w-full"
+                />
+              )
             ) : cartQuantity > 0 ? (
               quantityStepper
             ) : (

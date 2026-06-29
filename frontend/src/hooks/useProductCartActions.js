@@ -14,14 +14,14 @@ function findCartLine(items, product) {
   const exact =
     items.find(
       (item) =>
-        item._id === product._id &&
+        String(item._id) === String(product._id) &&
         (item.variantName || "") === variantName &&
         (item.colorName || "") === colorName
     ) || null;
 
   if (exact) return exact;
 
-  return items.find((item) => item._id === product._id) || null;
+  return items.find((item) => String(item._id) === String(product._id)) || null;
 }
 
 export function useProductCartActions() {

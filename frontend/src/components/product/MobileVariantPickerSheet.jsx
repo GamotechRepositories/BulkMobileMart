@@ -14,6 +14,15 @@ import {
 } from "../../utils/productPricing";
 import ProductImageFrame from "./ProductImageFrame";
 import ProductPriceDisplay from "./ProductPriceDisplay";
+import AddToCartButton from "./AddToCartButton";
+
+function cartLineMatches(item, product, variantName, colorName) {
+  return (
+    String(item._id) === String(product._id) &&
+    (item.variantName || "") === variantName &&
+    (item.colorName || "") === colorName
+  );
+}
 
 function VariantRow({ product, variant, image, onClose }) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
@@ -32,12 +41,7 @@ function VariantRow({ product, variant, image, onClose }) {
       : 0;
 
   const cartLine =
-    items.find(
-      (item) =>
-        item._id === product._id &&
-        (item.variantName || "") === variantName &&
-        (item.colorName || "") === colorName
-    ) || null;
+    items.find((item) => cartLineMatches(item, product, variantName, colorName)) || null;
   const quantity = cartLine?.quantity || 0;
 
   const handleAdd = async (event) => {
@@ -112,37 +116,34 @@ function VariantRow({ product, variant, image, onClose }) {
 
       <div className="shrink-0">
         {quantity > 0 ? (
-          <div className="inline-flex min-w-[76px] items-center overflow-hidden rounded-md border border-primary bg-primary/5">
+          <div className="inline-flex w-[88px] items-center overflow-hidden rounded-lg border border-border-light bg-white">
             <button
               type="button"
               onClick={handleDecrease}
-              className="flex h-7 w-7 items-center justify-center text-sm font-medium text-primary"
+              className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary"
               aria-label="Decrease quantity"
             >
               −
             </button>
-            <span className="flex h-7 min-w-[24px] flex-1 items-center justify-center text-xs font-bold text-primary">
+            <span className="flex h-8 min-w-[28px] flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary">
               {quantity}
             </span>
             <button
               type="button"
               onClick={handleIncrease}
               disabled={!inStock}
-              className="flex h-7 w-7 items-center justify-center text-sm font-medium text-primary disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Increase quantity"
             >
               +
             </button>
           </div>
         ) : (
-          <button
-            type="button"
+          <AddToCartButton
             onClick={handleAdd}
             disabled={!inStock}
-            className="min-w-[60px] rounded-md border border-primary bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
-          >
-            Add
-          </button>
+            className="!min-h-[32px] !px-2.5 !py-1.5 !text-[10px]"
+          />
         )}
       </div>
     </div>
