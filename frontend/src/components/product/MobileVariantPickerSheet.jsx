@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
@@ -16,21 +16,34 @@ import ProductImageFrame from "./ProductImageFrame";
 import ProductPriceDisplay from "./ProductPriceDisplay";
 import AddToCartButton from "./AddToCartButton";
 
-function cartLineMatches(item, product, variantName, colorName) {
+function findVariantCartLine(items, product, variantName) {
+  const productId = String(product?._id || "");
+  const name = (variantName || "").trim();
+  if (!productId || !name) return null;
+
   return (
-    String(item._id) === String(product._id) &&
-    (item.variantName || "") === variantName &&
-    (item.colorName || "") === colorName
+    items.find(
+      (item) =>
+        String(item._id) === productId && (item.variantName || "").trim() === name
+    ) || null
   );
+}
+
+function resolveColorForVariant(product, variant, variantName) {
+  const fromVariant = variant?.colors?.[0]?.name?.trim();
+  if (fromVariant) return fromVariant;
+  return getAvailableColors(product, variantName)[0]?.name?.trim() || "";
 }
 
 function VariantRow({ product, variant, image, onClose }) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { openAuthModal } = useAuth();
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
 
-  const variantName = variant.name;
+  const variantName = (variant.name || "").trim();
   const inStock = isProductInStock(product, variantName);
-  const colorName = getAvailableColors(product, variantName)[0]?.name || "";
+  const colorName = resolveColorForVariant(product, variant, variantName);
   const { hasDiscount, originalPrice, salePrice } = getProductListPriceInfo(
     product,
     variantName
@@ -40,23 +53,34 @@ function VariantRow({ product, variant, image, onClose }) {
       ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
       : 0;
 
-  const cartLine =
-    items.find((item) => cartLineMatches(item, product, variantName, colorName)) || null;
+  const cartLine = findVariantCartLine(items, product, variantName);
   const quantity = cartLine?.quantity || 0;
 
   const handleAdd = async (event) => {
-    if (!inStock) return;
+    if (!inStock || adding) return;
 
-    const moq = getMinOrderQuantity(product, variantName, 1);
-    const result = await addToCart(product, moq, {
-      variantName,
-      colorName,
-      flySource: event.currentTarget,
-    });
+    setError("");
+    setAdding(true);
+    const flySource = event.currentTarget;
 
-    if (result?.requiresLogin) {
-      openAuthModal("login");
-      onClose();
+    try {
+      const moq = getMinOrderQuantity(product, variantName, 1);
+      const result = await addToCart(product, moq, {
+        variantName,
+        colorName,
+        flySource,
+      });
+
+      if (result?.requiresLogin) {
+        openAuthModal("login");
+        return;
+      }
+
+      if (!result?.success) {
+        setError(result?.message || "Could not add to cart");
+      }
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -111,6 +135,8 @@ function VariantRow({ product, variant, image, onClose }) {
         />
         {!inStock ? (
           <p className="mt-0.5 text-[10px] font-medium text-red-500">Out of stock</p>
+        ) : error ? (
+          <p className="mt-0.5 text-[10px] font-medium text-red-500">{error}</p>
         ) : null}
       </div>
 
@@ -140,8 +166,9 @@ function VariantRow({ product, variant, image, onClose }) {
           </div>
         ) : (
           <AddToCartButton
+            variant="outline"
             onClick={handleAdd}
-            disabled={!inStock}
+            disabled={!inStock || adding}
             className="!min-h-[32px] !px-2.5 !py-1.5 !text-[10px]"
           />
         )}
@@ -174,15 +201,16 @@ function MobileVariantPickerSheet({ product, open, onClose }) {
   const variants = product.variants || [];
 
   return createPortal(
-    <div className="fixed inset-0 z-[220] lg:hidden" role="dialog" aria-modal="true">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
-        onClick={onClose}
-        aria-label="Close variant picker"
-      />
-
-      <div className="absolute inset-x-0 bottom-0 mx-auto max-h-[72vh] w-full max-w-md">
+    <div
+      className="fixed inset-0 z-[220] bg-black/50 backdrop-blur-[1px] lg:hidden"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[72vh] w-full max-w-md"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex justify-center pb-1.5">
           <button
             type="button"

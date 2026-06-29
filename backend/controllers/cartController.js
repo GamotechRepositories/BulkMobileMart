@@ -129,8 +129,13 @@ export const addToCart = async (req, res) => {
     }
 
     const availableColors = getAvailableColors(product, normalizedVariantName);
+    let resolvedColorName = normalizedColorName;
+    if (availableColors.length > 0 && !resolvedColorName) {
+      resolvedColorName = availableColors[0].name?.trim() || "";
+    }
+
     if (availableColors.length > 0) {
-      if (!normalizedColorName) {
+      if (!resolvedColorName) {
         return res.status(400).json({
           success: false,
           message: "Color selection is required for this product",
@@ -138,7 +143,7 @@ export const addToCart = async (req, res) => {
       }
 
       const colorMatch = availableColors.some(
-        (color) => color.name?.trim().toLowerCase() === normalizedColorName.toLowerCase()
+        (color) => color.name?.trim().toLowerCase() === resolvedColorName.toLowerCase()
       );
 
       if (!colorMatch) {
@@ -176,14 +181,14 @@ export const addToCart = async (req, res) => {
             product: productId,
             quantity: qty,
             variantName: normalizedVariantName,
-            colorName: normalizedColorName,
+            colorName: resolvedColorName,
           },
         ],
       });
     } else {
       cart.email = getUserContactEmail(req.user);
       const existingIndex = cart.items.findIndex((item) =>
-        matchesCartItem(item, productId, normalizedVariantName, normalizedColorName)
+        matchesCartItem(item, productId, normalizedVariantName, resolvedColorName)
       );
 
       if (existingIndex >= 0) {
@@ -211,7 +216,7 @@ export const addToCart = async (req, res) => {
           product: productId,
           quantity: qty,
           variantName: normalizedVariantName,
-          colorName: normalizedColorName,
+          colorName: resolvedColorName,
         });
       }
 

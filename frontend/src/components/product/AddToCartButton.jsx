@@ -17,15 +17,21 @@ function CartIcon({ className = "h-3.5 w-3.5" }) {
   );
 }
 
-function AddToCartButton({ onClick, disabled, className = "" }) {
+function AddToCartButton({ onClick, disabled, className = "", variant = "solid" }) {
+  const isOutline = variant === "outline";
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex min-h-[34px] items-center justify-center gap-1 rounded-lg bg-primary px-2.5 py-2 text-[10px] font-semibold leading-tight text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:text-[11px] ${className}`}
+      className={`inline-flex min-h-[34px] items-center justify-center gap-1 rounded-lg px-2.5 py-2 text-[10px] font-semibold leading-tight transition disabled:cursor-not-allowed disabled:opacity-50 sm:text-[11px] ${
+        isOutline
+          ? "border border-primary bg-white text-primary hover:bg-orange-50"
+          : "bg-primary text-white hover:brightness-110"
+      } ${className}`}
     >
-      <CartIcon />
+      {!isOutline ? <CartIcon /> : null}
       <span>Add to Cart</span>
     </button>
   );

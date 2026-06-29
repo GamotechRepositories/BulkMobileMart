@@ -178,8 +178,10 @@ export function CartProvider({ children }) {
           showAddedToCartToast(product);
         }
         return { success: true };
-      } catch {
-        return { success: false };
+      } catch (error) {
+        const message =
+          error?.response?.data?.message || "Could not add to cart. Please try again.";
+        return { success: false, message };
       }
     },
     [user, openAuthModal, playFlyToCart, showAddedToCartToast]

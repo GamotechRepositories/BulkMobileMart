@@ -6,6 +6,7 @@ import {
   getDecreasedCartQuantityForProduct,
   resolveCartDefaults,
 } from "../utils/cartDefaults";
+import { isMultiVariant } from "../utils/productPricing";
 
 function findCartLine(items, product) {
   if (!product?._id) return null;
@@ -31,8 +32,18 @@ export function useProductCartActions() {
   const getCartLine = useCallback((product) => findCartLine(items, product), [items]);
 
   const getCartQuantity = useCallback(
-    (product) => getCartLine(product)?.quantity || 0,
-    [getCartLine]
+    (product) => {
+      if (!product?._id) return 0;
+
+      if (isMultiVariant(product)) {
+        return items
+          .filter((item) => String(item._id) === String(product._id))
+          .reduce((sum, item) => sum + (item.quantity || 0), 0);
+      }
+
+      return getCartLine(product)?.quantity || 0;
+    },
+    [items, getCartLine]
   );
 
   const handleAdd = useCallback(
