@@ -33,23 +33,23 @@ function DealProductCard({
   };
 
   const quantityStepper = (
-    <div className="mt-1.5 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
+    <div className="inline-flex h-9 w-full items-stretch overflow-hidden rounded-lg border border-border-light bg-white">
       <button
         type="button"
         onClick={() => onDecrease?.(product)}
-        className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:h-9 sm:w-10"
+        className="flex h-full w-9 shrink-0 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:w-10"
         aria-label="Decrease quantity"
       >
         −
       </button>
-      <span className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary sm:h-9">
+      <span className="flex h-full min-w-0 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary">
         {cartQuantity}
       </span>
       <button
         type="button"
         onClick={() => onIncrease?.(product)}
         disabled={disabled}
-        className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-10"
+        className="flex h-full w-9 shrink-0 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:w-10"
         aria-label="Increase quantity"
       >
         +

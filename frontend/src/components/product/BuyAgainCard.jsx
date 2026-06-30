@@ -99,22 +99,22 @@ function BuyAgainCard({ item }) {
 
         <div className="mt-2">
           {cartQuantity > 0 ? (
-            <div className="inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
+            <div className="inline-flex h-9 w-full items-stretch overflow-hidden rounded-lg border border-border-light bg-white">
               <button
                 type="button"
                 onClick={handleDecrease}
-                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface"
+                className="flex h-full w-8 shrink-0 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface"
                 aria-label="Decrease quantity"
               >
                 −
               </button>
-              <span className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-xs font-bold text-text-primary">
+              <span className="flex h-full min-w-0 flex-1 items-center justify-center border-x border-border-light text-xs font-bold text-text-primary">
                 {cartQuantity}
               </span>
               <button
                 type="button"
                 onClick={() => handleIncrease()}
-                className="flex h-8 w-8 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface"
+                className="flex h-full w-8 shrink-0 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface"
                 aria-label="Increase quantity"
               >
                 +
