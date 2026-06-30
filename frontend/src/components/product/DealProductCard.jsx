@@ -32,6 +32,41 @@ function DealProductCard({
     (onIncrease ?? onAdd)?.(product, event.currentTarget);
   };
 
+  const openVariantSheet = () => {
+    if (disabled) return;
+    setVariantSheetOpen(true);
+  };
+
+  const mobileMultiVariantStepper = (
+    <div className="mt-1.5 inline-flex w-full items-center overflow-hidden rounded-lg border border-border-light bg-white">
+      <button
+        type="button"
+        onClick={openVariantSheet}
+        className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary sm:h-9 sm:w-10"
+        aria-label="Choose variant to decrease"
+      >
+        −
+      </button>
+      <button
+        type="button"
+        onClick={openVariantSheet}
+        className="flex h-8 flex-1 items-center justify-center border-x border-border-light text-sm font-bold text-text-primary sm:h-9"
+        aria-label="View variants in cart"
+      >
+        {cartQuantity}
+      </button>
+      <button
+        type="button"
+        onClick={openVariantSheet}
+        disabled={disabled}
+        className="flex h-8 w-9 items-center justify-center text-base text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-10"
+        aria-label="Choose variant to increase"
+      >
+        +
+      </button>
+    </div>
+  );
+
   const quantityStepper = (
     <div className="inline-flex h-9 w-full items-stretch overflow-hidden rounded-lg border border-border-light bg-white">
       <button
@@ -85,10 +120,10 @@ function DealProductCard({
           <div className="lg:hidden">
             {multiVariant ? (
               cartQuantity > 0 ? (
-                quantityStepper
+                mobileMultiVariantStepper
               ) : (
                 <AddToCartButton
-                  onClick={() => setVariantSheetOpen(true)}
+                  onClick={openVariantSheet}
                   disabled={disabled}
                   className="w-full"
                 />
