@@ -6,6 +6,7 @@ import {
   finalizeOrder,
   normalizeOrderMessage,
   prepareOrderData,
+  upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
@@ -56,6 +57,21 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
+    const attemptedOrder = await upsertCheckoutAttemptOrder(
+      req.user._id,
+      {
+        orderItems: result.orderItems,
+        deliveryAddress: result.deliveryAddress,
+        subtotal: result.subtotal,
+        deliveryCharges: result.deliveryCharges,
+        gstAmount: result.gstAmount,
+        total: result.total,
+        cart: result.cart,
+        checkoutMode: result.checkoutMode,
+      },
+      paymentMode === "cod_advance" ? "cod" : "online"
+    );
+
     const payableAmount = calculatePayableAmount(result.total, paymentMode);
     const amountPaise = Math.round(payableAmount * 100);
 
@@ -80,6 +96,7 @@ export const createRazorpayOrder = async (req, res) => {
         paymentMode,
         payableAmount,
         orderTotal: result.total,
+        attemptedOrderId: attemptedOrder._id,
       },
     });
   } catch (error) {

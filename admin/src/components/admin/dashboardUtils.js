@@ -1,4 +1,12 @@
-const PENDING_STATUSES = ["confirm", "processing", "shipping"];
+const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
+
+export function getTodayDateString() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export function buildMonthlySales(orders, year) {
   const monthly = Array.from({ length: 12 }, (_, index) => ({
@@ -32,7 +40,8 @@ export function buildTodayStats(orders) {
 
   return {
     orders: todayOrders.length,
-    pending: todayOrders.filter((order) => PENDING_STATUSES.includes(order.status)).length,
+    attempted: todayOrders.filter((order) => order.status === "attempted").length,
+    pending: todayOrders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
     delivered: todayOrders.filter((order) => order.status === "delivered").length,
     cancelled: todayOrders.filter((order) => order.status === "cancelled").length,
   };

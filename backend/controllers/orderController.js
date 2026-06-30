@@ -23,13 +23,14 @@ import {
   notifyOrderStatusChange,
 } from "../services/orderNotificationDispatcher.js";
 
-const PENDING_STATUSES = ["confirm", "processing", "shipping"];
+const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
 
 function buildDayOrderStats(orders) {
   return {
     orders: orders.length,
-    pending: orders.filter((order) => PENDING_STATUSES.includes(order.status)).length,
+    attempted: orders.filter((order) => order.status === "attempted").length,
+    pending: orders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
     delivered: orders.filter((order) => order.status === "delivered").length,
     cancelled: orders.filter((order) => order.status === "cancelled").length,
   };
@@ -453,7 +454,7 @@ export const getDashboardStats = async (req, res) => {
       Order.find({ createdAt: { $gte: start7Days, $lte: endOfToday } }).select("status createdAt"),
       Order.find()
         .populate("user", "name email phone")
-        .sort({ createdAt: -1 })
+        .sort({ updatedAt: -1 })
         .limit(6)
         .select("orderNumber total status createdAt user deliveryAddress"),
       Order.aggregate([
@@ -683,11 +684,13 @@ export const getOrderUnreadCount = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
-    const { startDate, endDate, status, paymentStatus, search } = req.query;
+    const { startDate, endDate, status, statusGroup, paymentStatus, search } = req.query;
     const filter = {};
     const andClauses = [];
 
-    if (status && status !== "all") {
+    if (statusGroup === "pending") {
+      filter.status = { $in: ACTIVE_PENDING_STATUSES };
+    } else if (status && status !== "all") {
       filter.status = status;
     }
 
@@ -728,7 +731,7 @@ export const getAllOrders = async (req, res) => {
       Order.countDocuments(filter),
       Order.find(filter)
         .populate("user", "name email phone")
-        .sort({ createdAt: -1 })
+        .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit),
     ]);

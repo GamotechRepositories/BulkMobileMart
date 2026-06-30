@@ -94,27 +94,46 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _selectedAddressId = defaultAddr.id;
   }
 
-  Future<void> _syncCheckoutAttempt(List<CartItem> items) async {
-    if (_orderPlaced || items.isEmpty) return;
+  List<Map<String, dynamic>> _checkoutItemsPayload(List<CartItem> items) {
+    return items
+        .map(
+          (item) => {
+            'productId': item.id,
+            'quantity': item.quantity,
+            'variantName': item.variantName,
+            'colorName': item.colorName,
+          },
+        )
+        .toList();
+  }
+
+  Future<String?> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
+    if (_orderPlaced || items.isEmpty) return _attemptedOrderId;
 
     final key =
         '${_selectedAddressId ?? ''}|$_paymentPlan|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
-    if (key == _lastCheckoutAttemptKey) return;
-    _lastCheckoutAttemptKey = key;
+    if (!force && key == _lastCheckoutAttemptKey && _attemptedOrderId != null) {
+      return _attemptedOrderId;
+    }
 
     try {
       final response = await ref.read(apiServiceProvider).createCheckoutAttempt({
         if (_selectedAddressId != null) 'addressId': _selectedAddressId,
         'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
+        'checkoutItems': _checkoutItemsPayload(items),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
       if (orderId != null && orderId.isNotEmpty) {
         _attemptedOrderId = orderId;
+        _lastCheckoutAttemptKey = key;
+        return orderId;
       }
     } catch (_) {
-      // Non-blocking: checkout can continue if attempt recording fails.
+      // Caller can retry with force before payment.
     }
+
+    return _attemptedOrderId;
   }
 
   Future<void> _handleSaveAddress(Map<String, String> form) async {
@@ -183,6 +202,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     if (!meetsMinimumOrder(summary.subtotal, minimumOrderValue)) return;
 
+    await _syncCheckoutAttempt(cartItems, force: true);
+    if (!mounted) return;
+
     await _startRazorpayPayment();
   }
 
@@ -197,9 +219,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     });
 
     try {
+      final cartItems = ref.read(cartControllerProvider).items;
       final response = await ref.read(apiServiceProvider).createRazorpayOrder({
         'addressId': _selectedAddressId,
         'paymentMode': _apiPaymentMode,
+        'checkoutItems': _checkoutItemsPayload(cartItems),
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -207,6 +231,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ApiResponseParser.getMessage(response.data) ??
               'Invalid payment response from server.',
         );
+      }
+
+      final attemptedId = body['attemptedOrderId']?.toString();
+      if (attemptedId != null && attemptedId.isNotEmpty) {
+        _attemptedOrderId = attemptedId;
       }
 
       final keyId = body['keyId']?.toString() ?? '';
@@ -267,10 +296,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     });
 
     try {
+      final cartItems = ref.read(cartControllerProvider).items;
       await ref.read(apiServiceProvider).verifyRazorpayPayment({
         'addressId': _selectedAddressId,
         'paymentMode': _pendingPaymentMode,
         'customerMessage': _message.trim(),
+        'checkoutItems': _checkoutItemsPayload(cartItems),
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
@@ -298,6 +329,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _placingOrder = false;
       _orderError = message;
     });
+    final cartItems = ref.read(cartControllerProvider).items;
+    if (cartItems.isNotEmpty) {
+      _syncCheckoutAttempt(cartItems, force: true);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }

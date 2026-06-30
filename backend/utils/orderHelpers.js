@@ -413,7 +413,9 @@ async function resolveItemsForCheckout(userId, options = {}) {
   let cart = null;
 
   if (checkoutMode === "buyNow") {
-    const resolved = await resolveCheckoutItems(options.checkoutItems);
+    const resolved = await resolveCheckoutItems(options.checkoutItems, {
+      skipStockCheck: Boolean(options.skipStockCheck),
+    });
     if (resolved.error) {
       return resolved;
     }
@@ -457,7 +459,10 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
       (await Address.findOne({ user: userId }).sort({ updatedAt: -1 }));
   }
 
-  const resolvedItems = await resolveItemsForCheckout(userId, options);
+  const resolvedItems = await resolveItemsForCheckout(userId, {
+    ...options,
+    skipStockCheck: true,
+  });
   if (resolvedItems.error) {
     return resolvedItems;
   }
@@ -535,6 +540,21 @@ async function clearCartAfterCheckout(cart, checkoutMode, orderItems) {
   await cart.save();
 }
 
+export async function findAttemptedOrderForCheckout(userId, attemptedOrderId) {
+  if (attemptedOrderId) {
+    const explicit = await Order.findOne({
+      _id: attemptedOrderId,
+      user: userId,
+      status: "attempted",
+    });
+    if (explicit) {
+      return explicit;
+    }
+  }
+
+  return Order.findOne({ user: userId, status: "attempted" }).sort({ updatedAt: -1 });
+}
+
 export async function completeAttemptedOrder({
   attemptedOrderId,
   userId,
@@ -557,11 +577,7 @@ export async function completeAttemptedOrder({
   paidAt,
   message = "",
 }) {
-  const order = await Order.findOne({
-    _id: attemptedOrderId,
-    user: userId,
-    status: "attempted",
-  });
+  const order = await findAttemptedOrderForCheckout(userId, attemptedOrderId);
 
   if (!order) {
     return null;
@@ -615,33 +631,31 @@ export async function finalizeOrder({
   message = "",
   attemptedOrderId,
 }) {
-  if (attemptedOrderId) {
-    const completed = await completeAttemptedOrder({
-      attemptedOrderId,
-      userId,
-      orderItems,
-      deliveryAddress,
-      subtotal,
-      deliveryCharges,
-      gstAmount,
-      total,
-      cart,
-      checkoutMode,
-      paymentMethod,
-      paymentStatus,
-      status,
-      razorpayOrderId,
-      razorpayPaymentId,
-      codAdvanceAmount,
-      codAdvanceRazorpayPaymentId,
-      codAdvancePaidAt,
-      paidAt,
-      message,
-    });
+  const completed = await completeAttemptedOrder({
+    attemptedOrderId,
+    userId,
+    orderItems,
+    deliveryAddress,
+    subtotal,
+    deliveryCharges,
+    gstAmount,
+    total,
+    cart,
+    checkoutMode,
+    paymentMethod,
+    paymentStatus,
+    status,
+    razorpayOrderId,
+    razorpayPaymentId,
+    codAdvanceAmount,
+    codAdvanceRazorpayPaymentId,
+    codAdvancePaidAt,
+    paidAt,
+    message,
+  });
 
-    if (completed) {
-      return completed;
-    }
+  if (completed) {
+    return completed;
   }
 
   const orderMessage =

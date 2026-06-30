@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdminNotifications } from "../../../context/AdminNotificationContext";
@@ -38,6 +38,7 @@ function getErrorMessage(err, fallback) {
 
 function OrderSection() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { adminUser } = useAuth();
   const { markOrdersAsSeen } = useAdminNotifications();
   const [orders, setOrders] = useState([]);
@@ -58,6 +59,24 @@ function OrderSection() {
   });
 
   useEffect(() => {
+    const start = searchParams.get("startDate") || "";
+    const end = searchParams.get("endDate") || "";
+    const status = searchParams.get("status");
+    const statusGroup = searchParams.get("statusGroup");
+
+    setStartDate(start);
+    setEndDate(end);
+
+    if (statusGroup === "pending") {
+      setOrderStatus("pending");
+    } else if (status) {
+      setOrderStatus(status);
+    } else {
+      setOrderStatus("all");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     setPage(1);
   }, [startDate, endDate, orderStatus, paymentStatus, searchQuery]);
 
@@ -74,7 +93,11 @@ function OrderSection() {
       const params = { page, limit: ADMIN_PAGE_SIZE };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      if (orderStatus !== "all") params.status = orderStatus;
+      if (orderStatus === "pending") {
+        params.statusGroup = "pending";
+      } else if (orderStatus !== "all") {
+        params.status = orderStatus;
+      }
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
       if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
 
@@ -100,12 +123,27 @@ function OrderSection() {
     fetchOrders();
   }, [fetchOrders]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchOrders]);
+
   const handleDownload = async () => {
     try {
       const params = { limit: 10000 };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      if (orderStatus !== "all") params.status = orderStatus;
+      if (orderStatus === "pending") {
+        params.statusGroup = "pending";
+      } else if (orderStatus !== "all") {
+        params.status = orderStatus;
+      }
       if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
       if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
       const { data } = await getAdminOrders(params);

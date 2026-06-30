@@ -5,6 +5,7 @@ import { cardClass } from "../adminStyles";
 import { formatCurrency } from "./dashboardUtils";
 
 const STATUS_STYLES = {
+  attempted: "bg-purple-100 text-purple-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
   confirm: "bg-amber-100 text-amber-800",

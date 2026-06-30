@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getDashboardStats } from "../../../api/api";
 import MonthlySalesChart from "../MonthlySalesChart";
 import DashboardRecentOrders from "../dashboard/DashboardRecentOrders";
@@ -7,9 +7,10 @@ import StoreOverview from "../dashboard/StoreOverview";
 import TodayStatCard from "../dashboard/TodayStatCard";
 import TopCategoriesChart from "../dashboard/TopCategoriesChart";
 import TotalMiniCard from "../dashboard/TotalMiniCard";
+import { getTodayDateString } from "../dashboardUtils";
 import { IconCategory, IconOrder, IconProduct } from "../AdminIcons";
 
-const EMPTY_DAY_STATS = { orders: 0, pending: 0, delivered: 0, cancelled: 0 };
+const EMPTY_DAY_STATS = { orders: 0, attempted: 0, pending: 0, delivered: 0, cancelled: 0 };
 
 function OverviewSection() {
   const currentYear = new Date().getFullYear();
@@ -66,6 +67,12 @@ function OverviewSection() {
     loadDashboard();
   }, [year, currentYear]);
 
+  const todayDate = getTodayDateString();
+  const todayOrdersLink = useMemo(
+    () => `/orders?startDate=${todayDate}&endDate=${todayDate}`,
+    [todayDate]
+  );
+
   return (
     <div className="min-w-0 space-y-6">
       {error && (
@@ -74,20 +81,33 @@ function OverviewSection() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <TodayStatCard
           label="Today's Orders"
           value={today.orders}
           loading={loading}
           iconBg="bg-orange-50 text-primary"
+          to={todayOrdersLink}
         >
           <IconOrder className="h-5 w-5" />
+        </TodayStatCard>
+        <TodayStatCard
+          label="Today's Attempted"
+          value={today.attempted}
+          loading={loading}
+          iconBg="bg-purple-50 text-purple-600"
+          to={`${todayOrdersLink}&status=attempted`}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.25 10.5V6a3.75 3.75 0 117.5 0v4.5" />
+          </svg>
         </TodayStatCard>
         <TodayStatCard
           label="Today's Pending"
           value={today.pending}
           loading={loading}
           iconBg="bg-amber-50 text-amber-500"
+          to={`${todayOrdersLink}&statusGroup=pending`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -98,6 +118,7 @@ function OverviewSection() {
           value={today.delivered}
           loading={loading}
           iconBg="bg-green-50 text-green-600"
+          to={`${todayOrdersLink}&status=delivered`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -108,6 +129,7 @@ function OverviewSection() {
           value={today.cancelled}
           loading={loading}
           iconBg="bg-red-50 text-red-500"
+          to={`${todayOrdersLink}&status=cancelled`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

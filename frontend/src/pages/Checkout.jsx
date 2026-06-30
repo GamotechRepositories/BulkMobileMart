@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
@@ -66,19 +66,15 @@ function Checkout() {
   const buyNowItem = getBuyNowCheckout();
   const isBuyNow = Boolean(buyNowItem);
   const checkoutItems = isBuyNow ? [buyNowItem] : items;
-  const paymentCheckoutItems = useMemo(
+  const checkoutItemsPayload = useMemo(
     () =>
-      isBuyNow && buyNowItem
-        ? [
-            {
-              productId: buyNowItem.productId,
-              quantity: buyNowItem.quantity,
-              variantName: buyNowItem.variantName || "",
-              colorName: buyNowItem.colorName || "",
-            },
-          ]
-        : undefined,
-    [isBuyNow, buyNowItem]
+      checkoutItems.map((item) => ({
+        productId: item.productId || item._id,
+        quantity: item.quantity,
+        variantName: item.variantName || "",
+        colorName: item.colorName || "",
+      })),
+    [checkoutItems]
   );
 
   const [addresses, setAddresses] = useState([]);
@@ -220,46 +216,42 @@ function Checkout() {
     isBuyNow,
   ]);
 
-  useEffect(() => {
-    if (
-      authLoading ||
-      bootstrapping ||
-      !user ||
-      orderPlaced ||
-      checkoutItems.length === 0 ||
-      (!isBuyNow && cartLoading)
-    ) {
-      return;
+  const syncCheckoutAttempt = useCallback(async () => {
+    if (authLoading || bootstrapping || !user || orderPlaced || checkoutItems.length === 0) {
+      return attemptedOrderIdRef.current;
     }
 
-    let active = true;
+    try {
+      const { data } = await createCheckoutAttempt({
+        addressId: selectedAddressId || undefined,
+        paymentMethod,
+        checkoutItems: checkoutItemsPayload,
+      });
+      const orderId = data?.data?._id;
+      if (orderId) {
+        setAttemptedOrderId(orderId);
+        attemptedOrderIdRef.current = orderId;
+        return orderId;
+      }
+    } catch (err) {
+      console.warn("Checkout attempt sync failed:", err.response?.data?.message || err.message);
+    }
 
-    createCheckoutAttempt({
-      addressId: selectedAddressId || undefined,
-      paymentMethod,
-      checkoutItems: paymentCheckoutItems,
-    })
-      .then(({ data }) => {
-        if (active && data?.data?._id) {
-          setAttemptedOrderId(data.data._id);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
+    return attemptedOrderIdRef.current;
   }, [
     authLoading,
     bootstrapping,
     user,
     orderPlaced,
     checkoutItems.length,
-    cartLoading,
-    isBuyNow,
-    checkoutAttemptKey,
-    paymentCheckoutItems,
+    selectedAddressId,
+    paymentMethod,
+    checkoutItemsPayload,
   ]);
+
+  useEffect(() => {
+    syncCheckoutAttempt();
+  }, [syncCheckoutAttempt, checkoutAttemptKey]);
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
@@ -282,9 +274,14 @@ function Checkout() {
     const { data } = await createRazorpayOrder({
       addressId: selectedAddressId,
       paymentMode,
-      checkoutItems: paymentCheckoutItems,
+      checkoutItems: checkoutItemsPayload,
     });
     const paymentData = data.data;
+
+    if (paymentData.attemptedOrderId) {
+      setAttemptedOrderId(paymentData.attemptedOrderId);
+      attemptedOrderIdRef.current = paymentData.attemptedOrderId;
+    }
 
     setPlacingOrder(false);
 
@@ -305,7 +302,7 @@ function Checkout() {
             addressId: selectedAddressId,
             paymentMode,
             customerMessage: safeTrim(messageRef.current),
-            checkoutItems: paymentCheckoutItems,
+            checkoutItems: checkoutItemsPayload,
             attemptedOrderId: attemptedOrderIdRef.current,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
@@ -324,9 +321,10 @@ function Checkout() {
           setPlacingOrder(false);
         }
       },
-      onDismiss: () => {
+      onDismiss: async () => {
         setPlacingOrder(false);
         setOrderError("Payment cancelled. Your order was not placed.");
+        await syncCheckoutAttempt();
       },
     });
   };
@@ -337,6 +335,7 @@ function Checkout() {
     setPlacingOrder(true);
     await loadCart();
     try {
+      await syncCheckoutAttempt();
       await handleRazorpayPayment();
     } catch (err) {
       setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
