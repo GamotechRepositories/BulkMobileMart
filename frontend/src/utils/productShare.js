@@ -43,12 +43,17 @@ export function buildProductShareContent({ product, shareUrl, includeUrl = true 
   const brandName = product?.brandName?.trim() || "";
   const productName = product?.name?.trim() || "Product";
 
-  const lines = [
-    productName,
-    brandName || null,
-    "Shop on Bulk Mobile Mart",
-    includeUrl && shareUrl ? shareUrl : null,
-  ].filter((line) => line !== null && line !== "");
+  const lines = [productName];
+
+  if (brandName) {
+    lines.push(`Brand: ${brandName}`);
+  }
+
+  if (includeUrl && shareUrl) {
+    lines.push(`Shop on Bulk Mobile Mart: ${shareUrl}`);
+  } else {
+    lines.push("Shop on Bulk Mobile Mart");
+  }
 
   return {
     title: productName,
