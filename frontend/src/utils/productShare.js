@@ -39,22 +39,15 @@ async function fetchImageBlob(imageUrl) {
   }
 }
 
-export function buildProductShareContent({
-  product,
-  shareUrl,
-  variantName = "",
-  includeUrl = true,
-}) {
+export function buildProductShareContent({ product, shareUrl, includeUrl = true }) {
   const brandName = product?.brandName?.trim() || "";
   const productName = product?.name?.trim() || "Product";
 
   const lines = [
     productName,
-    brandName ? `Brand: ${brandName}` : null,
-    variantName ? `Variant: ${variantName}` : null,
-    includeUrl ? "" : null,
-    includeUrl ? "Shop on Bulk Mobile Mart:" : null,
-    includeUrl ? shareUrl : null,
+    brandName || null,
+    "Shop on Bulk Mobile Mart",
+    includeUrl && shareUrl ? shareUrl : null,
   ].filter((line) => line !== null && line !== "");
 
   return {
@@ -66,11 +59,10 @@ export function buildProductShareContent({
   };
 }
 
-export async function getShareableProductFile({ product, imageUrl, variantName = "" }) {
+export async function getShareableProductFile({ product, imageUrl }) {
   const { productName } = buildProductShareContent({
     product,
     shareUrl: "",
-    variantName,
     includeUrl: false,
   });
 
@@ -89,37 +81,18 @@ export async function getShareableProductFile({ product, imageUrl, variantName =
   });
 }
 
-export async function shareProduct({ product, shareUrl, imageUrl, variantName = "" }) {
+export async function shareProduct({ product, shareUrl, imageUrl }) {
   if (!navigator.share) return false;
 
-  const shareContent = buildProductShareContent({
-    product,
-    shareUrl,
-    variantName,
-    includeUrl: true,
-  });
-  const imageFile = await getShareableProductFile({ product, imageUrl, variantName });
+  const shareContent = buildProductShareContent({ product, shareUrl, includeUrl: true });
+  const imageFile = await getShareableProductFile({ product, imageUrl });
 
   if (imageFile && navigator.canShare?.({ files: [imageFile] })) {
-    const caption = buildProductShareContent({
-      product,
-      shareUrl: "",
-      variantName,
-      includeUrl: false,
-    }).text;
-
-    const sharePayload = {
+    await navigator.share({
       title: shareContent.title,
-      text: caption,
+      text: shareContent.text,
       files: [imageFile],
-    };
-
-    if (shareUrl && navigator.canShare?.({ ...sharePayload, url: shareUrl })) {
-      await navigator.share({ ...sharePayload, url: shareUrl });
-    } else {
-      await navigator.share(sharePayload);
-    }
-
+    });
     return true;
   }
 
@@ -143,13 +116,12 @@ function upsertMetaTag(attribute, key, content) {
   element.setAttribute("content", content);
 }
 
-export function updateProductShareMeta({ product, shareUrl, imageUrl, variantName = "" }) {
+export function updateProductShareMeta({ product, shareUrl, imageUrl }) {
   if (!product || typeof document === "undefined") return;
 
   const { title, productName, brandName } = buildProductShareContent({
     product,
     shareUrl,
-    variantName,
     includeUrl: false,
   });
 

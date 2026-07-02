@@ -272,9 +272,11 @@ function ProductShareMenu({ product, shareUrl, imageUrl, variantName = "" }) {
   const [sharing, setSharing] = useState(false);
   const menuRef = useRef(null);
 
-  const shareContent = buildProductShareContent({ product, shareUrl, variantName });
+  const shareContent = buildProductShareContent({ product, shareUrl });
   const { text: shareMessage, title: shareTitle } = shareContent;
-  const shareText = shareContent.productName;
+  const shareText = shareContent.brandName
+    ? `${shareContent.productName} · ${shareContent.brandName}`
+    : shareContent.productName;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -408,7 +410,7 @@ function ProductShareMenu({ product, shareUrl, imageUrl, variantName = "" }) {
         <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-lg border border-border-light bg-white p-3 shadow-lg">
           <p className="mb-1 text-sm font-semibold text-text-primary">Share this product</p>
           <p className="mb-3 text-[11px] leading-snug text-text-secondary">
-            Shares main product image and link
+            Shares image, name, brand, and product link
           </p>
 
           <div className="grid grid-cols-4 gap-2">
