@@ -88,6 +88,12 @@ export function getOrderStatusLabel(status) {
   return STATUS_LABELS[status] || status;
 }
 
+const ORDER_ITEM_LOCKED_STATUSES = new Set(["shipping", "delivered", "cancelled"]);
+
+export function canEditOrderItems(status) {
+  return !ORDER_ITEM_LOCKED_STATUSES.has(status);
+}
+
 export function getOrderMessage(order) {
   return (order?.message || order?.customerNote || order?.customerMessage || "").trim();
 }

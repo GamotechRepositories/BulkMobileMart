@@ -767,6 +767,14 @@ export const updateOrder = async (req, res) => {
     const previousStatus = existingOrder.status;
 
     if (items !== undefined) {
+      const lockedStatuses = ["shipping", "delivered", "cancelled"];
+      if (lockedStatuses.includes(existingOrder.status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Order items cannot be changed after the order is shipped, delivered, or cancelled",
+        });
+      }
+
       const rebuilt = await rebuildOrderFromItemsInput(items);
       if (rebuilt.error) {
         return res.status(rebuilt.status || 400).json({

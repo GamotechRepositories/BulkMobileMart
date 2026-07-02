@@ -88,7 +88,7 @@ function ProductThumb({ product, className = "h-12 w-12" }) {
   );
 }
 
-function AdminOrderItemsEditor({ order, disabled, onUpdated, onError, onSuccess }) {
+function AdminOrderItemsEditor({ order, disabled, itemsEditable = true, onUpdated, onError, onSuccess }) {
   const [lineItems, setLineItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -252,7 +252,14 @@ function AdminOrderItemsEditor({ order, disabled, onUpdated, onError, onSuccess 
   return (
     <div className={cardClass}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Order Items</h3>
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-neutral-500">Order Items</h3>
+          {!itemsEditable ? (
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Items can only be edited while the order is processing or earlier.
+            </p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={resetItems} disabled={disabled || saving} className={btnSecondary}>
             Reset
@@ -458,6 +465,7 @@ function AdminOrderItemsEditor({ order, disabled, onUpdated, onError, onSuccess 
                   draft={draft}
                   isExpanded={expandedProductIds.has(product._id)}
                   isInOrder={lineItemKeys.has(key)}
+                  disabled={disabled || saving}
                   onToggleExpand={() => toggleProductExpand(product._id)}
                   onQuickAdd={() => addToLineItems(product, draft)}
                   onDraftChange={(nextDraft) =>

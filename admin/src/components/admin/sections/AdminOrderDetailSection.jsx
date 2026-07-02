@@ -14,6 +14,7 @@ import {
   ADMIN_DETAIL_PAYMENT_STATUS_OPTIONS,
   ORDER_PROGRESS_STEPS,
   ORDER_STATUS_STEP_INDEX,
+  canEditOrderItems,
   formatDateTime,
   formatPrice,
   getPaymentStatus,
@@ -327,7 +328,8 @@ function AdminOrderDetailSection() {
 
       <AdminOrderItemsEditor
         order={order}
-        disabled={updating || order.status === "cancelled"}
+        disabled={updating || !canEditOrderItems(order.status)}
+        itemsEditable={canEditOrderItems(order.status)}
         onUpdated={handleItemsUpdated}
         onError={setError}
         onSuccess={setSuccess}

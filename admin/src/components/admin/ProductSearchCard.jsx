@@ -54,6 +54,7 @@ export default function ProductSearchCard({
   draft,
   isExpanded,
   isInOrder,
+  disabled = false,
   onToggleExpand,
   onQuickAdd,
   onDraftChange,
@@ -113,7 +114,8 @@ export default function ProductSearchCard({
               <button
                 type="button"
                 onClick={onToggleExpand}
-                className={`${isExpanded ? btnCompactSecondary : btnCompactPrimary} w-full sm:w-auto`}
+                disabled={disabled}
+                className={`${isExpanded ? btnCompactSecondary : btnCompactPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {isExpanded ? "Close" : "Add"}
               </button>
@@ -121,7 +123,8 @@ export default function ProductSearchCard({
               <button
                 type="button"
                 onClick={onQuickAdd}
-                className={`${btnCompactPrimary} w-full sm:w-auto`}
+                disabled={disabled}
+                className={`${btnCompactPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 Add
               </button>
@@ -130,7 +133,8 @@ export default function ProductSearchCard({
               <button
                 type="button"
                 onClick={onToggleExpand}
-                className={`${isExpanded ? btnCompactSecondary : btnCompactPrimary} w-full sm:w-auto`}
+                disabled={disabled}
+                className={`${isExpanded ? btnCompactSecondary : btnCompactPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {isExpanded ? "Close" : "Add variant"}
               </button>
@@ -147,6 +151,7 @@ export default function ProductSearchCard({
                 <label className={labelClass}>Variant</label>
                 <select
                   value={draft.variantName}
+                  disabled={disabled}
                   onChange={(e) => {
                     const variantName = e.target.value;
                     const nextColors = getAvailableColors(product, variantName);
@@ -173,6 +178,7 @@ export default function ProductSearchCard({
                 <label className={labelClass}>Color</label>
                 <select
                   value={draft.colorName}
+                  disabled={disabled}
                   onChange={(e) => onDraftChange({ ...draft, colorName: e.target.value })}
                   className={adminFilterInputClass}
                 >
@@ -189,7 +195,7 @@ export default function ProductSearchCard({
             <div className="col-span-2 min-w-0 lg:col-span-1">
               <label className={labelClass}>Quantity</label>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <button type="button" onClick={() => adjustQty(-1)} className={btnCompactSecondary}>
+                <button type="button" onClick={() => adjustQty(-1)} disabled={disabled} className={btnCompactSecondary}>
                   −
                 </button>
                 <input
@@ -197,6 +203,7 @@ export default function ProductSearchCard({
                   min={minQty}
                   step={step}
                   value={draft.quantity}
+                  disabled={disabled}
                   onChange={(e) =>
                     onDraftChange({
                       ...draft,
@@ -205,7 +212,7 @@ export default function ProductSearchCard({
                   }
                   className={`${adminFilterInputClass} min-w-0 flex-1 text-center`}
                 />
-                <button type="button" onClick={() => adjustQty(1)} className={btnCompactSecondary}>
+                <button type="button" onClick={() => adjustQty(1)} disabled={disabled} className={btnCompactSecondary}>
                   +
                 </button>
               </div>
@@ -215,7 +222,8 @@ export default function ProductSearchCard({
               <button
                 type="button"
                 onClick={handleConfirm}
-                className={`${btnCompactPrimary} w-full sm:w-auto`}
+                disabled={disabled}
+                className={`${btnCompactPrimary} w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 Add to Order
               </button>
