@@ -81,6 +81,32 @@ const orderSchema = new mongoose.Schema(
       maxlength: 500,
       default: "",
     },
+    shipment: {
+      provider: { type: String, default: "" },
+      carrier: { type: String, default: "" },
+      service: { type: String, default: "" },
+      shipmentId: { type: String, default: "" },
+      trackingNumber: { type: String, default: "" },
+      trackUrl: { type: String, default: "" },
+      labelUrl: { type: String, default: "" },
+      status: { type: String, default: "" },
+      statusMessage: { type: String, default: "" },
+      syncedAt: { type: Date, default: null },
+      events: {
+        type: [
+          new mongoose.Schema(
+            {
+              status: { type: String, default: "" },
+              date: { type: String, default: "" },
+              location: { type: String, default: "" },
+              description: { type: String, default: "" },
+            },
+            { _id: false }
+          ),
+        ],
+        default: () => [],
+      },
+    },
   },
   { timestamps: true }
 );

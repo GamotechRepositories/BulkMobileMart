@@ -295,6 +295,9 @@ function SidebarContent({
           const showOrdersBadge = item.to === "/orders" && hasUnreadOrders;
           const showPaymentsBadge = item.to === "/payments" && hasUnreadPayments;
           const showBadge = showSupportBadge || showOrdersBadge || showPaymentsBadge;
+          const resolveLinkActive = (defaultActive) =>
+            item.resolveActive ? item.resolveActive(location.pathname) : defaultActive;
+
           return (
             <NavLink
               key={item.to}
@@ -302,20 +305,16 @@ function SidebarContent({
               end={item.end}
               title={collapsed ? item.label : undefined}
               onClick={onNavigate}
-              isActive={
-                item.resolveActive
-                  ? ({ location }) => item.resolveActive(location.pathname)
-                  : undefined
-              }
-              className={({ isActive }) =>
-                collapsed
+              className={({ isActive }) => {
+                const active = resolveLinkActive(isActive);
+                return collapsed
                   ? `flex items-center justify-center rounded-lg p-2.5 transition ${
-                      isActive
+                      active
                         ? "bg-accent text-white"
                         : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
                     }`
-                  : navLinkClass({ isActive })
-              }
+                  : navLinkClass({ isActive: active });
+              }}
             >
               <NavIconWithBadge showBadge={showBadge}>
                 <Icon className="w-5 h-5 shrink-0" />

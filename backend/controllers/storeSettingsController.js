@@ -50,6 +50,59 @@ const sanitizeMerchantUpiAccounts = (accounts, defaultPayeeName = "BulkMobileMar
   return { accounts: singleActiveAccounts };
 };
 
+const toPositiveNumber = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+const sanitizeEnviaConfig = (envia = {}, existingEnvia = null) => {
+  if (!envia || typeof envia !== "object") {
+    return { error: "Invalid Envia settings payload" };
+  }
+
+  const origin = envia.origin || {};
+  const packageDefaults = envia.packageDefaults || {};
+  const submittedToken = sanitizeText(envia.apiToken) || "";
+  const existingToken = sanitizeText(existingEnvia?.apiToken) || "";
+  const apiToken = submittedToken || existingToken;
+
+  const cleaned = {
+    enabled: Boolean(envia.enabled),
+    useSandbox: envia.useSandbox !== false,
+    apiToken,
+    defaultCarrier: sanitizeText(envia.defaultCarrier) || "",
+    defaultService: sanitizeText(envia.defaultService) || "",
+    origin: {
+      name: sanitizeText(origin.name) || "",
+      company: sanitizeText(origin.company) || "BulkMobileMart",
+      email: sanitizeText(origin.email) || "",
+      phone: sanitizeText(origin.phone) || "",
+      street: sanitizeText(origin.street) || "",
+      city: sanitizeText(origin.city) || "",
+      state: sanitizeText(origin.state) || "",
+      country: (sanitizeText(origin.country) || "IN").toUpperCase(),
+      postalCode: sanitizeText(origin.postalCode) || "",
+    },
+    packageDefaults: {
+      type: sanitizeText(packageDefaults.type) || "box",
+      content: sanitizeText(packageDefaults.content) || "Mobile accessories",
+      amount: Math.max(1, Math.round(toPositiveNumber(packageDefaults.amount, 1))),
+      weightUnit: (sanitizeText(packageDefaults.weightUnit) || "KG").toUpperCase(),
+      lengthUnit: (sanitizeText(packageDefaults.lengthUnit) || "CM").toUpperCase(),
+      weight: toPositiveNumber(packageDefaults.weight, 1),
+      length: toPositiveNumber(packageDefaults.length, 20),
+      width: toPositiveNumber(packageDefaults.width, 15),
+      height: toPositiveNumber(packageDefaults.height, 10),
+    },
+  };
+
+  if (cleaned.enabled && !cleaned.apiToken) {
+    return { error: "Envia API token is required when Envia is enabled" };
+  }
+
+  return { envia: cleaned };
+};
+
 export const getPublicStoreSettings = async (_req, res) => {
   try {
     const settings = await getStoreSettings();
@@ -80,6 +133,7 @@ export const updateStoreSettings = async (req, res) => {
       merchantUpiAccounts,
       cartNoticeEn,
       cartNoticeHi,
+      envia,
     } = req.body;
 
     const payload = {};
@@ -156,10 +210,24 @@ export const updateStoreSettings = async (req, res) => {
     if (noticeHi) payload.cartNoticeHi = noticeHi;
 
     let doc = await StoreSettings.findOne({ key: "store" });
+
+    if (envia !== undefined) {
+      const result = sanitizeEnviaConfig(envia, doc?.envia);
+      if (result?.error) {
+        return res.status(400).json({ success: false, message: result.error });
+      }
+      payload.envia = result.envia;
+    }
+
     if (!doc) {
       doc = await StoreSettings.create({ key: "store", ...payload });
     } else {
-      Object.assign(doc, payload);
+      const { envia: enviaPayload, ...rest } = payload;
+      Object.assign(doc, rest);
+      if (enviaPayload !== undefined) {
+        doc.set("envia", enviaPayload);
+        doc.markModified("envia");
+      }
       await doc.save();
     }
 

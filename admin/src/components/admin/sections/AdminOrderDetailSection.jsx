@@ -326,6 +326,69 @@ function AdminOrderDetailSection() {
         </div>
       </div>
 
+      <div className={cardClass}>
+        <h3 className="mb-3 text-sm font-bold text-neutral-900">Shipment (Envia)</h3>
+        {order.shipment?.trackingNumber ? (
+          <div className="space-y-2 text-sm text-neutral-700">
+            <p>
+              Tracking:{" "}
+              <span className="font-semibold text-neutral-900">{order.shipment.trackingNumber}</span>
+            </p>
+            <p>
+              Carrier/Service:{" "}
+              <span className="font-medium">
+                {[order.shipment.carrier, order.shipment.service].filter(Boolean).join(" / ") || "—"}
+              </span>
+            </p>
+            <p>
+              Last status:{" "}
+              <span className="font-medium">
+                {order.shipment.status || order.shipment.statusMessage || "Not available"}
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {order.shipment.trackUrl ? (
+                <a
+                  href={order.shipment.trackUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+                >
+                  Open tracking
+                </a>
+              ) : null}
+              {order.shipment.labelUrl ? (
+                <a
+                  href={order.shipment.labelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+                >
+                  Download label
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : order.shipment?.status === "failed" ? (
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold text-red-700">Envia shipment failed</p>
+            <p className="text-neutral-700">
+              {order.shipment.statusMessage || "Unknown error from Envia API"}
+            </p>
+            <p className="text-neutral-500">
+              Fix address/carrier settings, then change order status to Shipping to retry.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-neutral-600">
+            <p className="text-sm text-neutral-600">
+              Shipment is auto-created by backend once order is confirmed/ready to ship.
+            </p>
+            <p>If not visible yet, open this order again after a few seconds.</p>
+          </div>
+        )}
+      </div>
+
       <AdminOrderItemsEditor
         order={order}
         disabled={updating || !canEditOrderItems(order.status)}

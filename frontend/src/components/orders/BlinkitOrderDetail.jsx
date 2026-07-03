@@ -25,6 +25,7 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
   const productId = getPrimaryProductId(order);
   const addr = order.deliveryAddress;
   const deliveryFree = order.deliveryCharges === 0;
+  const shipment = order.shipment || {};
 
   const handleOrderAgain = () => {
     if (productId && (order.items || []).length === 1) {
@@ -211,6 +212,30 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
           />
           <DetailField label="Delivery Address" value={formatAddressLine(addr)} />
           <DetailField label="Order placed at" value={formatOrderDateTime(order.createdAt)} />
+          {shipment.trackingNumber ? (
+            <>
+              <DetailField label="Tracking number" value={shipment.trackingNumber} />
+              <DetailField
+                label="Shipment status"
+                value={shipment.status || shipment.statusMessage || "Tracking in progress"}
+              />
+              {shipment.trackUrl ? (
+                <DetailField
+                  label="Track package"
+                  value={
+                    <a
+                      href={shipment.trackUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline"
+                    >
+                      Open live tracking
+                    </a>
+                  }
+                />
+              ) : null}
+            </>
+          ) : null}
           {order.status === "delivered"
             ? shipments.map((_, index) => (
                 <DetailField

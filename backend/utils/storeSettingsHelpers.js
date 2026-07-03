@@ -26,6 +26,35 @@ export const DEFAULT_STORE_SETTINGS = {
     "शिपिंग पार्सल के वजन पर निर्भर करता है न्यूनतम {{minShipping}}/",
     "उपयोगकर्ता को शिपिंग शुल्क अग्रिम रूप से देना होगा।",
   ],
+  envia: {
+    enabled: false,
+    useSandbox: true,
+    apiToken: "",
+    defaultCarrier: "",
+    defaultService: "",
+    origin: {
+      name: "",
+      company: "BulkMobileMart",
+      email: "",
+      phone: "",
+      street: "",
+      city: "",
+      state: "",
+      country: "IN",
+      postalCode: "",
+    },
+    packageDefaults: {
+      type: "box",
+      content: "Mobile accessories",
+      amount: 1,
+      weightUnit: "KG",
+      lengthUnit: "CM",
+      weight: 1,
+      length: 20,
+      width: 15,
+      height: 10,
+    },
+  },
 };
 
 let cachedSettings = null;
@@ -109,6 +138,59 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
     String(source.merchantUpiName || "").trim() ||
     DEFAULT_STORE_SETTINGS.merchantUpiName;
 
+  const enviaSource = source.envia || {};
+  const enviaToken = String(enviaSource.apiToken || "").trim();
+  const envia = {
+    enabled: Boolean(enviaSource.enabled),
+    useSandbox: enviaSource.useSandbox !== false,
+    apiToken: admin ? enviaToken : "",
+    hasApiToken: Boolean(enviaToken),
+    defaultCarrier: String(enviaSource.defaultCarrier || "").trim(),
+    defaultService: String(enviaSource.defaultService || "").trim(),
+    origin: {
+      name: String(enviaSource.origin?.name || "").trim(),
+      company:
+        String(enviaSource.origin?.company || "").trim() ||
+        DEFAULT_STORE_SETTINGS.envia.origin.company,
+      email: String(enviaSource.origin?.email || "").trim(),
+      phone: String(enviaSource.origin?.phone || "").trim(),
+      street: String(enviaSource.origin?.street || "").trim(),
+      city: String(enviaSource.origin?.city || "").trim(),
+      state: String(enviaSource.origin?.state || "").trim(),
+      country:
+        String(enviaSource.origin?.country || "").trim().toUpperCase() ||
+        DEFAULT_STORE_SETTINGS.envia.origin.country,
+      postalCode: String(enviaSource.origin?.postalCode || "").trim(),
+    },
+    packageDefaults: {
+      type:
+        String(enviaSource.packageDefaults?.type || "").trim() ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.type,
+      content:
+        String(enviaSource.packageDefaults?.content || "").trim() ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.content,
+      amount: Number(enviaSource.packageDefaults?.amount) || 1,
+      weightUnit:
+        String(enviaSource.packageDefaults?.weightUnit || "").trim().toUpperCase() ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.weightUnit,
+      lengthUnit:
+        String(enviaSource.packageDefaults?.lengthUnit || "").trim().toUpperCase() ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.lengthUnit,
+      weight:
+        Number(enviaSource.packageDefaults?.weight) ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.weight,
+      length:
+        Number(enviaSource.packageDefaults?.length) ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.length,
+      width:
+        Number(enviaSource.packageDefaults?.width) ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.width,
+      height:
+        Number(enviaSource.packageDefaults?.height) ||
+        DEFAULT_STORE_SETTINGS.envia.packageDefaults.height,
+    },
+  };
+
   return {
     minimumOrderValue,
     minimumShippingCharge,
@@ -125,6 +207,7 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
       source.cartNoticeHi?.length > 0
         ? source.cartNoticeHi
         : DEFAULT_STORE_SETTINGS.cartNoticeHi,
+    envia,
   };
 }
 

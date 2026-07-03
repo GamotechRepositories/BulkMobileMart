@@ -38,6 +38,49 @@ const merchantUpiAccountSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const enviaAddressSchema = new mongoose.Schema(
+  {
+    name: { type: String, default: "", trim: true, maxlength: 120 },
+    company: { type: String, default: "", trim: true, maxlength: 120 },
+    email: { type: String, default: "", trim: true, maxlength: 120 },
+    phone: { type: String, default: "", trim: true, maxlength: 30 },
+    street: { type: String, default: "", trim: true, maxlength: 250 },
+    city: { type: String, default: "", trim: true, maxlength: 120 },
+    state: { type: String, default: "", trim: true, maxlength: 120 },
+    country: { type: String, default: "IN", trim: true, maxlength: 3 },
+    postalCode: { type: String, default: "", trim: true, maxlength: 20 },
+  },
+  { _id: false }
+);
+
+const enviaPackageDefaultsSchema = new mongoose.Schema(
+  {
+    type: { type: String, default: "box", trim: true, maxlength: 40 },
+    content: { type: String, default: "Mobile accessories", trim: true, maxlength: 140 },
+    amount: { type: Number, default: 1, min: 1 },
+    weightUnit: { type: String, default: "KG", trim: true, maxlength: 5 },
+    lengthUnit: { type: String, default: "CM", trim: true, maxlength: 5 },
+    weight: { type: Number, default: 1, min: 0.01 },
+    length: { type: Number, default: 20, min: 1 },
+    width: { type: Number, default: 15, min: 1 },
+    height: { type: Number, default: 10, min: 1 },
+  },
+  { _id: false }
+);
+
+const enviaConfigSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: false },
+    useSandbox: { type: Boolean, default: true },
+    apiToken: { type: String, default: "", trim: true, maxlength: 500 },
+    defaultCarrier: { type: String, default: "", trim: true, maxlength: 80 },
+    defaultService: { type: String, default: "", trim: true, maxlength: 120 },
+    origin: { type: enviaAddressSchema, default: () => ({}) },
+    packageDefaults: { type: enviaPackageDefaultsSchema, default: () => ({}) },
+  },
+  { _id: false }
+);
+
 const storeSettingsSchema = new mongoose.Schema(
   {
     key: {
@@ -100,6 +143,10 @@ const storeSettingsSchema = new mongoose.Schema(
         "शिपिंग पार्सल के वजन पर निर्भर करता है न्यूनतम {{minShipping}}/",
         "उपयोगकर्ता को शिपिंग शुल्क अग्रिम रूप से देना होगा।",
       ],
+    },
+    envia: {
+      type: enviaConfigSchema,
+      default: () => ({}),
     },
   },
   { timestamps: true }

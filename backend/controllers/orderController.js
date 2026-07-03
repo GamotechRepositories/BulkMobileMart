@@ -22,9 +22,74 @@ import {
   notifyOrderCreated,
   notifyOrderStatusChange,
 } from "../services/orderNotificationDispatcher.js";
+import {
+  autoCreateShipmentForOrder,
+  createEnviaShipment,
+  trackEnviaShipment,
+} from "../services/enviaShippingService.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
+const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
+
+function applyShipmentOnOrder(order, shipment) {
+  order.shipment = {
+    provider: shipment.provider || "envia",
+    carrier: shipment.carrier || "",
+    service: shipment.service || "",
+    shipmentId: shipment.shipmentId || "",
+    trackingNumber: shipment.trackingNumber || "",
+    trackUrl: shipment.trackUrl || "",
+    labelUrl: shipment.labelUrl || "",
+    status: shipment.status || "",
+    statusMessage: shipment.statusMessage || "",
+    syncedAt: shipment.syncedAt || new Date(),
+    events: Array.isArray(shipment.events) ? shipment.events : [],
+  };
+}
+
+async function autoSyncShipmentForOrder(order) {
+  if (!order?.shipment?.trackingNumber) {
+    return order;
+  }
+
+  const lastSync = order.shipment?.syncedAt ? new Date(order.shipment.syncedAt).getTime() : 0;
+  const isFresh = Date.now() - lastSync < AUTO_TRACK_SYNC_MS;
+  if (isFresh) {
+    return order;
+  }
+
+  try {
+    const tracking = await trackEnviaShipment(order.shipment.trackingNumber);
+    order.shipment = {
+      ...order.shipment,
+      provider: "envia",
+      status: tracking.status || order.shipment.status || "",
+      statusMessage: tracking.statusMessage || "",
+      trackUrl: tracking.trackUrl || order.shipment.trackUrl || "",
+      syncedAt: tracking.syncedAt || new Date(),
+      events: tracking.events || [],
+    };
+
+    const normalized = String(tracking.status || "").toLowerCase();
+    if (normalized.includes("delivered")) {
+      order.status = "delivered";
+    } else if (
+      (normalized.includes("transit") || normalized.includes("shipped")) &&
+      ["confirm", "processing"].includes(order.status)
+    ) {
+      order.status = "shipping";
+    }
+
+    await order.save();
+    return order;
+  } catch (error) {
+    console.warn(
+      `Auto tracking sync skipped for order ${order._id}: ${error.message}`
+    );
+    return order;
+  }
+}
 
 function buildDayOrderStats(orders) {
   return {
@@ -227,7 +292,7 @@ export const adminPlaceOrder = async (req, res) => {
         ? calculateAdvanceAmount(result.total)
         : 0;
 
-    const order = await finalizeOrder({
+    let order = await finalizeOrder({
       userId,
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
@@ -250,6 +315,7 @@ export const adminPlaceOrder = async (req, res) => {
         : {}),
     });
 
+    order = await autoCreateShipmentForOrder(order, "admin_place_order");
     void notifyOrderCreated(order);
 
     res.status(201).json({
@@ -298,7 +364,7 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    const order = await finalizeOrder({
+    let order = await finalizeOrder({
       userId: req.user._id,
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
@@ -313,6 +379,7 @@ export const placeOrder = async (req, res) => {
       attemptedOrderId,
     });
 
+    order = await autoCreateShipmentForOrder(order, "user_place_order");
     void notifyOrderCreated(order, {
       previousStatus: attemptedOrderId ? "attempted" : null,
     });
@@ -349,7 +416,7 @@ export const getOrderById = async (req, res) => {
         ? { _id: req.params.id }
         : { _id: req.params.id, user: req.user._id };
 
-    const order = await populateOrderItems(
+    let order = await populateOrderItems(
       Order.findOne(query).populate("user", "name email phone")
     );
 
@@ -360,6 +427,7 @@ export const getOrderById = async (req, res) => {
       });
     }
 
+    order = await autoSyncShipmentForOrder(order);
     res.status(200).json({ success: true, data: enrichOrderForResponse(order) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -833,9 +901,19 @@ export const updateOrder = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    const order = await populateOrderItems(
+    let order = await populateOrderItems(
       Order.findById(req.params.id).populate("user", "name email phone")
     );
+
+    if (updates.status === "shipping" || updates.status === "confirm") {
+      order = await autoCreateShipmentForOrder(
+        order,
+        updates.status === "confirm" ? "status_confirm" : "status_shipping"
+      );
+      order = await populateOrderItems(
+        Order.findById(req.params.id).populate("user", "name email phone")
+      );
+    }
 
     void notifyOrderStatusChange(order, previousStatus, { notificationStage });
 
@@ -846,5 +924,119 @@ export const updateOrder = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createOrderShipment = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create shipment for a cancelled order",
+      });
+    }
+
+    if (order.shipment?.trackingNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Shipment already created for this order",
+      });
+    }
+
+    const shipment = await createEnviaShipment(order, req.body || {});
+    order.shipment = {
+      provider: shipment.provider,
+      carrier: shipment.carrier,
+      service: shipment.service,
+      shipmentId: shipment.shipmentId,
+      trackingNumber: shipment.trackingNumber,
+      trackUrl: shipment.trackUrl,
+      labelUrl: shipment.labelUrl,
+      status: shipment.status,
+      statusMessage: shipment.statusMessage,
+      syncedAt: shipment.syncedAt,
+      events: shipment.events,
+    };
+
+    if (order.status === "confirm") {
+      order.status = "shipping";
+    }
+
+    await order.save();
+    const populated = await populateOrderItems(
+      Order.findById(order._id).populate("user", "name email phone")
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Shipment created successfully",
+      data: enrichOrderForResponse(populated),
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to create shipment",
+    });
+  }
+};
+
+export const syncOrderShipmentTracking = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const trackingNumber = order.shipment?.trackingNumber;
+    if (!trackingNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "No tracking number found for this order",
+      });
+    }
+
+    const tracking = await trackEnviaShipment(trackingNumber);
+    order.shipment = {
+      ...order.shipment,
+      provider: "envia",
+      status: tracking.status || order.shipment?.status || "",
+      statusMessage: tracking.statusMessage || "",
+      trackingNumber: tracking.trackingNumber || trackingNumber,
+      trackUrl: tracking.trackUrl || order.shipment?.trackUrl || "",
+      syncedAt: tracking.syncedAt,
+      events: tracking.events || [],
+    };
+
+    if (tracking.status) {
+      const normalized = tracking.status.toLowerCase();
+      if (normalized.includes("delivered")) {
+        order.status = "delivered";
+      } else if (normalized.includes("transit") || normalized.includes("shipped")) {
+        if (order.status === "confirm" || order.status === "processing") {
+          order.status = "shipping";
+        }
+      }
+    }
+
+    await order.save();
+    const populated = await populateOrderItems(
+      Order.findById(order._id).populate("user", "name email phone")
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Tracking synced successfully",
+      data: enrichOrderForResponse(populated),
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.response?.data?.message || error.message || "Failed to sync tracking",
+    });
   }
 };

@@ -24,6 +24,7 @@ import wishlistRoutes from "./routes/wishlistRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminNotificationRoutes from "./routes/adminNotificationRoutes.js";
 import testFcmRoutes from "./routes/testFcmRoutes.js";
+import webhookRoutes from "./routes/webhookRoutes.js";
 import { getFirebaseAdmin } from "./config/firebaseAdmin.js";
 
 const app = express();
@@ -69,6 +70,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/test", testFcmRoutes);
+app.use("/api/webhooks", webhookRoutes);
 
 connectDB().then(async () => {
   try {

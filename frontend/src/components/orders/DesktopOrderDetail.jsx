@@ -117,6 +117,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
   const isCancelled = order.status === "cancelled";
   const statusColor = getOrderStatusColor(order.status);
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const shipment = order.shipment || {};
 
   const copyOrderId = async () => {
     try {
@@ -370,6 +371,30 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                   }
                 />
                 <DetailRow label="Order placed" value={formatOrderDateTime(order.createdAt)} />
+                {shipment.trackingNumber ? (
+                  <>
+                    <DetailRow label="Tracking number" value={shipment.trackingNumber} />
+                    <DetailRow
+                      label="Shipment status"
+                      value={shipment.status || shipment.statusMessage || "Tracking in progress"}
+                    />
+                    {shipment.trackUrl ? (
+                      <DetailRow
+                        label="Track package"
+                        value={
+                          <a
+                            href={shipment.trackUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[#2874F0] underline"
+                          >
+                            Open live tracking
+                          </a>
+                        }
+                      />
+                    ) : null}
+                  </>
+                ) : null}
               </div>
             </section>
 

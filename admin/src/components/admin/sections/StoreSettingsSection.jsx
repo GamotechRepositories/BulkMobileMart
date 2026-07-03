@@ -68,12 +68,45 @@ function serializeCartSection(form) {
   });
 }
 
+function serializeEnviaSection(form) {
+  return JSON.stringify({
+    enabled: Boolean(form.enviaEnabled),
+    useSandbox: Boolean(form.enviaUseSandbox),
+    apiToken: String(form.enviaApiToken ?? "").trim(),
+    defaultCarrier: String(form.enviaDefaultCarrier ?? "").trim(),
+    defaultService: String(form.enviaDefaultService ?? "").trim(),
+    origin: {
+      name: String(form.enviaOriginName ?? "").trim(),
+      company: String(form.enviaOriginCompany ?? "").trim(),
+      email: String(form.enviaOriginEmail ?? "").trim(),
+      phone: String(form.enviaOriginPhone ?? "").trim(),
+      street: String(form.enviaOriginStreet ?? "").trim(),
+      city: String(form.enviaOriginCity ?? "").trim(),
+      state: String(form.enviaOriginState ?? "").trim(),
+      country: String(form.enviaOriginCountry ?? "").trim().toUpperCase(),
+      postalCode: String(form.enviaOriginPostalCode ?? "").trim(),
+    },
+    packageDefaults: {
+      type: String(form.enviaPackageType ?? "").trim(),
+      content: String(form.enviaPackageContent ?? "").trim(),
+      amount: String(form.enviaPackageAmount ?? "").trim(),
+      weightUnit: String(form.enviaWeightUnit ?? "").trim().toUpperCase(),
+      lengthUnit: String(form.enviaLengthUnit ?? "").trim().toUpperCase(),
+      weight: String(form.enviaWeight ?? "").trim(),
+      length: String(form.enviaLength ?? "").trim(),
+      width: String(form.enviaWidth ?? "").trim(),
+      height: String(form.enviaHeight ?? "").trim(),
+    },
+  });
+}
+
 function buildSectionSnapshots(form) {
   return {
     order: serializeOrderSection(form),
     slabs: serializeSlabsSection(form),
     upi: serializeUpiSection(form),
     cart: serializeCartSection(form),
+    envia: serializeEnviaSection(form),
   };
 }
 
@@ -83,6 +116,7 @@ function StoreSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [savingSection, setSavingSection] = useState("");
   const [savedSnapshots, setSavedSnapshots] = useState(() => buildSectionSnapshots({}));
+  const [enviaHasSavedToken, setEnviaHasSavedToken] = useState(false);
   const [form, setForm] = useState({
     minimumOrderValue: "3000",
     minimumShippingCharge: "280",
@@ -90,6 +124,29 @@ function StoreSettingsSection() {
     merchantUpiAccounts: [{ ...EMPTY_UPI_ACCOUNT }],
     cartNoticeEn: "",
     cartNoticeHi: "",
+    enviaEnabled: false,
+    enviaUseSandbox: true,
+    enviaApiToken: "",
+    enviaDefaultCarrier: "",
+    enviaDefaultService: "",
+    enviaOriginName: "",
+    enviaOriginCompany: "BulkMobileMart",
+    enviaOriginEmail: "",
+    enviaOriginPhone: "",
+    enviaOriginStreet: "",
+    enviaOriginCity: "",
+    enviaOriginState: "",
+    enviaOriginCountry: "IN",
+    enviaOriginPostalCode: "",
+    enviaPackageType: "box",
+    enviaPackageContent: "Mobile accessories",
+    enviaPackageAmount: "1",
+    enviaWeightUnit: "KG",
+    enviaLengthUnit: "CM",
+    enviaWeight: "1",
+    enviaLength: "20",
+    enviaWidth: "15",
+    enviaHeight: "10",
   });
 
   const loadSettings = useCallback(async () => {
@@ -123,11 +180,37 @@ function StoreSettingsSection() {
                 ]
               : [{ ...EMPTY_UPI_ACCOUNT, enabled: true }]
         ),
+        enviaEnabled: Boolean(settings.envia?.enabled),
+        enviaUseSandbox: settings.envia?.useSandbox !== false,
+        enviaApiToken: settings.envia?.apiToken || "",
+        enviaDefaultCarrier: settings.envia?.defaultCarrier || "",
+        enviaDefaultService: settings.envia?.defaultService || "",
+        enviaOriginName: settings.envia?.origin?.name || "",
+        enviaOriginCompany: settings.envia?.origin?.company || "BulkMobileMart",
+        enviaOriginEmail: settings.envia?.origin?.email || "",
+        enviaOriginPhone: settings.envia?.origin?.phone || "",
+        enviaOriginStreet: settings.envia?.origin?.street || "",
+        enviaOriginCity: settings.envia?.origin?.city || "",
+        enviaOriginState: settings.envia?.origin?.state || "",
+        enviaOriginCountry: settings.envia?.origin?.country || "IN",
+        enviaOriginPostalCode: settings.envia?.origin?.postalCode || "",
+        enviaPackageType: settings.envia?.packageDefaults?.type || "box",
+        enviaPackageContent: settings.envia?.packageDefaults?.content || "Mobile accessories",
+        enviaPackageAmount: String(settings.envia?.packageDefaults?.amount ?? 1),
+        enviaWeightUnit: settings.envia?.packageDefaults?.weightUnit || "KG",
+        enviaLengthUnit: settings.envia?.packageDefaults?.lengthUnit || "CM",
+        enviaWeight: String(settings.envia?.packageDefaults?.weight ?? 1),
+        enviaLength: String(settings.envia?.packageDefaults?.length ?? 20),
+        enviaWidth: String(settings.envia?.packageDefaults?.width ?? 15),
+        enviaHeight: String(settings.envia?.packageDefaults?.height ?? 10),
       };
       setForm(nextForm);
+      setEnviaHasSavedToken(Boolean(settings.envia?.hasApiToken));
       setSavedSnapshots(buildSectionSnapshots(nextForm));
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load store settings");
+      setError(
+        err.response?.data?.message || err.message || "Failed to load store settings"
+      );
     } finally {
       setLoading(false);
     }
@@ -200,6 +283,7 @@ function StoreSettingsSection() {
     slabs: "Shipping slabs",
     upi: "UPI payment settings",
     cart: "Cart messages",
+    envia: "Parcel partner settings",
   };
 
   const sectionSerializers = {
@@ -207,6 +291,7 @@ function StoreSettingsSection() {
     slabs: serializeSlabsSection,
     upi: serializeUpiSection,
     cart: serializeCartSection,
+    envia: serializeEnviaSection,
   };
 
   const isSectionDirty = (section) =>
@@ -217,12 +302,24 @@ function StoreSettingsSection() {
     slabs: isSectionDirty("slabs"),
     upi: isSectionDirty("upi"),
     cart: isSectionDirty("cart"),
+    envia: isSectionDirty("envia"),
   };
 
   const saveSection = async (section) => {
     setSavingSection(section);
     setError("");
     setSuccess("");
+
+    if (
+      section === "envia" &&
+      form.enviaEnabled &&
+      !form.enviaApiToken.trim() &&
+      !enviaHasSavedToken
+    ) {
+      setError("Envia API token is required when Envia is enabled");
+      setSavingSection("");
+      return;
+    }
 
     try {
       let payload = {};
@@ -262,17 +359,54 @@ function StoreSettingsSection() {
             .map((line) => line.trim())
             .filter(Boolean),
         };
+      } else if (section === "envia") {
+        payload = {
+          envia: {
+            enabled: Boolean(form.enviaEnabled),
+            useSandbox: Boolean(form.enviaUseSandbox),
+            apiToken: form.enviaApiToken.trim(),
+            defaultCarrier: form.enviaDefaultCarrier.trim(),
+            defaultService: form.enviaDefaultService.trim(),
+            origin: {
+              name: form.enviaOriginName.trim(),
+              company: form.enviaOriginCompany.trim(),
+              email: form.enviaOriginEmail.trim(),
+              phone: form.enviaOriginPhone.trim(),
+              street: form.enviaOriginStreet.trim(),
+              city: form.enviaOriginCity.trim(),
+              state: form.enviaOriginState.trim(),
+              country: form.enviaOriginCountry.trim().toUpperCase(),
+              postalCode: form.enviaOriginPostalCode.trim(),
+            },
+            packageDefaults: {
+              type: form.enviaPackageType.trim(),
+              content: form.enviaPackageContent.trim(),
+              amount: Number(form.enviaPackageAmount),
+              weightUnit: form.enviaWeightUnit.trim().toUpperCase(),
+              lengthUnit: form.enviaLengthUnit.trim().toUpperCase(),
+              weight: Number(form.enviaWeight),
+              length: Number(form.enviaLength),
+              width: Number(form.enviaWidth),
+              height: Number(form.enviaHeight),
+            },
+          },
+        };
       }
 
       await updateStoreSettings(payload);
       setSuccess(`${sectionSaveLabels[section]} saved successfully`);
+      if (section === "envia" && form.enviaApiToken.trim()) {
+        setEnviaHasSavedToken(true);
+      }
       setSavedSnapshots((prev) => ({
         ...prev,
         [section]: sectionSerializers[section](form),
       }));
       await loadSettings();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save store settings");
+      setError(
+        err.response?.data?.message || err.message || "Failed to save store settings"
+      );
     } finally {
       setSavingSection("");
     }
@@ -307,7 +441,7 @@ function StoreSettingsSection() {
         <button
           type="button"
           onClick={() => saveSection(section)}
-          disabled={!dirty || Boolean(savingSection)}
+          disabled={!dirty || isSaving}
           className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
             dirty
               ? "bg-amber-600 text-white shadow-md ring-2 ring-amber-300 hover:bg-amber-700"
@@ -609,6 +743,235 @@ function StoreSettingsSection() {
           </div>
 
           <SectionSaveButton section="cart" />
+        </div>
+
+        <div
+          className={`${cardClass} space-y-5 ${
+            dirtySections.envia ? "ring-2 ring-amber-200" : ""
+          }`}
+        >
+          <div>
+            <h3 className="font-semibold text-neutral-900">Parcel Partner (Envia)</h3>
+            <p className="mt-1 text-sm text-neutral-500">
+              Generate shipping labels and tracking directly from Admin orders.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+              <input
+                type="checkbox"
+                checked={form.enviaEnabled}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaEnabled: e.target.checked }))
+                }
+              />
+              Enable Envia shipping
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+              <input
+                type="checkbox"
+                checked={form.enviaUseSandbox}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaUseSandbox: e.target.checked }))
+                }
+              />
+              Use sandbox (recommended for testing)
+            </label>
+          </div>
+
+          {form.enviaEnabled && !form.enviaApiToken.trim() && !enviaHasSavedToken ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Enable is ON but API Token is empty. Paste your Envia token below, or turn
+              Enable OFF until settings are ready.
+            </p>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>API Token</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={form.enviaApiToken}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaApiToken: e.target.value }))
+                }
+                placeholder={
+                  enviaHasSavedToken && !form.enviaApiToken.trim()
+                    ? "Token saved — leave blank to keep"
+                    : "Paste Envia API token"
+                }
+              />
+              {enviaHasSavedToken && !form.enviaApiToken.trim() ? (
+                <p className="mt-1 text-xs text-neutral-500">
+                  A token is already saved on the server.
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <label className={labelClass}>Default Carrier / Service</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.enviaDefaultCarrier}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, enviaDefaultCarrier: e.target.value }))
+                  }
+                  placeholder="xpressBees"
+                />
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={form.enviaDefaultService}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, enviaDefaultService: e.target.value }))
+                  }
+                  placeholder="surface"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-neutral-900">Origin Address (From Warehouse)</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <input
+                className={inputClass}
+                value={form.enviaOriginName}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginName: e.target.value }))}
+                placeholder="Contact name"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginCompany}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginCompany: e.target.value }))}
+                placeholder="Company name"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginEmail}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginEmail: e.target.value }))}
+                placeholder="Email"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginPhone}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginPhone: e.target.value }))}
+                placeholder="Phone"
+              />
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                value={form.enviaOriginStreet}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginStreet: e.target.value }))}
+                placeholder="Street address"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginCity}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginCity: e.target.value }))}
+                placeholder="City"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginState}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginState: e.target.value }))}
+                placeholder="State"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginCountry}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginCountry: e.target.value }))}
+                placeholder="Country code (IN)"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginPostalCode}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaOriginPostalCode: e.target.value }))
+                }
+                placeholder="Postal code"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-neutral-900">Default Package</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <input
+                className={inputClass}
+                value={form.enviaPackageType}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaPackageType: e.target.value }))}
+                placeholder="Type (box)"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaPackageContent}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaPackageContent: e.target.value }))
+                }
+                placeholder="Content"
+              />
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={form.enviaPackageAmount}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaPackageAmount: e.target.value }))
+                }
+                placeholder="Amount"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaWeightUnit}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaWeightUnit: e.target.value }))}
+                placeholder="Weight unit (KG)"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaLengthUnit}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaLengthUnit: e.target.value }))}
+                placeholder="Length unit (CM)"
+              />
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                className={inputClass}
+                value={form.enviaWeight}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaWeight: e.target.value }))}
+                placeholder="Weight"
+              />
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={form.enviaLength}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaLength: e.target.value }))}
+                placeholder="Length"
+              />
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={form.enviaWidth}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaWidth: e.target.value }))}
+                placeholder="Width"
+              />
+              <input
+                type="number"
+                min="1"
+                className={inputClass}
+                value={form.enviaHeight}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaHeight: e.target.value }))}
+                placeholder="Height"
+              />
+            </div>
+          </div>
+
+          <SectionSaveButton section="envia" />
         </div>
       </div>
     </div>

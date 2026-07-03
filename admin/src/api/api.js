@@ -87,6 +87,10 @@ export const getDashboardStats = (params) =>
   api.get("/api/orders/admin/dashboard-stats", { params });
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 export const createAdminOrder = (data) => api.post("/api/orders/admin/create", data);
+export const createAdminOrderShipment = (id, data) =>
+  api.post(`/api/orders/admin/${id}/shipment/envia`, data);
+export const syncAdminOrderShipment = (id) =>
+  api.post(`/api/orders/admin/${id}/shipment/envia/sync`);
 
 export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
 export const getAdminPaymentUnreadCount = (params) =>
