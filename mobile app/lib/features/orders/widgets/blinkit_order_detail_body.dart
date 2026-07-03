@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/theme.dart';
 import '../../../core/utils/address_utils.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/external_link.dart';
 import '../../../core/utils/order_number.dart';
 import '../../../core/utils/order_utils.dart';
 import '../../../models/order.dart';
@@ -59,7 +60,11 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final orderCode = getOrderDisplayCode(order);
     final totalItems = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
-    final statusLabel = getBlinkitShipmentStatusLabel(order.status);
+    final statusLabel = getBlinkitShipmentStatusLabel(
+      order.status,
+      shipmentStatus: order.shipment.displayStatus,
+      hasTracking: order.shipment.hasTracking,
+    );
 
     return Column(
       children: [
@@ -101,6 +106,10 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ...shipmentItems.map(
                   (item) => _ShipmentItemRow(item: item),
                 ),
+                if (order.shipment.hasTracking) ...[
+                  const SizedBox(height: 8),
+                  _EnviaTrackingCard(shipment: order.shipment),
+                ],
                 const SizedBox(height: 8),
                 _BillSummary(order: order),
                 const SizedBox(height: 16),
@@ -622,6 +631,49 @@ class _OrderDetailsSection extends StatelessWidget {
             label: 'Order placed at',
             value: formatOrderDateTime(order.createdAt),
           ),
+          if (order.shipment.hasTracking) ...[
+            _DetailField(
+              label: 'Tracking number',
+              value: order.shipment.trackingNumber,
+              trailing: IconButton(
+                onPressed: () {
+                  Clipboard.setData(
+                    ClipboardData(text: order.shipment.trackingNumber),
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tracking number copied'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ),
+            _DetailField(
+              label: 'Shipment status',
+              value: order.shipment.displayStatus,
+            ),
+            if (order.shipment.carrierServiceLabel != null)
+              _DetailField(
+                label: 'Carrier / Service',
+                value: order.shipment.carrierServiceLabel!,
+              ),
+            if (order.shipment.trackUrl.trim().isNotEmpty)
+              _DetailField(
+                label: 'Track package',
+                value: 'Open live tracking',
+                onTap: () => openExternalUrl(
+                  order.shipment.trackUrl,
+                  context: context,
+                  errorMessage: 'Could not open tracking link.',
+                ),
+                valueColor: AppColors.navSelected,
+              ),
+          ],
           if (order.status == 'delivered')
             for (var i = 0; i < shipments.length; i++)
               _DetailField(
@@ -642,19 +694,117 @@ class _OrderDetailsSection extends StatelessWidget {
   }
 }
 
+class _EnviaTrackingCard extends StatelessWidget {
+  const _EnviaTrackingCard({required this.shipment});
+
+  final OrderShipment shipment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F8FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD6E6FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.local_shipping_outlined, size: 18, color: AppColors.navSelected),
+              SizedBox(width: 8),
+              Text(
+                'Shipment Tracking',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            shipment.trackingNumber,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            shipment.displayStatus,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (shipment.carrierServiceLabel != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              shipment.carrierServiceLabel!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+          if (shipment.trackUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () => openExternalUrl(
+                shipment.trackUrl,
+                context: context,
+                errorMessage: 'Could not open tracking link.',
+              ),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              label: const Text('Open live tracking'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.navSelected,
+                side: const BorderSide(color: Color(0xFFB8D4FF)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailField extends StatelessWidget {
   const _DetailField({
     required this.label,
     required this.value,
     this.trailing,
+    this.onTap,
+    this.valueColor,
   });
 
   final String label;
   final String value;
   final Widget? trailing;
+  final VoidCallback? onTap;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
+    final valueWidget = Text(
+      value,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: valueColor ?? AppColors.textPrimary,
+        height: 1.35,
+        decoration: onTap != null ? TextDecoration.underline : null,
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
@@ -672,17 +822,14 @@ class _DetailField extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                    height: 1.35,
-                  ),
-                ),
+                child: onTap == null
+                    ? valueWidget
+                    : InkWell(
+                        onTap: onTap,
+                        child: valueWidget,
+                      ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
         ],
@@ -732,7 +879,15 @@ class _BottomOrderAgain extends StatelessWidget {
   }
 }
 
-String getBlinkitShipmentStatusLabel(String status) {
+String getBlinkitShipmentStatusLabel(
+  String status, {
+  String shipmentStatus = '',
+  bool hasTracking = false,
+}) {
+  if (hasTracking && shipmentStatus.trim().isNotEmpty) {
+    return shipmentStatus.trim();
+  }
+
   switch (status) {
     case 'delivered':
       return 'Delivered';

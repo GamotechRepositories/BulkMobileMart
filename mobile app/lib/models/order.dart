@@ -1,6 +1,55 @@
 import 'address.dart';
 import '../core/utils/json_parsers.dart';
 
+class OrderShipment {
+  const OrderShipment({
+    this.provider = '',
+    this.carrier = '',
+    this.service = '',
+    this.trackingNumber = '',
+    this.trackUrl = '',
+    this.labelUrl = '',
+    this.status = '',
+    this.statusMessage = '',
+  });
+
+  final String provider;
+  final String carrier;
+  final String service;
+  final String trackingNumber;
+  final String trackUrl;
+  final String labelUrl;
+  final String status;
+  final String statusMessage;
+
+  bool get hasTracking => trackingNumber.trim().isNotEmpty;
+
+  String get displayStatus {
+    final value = status.trim().isNotEmpty ? status.trim() : statusMessage.trim();
+    return value.isNotEmpty ? value : 'Tracking in progress';
+  }
+
+  String? get carrierServiceLabel {
+    final parts = [carrier, service].where((part) => part.trim().isNotEmpty).toList();
+    if (parts.isEmpty) return null;
+    return parts.join(' / ');
+  }
+
+  factory OrderShipment.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const OrderShipment();
+    return OrderShipment(
+      provider: json['provider']?.toString() ?? '',
+      carrier: json['carrier']?.toString() ?? '',
+      service: json['service']?.toString() ?? '',
+      trackingNumber: json['trackingNumber']?.toString() ?? '',
+      trackUrl: json['trackUrl']?.toString() ?? '',
+      labelUrl: json['labelUrl']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      statusMessage: json['statusMessage']?.toString() ?? '',
+    );
+  }
+}
+
 class OrderItem {
   const OrderItem({
     required this.id,
@@ -64,6 +113,7 @@ class Order {
     this.razorpayPaymentId = '',
     this.razorpayOrderId = '',
     this.paidAt,
+    this.shipment = const OrderShipment(),
   });
 
   final String id;
@@ -83,6 +133,7 @@ class Order {
   final String razorpayPaymentId;
   final String razorpayOrderId;
   final DateTime? paidAt;
+  final OrderShipment shipment;
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];
@@ -131,6 +182,9 @@ class Order {
       paidAt: json['paidAt'] != null
           ? DateTime.tryParse(json['paidAt'].toString())
           : null,
+      shipment: json['shipment'] is Map<String, dynamic>
+          ? OrderShipment.fromJson(json['shipment'] as Map<String, dynamic>)
+          : const OrderShipment(),
     );
   }
 }

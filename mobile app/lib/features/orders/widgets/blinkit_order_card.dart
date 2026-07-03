@@ -50,6 +50,18 @@ class BlinkitOrderCard extends ConsumerWidget {
                       height: 1.3,
                     ),
                   ),
+                  if (order.shipment.hasTracking) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tracking: ${order.shipment.trackingNumber}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.navSelected,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   _ProductThumbnailRow(items: order.items),
                   if (isDelivered && deliveryRating != null) ...[
