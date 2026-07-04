@@ -16,15 +16,11 @@ import { formatCustomerAddress, getAddressFullName, getOrderNumber } from "./inv
 import "./invoice.css";
 
 const TABLE_COLUMNS = [
-  { key: "srNo", label: "Sr No", align: "center", width: "4.5%" },
-  { key: "name", label: "Item Name", align: "left", width: "30%" },
-  { key: "hsn", label: "HSN", align: "center", width: "10%" },
-  { key: "qty", label: "Qty", align: "center", width: "5%" },
-  { key: "rate", label: "Rate", align: "right", width: "8%" },
-  { key: "taxableValue", label: "Taxable Value", align: "right", width: "11%" },
-  { key: "gstRate", label: "GST %", align: "center", width: "6%" },
-  { key: "gstAmount", label: "GST Amount", align: "right", width: "11%" },
-  { key: "amount", label: "Amount", align: "right", width: "14.5%" },
+  { key: "srNo", label: "Sr No", align: "center", width: "8%" },
+  { key: "name", label: "Product Name", align: "left", width: "42%" },
+  { key: "qty", label: "Qty", align: "center", width: "10%" },
+  { key: "rate", label: "Rate", align: "right", width: "18%" },
+  { key: "amount", label: "Amount", align: "right", width: "22%" },
 ];
 
 function SectionBar({ title }) {
@@ -61,18 +57,10 @@ function renderCellValue(item, key) {
       return item.srNo;
     case "name":
       return item.name;
-    case "hsn":
-      return item.hsn;
     case "qty":
       return item.qty;
     case "rate":
       return formatInvoiceAmount(item.rate);
-    case "taxableValue":
-      return formatInvoiceAmount(item.taxableValue);
-    case "gstRate":
-      return `${item.gstRate}%`;
-    case "gstAmount":
-      return formatInvoiceAmount(item.gstAmount);
     case "amount":
       return formatInvoiceAmount(item.amount);
     default:
@@ -174,7 +162,6 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
 
         <div className="invoice-block">
           <SectionBar title="Order Detail" />
-          <span className="invoice-product-scroll-hint no-print">Swipe to see all columns →</span>
           <div className="invoice-product-scroll">
             <table className="invoice-product-table">
               <colgroup>
