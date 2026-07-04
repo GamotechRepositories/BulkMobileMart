@@ -137,6 +137,10 @@ export function getOrderStatusHeadline(status) {
   }
 }
 
+export function isPlacedOrder(order) {
+  return order?.status !== "attempted";
+}
+
 export function matchesOrderFilter(order, filter) {
   switch (filter) {
     case "active":

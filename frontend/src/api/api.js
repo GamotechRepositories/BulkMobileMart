@@ -113,6 +113,15 @@ export const updateAddress = (id, data) =>
   api.put(`/api/addresses/${id}`, buildAddressPayload(data));
 export const deleteAddress = (id) => api.delete(`/api/addresses/${id}`);
 
+export const getLocationStates = (q = "") =>
+  api.get("/api/location/states", { params: { q } });
+export const getLocationCities = (state, q = "") =>
+  api.get("/api/location/cities", { params: { state, q } });
+export const getLocationPincodes = (state, city, q = "") =>
+  api.get("/api/location/pincodes", { params: { state, city, q, limit: 250 } });
+export const getLocationByPincode = (pincode) =>
+  api.get(`/api/location/pincode/${pincode}`);
+
 export const placeOrder = (data) => api.post("/api/orders", data);
 export const createCheckoutAttempt = (data) => api.post("/api/orders/checkout-attempt", data);
 export const createRazorpayOrder = (data) => api.post("/api/payments/create-order", data);

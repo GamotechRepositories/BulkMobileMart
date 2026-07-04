@@ -397,7 +397,9 @@ export const placeOrder = async (req, res) => {
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await populateOrderItems(
-      Order.find({ user: req.user._id }).sort({ createdAt: -1 })
+      Order.find({ user: req.user._id, status: { $ne: "attempted" } }).sort({
+        createdAt: -1,
+      })
     );
 
     res.status(200).json({

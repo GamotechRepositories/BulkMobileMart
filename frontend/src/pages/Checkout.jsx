@@ -400,7 +400,7 @@ function Checkout() {
             <p className="mb-6 text-sm text-text-secondary">{orderSuccessNote}</p>
             <button
               type="button"
-              onClick={() => navigate("/orders")}
+              onClick={() => navigate("/orders", { replace: true, state: { orderPlaced: true } })}
               className="w-full rounded-lg bg-primary py-3 text-sm font-bold text-white transition hover:brightness-110"
             >
               View My Orders

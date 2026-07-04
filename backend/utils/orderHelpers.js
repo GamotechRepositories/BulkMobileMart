@@ -545,7 +545,6 @@ export async function findAttemptedOrderForCheckout(userId, attemptedOrderId) {
     const explicit = await Order.findOne({
       _id: attemptedOrderId,
       user: userId,
-      status: "attempted",
     });
     if (explicit) {
       return explicit;
@@ -581,6 +580,10 @@ export async function completeAttemptedOrder({
 
   if (!order) {
     return null;
+  }
+
+  if (order.status !== "attempted") {
+    return order;
   }
 
   const orderMessage =

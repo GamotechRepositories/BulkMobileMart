@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { getOrderById, getStoreSettings } from "../api/api";
 import InvoiceDocument from "../components/invoice/InvoiceDocument";
 import InvoicePageShell from "@shared/invoice/InvoicePageShell.jsx";
 
-function OrderInvoice() {
+function AdminOrderInvoice() {
   const { id } = useParams();
-  const { user, openAuthModal } = useAuth();
   const [order, setOrder] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,11 +13,6 @@ function OrderInvoice() {
   const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     const loadOrder = async () => {
       setLoading(true);
       setError("");
@@ -39,7 +32,7 @@ function OrderInvoice() {
     };
 
     loadOrder();
-  }, [user, id]);
+  }, [id]);
 
   const handlePrint = () => {
     if (printing) return;
@@ -48,24 +41,9 @@ function OrderInvoice() {
     setTimeout(() => setPrinting(false), 500);
   };
 
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-4 py-16 text-center">
-        <p className="mb-6 text-text-secondary">Please login to view invoice.</p>
-        <button
-          type="button"
-          onClick={() => openAuthModal("login")}
-          className="rounded-lg bg-primary px-8 py-3 text-sm font-bold text-white"
-        >
-          Login / Sign Up
-        </button>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
-      <InvoicePageShell backTo="/orders" backLabel="← Back to My Orders">
+      <InvoicePageShell backTo={`/orders/${id}`} backLabel="← Back to Order">
         <div className="animate-pulse rounded-xl bg-neutral-100 p-12" />
       </InvoicePageShell>
     );
@@ -75,18 +53,18 @@ function OrderInvoice() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white px-4 py-16 text-center">
         <p className="mb-6 text-text-secondary">{error || "Order not found"}</p>
-        <Link to="/orders" className="text-sm font-semibold text-primary hover:underline">
-          ← Back to My Orders
+        <Link to={`/orders/${id}`} className="text-sm font-semibold text-primary hover:underline">
+          ← Back to Order
         </Link>
       </div>
     );
   }
 
   return (
-    <InvoicePageShell backTo="/orders" backLabel="← Back to My Orders">
+    <InvoicePageShell backTo={`/orders/${id}`} backLabel="← Back to Order">
       <InvoiceDocument
         order={order}
-        customer={user}
+        customer={order.user}
         storeSettings={storeSettings}
         onPrint={handlePrint}
         printing={printing}
@@ -95,4 +73,4 @@ function OrderInvoice() {
   );
 }
 
-export default OrderInvoice;
+export default AdminOrderInvoice;

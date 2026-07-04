@@ -12,6 +12,7 @@ import UserSection from "../components/admin/sections/UserSection";
 import CreateOrderSection from "../components/admin/sections/CreateOrderSection";
 import OrderSection from "../components/admin/sections/OrderSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
+import AdminOrderInvoice from "./AdminOrderInvoice";
 import PaymentSection from "../components/admin/sections/PaymentSection";
 import SupportSection from "../components/admin/sections/SupportSection";
 import AddBrandSection from "../components/admin/sections/AddBrandSection";
@@ -26,6 +27,7 @@ function Admin() {
     <Routes>
       <Route path="login" element={<AdminLogin />} />
       <Route element={<AdminRoute />}>
+        <Route path="orders/:id/invoice" element={<AdminOrderInvoice />} />
         <Route element={<AdminLayout />}>
           <Route index element={<OverviewSection />} />
           <Route path="profile" element={<AdminProfileSection />} />

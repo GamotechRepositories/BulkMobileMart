@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getMyOrders } from "../api/api";
 import BlinkitOrderCard from "../components/orders/BlinkitOrderCard";
 import DesktopOrderCard from "../components/orders/DesktopOrderCard";
 import { OrdersDesktopHeader } from "../components/orders/OrdersDesktopHeader";
-import { filterOrders } from "../utils/orderUtils";
+import { filterOrders, isPlacedOrder } from "../utils/orderUtils";
 
 function StateCard({ children, className = "" }) {
   return (
@@ -38,7 +38,8 @@ function DesktopSkeleton() {
 }
 
 function Orders() {
-  const { user, openAuthModal } = useAuth();
+  const { user, loading: authLoading, openAuthModal } = useAuth();
+  const location = useLocation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,6 +47,10 @@ function Orders() {
   const [search, setSearch] = useState("");
 
   const loadOrders = useCallback(async () => {
+    if (authLoading) {
+      return;
+    }
+
     if (!user) {
       setOrders([]);
       setLoading(false);
@@ -57,18 +62,18 @@ function Orders() {
     setError("");
     try {
       const { data } = await getMyOrders();
-      setOrders(data.data || []);
+      setOrders((data?.data || []).filter(isPlacedOrder));
     } catch {
       setOrders([]);
       setError("Failed to load orders. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]);
+  }, [loadOrders, location.key]);
 
   const filteredOrders = useMemo(
     () => filterOrders(orders, { filter, query: search }),
@@ -78,7 +83,12 @@ function Orders() {
   return (
     <div className="min-h-screen bg-[#F4F5F7] px-3 pb-24 pt-3 sm:px-4 lg:px-6 lg:pb-8 lg:pt-6">
       <div className="mx-auto max-w-3xl lg:max-w-6xl">
-        {!user ? (
+        {authLoading || (user && loading && orders.length === 0 && !error) ? (
+          <>
+            <MobileSkeleton />
+            <DesktopSkeleton />
+          </>
+        ) : !user ? (
           <div className="pt-2 lg:pt-0">
             <StateCard className="lg:mx-auto lg:max-w-lg">
               <div className="text-center">
@@ -101,11 +111,6 @@ function Orders() {
               </div>
             </StateCard>
           </div>
-        ) : loading ? (
-          <>
-            <MobileSkeleton />
-            <DesktopSkeleton />
-          </>
         ) : error && orders.length === 0 ? (
           <div className="pt-2 lg:pt-0">
             <StateCard className="lg:mx-auto lg:max-w-lg">
@@ -182,7 +187,7 @@ function Orders() {
 
             {/* Mobile — Blinkit style */}
             <div className="space-y-3 pt-1 lg:hidden">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <BlinkitOrderCard key={order._id} order={order} />
               ))}
             </div>

@@ -1,4 +1,11 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import {
+  getLocationByPincode,
+  getLocationCities,
+  getLocationPincodes,
+  getLocationStates,
+} from "../../api/api";
+import LocationAutocomplete from "./LocationAutocomplete";
 
 export const ADDRESS_FORM_FIELDS = {
   fullName: "",
@@ -50,6 +57,11 @@ export function validateAddressForm(form) {
 const inputClass =
   "w-full rounded-lg border border-border-light bg-white px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary/60 outline-none focus:border-primary";
 
+async function fetchList(apiCall) {
+  const { data } = await apiCall;
+  return data?.data || [];
+}
+
 function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false }) {
   const [form, setForm] = useState(initial || ADDRESS_FORM_FIELDS);
   const [validationError, setValidationError] = useState("");
@@ -58,6 +70,58 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (validationError) setValidationError("");
+  };
+
+  const fetchStates = useCallback(async (query) => {
+    return fetchList(getLocationStates(query));
+  }, []);
+
+  const fetchCities = useCallback(
+    async (query) => {
+      if (!form.state.trim()) return [];
+      return fetchList(getLocationCities(form.state, query));
+    },
+    [form.state]
+  );
+
+  const fetchPincodes = useCallback(
+    async (query) => {
+      if (!form.state.trim() || !form.city.trim()) return [];
+      return fetchList(getLocationPincodes(form.state, form.city, query));
+    },
+    [form.state, form.city]
+  );
+
+  const handleStateChange = (value) => {
+    setForm((prev) => ({ ...prev, state: value, city: "", pincode: "" }));
+    if (validationError) setValidationError("");
+  };
+
+  const handleCityChange = (value) => {
+    setForm((prev) => ({ ...prev, city: value, pincode: "" }));
+    if (validationError) setValidationError("");
+  };
+
+  const handlePincodeChange = async (value) => {
+    const pincode = value.replace(/\D/g, "").slice(0, 6);
+    setForm((prev) => ({ ...prev, pincode }));
+    if (validationError) setValidationError("");
+
+    if (pincode.length === 6) {
+      try {
+        const { data } = await getLocationByPincode(pincode);
+        if (data?.data) {
+          setForm((prev) => ({
+            ...prev,
+            pincode,
+            city: data.data.city || prev.city,
+            state: data.data.state || prev.state,
+          }));
+        }
+      } catch {
+        // keep typed pincode if lookup fails
+      }
+    }
   };
 
   const handleSubmit = (e) => {
@@ -165,33 +229,32 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
         className={inputClass}
       />
 
-      <div className="grid grid-cols-3 gap-3">
-        <input
-          name="city"
-          value={form.city}
-          onChange={handleChange}
-          required
-          placeholder="City"
-          className={inputClass}
-        />
-        <input
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <LocationAutocomplete
           name="state"
-          value={form.state}
-          onChange={handleChange}
-          required
           placeholder="State"
-          className={inputClass}
-        />
-        <input
-          name="pincode"
-          value={form.pincode}
-          onChange={handleChange}
+          value={form.state}
+          onChange={handleStateChange}
+          fetchSuggestions={fetchStates}
           required
-          maxLength={6}
-          pattern="\d{6}"
-          placeholder="Pincode"
-          inputMode="numeric"
-          className={inputClass}
+        />
+        <LocationAutocomplete
+          name="city"
+          placeholder={form.state ? "City" : "Select state first"}
+          value={form.city}
+          onChange={handleCityChange}
+          fetchSuggestions={fetchCities}
+          disabled={!form.state.trim()}
+          required
+        />
+        <LocationAutocomplete
+          name="pincode"
+          placeholder={form.city ? "Pincode" : "Select city first"}
+          value={form.pincode}
+          onChange={handlePincodeChange}
+          fetchSuggestions={fetchPincodes}
+          disabled={!form.state.trim() || !form.city.trim()}
+          required
         />
       </div>
 

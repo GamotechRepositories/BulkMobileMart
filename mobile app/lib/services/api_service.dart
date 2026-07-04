@@ -158,6 +158,54 @@ class ApiService {
   Future<Response<dynamic>> deleteAddress(String id) =>
       _dio.delete('/api/addresses/$id');
 
+  Future<List<String>> fetchLocationStates({String q = ''}) async {
+    final response = await _dio.get('/api/location/states', queryParameters: {'q': q});
+    return _parseStringList(response.data);
+  }
+
+  Future<List<String>> fetchLocationCities({
+    required String state,
+    String q = '',
+  }) async {
+    final response = await _dio.get(
+      '/api/location/cities',
+      queryParameters: {'state': state, 'q': q},
+    );
+    return _parseStringList(response.data);
+  }
+
+  Future<List<String>> fetchLocationPincodes({
+    required String state,
+    required String city,
+    String q = '',
+  }) async {
+    final response = await _dio.get(
+      '/api/location/pincodes',
+      queryParameters: {'state': state, 'city': city, 'q': q, 'limit': 250},
+    );
+    return _parseStringList(response.data);
+  }
+
+  Future<Map<String, String>?> fetchLocationByPincode(String pincode) async {
+    final response = await _dio.get('/api/location/pincode/$pincode');
+    final data = response.data;
+    if (data is! Map<String, dynamic>) return null;
+    final payload = data['data'];
+    if (payload is! Map<String, dynamic>) return null;
+    return {
+      'pincode': payload['pincode']?.toString() ?? pincode,
+      'city': payload['city']?.toString() ?? '',
+      'state': payload['state']?.toString() ?? '',
+    };
+  }
+
+  List<String> _parseStringList(dynamic data) {
+    if (data is! Map<String, dynamic>) return const [];
+    final items = data['data'];
+    if (items is! List) return const [];
+    return items.map((item) => item.toString()).toList();
+  }
+
   Future<Response<dynamic>> placeOrder(Map<String, dynamic> data) =>
       _dio.post('/api/orders', data: data);
 
