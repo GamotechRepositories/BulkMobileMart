@@ -24,6 +24,8 @@ import {
 } from "../services/orderNotificationDispatcher.js";
 import {
   createEnviaShipment,
+  parseShipmentOverrides,
+  quoteEnviaShipmentRates,
   trackEnviaShipment,
 } from "../services/enviaShippingService.js";
 
@@ -916,6 +918,46 @@ export const updateOrder = async (req, res) => {
   }
 };
 
+export const quoteOrderShipmentRates = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot quote shipment for a cancelled order",
+      });
+    }
+
+    const overrides = parseShipmentOverrides(req.body || {});
+    const { quotes, errors, carriers } = await quoteEnviaShipmentRates(order, overrides);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        quotes,
+        errors,
+        carriers,
+        package: {
+          weight: overrides.weight,
+          length: overrides.length,
+          width: overrides.width,
+          height: overrides.height,
+          content: overrides.content,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch shipment rates",
+    });
+  }
+};
+
 export const createOrderShipment = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
@@ -937,7 +979,15 @@ export const createOrderShipment = async (req, res) => {
       });
     }
 
-    const shipment = await createEnviaShipment(order, req.body || {});
+    const overrides = parseShipmentOverrides(req.body || {});
+    if (!overrides.carrier || !overrides.service) {
+      return res.status(400).json({
+        success: false,
+        message: "Select a carrier and service from rate quotes before creating the label",
+      });
+    }
+
+    const shipment = await createEnviaShipment(order, overrides);
     order.shipment = {
       provider: shipment.provider,
       carrier: shipment.carrier,

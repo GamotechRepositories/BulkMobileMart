@@ -1,4 +1,5 @@
 import StoreSettings from "../models/StoreSettings.js";
+import { mergeEnviaOriginDefaults } from "../../shared/shipping/enviaOriginAddress.js";
 
 export const DEFAULT_STORE_SETTINGS = {
   minimumOrderValue: 3000,
@@ -32,17 +33,8 @@ export const DEFAULT_STORE_SETTINGS = {
     apiToken: "",
     defaultCarrier: "",
     defaultService: "",
-    origin: {
-      name: "",
-      company: "BulkMobileMart",
-      email: "",
-      phone: "",
-      street: "",
-      city: "",
-      state: "",
-      country: "IN",
-      postalCode: "",
-    },
+    rateCarriers: [],
+    origin: mergeEnviaOriginDefaults({}),
     packageDefaults: {
       type: "box",
       content: "Mobile accessories",
@@ -147,21 +139,10 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
     hasApiToken: Boolean(enviaToken),
     defaultCarrier: String(enviaSource.defaultCarrier || "").trim(),
     defaultService: String(enviaSource.defaultService || "").trim(),
-    origin: {
-      name: String(enviaSource.origin?.name || "").trim(),
-      company:
-        String(enviaSource.origin?.company || "").trim() ||
-        DEFAULT_STORE_SETTINGS.envia.origin.company,
-      email: String(enviaSource.origin?.email || "").trim(),
-      phone: String(enviaSource.origin?.phone || "").trim(),
-      street: String(enviaSource.origin?.street || "").trim(),
-      city: String(enviaSource.origin?.city || "").trim(),
-      state: String(enviaSource.origin?.state || "").trim(),
-      country:
-        String(enviaSource.origin?.country || "").trim().toUpperCase() ||
-        DEFAULT_STORE_SETTINGS.envia.origin.country,
-      postalCode: String(enviaSource.origin?.postalCode || "").trim(),
-    },
+    rateCarriers: Array.isArray(enviaSource.rateCarriers)
+      ? enviaSource.rateCarriers.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : [],
+    origin: mergeEnviaOriginDefaults(enviaSource.origin || {}),
     packageDefaults: {
       type:
         String(enviaSource.packageDefaults?.type || "").trim() ||

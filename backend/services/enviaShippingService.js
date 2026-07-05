@@ -1,6 +1,12 @@
 import axios from "axios";
 
 import StoreSettings from "../models/StoreSettings.js";
+import { normalizePackageWeight } from "../../shared/shipping/shippingServices.js";
+import {
+  mergeEnviaOriginDefaults,
+  buildEnviaOriginStreet,
+  extractEnviaStreetNumber,
+} from "../../shared/shipping/enviaOriginAddress.js";
 
 const TEST_BASE_URL = "https://api-test.envia.com";
 const PROD_BASE_URL = "https://api.envia.com";
@@ -200,17 +206,22 @@ async function resolveEnviaConfig() {
     useSandbox,
     defaultCarrier: safeTrim(process.env.ENVIA_DEFAULT_CARRIER || envia.defaultCarrier),
     defaultService: safeTrim(process.env.ENVIA_DEFAULT_SERVICE || envia.defaultService),
-    origin: {
+    origin: mergeEnviaOriginDefaults({
       name: safeTrim(envia.origin?.name),
       company: safeTrim(envia.origin?.company),
       email: safeTrim(envia.origin?.email),
       phone: safeTrim(envia.origin?.phone),
+      addressLine1: safeTrim(envia.origin?.addressLine1),
+      addressLine2: safeTrim(envia.origin?.addressLine2),
+      landmark: safeTrim(envia.origin?.landmark),
+      streetNumber: safeTrim(envia.origin?.streetNumber),
       street: safeTrim(envia.origin?.street),
       city: safeTrim(envia.origin?.city),
       state: safeTrim(envia.origin?.state),
       country: safeTrim(envia.origin?.country || "IN").toUpperCase(),
       postalCode: safeTrim(envia.origin?.postalCode),
-    },
+      isDefault: envia.origin?.isDefault !== false,
+    }),
     packageDefaults: {
       type: safeTrim(envia.packageDefaults?.type || "box"),
       content: safeTrim(envia.packageDefaults?.content || "Mobile accessories"),
@@ -222,6 +233,88 @@ async function resolveEnviaConfig() {
       width: toPositiveNumber(envia.packageDefaults?.width, 15),
       height: toPositiveNumber(envia.packageDefaults?.height, 10),
     },
+    rateCarriers: normalizeRateCarriers(
+      process.env.ENVIA_RATE_CARRIERS || envia.rateCarriers
+    ),
+  };
+}
+
+const DEFAULT_IN_RATE_CARRIERS = [
+  "xpressbees",
+  "delhivery",
+  "ekart",
+  "bluedart",
+  "dtdc",
+  "ecomexpress",
+];
+
+function normalizeRateCarriers(raw) {
+  if (Array.isArray(raw)) {
+    const carriers = raw.map((entry) => safeTrim(entry)).filter(Boolean);
+    return carriers.length ? carriers : [...DEFAULT_IN_RATE_CARRIERS];
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const carriers = raw
+      .split(/[,;\n]+/)
+      .map((entry) => safeTrim(entry))
+      .filter(Boolean);
+    return carriers.length ? carriers : [...DEFAULT_IN_RATE_CARRIERS];
+  }
+  return [...DEFAULT_IN_RATE_CARRIERS];
+}
+
+export function parseShipmentOverrides(body = {}) {
+  const weightInput = normalizePackageWeight(body.weight, body.weightUnit || "KG");
+
+  return {
+    carrier: safeTrim(body.carrier),
+    service: safeTrim(body.service),
+    packageType: safeTrim(body.packageType),
+    content: safeTrim(body.content),
+    amount: body.amount,
+    weightUnit: weightInput.weightUnit,
+    lengthUnit: safeTrim(body.lengthUnit) || "CM",
+    weight: weightInput.weight,
+    length: body.length,
+    width: body.width,
+    height: body.height,
+    declaredValue: body.declaredValue,
+    folio: safeTrim(body.folio),
+    carriers: normalizeRateCarriers(body.carriers),
+  };
+}
+
+function buildPackages(order, config, overrides = {}) {
+  const defaults = config.packageDefaults;
+  return [
+    {
+      type: safeTrim(overrides.packageType || defaults.type),
+      content: safeTrim(overrides.content || defaults.content),
+      amount: Math.max(1, Math.round(toPositiveNumber(overrides.amount, defaults.amount))),
+      weightUnit: safeTrim(overrides.weightUnit || defaults.weightUnit).toUpperCase(),
+      lengthUnit: safeTrim(overrides.lengthUnit || defaults.lengthUnit).toUpperCase(),
+      weight: toPositiveNumber(overrides.weight, defaults.weight),
+      dimensions: {
+        length: toPositiveNumber(overrides.length, defaults.length),
+        width: toPositiveNumber(overrides.width, defaults.width),
+        height: toPositiveNumber(overrides.height, defaults.height),
+      },
+      declaredValue: toPositiveNumber(overrides.declaredValue, order.total || 1),
+    },
+  ];
+}
+
+function buildShipmentAddresses(order, config) {
+  const destination = mapAddressToDestination(order.deliveryAddress || {});
+  const requiredDestination = ["name", "phone", "street", "city", "state", "postalCode"];
+  const missing = requiredDestination.filter((key) => !safeTrim(destination[key]));
+  if (missing.length) {
+    throw new Error(`Order address is incomplete. Missing: ${missing.join(", ")}`);
+  }
+
+  return {
+    origin: mapOriginForEnvia(config.origin),
+    destination,
   };
 }
 
@@ -266,13 +359,15 @@ function mapAddressToDestination(address = {}) {
 }
 
 function mapOriginForEnvia(origin = {}) {
+  const street = buildEnviaOriginStreet(origin);
+
   return {
     name: safeTrim(origin.name),
     company: safeTrim(origin.company),
     email: safeTrim(origin.email),
     phone: safeTrim(origin.phone),
-    street: safeTrim(origin.street),
-    number: safeTrim(origin.streetNumber) || "1",
+    street,
+    number: extractEnviaStreetNumber(origin),
     city: safeTrim(origin.city),
     state: safeTrim(origin.state),
     country: safeTrim(origin.country || "IN").toUpperCase(),
@@ -281,12 +376,8 @@ function mapOriginForEnvia(origin = {}) {
 }
 
 function buildShipmentPayload(order, config, overrides = {}) {
-  const destination = mapAddressToDestination(order.deliveryAddress || {});
-  const requiredDestination = ["name", "phone", "street", "city", "state", "postalCode"];
-  const missing = requiredDestination.filter((key) => !safeTrim(destination[key]));
-  if (missing.length) {
-    throw new Error(`Order address is incomplete. Missing: ${missing.join(", ")}`);
-  }
+  const { origin, destination } = buildShipmentAddresses(order, config);
+  const packages = buildPackages(order, config, overrides);
 
   const carrier = safeTrim(overrides.carrier || config.defaultCarrier);
   const service = safeTrim(overrides.service || config.defaultService);
@@ -294,26 +385,8 @@ function buildShipmentPayload(order, config, overrides = {}) {
     throw new Error("Carrier and service are required to create Envia shipment");
   }
 
-  const defaults = config.packageDefaults;
-  const packages = [
-    {
-      type: safeTrim(overrides.packageType || defaults.type),
-      content: safeTrim(overrides.content || defaults.content),
-      amount: Math.max(1, Math.round(toPositiveNumber(overrides.amount, defaults.amount))),
-      weightUnit: safeTrim(overrides.weightUnit || defaults.weightUnit).toUpperCase(),
-      lengthUnit: safeTrim(overrides.lengthUnit || defaults.lengthUnit).toUpperCase(),
-      weight: toPositiveNumber(overrides.weight, defaults.weight),
-      dimensions: {
-        length: toPositiveNumber(overrides.length, defaults.length),
-        width: toPositiveNumber(overrides.width, defaults.width),
-        height: toPositiveNumber(overrides.height, defaults.height),
-      },
-      declaredValue: toPositiveNumber(overrides.declaredValue, order.total || 1),
-    },
-  ];
-
   return {
-    origin: mapOriginForEnvia(config.origin),
+    origin,
     destination,
     packages,
     settings: {
@@ -328,6 +401,42 @@ function buildShipmentPayload(order, config, overrides = {}) {
       folio: safeTrim(overrides.folio || order.orderNumber || ""),
     },
   };
+}
+
+function buildRateQuotePayload(order, config, overrides = {}, carrier) {
+  const { origin, destination } = buildShipmentAddresses(order, config);
+  const packages = buildPackages(order, config, overrides);
+
+  return {
+    origin,
+    destination,
+    packages,
+    settings: {
+      currency: "INR",
+    },
+    shipment: {
+      type: 1,
+      carrier: safeTrim(carrier),
+    },
+  };
+}
+
+function pickRateQuotes(responseData = {}, carrier = "") {
+  const rows = Array.isArray(responseData?.data) ? responseData.data : [];
+  return rows
+    .map((row) => ({
+      carrier: safeTrim(row.carrier || carrier),
+      service: safeTrim(row.service),
+      serviceDescription: safeTrim(
+        row.serviceDescription || row.description || row.serviceName || row.service
+      ),
+      totalPrice: Number(row.totalPrice ?? row.total ?? row.price ?? 0),
+      currency: safeTrim(row.currency || "INR"),
+      deliveryEstimate: safeTrim(
+        row.deliveryEstimate || row.deliveryDate || row.estimatedDelivery || ""
+      ),
+    }))
+    .filter((row) => row.carrier && row.service);
 }
 
 function pickGeneratedShipmentData(responseData = {}) {
@@ -379,6 +488,52 @@ function pickTrackingData(responseData = {}, fallbackTracking = "") {
     events: trackingEvents,
     raw: row,
   };
+}
+
+export async function quoteEnviaShipmentRates(order, overrides = {}) {
+  const config = await resolveEnviaConfig();
+  ensureConfigUsable(config);
+
+  const carriers = overrides.carriers?.length
+    ? overrides.carriers
+    : config.rateCarriers?.length
+      ? config.rateCarriers
+      : DEFAULT_IN_RATE_CARRIERS;
+
+  const baseURL = config.useSandbox ? TEST_BASE_URL : PROD_BASE_URL;
+  const client = buildClient(baseURL, config.token);
+
+  const results = await Promise.allSettled(
+    carriers.map(async (carrier) => {
+      const payload = buildRateQuotePayload(order, config, overrides, carrier);
+      payload.origin = await normalizeEnviaAddress(payload.origin);
+      payload.destination = await normalizeEnviaAddress(payload.destination);
+      const response = await client.post("/ship/rate/", payload);
+      return pickRateQuotes(response.data, carrier);
+    })
+  );
+
+  const quotes = [];
+  const errors = [];
+
+  results.forEach((result, index) => {
+    const carrier = carriers[index];
+    if (result.status === "fulfilled") {
+      quotes.push(...result.value);
+      if (!result.value.length) {
+        errors.push({ carrier, message: "No rates returned" });
+      }
+    } else {
+      errors.push({
+        carrier,
+        message: extractEnviaError(result.reason) || "Rate quote failed",
+      });
+    }
+  });
+
+  quotes.sort((a, b) => a.totalPrice - b.totalPrice);
+
+  return { quotes, errors, carriers };
 }
 
 export async function createEnviaShipment(order, overrides = {}) {

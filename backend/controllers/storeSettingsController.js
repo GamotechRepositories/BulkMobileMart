@@ -1,4 +1,5 @@
 import StoreSettings from "../models/StoreSettings.js";
+import { normalizeEnviaOriginFields } from "../../shared/shipping/enviaOriginAddress.js";
 import {
   clearStoreSettingsCache,
   getStoreSettings,
@@ -72,17 +73,10 @@ const sanitizeEnviaConfig = (envia = {}, existingEnvia = null) => {
     apiToken,
     defaultCarrier: sanitizeText(envia.defaultCarrier) || "",
     defaultService: sanitizeText(envia.defaultService) || "",
-    origin: {
-      name: sanitizeText(origin.name) || "",
-      company: sanitizeText(origin.company) || "BulkMobileMart",
-      email: sanitizeText(origin.email) || "",
-      phone: sanitizeText(origin.phone) || "",
-      street: sanitizeText(origin.street) || "",
-      city: sanitizeText(origin.city) || "",
-      state: sanitizeText(origin.state) || "",
-      country: (sanitizeText(origin.country) || "IN").toUpperCase(),
-      postalCode: sanitizeText(origin.postalCode) || "",
-    },
+    rateCarriers: Array.isArray(envia.rateCarriers)
+      ? envia.rateCarriers.map((entry) => sanitizeText(entry)).filter(Boolean)
+      : [],
+    origin: normalizeEnviaOriginFields(origin),
     packageDefaults: {
       type: sanitizeText(packageDefaults.type) || "box",
       content: sanitizeText(packageDefaults.content) || "Mobile accessories",

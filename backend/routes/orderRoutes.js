@@ -9,6 +9,7 @@ import {
   getAllOrders,
   updateOrder,
   createOrderShipment,
+  quoteOrderShipmentRates,
   linkOrderShipmentTracking,
   syncOrderShipmentTracking,
   cancelOrder,
@@ -25,6 +26,7 @@ router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
 router.get("/admin/all", requireAdmin, getAllOrders);
 router.post("/admin/create", requireAdmin, adminPlaceOrder);
 router.patch("/admin/:id", requireAdmin, updateOrder);
+router.post("/admin/:id/shipment/envia/rates", requireAdmin, quoteOrderShipmentRates);
 router.post("/admin/:id/shipment/envia", requireAdmin, createOrderShipment);
 router.post("/admin/:id/shipment/envia/link", requireAdmin, linkOrderShipmentTracking);
 router.post("/admin/:id/shipment/envia/sync", requireAdmin, syncOrderShipmentTracking);

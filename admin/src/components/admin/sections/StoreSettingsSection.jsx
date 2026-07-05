@@ -13,9 +13,50 @@ import {
   inputClass,
   labelClass,
 } from "../adminStyles";
+import {
+  DEFAULT_ENVIA_PICKUP_ORIGIN,
+  mergeEnviaOriginDefaults,
+} from "@shared/shipping/enviaOriginAddress.js";
 
 const EMPTY_SLAB = { orderAmount: "", shippingCharge: "" };
 const EMPTY_UPI_ACCOUNT = { upiId: "", label: "BulkMobileMart", enabled: false };
+
+function enviaOriginToForm(origin = {}) {
+  const normalized = mergeEnviaOriginDefaults(origin);
+
+  return {
+    enviaOriginName: normalized.name,
+    enviaOriginCompany: normalized.company,
+    enviaOriginEmail: normalized.email,
+    enviaOriginPhone: normalized.phone,
+    enviaOriginAddressLine1: normalized.addressLine1,
+    enviaOriginAddressLine2: normalized.addressLine2,
+    enviaOriginLandmark: normalized.landmark,
+    enviaOriginStreetNumber: normalized.streetNumber,
+    enviaOriginCity: normalized.city,
+    enviaOriginState: normalized.state,
+    enviaOriginCountry: normalized.country,
+    enviaOriginPostalCode: normalized.postalCode,
+  };
+}
+
+function enviaOriginFromForm(form = {}) {
+  return {
+    name: String(form.enviaOriginName ?? "").trim(),
+    company: String(form.enviaOriginCompany ?? "").trim(),
+    email: String(form.enviaOriginEmail ?? "").trim(),
+    phone: String(form.enviaOriginPhone ?? "").trim(),
+    addressLine1: String(form.enviaOriginAddressLine1 ?? "").trim(),
+    addressLine2: String(form.enviaOriginAddressLine2 ?? "").trim(),
+    landmark: String(form.enviaOriginLandmark ?? "").trim(),
+    streetNumber: String(form.enviaOriginStreetNumber ?? "").trim(),
+    city: String(form.enviaOriginCity ?? "").trim(),
+    state: String(form.enviaOriginState ?? "").trim(),
+    country: String(form.enviaOriginCountry ?? "").trim().toUpperCase(),
+    postalCode: String(form.enviaOriginPostalCode ?? "").trim(),
+    isDefault: true,
+  };
+}
 
 function normalizeUpiAccounts(accounts = []) {
   let activeAssigned = false;
@@ -80,17 +121,11 @@ function serializeEnviaSection(form) {
     apiToken: String(form.enviaApiToken ?? "").trim(),
     defaultCarrier: String(form.enviaDefaultCarrier ?? "").trim(),
     defaultService: String(form.enviaDefaultService ?? "").trim(),
-    origin: {
-      name: String(form.enviaOriginName ?? "").trim(),
-      company: String(form.enviaOriginCompany ?? "").trim(),
-      email: String(form.enviaOriginEmail ?? "").trim(),
-      phone: String(form.enviaOriginPhone ?? "").trim(),
-      street: String(form.enviaOriginStreet ?? "").trim(),
-      city: String(form.enviaOriginCity ?? "").trim(),
-      state: String(form.enviaOriginState ?? "").trim(),
-      country: String(form.enviaOriginCountry ?? "").trim().toUpperCase(),
-      postalCode: String(form.enviaOriginPostalCode ?? "").trim(),
-    },
+    rateCarriers: String(form.enviaRateCarriers ?? "")
+      .split(/[,;\n]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+    origin: enviaOriginFromForm(form),
     packageDefaults: {
       type: String(form.enviaPackageType ?? "").trim(),
       content: String(form.enviaPackageContent ?? "").trim(),
@@ -137,15 +172,8 @@ function StoreSettingsSection() {
     enviaApiToken: "",
     enviaDefaultCarrier: "",
     enviaDefaultService: "",
-    enviaOriginName: "",
-    enviaOriginCompany: "BulkMobileMart",
-    enviaOriginEmail: "",
-    enviaOriginPhone: "",
-    enviaOriginStreet: "",
-    enviaOriginCity: "",
-    enviaOriginState: "",
-    enviaOriginCountry: "IN",
-    enviaOriginPostalCode: "",
+    enviaRateCarriers: "xpressbees, delhivery, ekart, bluedart, dtdc, ecomexpress",
+    ...enviaOriginToForm(DEFAULT_ENVIA_PICKUP_ORIGIN),
     enviaPackageType: "box",
     enviaPackageContent: "Mobile accessories",
     enviaPackageAmount: "1",
@@ -193,15 +221,8 @@ function StoreSettingsSection() {
         enviaApiToken: settings.envia?.apiToken || "",
         enviaDefaultCarrier: settings.envia?.defaultCarrier || "",
         enviaDefaultService: settings.envia?.defaultService || "",
-        enviaOriginName: settings.envia?.origin?.name || "",
-        enviaOriginCompany: settings.envia?.origin?.company || "BulkMobileMart",
-        enviaOriginEmail: settings.envia?.origin?.email || "",
-        enviaOriginPhone: settings.envia?.origin?.phone || "",
-        enviaOriginStreet: settings.envia?.origin?.street || "",
-        enviaOriginCity: settings.envia?.origin?.city || "",
-        enviaOriginState: settings.envia?.origin?.state || "",
-        enviaOriginCountry: settings.envia?.origin?.country || "IN",
-        enviaOriginPostalCode: settings.envia?.origin?.postalCode || "",
+        enviaRateCarriers: (settings.envia?.rateCarriers || []).join(", "),
+        ...enviaOriginToForm(settings.envia?.origin),
         enviaPackageType: settings.envia?.packageDefaults?.type || "box",
         enviaPackageContent: settings.envia?.packageDefaults?.content || "Mobile accessories",
         enviaPackageAmount: String(settings.envia?.packageDefaults?.amount ?? 1),
@@ -406,17 +427,11 @@ function StoreSettingsSection() {
             apiToken: form.enviaApiToken.trim(),
             defaultCarrier: form.enviaDefaultCarrier.trim(),
             defaultService: form.enviaDefaultService.trim(),
-            origin: {
-              name: form.enviaOriginName.trim(),
-              company: form.enviaOriginCompany.trim(),
-              email: form.enviaOriginEmail.trim(),
-              phone: form.enviaOriginPhone.trim(),
-              street: form.enviaOriginStreet.trim(),
-              city: form.enviaOriginCity.trim(),
-              state: form.enviaOriginState.trim(),
-              country: form.enviaOriginCountry.trim().toUpperCase(),
-              postalCode: form.enviaOriginPostalCode.trim(),
-            },
+            rateCarriers: form.enviaRateCarriers
+              .split(/[,;\n]+/)
+              .map((entry) => entry.trim())
+              .filter(Boolean),
+            origin: enviaOriginFromForm(form),
             packageDefaults: {
               type: form.enviaPackageType.trim(),
               content: form.enviaPackageContent.trim(),
@@ -871,11 +886,35 @@ function StoreSettingsSection() {
                   placeholder="surface"
                 />
               </div>
+              <p className="mt-1 text-xs text-neutral-500">
+                Optional fallback only. On each order you can compare carriers and pick the best rate.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Carriers to compare for rate quotes</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={form.enviaRateCarriers}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaRateCarriers: e.target.value }))
+                }
+                placeholder="xpressbees, delhivery, ekart, bluedart"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Comma-separated Envia carrier codes. Used when you click Compare rates on an order.
+              </p>
             </div>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900">Origin Address (From Warehouse)</h4>
+            <h4 className="text-sm font-semibold text-neutral-900">
+              Pickup / Origin / Return Address
+            </h4>
+            <p className="mt-1 text-xs text-neutral-500">
+              Parcel pickup location. Used as the origin address (and return address) when creating
+              Envia shipping labels.
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <input
                 className={inputClass}
@@ -903,9 +942,41 @@ function StoreSettingsSection() {
               />
               <input
                 className={`${inputClass} sm:col-span-2`}
-                value={form.enviaOriginStreet}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginStreet: e.target.value }))}
-                placeholder="Street address"
+                value={form.enviaOriginAddressLine1}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaOriginAddressLine1: e.target.value }))
+                }
+                placeholder="Address line 1"
+              />
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                value={form.enviaOriginAddressLine2}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaOriginAddressLine2: e.target.value }))
+                }
+                placeholder="Address line 2"
+              />
+              <input
+                className={`${inputClass} sm:col-span-2`}
+                value={form.enviaOriginLandmark}
+                onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginLandmark: e.target.value }))}
+                placeholder="Landmark"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginStreetNumber}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaOriginStreetNumber: e.target.value }))
+                }
+                placeholder="Shop / unit number"
+              />
+              <input
+                className={inputClass}
+                value={form.enviaOriginPostalCode}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, enviaOriginPostalCode: e.target.value }))
+                }
+                placeholder="Pincode"
               />
               <input
                 className={inputClass}
@@ -924,14 +995,6 @@ function StoreSettingsSection() {
                 value={form.enviaOriginCountry}
                 onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginCountry: e.target.value }))}
                 placeholder="Country code (IN)"
-              />
-              <input
-                className={inputClass}
-                value={form.enviaOriginPostalCode}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, enviaOriginPostalCode: e.target.value }))
-                }
-                placeholder="Postal code"
               />
             </div>
           </div>
