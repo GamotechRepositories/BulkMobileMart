@@ -37,7 +37,7 @@ export function downloadInvoicePdf(order, user, filename) {
   const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
   const paymentStatus =
     order.paymentStatus === "paid_10"
-      ? "Paid 10%"
+      ? "10% Paid"
       : (order.paymentStatus || "unpaid") === "paid"
         ? "Paid"
         : "Unpaid";

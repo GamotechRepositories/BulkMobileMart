@@ -1,18 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getOrderById, getStoreSettings } from "../api/api";
 import InvoiceDocument from "../components/invoice/InvoiceDocument";
 import InvoicePageShell from "@shared/invoice/InvoicePageShell.jsx";
+import { downloadInvoiceFromElement } from "@shared/invoice/downloadInvoiceFromElement.js";
+import { getInvoiceFilename } from "@shared/invoice/invoiceHelpers.js";
 
 function OrderInvoice() {
   const { id } = useParams();
   const { user, openAuthModal } = useAuth();
+  const invoiceRef = useRef(null);
+  const autoDownloadedRef = useRef(false);
   const [order, setOrder] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [printing, setPrinting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -41,12 +45,32 @@ function OrderInvoice() {
     loadOrder();
   }, [user, id]);
 
-  const handlePrint = () => {
-    if (printing) return;
-    setPrinting(true);
-    window.print();
-    setTimeout(() => setPrinting(false), 500);
-  };
+  const handleDownload = useCallback(async () => {
+    if (downloading || !order || !invoiceRef.current) return;
+
+    try {
+      setDownloading(true);
+      await downloadInvoiceFromElement(
+        invoiceRef.current,
+        getInvoiceFilename(order)
+      );
+    } catch {
+      setError("Failed to download invoice");
+    } finally {
+      setDownloading(false);
+    }
+  }, [downloading, order]);
+
+  useEffect(() => {
+    if (loading || !order || autoDownloadedRef.current) return;
+
+    autoDownloadedRef.current = true;
+    const timer = setTimeout(() => {
+      handleDownload();
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [loading, order, handleDownload]);
 
   if (!user) {
     return (
@@ -85,11 +109,12 @@ function OrderInvoice() {
   return (
     <InvoicePageShell backTo="/orders" backLabel="← Back to My Orders">
       <InvoiceDocument
+        ref={invoiceRef}
         order={order}
         customer={user}
         storeSettings={storeSettings}
-        onPrint={handlePrint}
-        printing={printing}
+        onDownload={handleDownload}
+        downloading={downloading}
       />
     </InvoicePageShell>
   );

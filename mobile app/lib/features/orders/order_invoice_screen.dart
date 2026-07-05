@@ -13,6 +13,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/invoice_pdf.dart';
 import '../../core/utils/order_number.dart';
 import '../../core/utils/order_utils.dart';
+import '../../core/utils/payment_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../models/order.dart';
 import '../../routes/route_paths.dart';
@@ -74,7 +75,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
       ..writeln('Order #$orderNo')
       ..writeln('Date: ${formatOrderDate(order.createdAt)}')
       ..writeln('Status: ${getOrderStatusLabel(order.status)}')
-      ..writeln('Payment: ${getOrderPaymentLabel(order)}')
+      ..writeln('Payment: ${getInvoicePaymentStatusLabel(order)}')
       ..writeln()
       ..writeln('Bill To: ${getAddressFullName(addr)}')
       ..writeln(formatAddressLine(addr))
@@ -113,7 +114,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
       final user = ref.read(authControllerProvider).user;
       final bytes = await generateInvoicePdf(order, user: user);
       final dir = await getTemporaryDirectory();
-      final path = '${dir.path}/invoice-${getOrderNumber(order)}.pdf';
+      final path = '${dir.path}/${getInvoiceFilename(order)}';
       final file = File(path);
       await file.writeAsBytes(bytes);
       await SharePlus.instance.share(
@@ -216,7 +217,11 @@ class _InvoiceDocument extends StatelessWidget {
     final addr = order.deliveryAddress;
     final paymentMode =
         order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Online Payment';
-    final paymentStatus = getOrderPaymentLabel(order);
+    final paymentStatus = getInvoicePaymentStatusLabel(order);
+    final isAdvancePaid = order.paymentStatus == 'paid_10';
+    final advancePaid = isAdvancePaid ? PaymentUtils.advanceAmount(order.total) : 0.0;
+    final remainingBalance =
+        isAdvancePaid ? (order.total - advancePaid).clamp(0.0, double.infinity) : 0.0;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -428,10 +433,31 @@ class _InvoiceDocument extends StatelessWidget {
                             ),
                             const Divider(),
                             _totalRow('Grand Total', formatInr(order.total), bold: true),
+                            if (isAdvancePaid) ...[
+                              _totalRow('Advance Paid (10%)', formatInr(advancePaid)),
+                              _totalRow(
+                                'Balance Due on Delivery',
+                                formatInr(remainingBalance),
+                                bold: true,
+                              ),
+                            ],
                           ],
                         ),
                       ),
                     ),
+                    if (isAdvancePaid)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          'Remarks: 10% advance amount of ${formatInr(advancePaid)} has been paid. '
+                          'Remaining balance of ${formatInr(remainingBalance)} is payable on delivery.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

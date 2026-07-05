@@ -6,6 +6,7 @@ import {
   formatInvoiceAmount,
   formatInvoiceDate,
   formatPlaceOfSupply,
+  getInvoiceAdvancePaymentDetails,
   getPaymentModeLabel,
   getPaymentStatusLabel,
   mergeInvoiceConfig,
@@ -75,7 +76,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
     logoUrl,
     storeSettings,
     onAction,
-    actionLabel = "Print / Save PDF",
+    actionLabel = "Download Invoice",
     actionLoading = false,
   },
   ref
@@ -95,6 +96,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
     customerState: addr?.state || "",
   });
   const grandTotal = order?.total ?? totals.grandTotal;
+  const advancePayment = getInvoiceAdvancePaymentDetails(order);
 
   const metaRows = [
     ["Invoice No", invoiceNo],
@@ -210,6 +212,11 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
               <p className="invoice-footer-disclaimer">
                 This is a computer generated invoice. Reverse Charge: No
               </p>
+              {advancePayment.isAdvancePaid ? (
+                <p className="invoice-footer-remark">
+                  <strong>Remarks:</strong> {advancePayment.remark}
+                </p>
+              ) : null}
             </div>
 
             <div className="invoice-footer-summary">
@@ -236,6 +243,19 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                     value={formatInvoiceAmount(grandTotal)}
                     highlight
                   />
+                  {advancePayment.isAdvancePaid ? (
+                    <>
+                      <SummaryRow
+                        label="Advance Paid (10%)"
+                        value={formatInvoiceAmount(advancePayment.advancePaid)}
+                      />
+                      <SummaryRow
+                        label="Balance Due on Delivery"
+                        value={formatInvoiceAmount(advancePayment.remainingBalance)}
+                        highlight
+                      />
+                    </>
+                  ) : null}
                 </tbody>
               </table>
             </div>
@@ -250,7 +270,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
               disabled={actionLoading}
               className="invoice-print-btn"
             >
-              {actionLoading ? "Preparing..." : actionLabel}
+              {actionLoading ? "Downloading..." : actionLabel}
             </button>
           </div>
         ) : null}

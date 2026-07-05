@@ -10,6 +10,10 @@ export function getOrderNumber(order) {
   return (fromId.slice(-6) || "000000").padStart(6, "0");
 }
 
+export function getInvoiceFilename(order) {
+  return `Invoice_${getOrderNumber(order)}.pdf`;
+}
+
 export function getAddressFullName(addr) {
   return addr?.fullName || addr?.name || "";
 }

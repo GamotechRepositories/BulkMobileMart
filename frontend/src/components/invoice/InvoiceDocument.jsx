@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import TaxInvoiceDocument from "@shared/invoice/TaxInvoiceDocument.jsx";
 
 const InvoiceDocument = forwardRef(function InvoiceDocument(
-  { order, customer, storeSettings, onPrint, printing },
+  { order, customer, storeSettings, onDownload, downloading },
   ref
 ) {
   return (
@@ -11,9 +11,9 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       order={order}
       customer={customer}
       storeSettings={storeSettings}
-      onAction={onPrint}
-      actionLabel={printing ? "Preparing..." : "Print / Save PDF"}
-      actionLoading={printing}
+      onAction={onDownload}
+      actionLabel={downloading ? "Downloading..." : "Download Invoice"}
+      actionLoading={downloading}
     />
   );
 });

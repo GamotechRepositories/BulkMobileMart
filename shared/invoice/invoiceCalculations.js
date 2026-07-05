@@ -35,6 +35,41 @@ function roundMoney(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
+const ADVANCE_PAYMENT_PERCENT = 0.1;
+
+export function calculateAdvanceAmount(total) {
+  const amount = Number(total) || 0;
+  return roundMoney(amount * ADVANCE_PAYMENT_PERCENT);
+}
+
+export function getInvoiceAdvancePaymentDetails(order) {
+  const grandTotal = roundMoney(Number(order?.total) || 0);
+  const isAdvancePaid = order?.paymentStatus === "paid_10";
+
+  if (!isAdvancePaid) {
+    return {
+      isAdvancePaid: false,
+      advancePaid: 0,
+      remainingBalance: 0,
+      remark: "",
+    };
+  }
+
+  const advancePaid = roundMoney(
+    Number(order?.codAdvanceAmount) > 0
+      ? order.codAdvanceAmount
+      : calculateAdvanceAmount(grandTotal)
+  );
+  const remainingBalance = roundMoney(Math.max(0, grandTotal - advancePaid));
+
+  return {
+    isAdvancePaid: true,
+    advancePaid,
+    remainingBalance,
+    remark: `10% advance amount of Rs. ${formatInvoiceAmount(advancePaid)} has been paid. Remaining balance of Rs. ${formatInvoiceAmount(remainingBalance)} is payable on delivery.`,
+  };
+}
+
 export function splitInclusiveGst(amount, gstRate = INVOICE_CONFIG.defaultGstRate) {
   const inclusive = roundMoney(amount);
   const rate = Number(gstRate) || INVOICE_CONFIG.defaultGstRate;
@@ -144,7 +179,7 @@ export const STATUS_LABELS = {
 };
 
 export function getPaymentStatusLabel(paymentStatus) {
-  if (paymentStatus === "paid_10") return "Paid 10%";
+  if (paymentStatus === "paid_10") return "10% Paid";
   if (paymentStatus === "paid") return "Paid";
   if (paymentStatus === "pending_verification") return "Pending Verification";
   if (paymentStatus === "refundable") return "Refundable";

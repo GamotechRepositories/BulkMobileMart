@@ -410,6 +410,13 @@
   color: #444;
 }
 
+#invoice-print-area .invoice-footer-remark {
+  margin-top: 12px !important;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #111;
+}
+
 #invoice-print-area .invoice-footer-summary {
   width: 100%;
   border-top: 1px solid #000;

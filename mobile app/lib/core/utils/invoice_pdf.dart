@@ -7,8 +7,14 @@ import '../../core/utils/address_utils.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/order_number.dart';
 import '../../core/utils/order_utils.dart';
+import '../../core/utils/payment_utils.dart';
 import '../../models/order.dart';
 import '../../models/user.dart';
+
+String getInvoicePaymentStatusLabel(Order order) {
+  if (order.paymentStatus == 'paid_10') return '10% Paid';
+  return getOrderPaymentLabel(order);
+}
 
 Future<Uint8List> generateInvoicePdf(
   Order order, {
@@ -19,7 +25,11 @@ Future<Uint8List> generateInvoicePdf(
   final addr = order.deliveryAddress;
   final paymentMode =
       order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Online Payment';
-  final paymentStatus = getOrderPaymentLabel(order);
+  final paymentStatus = getInvoicePaymentStatusLabel(order);
+  final isAdvancePaid = order.paymentStatus == 'paid_10';
+  final advancePaid = isAdvancePaid ? PaymentUtils.advanceAmount(order.total) : 0.0;
+  final remainingBalance =
+      isAdvancePaid ? (order.total - advancePaid).clamp(0.0, double.infinity) : 0.0;
 
   doc.addPage(
     pw.MultiPage(
@@ -114,10 +124,27 @@ Future<Uint8List> generateInvoicePdf(
                 ),
                 pw.Divider(),
                 _pdfTotalRow('Total Amount', formatInr(order.total), bold: true),
+                if (isAdvancePaid) ...[
+                  _pdfTotalRow('Advance Paid (10%)', formatInr(advancePaid)),
+                  _pdfTotalRow(
+                    'Balance Due on Delivery',
+                    formatInr(remainingBalance),
+                    bold: true,
+                  ),
+                ],
               ],
             ),
           ),
         ),
+        if (isAdvancePaid)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 12),
+            child: pw.Text(
+              'Remarks: 10% advance amount of ${formatInr(advancePaid)} has been paid. '
+              'Remaining balance of ${formatInr(remainingBalance)} is payable on delivery.',
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800),
+            ),
+          ),
       ],
     ),
   );

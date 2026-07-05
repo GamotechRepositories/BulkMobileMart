@@ -13,3 +13,5 @@ String getOrderNumber(Order order) {
       : fromId;
   return slice.padLeft(6, '0');
 }
+
+String getInvoiceFilename(Order order) => 'Invoice_${getOrderNumber(order)}.pdf';
