@@ -17,9 +17,9 @@ import { formatCustomerAddress, getAddressFullName, getOrderNumber } from "./inv
 import "./invoice.css";
 
 const TABLE_COLUMNS = [
-  { key: "srNo", label: "Sr No", align: "center", width: "8%" },
-  { key: "name", label: "Product Name", align: "left", width: "42%" },
-  { key: "qty", label: "Qty", align: "center", width: "10%" },
+  { key: "srNo", label: "Sr No", align: "center", width: "7%" },
+  { key: "name", label: "Product Name", align: "left", width: "45%", wrap: true },
+  { key: "qty", label: "Qty", align: "center", width: "8%" },
   { key: "rate", label: "Rate", align: "right", width: "18%" },
   { key: "amount", label: "Amount", align: "right", width: "22%" },
 ];
@@ -34,11 +34,17 @@ function cellAlign(align) {
   return "invoice-align-left";
 }
 
+function cellClass(column) {
+  const classes = [cellAlign(column.align)];
+  if (column.wrap) classes.push("invoice-cell-wrap");
+  return classes.join(" ");
+}
+
 function InfoRow({ label, value }) {
   return (
     <tr>
       <td className="invoice-info-label">{label}</td>
-      <td className="invoice-info-value">{value}</td>
+      <td className="invoice-info-value invoice-cell-wrap">{value}</td>
     </tr>
   );
 }
@@ -46,7 +52,7 @@ function InfoRow({ label, value }) {
 function SummaryRow({ label, value, highlight = false }) {
   return (
     <tr className={highlight ? "invoice-summary-total" : "invoice-summary-row"}>
-      <td className="invoice-summary-label">{label}</td>
+      <td className="invoice-summary-label invoice-cell-wrap">{label}</td>
       <td className="invoice-summary-value">{value}</td>
     </tr>
   );
@@ -153,7 +159,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
 
         <div className="invoice-block">
           <SectionBar title="Bill To" />
-          <div className="invoice-bill-to">
+          <div className="invoice-bill-to invoice-cell-wrap">
             <p className="invoice-bill-to-name">{customerName}</p>
             {addr?.shopName ? <p>{addr.shopName}</p> : null}
             {addr?.number ? <p>{addr.number}</p> : customer?.phone ? <p>{customer.phone}</p> : null}
@@ -164,7 +170,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
 
         <div className="invoice-block">
           <SectionBar title="Order Detail" />
-          <div className="invoice-product-scroll">
+          <div className="invoice-product-table-wrap">
             <table className="invoice-product-table">
               <colgroup>
                 {TABLE_COLUMNS.map((column) => (
@@ -174,7 +180,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
               <thead>
                 <tr>
                   {TABLE_COLUMNS.map((column) => (
-                    <th key={column.key} className={cellAlign(column.align)}>
+                    <th key={column.key} className={cellClass(column)}>
                       {column.label}
                     </th>
                   ))}
@@ -184,7 +190,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                 {lineItems.map((item) => (
                   <tr key={item.srNo}>
                     {TABLE_COLUMNS.map((column) => (
-                      <td key={column.key} className={cellAlign(column.align)}>
+                      <td key={column.key} className={cellClass(column)}>
                         {renderCellValue(item, column.key)}
                       </td>
                     ))}
@@ -196,13 +202,13 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
         </div>
 
         <div className="invoice-block">
-          <div className="invoice-amount-words">
+          <div className="invoice-amount-words invoice-cell-wrap">
             <span className="invoice-amount-words-label">Amount in Words:</span>{" "}
             {amountInWords(grandTotal)}
           </div>
 
           <div className="invoice-footer-layout">
-            <div className="invoice-footer-notes">
+            <div className="invoice-footer-notes invoice-cell-wrap">
               <p className="invoice-footer-notes-title">Bank Details:</p>
               {bankRows.map(([label, value]) => (
                 <p key={label}>
