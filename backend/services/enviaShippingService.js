@@ -325,6 +325,7 @@ function buildShipmentPayload(order, config, overrides = {}) {
       type: 1,
       carrier,
       service,
+      folio: safeTrim(overrides.folio || order.orderNumber || ""),
     },
   };
 }
@@ -439,36 +440,42 @@ function applyShipmentOnOrder(order, shipment) {
   };
 }
 
-export async function autoCreateShipmentForOrder(order, reason = "auto") {
-  if (!order || order.shipment?.trackingNumber || order.status === "cancelled") {
-    return order;
+const QUERIES_TEST_BASE_URL = "https://queries-test.envia.com";
+const QUERIES_PROD_BASE_URL = "https://queries.envia.com";
+
+export function getEnviaWebhookPublicUrl() {
+  const base = safeTrim(
+    process.env.PUBLIC_API_URL || process.env.BACKEND_URL || process.env.API_BASE_URL
+  );
+  if (!base) return "";
+  return `${base.replace(/\/$/, "")}/api/webhooks/envia`;
+}
+
+export async function listEnviaWebhooks() {
+  const config = await resolveEnviaConfig();
+  ensureConfigUsable(config);
+
+  const baseURL = config.useSandbox ? QUERIES_TEST_BASE_URL : QUERIES_PROD_BASE_URL;
+  const client = buildClient(baseURL, config.token);
+  const response = await client.get("/webhooks");
+  return response.data;
+}
+
+export async function registerEnviaTrackingWebhook(url) {
+  const config = await resolveEnviaConfig();
+  ensureConfigUsable(config);
+
+  const webhookUrl = safeTrim(url);
+  if (!webhookUrl) {
+    throw new Error("Webhook URL is required");
   }
 
-  try {
-    const shipment = await createEnviaShipment(order);
-    applyShipmentOnOrder(order, shipment);
-    if (["confirm", "processing"].includes(order.status)) {
-      order.status = "shipping";
-    }
-    await order.save();
-    return order;
-  } catch (error) {
-    const message = extractEnviaError(error);
-    order.shipment = {
-      provider: "envia",
-      carrier: order.shipment?.carrier || "",
-      service: order.shipment?.service || "",
-      shipmentId: order.shipment?.shipmentId || "",
-      trackingNumber: "",
-      trackUrl: order.shipment?.trackUrl || "",
-      labelUrl: order.shipment?.labelUrl || "",
-      status: "failed",
-      statusMessage: message,
-      syncedAt: new Date(),
-      events: order.shipment?.events || [],
-    };
-    await order.save();
-    console.error(`Auto shipment failed for order ${order._id} (${reason}): ${message}`);
-    return order;
-  }
+  const baseURL = config.useSandbox ? QUERIES_TEST_BASE_URL : QUERIES_PROD_BASE_URL;
+  const client = buildClient(baseURL, config.token);
+  const response = await client.post("/webhooks", {
+    type_id: 3,
+    url: webhookUrl,
+    active: 1,
+  });
+  return response.data;
 }

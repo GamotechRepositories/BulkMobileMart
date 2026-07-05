@@ -62,6 +62,8 @@ export const deleteTestimonial = (id) => api.delete(`/api/testimonials/${id}`);
 
 export const getStoreSettings = () => api.get("/api/settings/admin");
 export const updateStoreSettings = (data) => api.put("/api/settings", data);
+export const getEnviaWebhookSetup = () => api.get("/api/settings/envia/webhook");
+export const registerEnviaWebhook = () => api.post("/api/settings/envia/webhook/register");
 
 export const getAllProducts = (params) => api.get("/api/products/all", { params });
 export const addProduct = (data) => api.post("/api/products", data);
@@ -91,6 +93,8 @@ export const createAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia`, data);
 export const syncAdminOrderShipment = (id) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/sync`);
+export const linkAdminOrderShipment = (id, data) =>
+  api.post(`/api/orders/admin/${id}/shipment/envia/link`, data);
 
 export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
 export const getAdminPaymentUnreadCount = (params) =>

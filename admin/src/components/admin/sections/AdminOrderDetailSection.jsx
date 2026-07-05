@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getOrderById, updateAdminOrder } from "../../../api/api";
+import { getOrderById, linkAdminOrderShipment, syncAdminOrderShipment, updateAdminOrder } from "../../../api/api";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
 import AdminOrderItemsEditor from "../AdminOrderItemsEditor";
@@ -94,6 +94,9 @@ function AdminOrderDetailSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [trackingInput, setTrackingInput] = useState("");
+  const [linkingTracking, setLinkingTracking] = useState(false);
+  const [syncingTracking, setSyncingTracking] = useState(false);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -147,6 +150,44 @@ function AdminOrderDetailSection() {
   const handleItemsUpdated = (updatedOrder) => {
     setOrder(updatedOrder);
     setSuccess("Order items updated");
+  };
+
+  const handleLinkTracking = async (event) => {
+    event.preventDefault();
+    if (!order || linkingTracking || !trackingInput.trim()) return;
+
+    setLinkingTracking(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await linkAdminOrderShipment(order._id, {
+        trackingNumber: trackingInput.trim(),
+      });
+      setOrder(data.data);
+      setTrackingInput("");
+      setSuccess("Tracking linked. Customer will get live updates from Envia.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to link tracking");
+    } finally {
+      setLinkingTracking(false);
+    }
+  };
+
+  const handleSyncTracking = async () => {
+    if (!order || syncingTracking || !order.shipment?.trackingNumber) return;
+
+    setSyncingTracking(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await syncAdminOrderShipment(order._id);
+      setOrder(data.data);
+      setSuccess("Tracking updated from Envia.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to refresh tracking");
+    } finally {
+      setSyncingTracking(false);
+    }
   };
 
   if (loading) {
@@ -327,9 +368,9 @@ function AdminOrderDetailSection() {
       </div>
 
       <div className={cardClass}>
-        <h3 className="mb-3 text-sm font-bold text-neutral-900">Shipment (Envia)</h3>
+        <h3 className="mb-3 text-sm font-bold text-neutral-900">Shipment tracking</h3>
         {order.shipment?.trackingNumber ? (
-          <div className="space-y-2 text-sm text-neutral-700">
+          <div className="space-y-3 text-sm text-neutral-700">
             <p>
               Tracking:{" "}
               <span className="font-semibold text-neutral-900">{order.shipment.trackingNumber}</span>
@@ -346,7 +387,20 @@ function AdminOrderDetailSection() {
                 {order.shipment.status || order.shipment.statusMessage || "Not available"}
               </span>
             </p>
+            {order.shipment.syncedAt ? (
+              <p className="text-xs text-neutral-500">
+                Last updated {formatDateTime(order.shipment.syncedAt)}
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleSyncTracking}
+                disabled={syncingTracking}
+                className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {syncingTracking ? "Refreshing…" : "Refresh tracking"}
+              </button>
               {order.shipment.trackUrl ? (
                 <a
                   href={order.shipment.trackUrl}
@@ -357,34 +411,60 @@ function AdminOrderDetailSection() {
                   Open tracking
                 </a>
               ) : null}
-              {order.shipment.labelUrl ? (
-                <a
-                  href={order.shipment.labelUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
-                >
-                  Download label
-                </a>
-              ) : null}
             </div>
-          </div>
-        ) : order.shipment?.status === "failed" ? (
-          <div className="space-y-2 text-sm">
-            <p className="font-semibold text-red-700">Envia shipment failed</p>
-            <p className="text-neutral-700">
-              {order.shipment.statusMessage || "Unknown error from Envia API"}
-            </p>
-            <p className="text-neutral-500">
-              Fix address/carrier settings, then change order status to Shipping to retry.
-            </p>
+            {order.shipment.events?.length > 0 ? (
+              <div className="mt-2 border-t border-neutral-200 pt-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">
+                  Tracking history
+                </p>
+                <ul className="space-y-2">
+                  {order.shipment.events.map((event, index) => (
+                    <li key={`${event.date}-${index}`} className="text-xs text-neutral-600">
+                      <span className="font-medium text-neutral-800">
+                        {event.status || event.description || "Update"}
+                      </span>
+                      {event.date ? ` · ${event.date}` : ""}
+                      {event.location ? ` · ${event.location}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3 text-sm text-neutral-600">
-            <p className="text-sm text-neutral-600">
-              Shipment is auto-created by backend once order is confirmed/ready to ship.
+            <p>
+              No shipment linked yet. Create the shipment manually in the{" "}
+              <a
+                href="https://ship.envia.com"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-neutral-900 underline"
+              >
+                Envia portal
+              </a>{" "}
+              when you are ready — use order #{getOrderNumber(order)} as the reference.
             </p>
-            <p>If not visible yet, open this order again after a few seconds.</p>
+            <p>
+              After creating the shipment in Envia, paste the tracking number below. Customers
+              will see live parcel updates in the app (like Amazon).
+            </p>
+            <form onSubmit={handleLinkTracking} className="flex flex-col gap-2 sm:flex-row">
+              <input
+                type="text"
+                value={trackingInput}
+                onChange={(e) => setTrackingInput(e.target.value)}
+                placeholder="Paste tracking number from Envia"
+                className={adminFilterInputClass}
+              />
+              <button
+                type="submit"
+                disabled={linkingTracking || !trackingInput.trim()}
+                className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {linkingTracking ? "Linking…" : "Link tracking"}
+              </button>
+            </form>
           </div>
         )}
       </div>

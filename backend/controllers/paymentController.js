@@ -17,7 +17,6 @@ import {
   notifyPaymentFailed,
   notifyPaymentSuccess,
 } from "../services/orderNotificationDispatcher.js";
-import { autoCreateShipmentForOrder } from "../services/enviaShippingService.js";
 
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
@@ -198,8 +197,6 @@ export const verifyRazorpayPayment = async (req, res) => {
       message: orderMessage,
       attemptedOrderId,
     });
-
-    await autoCreateShipmentForOrder(order, "razorpay_payment");
 
     void notifyOrderCreated(order, {
       previousStatus: attemptedOrderId ? "attempted" : null,
@@ -479,11 +476,6 @@ export const updatePaymentStatus = async (req, res) => {
           paymentStatus: "unpaid",
           codAdvancePaidAt: new Date(),
         });
-      }
-
-      const verifiedOrder = await Order.findById(payment.order);
-      if (verifiedOrder) {
-        await autoCreateShipmentForOrder(verifiedOrder, "upi_payment_verified");
       }
 
       if (order) {

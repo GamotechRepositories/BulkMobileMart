@@ -362,6 +362,22 @@ export async function sendPaymentFailed(order, extra = {}) {
   });
 }
 
+export async function sendShipmentStatusUpdate(order, { status, statusDescription, trackUrl } = {}) {
+  const ref = orderRef(order);
+  const detail = statusDescription || status || "Tracking updated";
+  return deliverToUser(order.user, {
+    title: `${ref} — Tracking update`,
+    body: detail,
+    type: "shipment_tracking",
+    order,
+    data: buildOrderData(order, {
+      type: "shipment_tracking",
+      status: status || "",
+      trackUrl: trackUrl || "",
+    }),
+  });
+}
+
 export async function sendOffer(userId, { title, body, data = {} }) {
   return deliverToUser(userId, {
     title,

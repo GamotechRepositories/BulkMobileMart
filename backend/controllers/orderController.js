@@ -23,7 +23,6 @@ import {
   notifyOrderStatusChange,
 } from "../services/orderNotificationDispatcher.js";
 import {
-  autoCreateShipmentForOrder,
   createEnviaShipment,
   trackEnviaShipment,
 } from "../services/enviaShippingService.js";
@@ -315,7 +314,6 @@ export const adminPlaceOrder = async (req, res) => {
         : {}),
     });
 
-    order = await autoCreateShipmentForOrder(order, "admin_place_order");
     void notifyOrderCreated(order);
 
     res.status(201).json({
@@ -379,7 +377,6 @@ export const placeOrder = async (req, res) => {
       attemptedOrderId,
     });
 
-    order = await autoCreateShipmentForOrder(order, "user_place_order");
     void notifyOrderCreated(order, {
       previousStatus: attemptedOrderId ? "attempted" : null,
     });
@@ -907,16 +904,6 @@ export const updateOrder = async (req, res) => {
       Order.findById(req.params.id).populate("user", "name email phone")
     );
 
-    if (updates.status === "shipping" || updates.status === "confirm") {
-      order = await autoCreateShipmentForOrder(
-        order,
-        updates.status === "confirm" ? "status_confirm" : "status_shipping"
-      );
-      order = await populateOrderItems(
-        Order.findById(req.params.id).populate("user", "name email phone")
-      );
-    }
-
     void notifyOrderStatusChange(order, previousStatus, { notificationStage });
 
     res.status(200).json({
@@ -983,6 +970,80 @@ export const createOrderShipment = async (req, res) => {
     res.status(400).json({
       success: false,
       message: error.response?.data?.message || error.message || "Failed to create shipment",
+    });
+  }
+};
+
+export const linkOrderShipmentTracking = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const trackingNumber = String(req.body?.trackingNumber || "").trim();
+    if (!trackingNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Tracking number is required",
+      });
+    }
+
+    const previousStatus = order.status;
+
+    order.shipment = {
+      ...(order.shipment || {}),
+      provider: "envia",
+      carrier: String(req.body?.carrier || order.shipment?.carrier || "").trim(),
+      service: String(req.body?.service || order.shipment?.service || "").trim(),
+      trackingNumber,
+      trackUrl: String(req.body?.trackUrl || order.shipment?.trackUrl || "").trim(),
+      labelUrl: String(req.body?.labelUrl || order.shipment?.labelUrl || "").trim(),
+      status: String(req.body?.status || order.shipment?.status || "created").trim(),
+      statusMessage:
+        String(req.body?.statusMessage || order.shipment?.statusMessage || "").trim() ||
+        "Linked from Envia portal",
+      syncedAt: new Date(),
+      events: order.shipment?.events || [],
+    };
+
+    try {
+      const tracking = await trackEnviaShipment(trackingNumber);
+      order.shipment.status = tracking.status || order.shipment.status;
+      order.shipment.statusMessage =
+        tracking.statusMessage || order.shipment.statusMessage;
+      order.shipment.trackUrl = tracking.trackUrl || order.shipment.trackUrl;
+      order.shipment.events = tracking.events?.length
+        ? tracking.events
+        : order.shipment.events;
+      order.shipment.syncedAt = tracking.syncedAt || order.shipment.syncedAt;
+    } catch {
+      // Tracking lookup is optional; webhooks will update status later.
+    }
+
+    if (["confirm", "processing"].includes(order.status)) {
+      order.status = "shipping";
+    }
+
+    await order.save();
+
+    if (order.status !== previousStatus) {
+      void notifyOrderStatusChange(order, previousStatus);
+    }
+
+    const populated = await populateOrderItems(
+      Order.findById(order._id).populate("user", "name email phone")
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Tracking linked to order",
+      data: enrichOrderForResponse(populated),
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to link tracking",
     });
   }
 };

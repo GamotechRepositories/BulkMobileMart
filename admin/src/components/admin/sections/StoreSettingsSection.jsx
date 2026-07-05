@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { getStoreSettings, updateStoreSettings } from "../../../api/api";
+import {
+  getEnviaWebhookSetup,
+  getStoreSettings,
+  registerEnviaWebhook,
+  updateStoreSettings,
+} from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import {
   btnPrimary,
@@ -117,6 +122,9 @@ function StoreSettingsSection() {
   const [savingSection, setSavingSection] = useState("");
   const [savedSnapshots, setSavedSnapshots] = useState(() => buildSectionSnapshots({}));
   const [enviaHasSavedToken, setEnviaHasSavedToken] = useState(false);
+  const [enviaWebhook, setEnviaWebhook] = useState(null);
+  const [enviaWebhookLoading, setEnviaWebhookLoading] = useState(false);
+  const [enviaWebhookRegistering, setEnviaWebhookRegistering] = useState(false);
   const [form, setForm] = useState({
     minimumOrderValue: "3000",
     minimumShippingCharge: "280",
@@ -219,6 +227,37 @@ function StoreSettingsSection() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  const loadEnviaWebhookSetup = useCallback(async () => {
+    setEnviaWebhookLoading(true);
+    try {
+      const { data } = await getEnviaWebhookSetup();
+      setEnviaWebhook(data?.data || null);
+    } catch {
+      setEnviaWebhook(null);
+    } finally {
+      setEnviaWebhookLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEnviaWebhookSetup();
+  }, [loadEnviaWebhookSetup]);
+
+  const handleRegisterEnviaWebhook = async () => {
+    setEnviaWebhookRegistering(true);
+    setError("");
+    setSuccess("");
+    try {
+      await registerEnviaWebhook();
+      setSuccess("Envia tracking webhook registered.");
+      await loadEnviaWebhookSetup();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to register Envia webhook");
+    } finally {
+      setEnviaWebhookRegistering(false);
+    }
+  };
 
   const updateSlab = (index, field, value) => {
     setForm((prev) => {
@@ -753,7 +792,8 @@ function StoreSettingsSection() {
           <div>
             <h3 className="font-semibold text-neutral-900">Parcel Partner (Envia)</h3>
             <p className="mt-1 text-sm text-neutral-500">
-              Generate shipping labels and tracking directly from Admin orders.
+              Create shipments manually in the Envia portal. Link tracking on each order so
+              customers get real-time parcel updates in the app.
             </p>
           </div>
 
@@ -766,7 +806,7 @@ function StoreSettingsSection() {
                   setForm((prev) => ({ ...prev, enviaEnabled: e.target.checked }))
                 }
               />
-              Enable Envia shipping
+              Enable Envia tracking
             </label>
             <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
               <input
@@ -969,6 +1009,40 @@ function StoreSettingsSection() {
                 placeholder="Height"
               />
             </div>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+            <h4 className="text-sm font-semibold text-neutral-900">Tracking webhook</h4>
+            <p className="mt-1 text-sm text-neutral-600">
+              Envia sends parcel status updates to this URL. Customers receive push notifications
+              when tracking changes.
+            </p>
+            {enviaWebhookLoading ? (
+              <p className="mt-3 text-sm text-neutral-500">Loading webhook status…</p>
+            ) : (
+              <div className="mt-3 space-y-2 text-sm">
+                <p className="break-all font-mono text-xs text-neutral-800">
+                  {enviaWebhook?.webhookUrl || "Set PUBLIC_API_URL in backend .env"}
+                </p>
+                {enviaWebhook?.listError ? (
+                  <p className="text-amber-800">{enviaWebhook.listError}</p>
+                ) : null}
+                <p className="text-neutral-600">
+                  Status:{" "}
+                  <span className="font-semibold text-neutral-900">
+                    {enviaWebhook?.isRegistered ? "Registered with Envia" : "Not registered yet"}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRegisterEnviaWebhook}
+                  disabled={enviaWebhookRegistering || !enviaWebhook?.webhookConfigured}
+                  className={btnPrimary}
+                >
+                  {enviaWebhookRegistering ? "Registering…" : "Register tracking webhook"}
+                </button>
+              </div>
+            )}
           </div>
 
           <SectionSaveButton section="envia" />
