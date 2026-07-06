@@ -21,6 +21,7 @@ import {
 import {
   notifyOrderCreated,
   notifyOrderStatusChange,
+  notifyShipmentLabelCreated,
 } from "../services/orderNotificationDispatcher.js";
 import {
   createEnviaShipment,
@@ -33,7 +34,7 @@ const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
 
-function applyShipmentOnOrder(order, shipment) {
+function applyShipmentOnOrder(order, shipment, metadata = {}) {
   order.shipment = {
     provider: shipment.provider || "envia",
     carrier: shipment.carrier || "",
@@ -46,6 +47,9 @@ function applyShipmentOnOrder(order, shipment) {
     statusMessage: shipment.statusMessage || "",
     syncedAt: shipment.syncedAt || new Date(),
     events: Array.isArray(shipment.events) ? shipment.events : [],
+    note: String(metadata.shipmentNote || "").trim(),
+    evidenceUrl: String(metadata.evidenceUrl || "").trim(),
+    evidenceName: String(metadata.evidenceName || "").trim(),
   };
 }
 
@@ -195,10 +199,12 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
 
 export const createCheckoutAttempt = async (req, res) => {
   try {
-    const { addressId, checkoutItems, paymentMethod } = req.body;
+    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
       checkoutItems,
+      checkoutMode,
+      buyNow,
     });
 
     if (prepared.error) {
@@ -278,7 +284,10 @@ export const adminPlaceOrder = async (req, res) => {
 
     const orderMessage = normalizeOrderMessage(req.body);
 
-    const result = await prepareOrderData(userId, addressId, { checkoutItems });
+    const result = await prepareOrderData(userId, addressId, {
+      checkoutItems,
+      checkoutMode: "buyNow",
+    });
     if (result.error) {
       return res.status(result.status).json({
         success: false,
@@ -330,7 +339,7 @@ export const adminPlaceOrder = async (req, res) => {
 
 export const placeOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, attemptedOrderId } = req.body;
+    const { addressId, paymentMethod, attemptedOrderId, checkoutMode, buyNow } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
@@ -354,7 +363,10 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    const result = await prepareOrderData(req.user._id, addressId);
+    const result = await prepareOrderData(req.user._id, addressId, {
+      checkoutMode,
+      buyNow,
+    });
     if (result.error) {
       return res.status(result.status).json({
         success: false,
@@ -373,6 +385,7 @@ export const placeOrder = async (req, res) => {
       gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
+      checkoutMode: result.checkoutMode,
       paymentMethod: "cod",
       paymentStatus: "unpaid",
       message: orderMessage,
@@ -988,6 +1001,8 @@ export const createOrderShipment = async (req, res) => {
     }
 
     const shipment = await createEnviaShipment(order, overrides);
+    const previousStatus = order.status;
+
     order.shipment = {
       provider: shipment.provider,
       carrier: shipment.carrier,
@@ -1000,9 +1015,13 @@ export const createOrderShipment = async (req, res) => {
       statusMessage: shipment.statusMessage,
       syncedAt: shipment.syncedAt,
       events: shipment.events,
+      note: overrides.shipmentNote || "",
+      evidenceUrl: overrides.evidenceUrl || "",
+      evidenceName: overrides.evidenceName || "",
     };
+    order.markModified("shipment");
 
-    if (order.status === "confirm") {
+    if (order.status === "confirm" || order.status === "processing") {
       order.status = "shipping";
     }
 
@@ -1010,6 +1029,12 @@ export const createOrderShipment = async (req, res) => {
     const populated = await populateOrderItems(
       Order.findById(order._id).populate("user", "name email phone")
     );
+
+    if (previousStatus !== populated.status) {
+      void notifyOrderStatusChange(populated, previousStatus);
+    } else {
+      void notifyShipmentLabelCreated(populated);
+    }
 
     res.status(200).json({
       success: true,

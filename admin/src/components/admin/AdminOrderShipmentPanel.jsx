@@ -5,6 +5,7 @@ import {
   linkAdminOrderShipment,
   quoteAdminOrderShipmentRates,
   syncAdminOrderShipment,
+  uploadImageFile,
 } from "../../api/api";
 import { getOrderNumber } from "../../utils/orderNumber";
 import {
@@ -17,6 +18,11 @@ import {
   DEFAULT_SHIPMENT_CONTENT,
   SHIPMENT_CONTENTS,
 } from "@shared/shipping/shipmentContents.js";
+import {
+  getDefaultCodCollectAmount,
+  isOrderCodPayment,
+} from "@shared/shipping/shipmentPayment.js";
+import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import { adminFilterInputClass, cardClass } from "./adminStyles";
 import { formatDateTime, formatPrice } from "./sections/adminOrderUtils";
 
@@ -41,6 +47,20 @@ function buildPackagePayload(form) {
   };
 }
 
+function buildShipmentPayload(packageForm, paymentForm, metadataForm = {}) {
+  const note = String(metadataForm.shipmentNote ?? "").trim();
+  const evidenceUrl = String(metadataForm.evidenceUrl ?? "").trim();
+  const evidenceName = String(metadataForm.evidenceName ?? "").trim();
+
+  return {
+    ...buildPackagePayload(packageForm),
+    isCod: Boolean(paymentForm.isCod),
+    ...(paymentForm.isCod ? { codAmount: Number(paymentForm.codAmount) } : {}),
+    ...(note ? { shipmentNote: note } : {}),
+    ...(evidenceUrl ? { evidenceUrl, evidenceName } : {}),
+  };
+}
+
 export default function AdminOrderShipmentPanel({
   order,
   onOrderUpdated,
@@ -48,6 +68,13 @@ export default function AdminOrderShipmentPanel({
   onSuccess,
 }) {
   const [packageForm, setPackageForm] = useState(EMPTY_PACKAGE);
+  const [paymentForm, setPaymentForm] = useState({ isCod: false, codAmount: "" });
+  const [metadataForm, setMetadataForm] = useState({
+    shipmentNote: "",
+    evidenceUrl: "",
+    evidenceName: "",
+  });
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [serviceOptions, setServiceOptions] = useState([]);
   const [selectedServiceId, setSelectedServiceId] = useState(SHIPPING_SERVICES[0]?.id || "");
   const [quoteErrors, setQuoteErrors] = useState([]);
@@ -84,6 +111,16 @@ export default function AdminOrderShipmentPanel({
     };
   }, [order?._id]);
 
+  useEffect(() => {
+    if (!order) return;
+    const isCod = isOrderCodPayment(order);
+    const defaultAmount = isCod ? getDefaultCodCollectAmount(order) : "";
+    setPaymentForm({
+      isCod,
+      codAmount: defaultAmount ? String(defaultAmount) : "",
+    });
+  }, [order?._id, order?.paymentMethod, order?.total, order?.codAdvanceAmount]);
+
   const selectedService = useMemo(() => {
     const list = serviceOptions.length ? serviceOptions : SHIPPING_SERVICES;
     return list.find((entry) => entry.id === selectedServiceId);
@@ -93,8 +130,51 @@ export default function AdminOrderShipmentPanel({
     setPackageForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const updatePaymentField = (field, value) => {
+    setPaymentForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateMetadataField = (field, value) => {
+    setMetadataForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEvidenceUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      onError("Please upload an image file (JPG, PNG, WEBP).");
+      return;
+    }
+
+    setUploadingEvidence(true);
+    onError("");
+    try {
+      const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.SHIPMENT_EVIDENCE);
+      const uploadedUrl = data?.data?.url ?? data?.url ?? "";
+      if (!uploadedUrl) {
+        throw new Error("Upload succeeded but no image URL was returned.");
+      }
+      setMetadataForm((prev) => ({
+        ...prev,
+        evidenceUrl: uploadedUrl,
+        evidenceName: file.name,
+      }));
+      onSuccess("Shipment evidence uploaded.");
+    } catch (err) {
+      onError(err.response?.data?.message || err.message || "Failed to upload evidence");
+    } finally {
+      setUploadingEvidence(false);
+    }
+  };
+
   const handleFetchRates = async () => {
     if (!order || loadingRates) return;
+    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
+      onError("Enter the COD collection amount.");
+      return;
+    }
     setLoadingRates(true);
     onError("");
     onSuccess("");
@@ -102,7 +182,7 @@ export default function AdminOrderShipmentPanel({
       const carriers = getShippingServiceCarriers();
 
       const { data } = await quoteAdminOrderShipmentRates(order._id, {
-        ...buildPackagePayload(packageForm),
+        ...buildShipmentPayload(packageForm, paymentForm),
         carriers,
       });
 
@@ -132,16 +212,21 @@ export default function AdminOrderShipmentPanel({
 
   const handleCreateLabel = async () => {
     if (!order || creatingLabel || !selectedService?.quote) return;
+    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
+      onError("Enter the COD collection amount.");
+      return;
+    }
     setCreatingLabel(true);
     onError("");
     onSuccess("");
     try {
       const { data } = await createAdminOrderShipment(order._id, {
-        ...buildPackagePayload(packageForm),
+        ...buildShipmentPayload(packageForm, paymentForm, metadataForm),
         carrier: selectedService.quote.carrier,
         service: selectedService.quote.service,
       });
       onOrderUpdated(data.data);
+      setMetadataForm({ shipmentNote: "", evidenceUrl: "", evidenceName: "" });
       onSuccess("Shipping label created. Tracking is linked to the order.");
       setServiceOptions([]);
     } catch (err) {
@@ -237,6 +322,25 @@ export default function AdminOrderShipmentPanel({
             <p className="text-xs text-neutral-500">
               Last updated {formatDateTime(order.shipment.syncedAt)}
             </p>
+          ) : null}
+          {order.shipment.note ? (
+            <p className="text-sm text-neutral-700">
+              Shipment note:{" "}
+              <span className="font-medium text-neutral-900">{order.shipment.note}</span>
+            </p>
+          ) : null}
+          {order.shipment.evidenceUrl ? (
+            <div className="text-sm text-neutral-700">
+              <span className="font-medium text-neutral-900">Shipment evidence:</span>{" "}
+              <a
+                href={order.shipment.evidenceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-700 underline"
+              >
+                {order.shipment.evidenceName || "View image"}
+              </a>
+            </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <button
@@ -434,6 +538,113 @@ export default function AdminOrderShipmentPanel({
                 </span>
               </div>
             </label>
+          </div>
+
+          <div className="rounded-md border border-neutral-200 p-3">
+            <span className="mb-2 block text-xs font-semibold text-neutral-500">Payment type</span>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+              <input
+                type="checkbox"
+                checked={paymentForm.isCod}
+                onChange={(e) => updatePaymentField("isCod", e.target.checked)}
+                className="rounded border-neutral-300"
+              />
+              <span>Cash on Delivery (COD)</span>
+            </label>
+            {!paymentForm.isCod ? (
+              <p className="mt-2 text-xs text-neutral-500">Prepaid — no COD collection on delivery.</p>
+            ) : (
+              <label className="mt-3 block">
+                <span className="mb-1 block text-xs font-semibold text-neutral-500">
+                  COD amount to collect <span className="text-red-600">*</span>
+                </span>
+                <div className="flex max-w-xs overflow-hidden rounded-md border border-neutral-300">
+                  <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-xs font-semibold text-neutral-600">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={paymentForm.codAmount}
+                    onChange={(e) => updatePaymentField("codAmount", e.target.value)}
+                    className={`${adminFilterInputClass} border-0 focus:ring-0`}
+                    placeholder="Amount to collect"
+                  />
+                </div>
+                {order?.codAdvanceAmount > 0 ? (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Order total {formatPrice(order.total)} · Advance paid{" "}
+                    {formatPrice(order.codAdvanceAmount)}
+                  </p>
+                ) : null}
+              </label>
+            )}
+          </div>
+
+          <div className="rounded-md border border-neutral-200 p-3">
+            <span className="mb-2 block text-xs font-semibold text-neutral-500">
+              Shipment details
+            </span>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-neutral-500">
+                Additional note
+              </span>
+              <textarea
+                rows={3}
+                value={metadataForm.shipmentNote}
+                onChange={(e) => updateMetadataField("shipmentNote", e.target.value)}
+                className={`${adminFilterInputClass} min-h-[5rem] resize-y`}
+                placeholder="Instructions for the carrier or internal shipment note"
+                maxLength={500}
+              />
+            </label>
+            <div className="mt-3">
+              <span className="mb-1 block text-xs font-semibold text-neutral-500">
+                Upload evidence of shipment
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
+                  {uploadingEvidence ? "Uploading…" : "Choose image"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={uploadingEvidence || creatingLabel}
+                    onChange={handleEvidenceUpload}
+                  />
+                </label>
+                {metadataForm.evidenceUrl ? (
+                  <>
+                    <a
+                      href={metadataForm.evidenceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-sky-700 underline"
+                    >
+                      {metadataForm.evidenceName || "View uploaded evidence"}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMetadataForm((prev) => ({
+                          ...prev,
+                          evidenceUrl: "",
+                          evidenceName: "",
+                        }))
+                      }
+                      className="text-xs font-medium text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-neutral-500">
+                    Photo of packed parcel, handover receipt, etc.
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div>

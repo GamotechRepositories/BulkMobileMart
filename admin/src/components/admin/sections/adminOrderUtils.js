@@ -152,8 +152,15 @@ export function getPaymentMethodLabel(order) {
 }
 
 export function getTransactionId(order) {
-  if (order.paymentMethod !== "online") return "";
-  return order.razorpayPaymentId || order.razorpayOrderId || "";
+  if (!order) return "";
+
+  if (order.razorpayPaymentId) return order.razorpayPaymentId;
+  if (order.codAdvanceRazorpayPaymentId) return order.codAdvanceRazorpayPaymentId;
+  if (order.paymentMethod === "online" && order.razorpayOrderId) {
+    return order.razorpayOrderId;
+  }
+
+  return "";
 }
 
 export function getRazorpayPaymentId(order, proof) {

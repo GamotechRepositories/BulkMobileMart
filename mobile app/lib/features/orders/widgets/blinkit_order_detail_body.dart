@@ -85,6 +85,28 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
             child: ListView(
               padding: const EdgeInsets.only(bottom: 16),
               children: [
+                if (order.shipment.hasTracking && order.shipment.trackUrl.trim().isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => openExternalUrl(
+                          order.shipment.trackUrl,
+                          context: context,
+                          errorMessage: 'Could not open tracking link.',
+                        ),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                        label: const Text('Open live tracking'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.navSelected,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 if (order.status == 'delivered' && deliveryRating != null)
                   _RatingBanner(rating: deliveryRating),
                 _ShipmentStatusBlock(
@@ -106,10 +128,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ...shipmentItems.map(
                   (item) => _ShipmentItemRow(item: item),
                 ),
-                if (order.shipment.hasTracking) ...[
-                  const SizedBox(height: 8),
-                  _EnviaTrackingCard(shipment: order.shipment),
-                ],
                 const SizedBox(height: 8),
                 _BillSummary(order: order),
                 const SizedBox(height: 16),
@@ -631,49 +649,24 @@ class _OrderDetailsSection extends StatelessWidget {
             label: 'Order placed at',
             value: formatOrderDateTime(order.createdAt),
           ),
-          if (order.shipment.hasTracking) ...[
+          if (order.shipment.note.trim().isNotEmpty)
             _DetailField(
-              label: 'Tracking number',
-              value: order.shipment.trackingNumber,
-              trailing: IconButton(
-                onPressed: () {
-                  Clipboard.setData(
-                    ClipboardData(text: order.shipment.trackingNumber),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Tracking number copied'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.copy_outlined, size: 18),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
+              label: 'Shipment note',
+              value: order.shipment.note,
             ),
+          if (order.shipment.evidenceUrl.trim().isNotEmpty)
             _DetailField(
-              label: 'Shipment status',
-              value: order.shipment.displayStatus,
+              label: 'Shipment photo',
+              value: order.shipment.evidenceName.trim().isNotEmpty
+                  ? order.shipment.evidenceName
+                  : 'View photo',
+              onTap: () => openExternalUrl(
+                order.shipment.evidenceUrl,
+                context: context,
+                errorMessage: 'Could not open shipment photo.',
+              ),
+              valueColor: AppColors.navSelected,
             ),
-            if (order.shipment.carrierServiceLabel != null)
-              _DetailField(
-                label: 'Carrier / Service',
-                value: order.shipment.carrierServiceLabel!,
-              ),
-            if (order.shipment.trackUrl.trim().isNotEmpty)
-              _DetailField(
-                label: 'Track package',
-                value: 'Open live tracking',
-                onTap: () => openExternalUrl(
-                  order.shipment.trackUrl,
-                  context: context,
-                  errorMessage: 'Could not open tracking link.',
-                ),
-                valueColor: AppColors.navSelected,
-              ),
-          ],
           if (order.status == 'delivered')
             for (var i = 0; i < shipments.length; i++)
               _DetailField(
@@ -688,89 +681,6 @@ class _OrderDetailsSection extends StatelessWidget {
             label: 'Payment status',
             value: getOrderPaymentLabel(order),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EnviaTrackingCard extends StatelessWidget {
-  const _EnviaTrackingCard({required this.shipment});
-
-  final OrderShipment shipment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F8FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD6E6FF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.local_shipping_outlined, size: 18, color: AppColors.navSelected),
-              SizedBox(width: 8),
-              Text(
-                'Shipment Tracking',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            shipment.trackingNumber,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-              letterSpacing: 0.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            shipment.displayStatus,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          if (shipment.carrierServiceLabel != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              shipment.carrierServiceLabel!,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
-          if (shipment.trackUrl.trim().isNotEmpty) ...[
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: () => openExternalUrl(
-                shipment.trackUrl,
-                context: context,
-                errorMessage: 'Could not open tracking link.',
-              ),
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              label: const Text('Open live tracking'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.navSelected,
-                side: const BorderSide(color: Color(0xFFB8D4FF)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ],
         ],
       ),
     );

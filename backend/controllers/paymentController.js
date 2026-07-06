@@ -32,7 +32,7 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const { addressId, paymentMode = "online", checkoutItems } = req.body;
+    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow } = req.body;
     if (!addressId) {
       return res.status(400).json({
         success: false,
@@ -47,7 +47,11 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const result = await prepareOrderData(req.user._id, addressId, { checkoutItems });
+    const result = await prepareOrderData(req.user._id, addressId, {
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+    });
     if (result.error) {
       return res.status(result.status).json({
         success: false,
@@ -123,6 +127,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpay_signature,
       paymentMode = "online",
       checkoutItems,
+      checkoutMode,
+      buyNow,
       attemptedOrderId,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
@@ -154,7 +160,11 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     const razorpayOrder = await razorpay.orders.fetch(razorpay_order_id);
-    const result = await prepareOrderData(req.user._id, addressId, { checkoutItems });
+    const result = await prepareOrderData(req.user._id, addressId, {
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+    });
 
     if (result.error) {
       return res.status(result.status).json({
@@ -218,7 +228,14 @@ export const verifyRazorpayPayment = async (req, res) => {
 
 export const submitUpiPaymentProof = async (req, res) => {
   try {
-    const { addressId, paymentMode = "online", checkoutItems, attemptedOrderId } = req.body;
+    const {
+      addressId,
+      paymentMode = "online",
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+      attemptedOrderId,
+    } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
     const screenshotName = normalizeText(req.body.screenshotName, 200);
@@ -256,7 +273,11 @@ export const submitUpiPaymentProof = async (req, res) => {
       });
     }
 
-    const result = await prepareOrderData(req.user._id, addressId, { checkoutItems });
+    const result = await prepareOrderData(req.user._id, addressId, {
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+    });
     if (result.error) {
       return res.status(result.status).json({
         success: false,

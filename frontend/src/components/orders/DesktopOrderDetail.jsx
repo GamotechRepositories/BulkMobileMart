@@ -17,6 +17,8 @@ import {
   splitOrderShipments,
 } from "../../utils/orderUtils";
 import OrderItemImage from "./OrderItemImage";
+import ShipmentExtraDetails from "./ShipmentExtraDetails";
+import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 
 function StatusBadge({ status }) {
   const color = getOrderStatusColor(status);
@@ -177,6 +179,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
             >
               Download invoice
             </Link>
+            {shipment.trackUrl ? <ShipmentTrackingBanner shipment={shipment} /> : null}
             {productId ? (
               <button
                 type="button"
@@ -371,30 +374,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                   }
                 />
                 <DetailRow label="Order placed" value={formatOrderDateTime(order.createdAt)} />
-                {shipment.trackingNumber ? (
-                  <>
-                    <DetailRow label="Tracking number" value={shipment.trackingNumber} />
-                    <DetailRow
-                      label="Shipment status"
-                      value={shipment.status || shipment.statusMessage || "Tracking in progress"}
-                    />
-                    {shipment.trackUrl ? (
-                      <DetailRow
-                        label="Track package"
-                        value={
-                          <a
-                            href={shipment.trackUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[#2874F0] underline"
-                          >
-                            Open live tracking
-                          </a>
-                        }
-                      />
-                    ) : null}
-                  </>
-                ) : null}
+                <ShipmentExtraDetails shipment={shipment} />
               </div>
             </section>
 

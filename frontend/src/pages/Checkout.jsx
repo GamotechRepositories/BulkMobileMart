@@ -61,7 +61,7 @@ function StepSection({ title, children }) {
 function Checkout() {
   const navigate = useNavigate();
   const { user, loading: authLoading, openAuthModal } = useAuth();
-  const { items, loading: cartLoading, loadCart } = useCart();
+  const { items, loading: cartLoading, loadCart, resetCart } = useCart();
 
   const buyNowItem = getBuyNowCheckout();
   const isBuyNow = Boolean(buyNowItem);
@@ -226,6 +226,8 @@ function Checkout() {
         addressId: selectedAddressId || undefined,
         paymentMethod,
         checkoutItems: checkoutItemsPayload,
+        checkoutMode: isBuyNow ? "buyNow" : "cart",
+        buyNow: isBuyNow,
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -247,6 +249,7 @@ function Checkout() {
     selectedAddressId,
     paymentMethod,
     checkoutItemsPayload,
+    isBuyNow,
   ]);
 
   useEffect(() => {
@@ -259,6 +262,7 @@ function Checkout() {
     );
     setOrderPlaced(true);
     clearBuyNowCheckout();
+    resetCart();
     await loadCart();
     setShowSuccessModal(true);
   };
@@ -275,6 +279,8 @@ function Checkout() {
       addressId: selectedAddressId,
       paymentMode,
       checkoutItems: checkoutItemsPayload,
+      checkoutMode: isBuyNow ? "buyNow" : "cart",
+      buyNow: isBuyNow,
     });
     const paymentData = data.data;
 
@@ -303,6 +309,8 @@ function Checkout() {
             paymentMode,
             customerMessage: safeTrim(messageRef.current),
             checkoutItems: checkoutItemsPayload,
+            checkoutMode: isBuyNow ? "buyNow" : "cart",
+            buyNow: isBuyNow,
             attemptedOrderId: attemptedOrderIdRef.current,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,

@@ -121,6 +121,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (_selectedAddressId != null) 'addressId': _selectedAddressId,
         'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
         'checkoutItems': _checkoutItemsPayload(items),
+        'checkoutMode': 'cart',
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -224,6 +225,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'addressId': _selectedAddressId,
         'paymentMode': _apiPaymentMode,
         'checkoutItems': _checkoutItemsPayload(cartItems),
+        'checkoutMode': 'cart',
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -302,6 +304,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'paymentMode': _pendingPaymentMode,
         'customerMessage': _message.trim(),
         'checkoutItems': _checkoutItemsPayload(cartItems),
+        'checkoutMode': 'cart',
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,

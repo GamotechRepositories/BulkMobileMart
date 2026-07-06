@@ -106,6 +106,9 @@ const orderSchema = new mongoose.Schema(
         ],
         default: () => [],
       },
+      note: { type: String, default: "", trim: true, maxlength: 500 },
+      evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+      evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
     },
   },
   { timestamps: true }

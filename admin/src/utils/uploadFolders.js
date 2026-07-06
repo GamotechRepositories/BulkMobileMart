@@ -3,6 +3,7 @@ export const UPLOAD_FOLDERS = {
   CATEGORIES: "categories",
   PRODUCTS: "products",
   BRANDS: "brands",
+  SHIPMENT_EVIDENCE: "shipment-evidence",
 };
 
 export const DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -23,4 +24,5 @@ export const UPLOAD_FOLDER_LABELS = {
   [UPLOAD_FOLDERS.CATEGORIES]: "Categories",
   [UPLOAD_FOLDERS.PRODUCTS]: "Products",
   [UPLOAD_FOLDERS.BRANDS]: "Brands",
+  [UPLOAD_FOLDERS.SHIPMENT_EVIDENCE]: "Shipment evidence",
 };

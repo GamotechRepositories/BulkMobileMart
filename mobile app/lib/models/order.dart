@@ -11,6 +11,9 @@ class OrderShipment {
     this.labelUrl = '',
     this.status = '',
     this.statusMessage = '',
+    this.note = '',
+    this.evidenceUrl = '',
+    this.evidenceName = '',
   });
 
   final String provider;
@@ -21,8 +24,14 @@ class OrderShipment {
   final String labelUrl;
   final String status;
   final String statusMessage;
+  final String note;
+  final String evidenceUrl;
+  final String evidenceName;
 
   bool get hasTracking => trackingNumber.trim().isNotEmpty;
+
+  bool get hasShipmentDetails =>
+      note.trim().isNotEmpty || evidenceUrl.trim().isNotEmpty;
 
   String get displayStatus {
     final value = status.trim().isNotEmpty ? status.trim() : statusMessage.trim();
@@ -46,6 +55,9 @@ class OrderShipment {
       labelUrl: json['labelUrl']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       statusMessage: json['statusMessage']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      evidenceUrl: json['evidenceUrl']?.toString() ?? '',
+      evidenceName: json['evidenceName']?.toString() ?? '',
     );
   }
 }

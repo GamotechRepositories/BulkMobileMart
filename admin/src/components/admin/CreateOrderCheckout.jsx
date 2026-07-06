@@ -225,6 +225,7 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
           variantName: item.variantName || "",
           colorName: item.colorName || "",
         })),
+        checkoutMode: "buyNow",
       });
       setPlacedOrder(data.data);
       onSuccess?.(data.data);

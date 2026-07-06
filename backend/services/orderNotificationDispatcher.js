@@ -3,6 +3,7 @@ import {
   sendOrderConfirmed,
   sendOrderPacked,
   sendOrderShipped,
+  sendShipmentLabelCreated,
   sendOutForDelivery,
   sendDelivered,
   sendPaymentSuccess,
@@ -113,6 +114,21 @@ export async function notifyPaymentFailed(order, extra = {}) {
     return await sendPaymentFailed(order, extra);
   } catch (error) {
     logDispatchFailure("notifyPaymentFailed", error);
+    return null;
+  }
+}
+
+export async function notifyShipmentLabelCreated(order) {
+  if (!order?.user) {
+    return null;
+  }
+
+  try {
+    const result = await sendShipmentLabelCreated(order);
+    logDispatchResult("notifyShipmentLabelCreated", result);
+    return result;
+  } catch (error) {
+    logDispatchFailure("notifyShipmentLabelCreated", error);
     return null;
   }
 }

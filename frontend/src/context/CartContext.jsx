@@ -233,6 +233,10 @@ export function CartProvider({ children }) {
     [user]
   );
 
+  const resetCart = useCallback(() => {
+    setItems([]);
+  }, []);
+
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -244,6 +248,7 @@ export function CartProvider({ children }) {
         updateQuantity,
         cartCount,
         loadCart,
+        resetCart,
         loading,
       }}
     >

@@ -306,20 +306,12 @@ function AdminOrderDetailSection() {
             Payment Status: <span className="lowercase">{payment}</span>
           </p>
           {order.paymentMethod === "online" && order.razorpayPaymentId && (
-            <>
-              <p className="mt-3 text-sm text-neutral-600">
-                Transaction ID:{" "}
-                <span className="break-all font-medium text-neutral-800">
-                  {order.razorpayPaymentId}
-                </span>
-              </p>
-              <p className="mt-1 text-sm text-neutral-600">
-                Payment Time:{" "}
-                <span className="font-medium text-neutral-800">
-                  {formatDateTime(order.paidAt || order.createdAt)}
-                </span>
-              </p>
-            </>
+            <p className="mt-3 text-sm text-neutral-600">
+              Payment Time:{" "}
+              <span className="font-medium text-neutral-800">
+                {formatDateTime(order.paidAt || order.createdAt)}
+              </span>
+            </p>
           )}
           <p className="mt-4 text-right text-sm text-neutral-600">
             Items total: {formatPrice(order.subtotal)}

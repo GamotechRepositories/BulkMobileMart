@@ -7,6 +7,8 @@ import {
   buildEnviaOriginStreet,
   extractEnviaStreetNumber,
 } from "../../shared/shipping/enviaOriginAddress.js";
+import { buildEnviaCodAdditionalServices } from "../../shared/shipping/shipmentPayment.js";
+import { buildEnviaShipmentComments } from "../../shared/shipping/shipmentMetadata.js";
 
 const TEST_BASE_URL = "https://api-test.envia.com";
 const PROD_BASE_URL = "https://api.envia.com";
@@ -85,7 +87,7 @@ const INDIA_STATE_ALIASES = {
   ch: "CH",
 };
 
-const pincodeStateCache = new Map();
+const pincodeGeoCache = new Map();
 
 function safeTrim(value) {
   return String(value || "").trim();
@@ -114,42 +116,117 @@ function lookupIndiaStateAlias(state) {
   return INDIA_STATE_ALIASES[normalized] || "";
 }
 
-async function resolveIndiaStateCode(state, postalCode) {
-  const alias = lookupIndiaStateAlias(state);
-  if (alias) return alias;
-
+async function lookupIndiaPincode(postalCode) {
   const pin = safeTrim(postalCode);
   if (!/^\d{6}$/.test(pin)) {
-    return safeTrim(state);
+    return null;
   }
 
-  if (pincodeStateCache.has(pin)) {
-    return pincodeStateCache.get(pin);
+  if (pincodeGeoCache.has(pin)) {
+    return pincodeGeoCache.get(pin);
   }
 
   try {
     const response = await axios.get(`${GEOCODE_BASE_URL}/zipcode/IN/${pin}`, {
       timeout: 8_000,
     });
-    const code = safeTrim(response.data?.[0]?.state?.code?.["2digit"]);
-    if (code) {
-      pincodeStateCache.set(pin, code);
-      return code;
+    const row = Array.isArray(response.data) ? response.data[0] : null;
+    if (!row) {
+      pincodeGeoCache.set(pin, null);
+      return null;
     }
+
+    const details = {
+      postalCode: pin,
+      city: safeTrim(row.locality),
+      stateCode: safeTrim(row.state?.code?.["2digit"]),
+      stateName: safeTrim(row.state?.name),
+      suburbs: Array.isArray(row.suburbs)
+        ? row.suburbs.map((entry) => safeTrim(entry)).filter(Boolean)
+        : [],
+    };
+    pincodeGeoCache.set(pin, details);
+    return details;
   } catch {
-    // Fall back to the provided state text when geocode lookup fails.
+    pincodeGeoCache.set(pin, null);
+    return null;
+  }
+}
+
+function resolveIndiaCityForEnvia(cityInput, geo) {
+  const city = safeTrim(cityInput);
+  if (!geo?.city) {
+    return city;
+  }
+
+  const locality = geo.city.toLowerCase();
+  if (!city) {
+    return geo.city;
+  }
+
+  if (city.toLowerCase() === locality) {
+    return geo.city;
+  }
+
+  const suburbMatch = geo.suburbs.some(
+    (suburb) => suburb.toLowerCase() === city.toLowerCase()
+  );
+  if (suburbMatch) {
+    return geo.city;
+  }
+
+  return geo.city;
+}
+
+async function resolveIndiaStateCode(state, postalCode) {
+  const geo = await lookupIndiaPincode(postalCode);
+  if (geo?.stateCode) {
+    return geo.stateCode;
+  }
+
+  const alias = lookupIndiaStateAlias(state);
+  if (alias) {
+    return alias;
   }
 
   return safeTrim(state);
 }
 
+function formatEnviaShipmentError(message, context = {}) {
+  const normalized = safeTrim(message);
+  const pinMatch = normalized.match(/(\d{6})\s+is non serviceable pincode/i);
+  if (pinMatch) {
+    const pin = pinMatch[1];
+    const carrier = safeTrim(context.carrier) || "the selected carrier";
+    return `Pincode ${pin} is not serviceable by ${carrier}. Compare rates again and choose a different shipping partner, or update the customer's delivery address.`;
+  }
+
+  if (/non serviceable pincode/i.test(normalized)) {
+    const carrier = safeTrim(context.carrier) || "the selected carrier";
+    return `${normalized} Try a different shipping partner with Compare rates, or verify the customer's pincode. Carrier: ${carrier}.`;
+  }
+
+  return normalized;
+}
+
 async function normalizeEnviaAddress(address = {}) {
   const country = safeTrim(address.country || "IN").toUpperCase();
   const postalCode = safeTrim(address.postalCode);
-  const state =
+  let city = safeTrim(address.city);
+  let state =
     country === "IN"
-      ? await resolveIndiaStateCode(address.state, postalCode)
+      ? lookupIndiaStateAlias(address.state)
       : safeTrim(address.state);
+
+  if (country === "IN") {
+    const geo = await lookupIndiaPincode(postalCode);
+    if (geo) {
+      city = resolveIndiaCityForEnvia(city, geo);
+      state = geo.stateCode || state || (await resolveIndiaStateCode(address.state, postalCode));
+    } else {
+      state = await resolveIndiaStateCode(address.state, postalCode);
+    }
+  }
 
   return {
     ...address,
@@ -159,7 +236,8 @@ async function normalizeEnviaAddress(address = {}) {
     phone: normalizeIndiaPhone(address.phone),
     street: safeTrim(address.street),
     number: safeTrim(address.number) || "1",
-    city: safeTrim(address.city),
+    reference: safeTrim(address.reference),
+    city,
     state,
     country,
     postalCode,
@@ -265,6 +343,8 @@ function normalizeRateCarriers(raw) {
 
 export function parseShipmentOverrides(body = {}) {
   const weightInput = normalizePackageWeight(body.weight, body.weightUnit || "KG");
+  const isCod = body.isCod === true || body.isCod === "true";
+  const codAmount = body.codAmount;
 
   return {
     carrier: safeTrim(body.carrier),
@@ -281,30 +361,70 @@ export function parseShipmentOverrides(body = {}) {
     declaredValue: body.declaredValue,
     folio: safeTrim(body.folio),
     carriers: normalizeRateCarriers(body.carriers),
+    isCod,
+    codAmount,
+    shipmentNote: safeTrim(body.shipmentNote || body.note).slice(0, 500),
+    evidenceUrl: safeTrim(body.evidenceUrl),
+    evidenceName: safeTrim(body.evidenceName).slice(0, 200),
   };
+}
+
+function resolveCodCollectAmount(order, overrides = {}) {
+  if (!overrides.isCod) {
+    return 0;
+  }
+
+  const explicit = toPositiveNumber(overrides.codAmount, 0);
+  if (explicit > 0) {
+    return explicit;
+  }
+
+  const total = Number(order.total) || 0;
+  const advance = Number(order.codAdvanceAmount) || 0;
+  const remaining = Math.max(0, total - advance);
+  return remaining > 0 ? remaining : total;
+}
+
+function buildCodAdditionalServices(order, overrides = {}) {
+  const amount = resolveCodCollectAmount(order, overrides);
+  const services = buildEnviaCodAdditionalServices({
+    isCod: overrides.isCod,
+    codAmount: amount,
+  });
+
+  if (overrides.isCod && !services) {
+    throw new Error("COD collection amount is required for Cash on Delivery shipments");
+  }
+
+  return services;
 }
 
 function buildPackages(order, config, overrides = {}) {
   const defaults = config.packageDefaults;
-  return [
-    {
-      type: safeTrim(overrides.packageType || defaults.type),
-      content: safeTrim(overrides.content || defaults.content),
-      amount: Math.max(1, Math.round(toPositiveNumber(overrides.amount, defaults.amount))),
-      weightUnit: safeTrim(overrides.weightUnit || defaults.weightUnit).toUpperCase(),
-      lengthUnit: safeTrim(overrides.lengthUnit || defaults.lengthUnit).toUpperCase(),
-      weight: toPositiveNumber(overrides.weight, defaults.weight),
-      dimensions: {
-        length: toPositiveNumber(overrides.length, defaults.length),
-        width: toPositiveNumber(overrides.width, defaults.width),
-        height: toPositiveNumber(overrides.height, defaults.height),
-      },
-      declaredValue: toPositiveNumber(overrides.declaredValue, order.total || 1),
+  const additionalServices = buildCodAdditionalServices(order, overrides);
+  const pkg = {
+    type: safeTrim(overrides.packageType || defaults.type),
+    content: safeTrim(overrides.content || defaults.content),
+    amount: Math.max(1, Math.round(toPositiveNumber(overrides.amount, defaults.amount))),
+    weightUnit: safeTrim(overrides.weightUnit || defaults.weightUnit).toUpperCase(),
+    lengthUnit: safeTrim(overrides.lengthUnit || defaults.lengthUnit).toUpperCase(),
+    weight: toPositiveNumber(overrides.weight, defaults.weight),
+    dimensions: {
+      length: toPositiveNumber(overrides.length, defaults.length),
+      width: toPositiveNumber(overrides.width, defaults.width),
+      height: toPositiveNumber(overrides.height, defaults.height),
     },
-  ];
+    declaredValue: toPositiveNumber(overrides.declaredValue, order.total || 1),
+  };
+
+  if (additionalServices) {
+    pkg.additionalServices = additionalServices;
+  }
+
+  return [pkg];
 }
 
-function buildShipmentAddresses(order, config) {
+async function buildShipmentAddresses(order, config) {
   const destination = mapAddressToDestination(order.deliveryAddress || {});
   const requiredDestination = ["name", "phone", "street", "city", "state", "postalCode"];
   const missing = requiredDestination.filter((key) => !safeTrim(destination[key]));
@@ -312,8 +432,23 @@ function buildShipmentAddresses(order, config) {
     throw new Error(`Order address is incomplete. Missing: ${missing.join(", ")}`);
   }
 
+  const destinationGeo = await lookupIndiaPincode(destination.postalCode);
+  if (!destinationGeo) {
+    throw new Error(
+      `Delivery pincode ${destination.postalCode} is not recognized by Envia. Ask the customer to verify their address.`
+    );
+  }
+
+  const origin = mapOriginForEnvia(config.origin);
+  const originGeo = await lookupIndiaPincode(origin.postalCode);
+  if (!originGeo) {
+    throw new Error(
+      `Warehouse pincode ${origin.postalCode} is not recognized by Envia. Update the pickup address in Store Settings.`
+    );
+  }
+
   return {
-    origin: mapOriginForEnvia(config.origin),
+    origin,
     destination,
   };
 }
@@ -344,17 +479,20 @@ function ensureConfigUsable(config) {
 }
 
 function mapAddressToDestination(address = {}) {
+  const streetParts = [address.fullAddress, address.landmark].map(safeTrim).filter(Boolean);
+
   return {
     name: safeTrim(address.fullName),
     company: safeTrim(address.shopName),
     email: safeTrim(address.email),
-    phone: safeTrim(address.number),
-    street: safeTrim(address.fullAddress),
+    phone: normalizeIndiaPhone(address.number),
+    street: streetParts.join(", ") || safeTrim(address.fullAddress),
     city: safeTrim(address.city),
     state: safeTrim(address.state),
     country: "IN",
     postalCode: safeTrim(address.pincode),
     number: safeTrim(address.shopNo) || "1",
+    reference: safeTrim(address.landmark),
   };
 }
 
@@ -375,8 +513,8 @@ function mapOriginForEnvia(origin = {}) {
   };
 }
 
-function buildShipmentPayload(order, config, overrides = {}) {
-  const { origin, destination } = buildShipmentAddresses(order, config);
+async function buildShipmentPayload(order, config, overrides = {}) {
+  const { origin, destination } = await buildShipmentAddresses(order, config);
   const packages = buildPackages(order, config, overrides);
 
   const carrier = safeTrim(overrides.carrier || config.defaultCarrier);
@@ -384,6 +522,8 @@ function buildShipmentPayload(order, config, overrides = {}) {
   if (!carrier || !service) {
     throw new Error("Carrier and service are required to create Envia shipment");
   }
+
+  const enviaComments = buildEnviaShipmentComments(overrides);
 
   return {
     origin,
@@ -393,6 +533,7 @@ function buildShipmentPayload(order, config, overrides = {}) {
       currency: "INR",
       printFormat: "PDF",
       printSize: "STOCK_4X6",
+      ...(enviaComments ? { comments: enviaComments } : {}),
     },
     shipment: {
       type: 1,
@@ -403,8 +544,8 @@ function buildShipmentPayload(order, config, overrides = {}) {
   };
 }
 
-function buildRateQuotePayload(order, config, overrides = {}, carrier) {
-  const { origin, destination } = buildShipmentAddresses(order, config);
+async function buildRateQuotePayload(order, config, overrides = {}, carrier) {
+  const { origin, destination } = await buildShipmentAddresses(order, config);
   const packages = buildPackages(order, config, overrides);
 
   return {
@@ -505,7 +646,7 @@ export async function quoteEnviaShipmentRates(order, overrides = {}) {
 
   const results = await Promise.allSettled(
     carriers.map(async (carrier) => {
-      const payload = buildRateQuotePayload(order, config, overrides, carrier);
+      const payload = await buildRateQuotePayload(order, config, overrides, carrier);
       payload.origin = await normalizeEnviaAddress(payload.origin);
       payload.destination = await normalizeEnviaAddress(payload.destination);
       const response = await client.post("/ship/rate/", payload);
@@ -521,13 +662,17 @@ export async function quoteEnviaShipmentRates(order, overrides = {}) {
     if (result.status === "fulfilled") {
       quotes.push(...result.value);
       if (!result.value.length) {
-        errors.push({ carrier, message: "No rates returned" });
+        errors.push({
+          carrier,
+          message: "No rates returned for this pincode. Try another carrier.",
+        });
       }
     } else {
-      errors.push({
-        carrier,
-        message: extractEnviaError(result.reason) || "Rate quote failed",
-      });
+      const message = formatEnviaShipmentError(
+        extractEnviaError(result.reason) || "Rate quote failed",
+        { carrier }
+      );
+      errors.push({ carrier, message });
     }
   });
 
@@ -542,7 +687,7 @@ export async function createEnviaShipment(order, overrides = {}) {
 
   const baseURL = config.useSandbox ? TEST_BASE_URL : PROD_BASE_URL;
   const client = buildClient(baseURL, config.token);
-  const payload = buildShipmentPayload(order, config, overrides);
+  const payload = await buildShipmentPayload(order, config, overrides);
   payload.origin = await normalizeEnviaAddress(payload.origin);
   payload.destination = await normalizeEnviaAddress(payload.destination);
 
@@ -550,7 +695,10 @@ export async function createEnviaShipment(order, overrides = {}) {
     const response = await client.post("/ship/generate/", payload);
     return pickGeneratedShipmentData(response.data);
   } catch (error) {
-    let message = extractEnviaError(error);
+    let message = formatEnviaShipmentError(extractEnviaError(error), {
+      carrier: overrides.carrier,
+      postalCode: payload.destination?.postalCode,
+    });
     const authFailed = /auth/i.test(message) || error?.response?.status === 401;
     if (authFailed && config.useSandbox) {
       message +=

@@ -11,6 +11,8 @@ import {
   splitOrderShipments,
 } from "../../utils/orderUtils";
 import Product3DImage from "./Product3DImage";
+import ShipmentExtraDetails from "./ShipmentExtraDetails";
+import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 
 const ACTION_PINK = "#E23744";
 
@@ -89,6 +91,12 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-4">
+        {shipment.trackUrl ? (
+          <div className="mb-4">
+            <ShipmentTrackingBanner shipment={shipment} className="w-full" />
+          </div>
+        ) : null}
+
         {order.status === "delivered" && deliveryRating ? (
           <div className="mb-4 rounded-[10px] border border-[#FFD6DC] bg-[#FFF0F2] px-3.5 py-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -212,30 +220,7 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
           />
           <DetailField label="Delivery Address" value={formatAddressLine(addr)} />
           <DetailField label="Order placed at" value={formatOrderDateTime(order.createdAt)} />
-          {shipment.trackingNumber ? (
-            <>
-              <DetailField label="Tracking number" value={shipment.trackingNumber} />
-              <DetailField
-                label="Shipment status"
-                value={shipment.status || shipment.statusMessage || "Tracking in progress"}
-              />
-              {shipment.trackUrl ? (
-                <DetailField
-                  label="Track package"
-                  value={
-                    <a
-                      href={shipment.trackUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline"
-                    >
-                      Open live tracking
-                    </a>
-                  }
-                />
-              ) : null}
-            </>
-          ) : null}
+          <ShipmentExtraDetails shipment={shipment} />
           {order.status === "delivered"
             ? shipments.map((_, index) => (
                 <DetailField

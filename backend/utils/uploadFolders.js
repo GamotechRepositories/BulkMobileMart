@@ -5,6 +5,7 @@ export const UPLOAD_FOLDERS = {
   BRANDS: "brands",
   PAYMENT_PROOFS: "payment-proofs",
   SUPPORT: "support",
+  SHIPMENT_EVIDENCE: "shipment-evidence",
 };
 
 /** @deprecated Use UPLOAD_FOLDERS.PAYMENT_PROOFS */
@@ -21,6 +22,7 @@ export const ADMIN_UPLOAD_FOLDERS = new Set([
   UPLOAD_FOLDERS.CATEGORIES,
   UPLOAD_FOLDERS.PRODUCTS,
   UPLOAD_FOLDERS.BRANDS,
+  UPLOAD_FOLDERS.SHIPMENT_EVIDENCE,
 ]);
 
 export const USER_UPLOAD_FOLDERS = new Set([UPLOAD_FOLDERS.PAYMENT_PROOFS]);

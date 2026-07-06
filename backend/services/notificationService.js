@@ -21,11 +21,17 @@ function stringifyDataPayload(data = {}) {
 }
 
 function buildOrderData(order, extra = {}) {
+  const shipment = order?.shipment || {};
   return stringifyDataPayload({
     type: extra.type || "order",
     orderId: order?._id?.toString() || "",
     orderNumber: order?.orderNumber || "",
     status: order?.status || "",
+    trackingNumber: shipment.trackingNumber || "",
+    trackUrl: shipment.trackUrl || "",
+    shipmentNote: shipment.note || "",
+    evidenceUrl: shipment.evidenceUrl || "",
+    evidenceName: shipment.evidenceName || "",
     ...extra,
   });
 }
@@ -311,12 +317,37 @@ export async function sendOrderPacked(order) {
 
 export async function sendOrderShipped(order) {
   const ref = orderRef(order);
+  const tracking = order?.shipment?.trackingNumber || "";
+  const note = order?.shipment?.note || "";
+  const bodyParts = [`${ref} has been shipped.`];
+  if (tracking) bodyParts.push(`Tracking: ${tracking}`);
+  if (note) bodyParts.push(note);
+
   return deliverToUser(order.user, {
     title: "Order Shipped",
-    body: `${ref} has been shipped. You will receive it soon.`,
+    body: bodyParts.join(" "),
     type: "order_shipped",
     order,
     data: buildOrderData(order, { type: "order_shipped" }),
+  });
+}
+
+export async function sendShipmentLabelCreated(order) {
+  const ref = orderRef(order);
+  const tracking = order?.shipment?.trackingNumber || "";
+  const note = order?.shipment?.note || "";
+  const hasEvidence = Boolean(order?.shipment?.evidenceUrl);
+  const bodyParts = [`${ref} shipment label created.`];
+  if (tracking) bodyParts.push(`Tracking: ${tracking}`);
+  if (note) bodyParts.push(note);
+  if (hasEvidence) bodyParts.push("Shipment photo attached.");
+
+  return deliverToUser(order.user, {
+    title: "Shipment Update",
+    body: bodyParts.join(" "),
+    type: "shipment_label_created",
+    order,
+    data: buildOrderData(order, { type: "shipment_label_created" }),
   });
 }
 

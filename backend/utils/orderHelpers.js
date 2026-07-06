@@ -24,11 +24,24 @@ const normalizeVariantName = (value) =>
 const normalizeColorName = (value) =>
   typeof value === "string" ? value.trim() : "";
 
-const matchesOrderedItem = (cartItem, orderItem) =>
-  String(cartItem?.product || "") === String(orderItem.product || "") &&
-  normalizeVariantName(cartItem.variantName) ===
-    normalizeVariantName(orderItem.variantName) &&
-  normalizeColorName(cartItem.colorName) === normalizeColorName(orderItem.colorName);
+const matchesOrderedItem = (cartItem, orderItem) => {
+  const cartProductId = String(cartItem?.product?._id || cartItem?.product || "");
+  const orderProductId = String(orderItem?.product?._id || orderItem?.product || "");
+
+  return (
+    cartProductId === orderProductId &&
+    normalizeVariantName(cartItem.variantName) ===
+      normalizeVariantName(orderItem.variantName) &&
+    normalizeColorName(cartItem.colorName) === normalizeColorName(orderItem.colorName)
+  );
+};
+
+export function resolveCheckoutMode(options = {}) {
+  if (options.checkoutMode === "buyNow" || options.buyNow === true) {
+    return "buyNow";
+  }
+  return "cart";
+}
 
 export function normalizeOrderMessage(body = {}) {
   const raw = body.customerMessage ?? body.message ?? body.customerNote ?? "";
@@ -250,7 +263,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     return { error: "Address not found", status: 404 };
   }
 
-  const checkoutMode = options.checkoutItems?.length ? "buyNow" : "cart";
+  const checkoutMode = resolveCheckoutMode(options);
   let itemsToProcess = [];
   let cart = null;
 
@@ -408,7 +421,7 @@ function buildPendingDeliveryAddress(user, address = null) {
 }
 
 async function resolveItemsForCheckout(userId, options = {}) {
-  const checkoutMode = options.checkoutItems?.length ? "buyNow" : "cart";
+  const checkoutMode = resolveCheckoutMode(options);
   let itemsToProcess = [];
   let cart = null;
 
@@ -526,16 +539,25 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
   return order;
 }
 
-async function clearCartAfterCheckout(cart, checkoutMode, orderItems) {
+async function clearCartAfterCheckout(cart, checkoutMode, orderItems, userId) {
+  if (checkoutMode === "cart") {
+    if (cart) {
+      cart.items = [];
+      await cart.save();
+      return;
+    }
+
+    if (userId) {
+      await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [] } });
+    }
+    return;
+  }
+
   if (!cart) return;
 
-  if (checkoutMode === "buyNow") {
-    cart.items = cart.items.filter(
-      (item) => !orderItems.some((ordered) => matchesOrderedItem(item, ordered))
-    );
-  } else {
-    cart.items = [];
-  }
+  cart.items = cart.items.filter(
+    (item) => !orderItems.some((ordered) => matchesOrderedItem(item, ordered))
+  );
 
   await cart.save();
 }
@@ -583,6 +605,7 @@ export async function completeAttemptedOrder({
   }
 
   if (order.status !== "attempted") {
+    await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
     return order;
   }
 
@@ -607,7 +630,7 @@ export async function completeAttemptedOrder({
   order.paidAt = paidAt || null;
 
   await order.save();
-  await clearCartAfterCheckout(cart, checkoutMode, orderItems);
+  await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
 
   return order;
 }
@@ -688,7 +711,7 @@ export async function finalizeOrder({
     $addToSet: { orders: order._id },
   });
 
-  await clearCartAfterCheckout(cart, checkoutMode, orderItems);
+  await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
 
   return order;
 }
