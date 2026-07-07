@@ -82,6 +82,18 @@ export function IconPayment({ className = "w-5 h-5" }) {
   );
 }
 
+export function IconCoupon({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 6v.75m0 3v.75m0 3v.75M4.5 9.75h15M6 9.75V6.75A2.25 2.25 0 018.25 4.5h7.5A2.25 2.25 0 0118 6.75v3M6 14.25v3A2.25 2.25 0 008.25 19.5h7.5A2.25 2.25 0 0118 17.25v-3H6z"
+      />
+    </svg>
+  );
+}
+
 export function IconBrand({ className = "w-5 h-5" }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

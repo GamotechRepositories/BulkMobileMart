@@ -10,6 +10,7 @@ import {
   verifyRazorpayPayment,
   getStoreSettings,
   createCheckoutAttempt,
+  validateCoupon,
 } from "../api/api";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
@@ -58,6 +59,70 @@ function StepSection({ title, children }) {
   );
 }
 
+function CheckoutModal({ open, title, onClose, children, footer }) {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 sm:items-center sm:px-4">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+      />
+      <div className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-border-light px-4 py-3 sm:px-5">
+          <h3 className="text-base font-bold text-text-primary">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-text-secondary transition hover:bg-mobile-surface hover:text-text-primary"
+            aria-label="Close"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          {children}
+        </div>
+        {footer ? (
+          <div className="shrink-0 border-t border-border-light px-4 py-3 sm:px-5">{footer}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function AddressSummary({ address }) {
+  return (
+    <div className="rounded-xl border border-border-light p-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="font-semibold text-text-primary">{getAddressFullName(address)}</p>
+        {address.isDefault ? (
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            Default
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-1 text-text-secondary">{formatAddressLine(address)}</p>
+      <p className="text-text-secondary">+91 {address.number}</p>
+    </div>
+  );
+}
+
 function Checkout() {
   const navigate = useNavigate();
   const { user, loading: authLoading, openAuthModal } = useAuth();
@@ -81,6 +146,7 @@ function Checkout() {
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.ADVANCE);
   const paymentMethod = getCheckoutPaymentMethod(paymentPlan);
@@ -94,8 +160,14 @@ function Checkout() {
   const [message, setMessage] = useState("");
   const [storeSettings, setStoreSettings] = useState(null);
   const [attemptedOrderId, setAttemptedOrderId] = useState(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
   const messageRef = useRef("");
   const attemptedOrderIdRef = useRef(null);
+  const appliedCouponRef = useRef(null);
+  const hasAutoOpenedAddressRef = useRef(false);
 
   const checkoutAttemptKey = useMemo(
     () =>
@@ -109,8 +181,9 @@ function Checkout() {
           variantName: item.variantName || "",
           colorName: item.colorName || "",
         })),
+        couponCode: appliedCoupon?.code || "",
       }),
-    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems]
+    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon]
   );
 
   useEffect(() => {
@@ -121,12 +194,18 @@ function Checkout() {
     attemptedOrderIdRef.current = attemptedOrderId;
   }, [attemptedOrderId]);
 
+  useEffect(() => {
+    appliedCouponRef.current = appliedCoupon;
+  }, [appliedCoupon]);
+
   const subtotal = checkoutItems.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
+  const couponDiscount = appliedCoupon?.discountAmount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { total: orderTotal } = calculateOrderTotal(subtotal, deliveryCharges);
+  const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
   const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
   const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
   const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
@@ -195,6 +274,17 @@ function Checkout() {
   }, [user, authLoading, loadCart]);
 
   useEffect(() => {
+    if (addressesLoading || hasAutoOpenedAddressRef.current) return;
+
+    hasAutoOpenedAddressRef.current = true;
+    if (addresses.length === 0) {
+      setShowAddressForm(true);
+    } else {
+      setShowAddressPicker(true);
+    }
+  }, [addressesLoading, addresses.length]);
+
+  useEffect(() => {
     if (
       !authLoading &&
       user &&
@@ -228,6 +318,7 @@ function Checkout() {
         checkoutItems: checkoutItemsPayload,
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
+        couponCode: appliedCouponRef.current?.code || undefined,
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -256,6 +347,54 @@ function Checkout() {
     syncCheckoutAttempt();
   }, [syncCheckoutAttempt, checkoutAttemptKey]);
 
+  useEffect(() => {
+    if (!appliedCoupon?.code) return undefined;
+
+    let active = true;
+    validateCoupon({ code: appliedCoupon.code, subtotal })
+      .then(({ data }) => {
+        if (!active) return;
+        setAppliedCoupon(data.data);
+        setCouponError("");
+      })
+      .catch((err) => {
+        if (!active) return;
+        setAppliedCoupon(null);
+        setCouponError(err.response?.data?.message || "Coupon is no longer valid");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [subtotal, appliedCoupon?.code]);
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) {
+      setCouponError("Enter a coupon code");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponError("");
+    try {
+      const { data } = await validateCoupon({ code, subtotal });
+      setAppliedCoupon(data.data);
+      setCouponInput(data.data.code);
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err.response?.data?.message || "Invalid coupon code");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+  };
+
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
       note || "Your order has been placed and will be delivered soon."
@@ -281,6 +420,7 @@ function Checkout() {
       checkoutItems: checkoutItemsPayload,
       checkoutMode: isBuyNow ? "buyNow" : "cart",
       buyNow: isBuyNow,
+      couponCode: appliedCouponRef.current?.code || undefined,
     });
     const paymentData = data.data;
 
@@ -312,6 +452,7 @@ function Checkout() {
             checkoutMode: isBuyNow ? "buyNow" : "cart",
             buyNow: isBuyNow,
             attemptedOrderId: attemptedOrderIdRef.current,
+            couponCode: appliedCouponRef.current?.code || undefined,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -360,11 +501,36 @@ function Checkout() {
       setAddresses((prev) => [newAddress, ...prev]);
       setSelectedAddressId(newAddress._id);
       setShowAddressForm(false);
+      setShowAddressPicker(false);
+      setFormError("");
     } catch (err) {
       setFormError(err.response?.data?.message || "Failed to save address");
     } finally {
       setSavingAddress(false);
     }
+  };
+
+  const closeAddressForm = () => {
+    setShowAddressForm(false);
+    setFormError("");
+  };
+
+  const closeAddressPicker = () => {
+    setShowAddressPicker(false);
+  };
+
+  const openAddressForm = () => {
+    setShowAddressPicker(false);
+    setShowAddressForm(true);
+  };
+
+  const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId) || null;
+
+  const addressFormInitial = {
+    ...ADDRESS_FORM_FIELDS,
+    fullName: user.name || "",
+    number: user.phone || "",
+    email: user.email || "",
   };
 
   if (!user) {
@@ -416,6 +582,79 @@ function Checkout() {
           </div>
         </div>
       )}
+
+      <CheckoutModal
+        open={showAddressPicker}
+        title="Select Delivery Address"
+        onClose={closeAddressPicker}
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={openAddressForm}
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              + Add new address
+            </button>
+            <button
+              type="button"
+              onClick={closeAddressPicker}
+              disabled={!selectedAddressId}
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Use this address
+            </button>
+          </div>
+        }
+      >
+        <ul className="space-y-2">
+          {addresses.map((addr) => (
+            <li key={addr._id}>
+              <label
+                className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
+                  selectedAddressId === addr._id
+                    ? "border-primary bg-primary/5"
+                    : "border-border-light hover:border-primary/40"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="checkoutAddressPicker"
+                  value={addr._id}
+                  checked={selectedAddressId === addr._id}
+                  onChange={() => setSelectedAddressId(addr._id)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                />
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-text-primary">{getAddressFullName(addr)}</p>
+                    {addr.isDefault ? (
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        Default
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-text-secondary">{formatAddressLine(addr)}</p>
+                  <p className="text-text-secondary">+91 {addr.number}</p>
+                </div>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </CheckoutModal>
+
+      <CheckoutModal open={showAddressForm} title="Delivery Address" onClose={closeAddressForm}>
+        {formError ? (
+          <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
+        ) : null}
+        <AddressForm
+          plain
+          initial={addressFormInitial}
+          onSubmit={handleSaveAddress}
+          onCancel={closeAddressForm}
+          submitting={savingAddress}
+        />
+      </CheckoutModal>
 
       <section className="px-3 pb-24 pt-1 sm:px-4 sm:pb-14 lg:px-8 lg:pb-10 lg:pt-2">
         <div className="mx-auto max-w-7xl">
@@ -504,86 +743,39 @@ function Checkout() {
                 <StepSection title="Delivery Details">
                   {addressesLoading ? (
                     <div className="h-24 animate-pulse rounded-lg bg-mobile-surface" />
-                  ) : (
+                  ) : selectedAddress ? (
                     <>
-                      {addresses.length === 0 && !showAddressForm && (
-                        <p className="mb-4 text-sm text-text-secondary">
-                          No saved address yet. Add one to continue.
-                        </p>
-                      )}
-
-                      {addresses.length > 0 && !showAddressForm && (
-                        <ul className="space-y-2">
-                          {addresses.map((addr) => (
-                            <li key={addr._id}>
-                              <label
-                                className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
-                                  selectedAddressId === addr._id
-                                    ? "border-primary bg-primary/5"
-                                    : "border-border-light hover:border-primary/40"
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="address"
-                                  value={addr._id}
-                                  checked={selectedAddressId === addr._id}
-                                  onChange={() => setSelectedAddressId(addr._id)}
-                                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                                />
-                                <div className="min-w-0 flex-1 text-sm">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="font-semibold text-text-primary">
-                                      {getAddressFullName(addr)}
-                                    </p>
-                                    {addr.isDefault && (
-                                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                        Default
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="mt-1 text-text-secondary">{formatAddressLine(addr)}</p>
-                                  <p className="text-text-secondary">+91 {addr.number}</p>
-                                </div>
-                              </label>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {showAddressForm ? (
-                        <div>
-                          {formError && (
-                            <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                              {formError}
-                            </p>
-                          )}
-                          <AddressForm
-                            plain
-                            initial={{
-                              ...ADDRESS_FORM_FIELDS,
-                              fullName: user.name || "",
-                              number: user.phone || "",
-                              email: user.email || "",
-                            }}
-                            onSubmit={handleSaveAddress}
-                            onCancel={() => {
-                              setShowAddressForm(false);
-                              setFormError("");
-                            }}
-                            submitting={savingAddress}
-                          />
-                        </div>
-                      ) : (
+                      <AddressSummary address={selectedAddress} />
+                      <div className="mt-4 flex flex-wrap items-center gap-4">
                         <button
                           type="button"
-                          onClick={() => setShowAddressForm(true)}
-                          className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                          onClick={() => setShowAddressPicker(true)}
+                          className="text-sm font-semibold text-primary hover:underline"
                         >
-                          <span className="text-base leading-none">+</span>
-                          Add New Address
+                          Change address
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          onClick={openAddressForm}
+                          className="text-sm font-semibold text-primary hover:underline"
+                        >
+                          + Add new address
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-text-secondary">
+                        No saved address yet. Add one to continue.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddressForm(true)}
+                        className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                      >
+                        <span className="text-base leading-none">+</span>
+                        Add Address
+                      </button>
                     </>
                   )}
                 </StepSection>
@@ -635,11 +827,78 @@ function Checkout() {
                   ))}
                 </ul>
 
+                <div className="mb-3 border-b border-border-light pb-3 sm:mb-4">
+                  {appliedCoupon ? (
+                    <div className="flex items-start justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-green-800">
+                          Coupon applied: {appliedCoupon.code}
+                        </p>
+                        {appliedCoupon.title ? (
+                          <p className="mt-0.5 text-xs text-green-700">{appliedCoupon.title}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs font-medium text-green-700">
+                          You save {formatPrice(appliedCoupon.discountAmount)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label htmlFor="couponCode" className="text-sm font-semibold text-text-primary">
+                        Have a coupon?
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="couponCode"
+                          type="text"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            if (couponError) setCouponError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Enter coupon code"
+                          className="min-w-0 flex-1 rounded-lg border border-border-light px-3 py-2 text-sm uppercase outline-none focus:border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon || !couponInput.trim()}
+                          className="shrink-0 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {applyingCoupon ? "..." : "Apply"}
+                        </button>
+                      </div>
+                      {couponError ? (
+                        <p className="text-xs text-red-600">{couponError}</p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2.5 border-t border-border-light pt-4 text-sm">
                   <div className="flex justify-between text-text-secondary">
                     <span>Subtotal</span>
                     <span className="font-medium text-text-primary">{formatPrice(subtotal)}</span>
                   </div>
+                  {couponDiscount > 0 ? (
+                    <div className="flex justify-between text-green-700">
+                      <span>Coupon discount</span>
+                      <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between text-text-secondary">
                     <span>Delivery Charges</span>
                     <span className="font-semibold text-text-primary">

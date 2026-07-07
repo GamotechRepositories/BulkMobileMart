@@ -15,6 +15,7 @@ import {
   cancelOrder,
   getDashboardStats,
   getOrderUnreadCount,
+  deleteOrder,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
 router.get("/admin/all", requireAdmin, getAllOrders);
 router.post("/admin/create", requireAdmin, adminPlaceOrder);
 router.patch("/admin/:id", requireAdmin, updateOrder);
+router.delete("/admin/:id", requireAdmin, deleteOrder);
 router.post("/admin/:id/shipment/envia/rates", requireAdmin, quoteOrderShipmentRates);
 router.post("/admin/:id/shipment/envia", requireAdmin, createOrderShipment);
 router.post("/admin/:id/shipment/envia/link", requireAdmin, linkOrderShipmentTracking);

@@ -2,6 +2,7 @@ import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import User from "../models/user.js";
+import Payment from "../models/payment/Payment.js";
 import {
   enrichOrderForResponse,
   finalizeOrder,
@@ -199,12 +200,13 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
 
 export const createCheckoutAttempt = async (req, res) => {
   try {
-    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow } = req.body;
+    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow, couponCode } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
       checkoutItems,
       checkoutMode,
       buyNow,
+      couponCode,
     });
 
     if (prepared.error) {
@@ -339,7 +341,8 @@ export const adminPlaceOrder = async (req, res) => {
 
 export const placeOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, attemptedOrderId, checkoutMode, buyNow } = req.body;
+    const { addressId, paymentMethod, attemptedOrderId, checkoutMode, buyNow, couponCode } =
+      req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
@@ -366,6 +369,7 @@ export const placeOrder = async (req, res) => {
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutMode,
       buyNow,
+      couponCode,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -381,6 +385,8 @@ export const placeOrder = async (req, res) => {
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
+      couponCode: result.couponCode,
+      couponDiscount: result.couponDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -1176,5 +1182,21 @@ export const syncOrderShipmentTracking = async (req, res) => {
       success: false,
       message: error.response?.data?.message || error.message || "Failed to sync tracking",
     });
+  }
+};
+
+export const deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    await Payment.deleteMany({ order: order._id });
+    await order.deleteOne();
+
+    res.status(200).json({ success: true, message: "Order deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

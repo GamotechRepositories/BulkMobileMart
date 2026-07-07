@@ -17,6 +17,39 @@ import {
   meetsMinimumOrder,
 } from "./storeSettingsHelpers.js";
 import { calculateOrderTotal } from "./gstHelpers.js";
+import { resolveCouponForCheckout } from "../controllers/couponController.js";
+
+async function computeOrderPricing(subtotal, couponCode) {
+  const storeSettings = await getStoreSettings();
+  let resolvedCouponCode = "";
+  let couponDiscount = 0;
+
+  if (couponCode) {
+    const couponResult = await resolveCouponForCheckout(couponCode, subtotal);
+    if (couponResult.error) {
+      return {
+        error: couponResult.error,
+        status: 400,
+        code: "INVALID_COUPON",
+      };
+    }
+    resolvedCouponCode = couponResult.couponCode;
+    couponDiscount = couponResult.couponDiscount;
+  }
+
+  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+  const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+
+  return {
+    storeSettings,
+    deliveryCharges,
+    gstAmount,
+    total,
+    couponCode: resolvedCouponCode,
+    couponDiscount,
+  };
+}
 
 const normalizeVariantName = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -305,7 +338,14 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const { orderItems, subtotal } = built;
 
-  const storeSettings = await getStoreSettings();
+  const pricing = await computeOrderPricing(subtotal, options.couponCode);
+  if (pricing.error) {
+    return pricing;
+  }
+
+  const { storeSettings, deliveryCharges, gstAmount, total, couponCode, couponDiscount } =
+    pricing;
+
   if (!meetsMinimumOrder(subtotal, storeSettings)) {
     return {
       error: `Minimum order value is ₹${storeSettings.minimumOrderValue}. Please add more items to your cart.`,
@@ -314,9 +354,6 @@ export async function prepareOrderData(userId, addressId, options = {}) {
       minimumOrderValue: storeSettings.minimumOrderValue,
     };
   }
-
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { gstAmount, total } = calculateOrderTotal(subtotal, deliveryCharges);
 
   const deliveryAddress = addressToSnapshot(address);
   const requiredSnapshotFields = [
@@ -345,6 +382,8 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     orderItems,
     deliveryAddress,
     subtotal,
+    couponCode,
+    couponDiscount,
     deliveryCharges,
     gstAmount,
     total,
@@ -487,14 +526,19 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   }
 
   const { orderItems, subtotal } = built;
-  const storeSettings = await getStoreSettings();
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { gstAmount, total } = calculateOrderTotal(subtotal, deliveryCharges);
+  const pricing = await computeOrderPricing(subtotal, options.couponCode);
+  if (pricing.error) {
+    return pricing;
+  }
+
+  const { deliveryCharges, gstAmount, total, couponCode, couponDiscount } = pricing;
 
   return {
     orderItems,
     deliveryAddress: buildPendingDeliveryAddress(user, address),
     subtotal,
+    couponCode,
+    couponDiscount,
     deliveryCharges,
     gstAmount,
     total,
@@ -509,6 +553,8 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     items: prepared.orderItems,
     deliveryAddress: prepared.deliveryAddress,
     subtotal: prepared.subtotal,
+    couponCode: prepared.couponCode || "",
+    couponDiscount: prepared.couponDiscount || 0,
     deliveryCharges: prepared.deliveryCharges,
     gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
@@ -582,6 +628,8 @@ export async function completeAttemptedOrder({
   orderItems,
   deliveryAddress,
   subtotal,
+  couponCode = "",
+  couponDiscount = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -615,6 +663,8 @@ export async function completeAttemptedOrder({
   order.items = orderItems;
   order.deliveryAddress = deliveryAddress;
   order.subtotal = subtotal;
+  order.couponCode = couponCode || "";
+  order.couponDiscount = couponDiscount > 0 ? couponDiscount : 0;
   order.deliveryCharges = deliveryCharges;
   order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
@@ -640,6 +690,8 @@ export async function finalizeOrder({
   orderItems,
   deliveryAddress,
   subtotal,
+  couponCode = "",
+  couponDiscount = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -663,6 +715,8 @@ export async function finalizeOrder({
     orderItems,
     deliveryAddress,
     subtotal,
+    couponCode,
+    couponDiscount,
     deliveryCharges,
     gstAmount,
     total,
@@ -693,6 +747,8 @@ export async function finalizeOrder({
     deliveryAddress,
     paymentMethod,
     subtotal,
+    couponCode: couponCode || "",
+    couponDiscount: couponDiscount > 0 ? couponDiscount : 0,
     deliveryCharges,
     gstAmount: gstAmount > 0 ? gstAmount : 0,
     total,

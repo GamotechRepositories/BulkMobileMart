@@ -32,7 +32,8 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow } = req.body;
+    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow, couponCode } =
+      req.body;
     if (!addressId) {
       return res.status(400).json({
         success: false,
@@ -51,6 +52,7 @@ export const createRazorpayOrder = async (req, res) => {
       checkoutItems,
       checkoutMode,
       buyNow,
+      couponCode,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -67,6 +69,8 @@ export const createRazorpayOrder = async (req, res) => {
         orderItems: result.orderItems,
         deliveryAddress: result.deliveryAddress,
         subtotal: result.subtotal,
+        couponCode: result.couponCode,
+        couponDiscount: result.couponDiscount,
         deliveryCharges: result.deliveryCharges,
         gstAmount: result.gstAmount,
         total: result.total,
@@ -130,6 +134,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       checkoutMode,
       buyNow,
       attemptedOrderId,
+      couponCode,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -164,6 +169,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       checkoutItems,
       checkoutMode,
       buyNow,
+      couponCode,
     });
 
     if (result.error) {
@@ -191,6 +197,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
+      couponCode: result.couponCode,
+      couponDiscount: result.couponDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -235,6 +243,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       checkoutMode,
       buyNow,
       attemptedOrderId,
+      couponCode,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
@@ -277,6 +286,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       checkoutItems,
       checkoutMode,
       buyNow,
+      couponCode,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -297,6 +307,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       orderItems: result.orderItems,
       deliveryAddress: result.deliveryAddress,
       subtotal: result.subtotal,
+      couponCode: result.couponCode,
+      couponDiscount: result.couponDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -324,6 +336,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       amount: payableAmount,
       orderTotal: result.total,
       subtotal: result.subtotal,
+      couponCode: result.couponCode,
+      couponDiscount: result.couponDiscount,
       deliveryCharges: result.deliveryCharges,
       items: result.orderItems,
       deliveryAddress: result.deliveryAddress,

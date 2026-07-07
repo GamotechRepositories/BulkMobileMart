@@ -71,6 +71,10 @@ export const updateProduct = (id, data) => api.put(`/api/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/api/products/${id}`);
 
 export const loginUser = (data) => api.post("/api/users/login", data);
+export const requestAdminPasswordReset = (data) =>
+  api.post("/api/users/admin/forgot-password", data);
+export const resetAdminPassword = (data) =>
+  api.post("/api/users/admin/reset-password", data);
 export const getUsers = (params) => api.get("/api/users", { params });
 export const getCurrentUser = () => api.get("/api/users/me");
 export const changeMyPassword = (data) => api.patch("/api/users/me/password", data);
@@ -88,6 +92,7 @@ export const getAdminOrderUnreadCount = (params) =>
 export const getDashboardStats = (params) =>
   api.get("/api/orders/admin/dashboard-stats", { params });
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
+export const deleteAdminOrder = (id) => api.delete(`/api/orders/admin/${id}`);
 export const createAdminOrder = (data) => api.post("/api/orders/admin/create", data);
 export const quoteAdminOrderShipmentRates = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/rates`, data);
@@ -111,6 +116,12 @@ export const getAdminSupportUnreadCount = (params) =>
 export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
 export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);
+
+export const getAllCoupons = (params) => api.get("/api/coupons", { params });
+export const createCoupon = (data) => api.post("/api/coupons", data);
+export const updateCoupon = (id, data) => api.put(`/api/coupons/${id}`, data);
+export const deleteCoupon = (id) => api.delete(`/api/coupons/${id}`);
+export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
 
 /**
  * Upload an image directly to S3 via a presigned URL.

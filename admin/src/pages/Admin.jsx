@@ -20,6 +20,7 @@ import ShowBrandSection from "../components/admin/sections/ShowBrandSection";
 import AddTestimonialSection from "../components/admin/sections/AddTestimonialSection";
 import ShowTestimonialSection from "../components/admin/sections/ShowTestimonialSection";
 import StoreSettingsSection from "../components/admin/sections/StoreSettingsSection";
+import CouponSection from "../components/admin/sections/CouponSection";
 import AdminLogin from "./AdminLogin";
 
 function Admin() {
@@ -45,6 +46,7 @@ function Admin() {
           <Route path="testimonials/show" element={<ShowTestimonialSection />} />
           <Route path="testimonials" element={<Navigate to="show" replace />} />
           <Route path="settings" element={<StoreSettingsSection />} />
+          <Route path="coupons" element={<CouponSection />} />
           <Route path="users" element={<UserSection />} />
           <Route path="orders/create" element={<CreateOrderSection />} />
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />

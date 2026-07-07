@@ -131,6 +131,8 @@ export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
+export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
+
 export const submitSupportMessage = (data) => api.post("/api/support", data);
 
 export const uploadImageFile = (file, folder) => {

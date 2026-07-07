@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
-import { signup, login, sendOtpLogin, verifyOtpLogin, completeOtpSignup, getMe, updateMe, changeMyPassword, createUser, getUsers, updateUser, deleteUser } from "../controllers/userController.js";
+import { signup, login, sendOtpLogin, verifyOtpLogin, completeOtpSignup, getMe, updateMe, changeMyPassword, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, updateUser, deleteUser } from "../controllers/userController.js";
 import { saveFcmToken } from "../controllers/fcmTokenController.js";
 import { addAddressForUser, getAddressesForUser } from "../controllers/addressController.js";
 
@@ -8,6 +8,8 @@ const router = express.Router();
 
 router.post("/signup", signup);
 router.post("/login", login);
+router.post("/admin/forgot-password", requestAdminPasswordReset);
+router.post("/admin/reset-password", resetAdminPassword);
 router.post("/otp/send", sendOtpLogin);
 router.post("/otp/verify", verifyOtpLogin);
 router.post("/otp/complete-signup", completeOtpSignup);

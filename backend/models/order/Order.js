@@ -56,6 +56,8 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
     subtotal: { type: Number, required: true },
+    couponCode: { type: String, default: "", trim: true, uppercase: true },
+    couponDiscount: { type: Number, default: 0, min: 0 },
     deliveryCharges: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true },

@@ -7,6 +7,7 @@ import UserAccountDropdown from "../account/UserAccountDropdown";
 import DesktopSearchBar from "./DesktopSearchBar";
 import { NavIconWrap } from "./NavIconWrap";
 import { HeaderWhatsAppButton } from "./HeaderWhatsAppButton";
+import { downloadAndroidApp } from "../../utils/appDownload";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -68,6 +69,7 @@ function TopNav() {
         <div className="flex shrink-0 items-center gap-1 xl:gap-2">
           <button
             type="button"
+            onClick={downloadAndroidApp}
             className="group flex h-10 items-center overflow-hidden rounded-lg px-2.5 text-text-primary transition hover:text-primary"
             aria-label="Download App"
           >

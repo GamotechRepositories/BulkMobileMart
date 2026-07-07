@@ -365,6 +365,109 @@ export const changeMyPassword = async (req, res) => {
   }
 };
 
+function maskPhoneNumber(phone) {
+  const digits = String(phone || "");
+  if (digits.length < 4) return "your registered phone";
+  return `******${digits.slice(-4)}`;
+}
+
+export const requestAdminPasswordReset = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const user = await User.findOne({ email, role: "admin" });
+
+    if (!user?.phone) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "If an admin account exists for this email, an OTP will be sent to the registered phone number.",
+      });
+    }
+
+    await dispatchLoginOtp(user.phone);
+
+    res.status(200).json({
+      success: true,
+      message: `OTP sent to ${maskPhoneNumber(user.phone)}`,
+      data: {
+        email,
+        phoneHint: maskPhoneNumber(user.phone),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to send OTP",
+    });
+  }
+};
+
+export const resetAdminPassword = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+    const newPassword = String(req.body.newPassword || "");
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findOne({ email, role: "admin" }).select("+password");
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid reset request",
+      });
+    }
+
+    const verification = await validateLoginOtp(user.phone, otp);
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message || "Invalid OTP",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can sign in with your new password.",
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const updateMe = async (req, res) => {
   try {
     const { name, email, phone } = req.body;
@@ -524,15 +627,21 @@ export const getUsers = async (req, res) => {
     const { page, limit, skip } = getPaginationParams(req.query);
     const filter = { role: { $ne: "admin" } };
 
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
     const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
 
-    if (name) {
-      filter.name = { $regex: escapeRegex(name), $options: "i" };
-    }
+    if (search) {
+      const pattern = { $regex: escapeRegex(search), $options: "i" };
+      filter.$or = [{ name: pattern }, { phone: pattern }];
+    } else {
+      if (name) {
+        filter.name = { $regex: escapeRegex(name), $options: "i" };
+      }
 
-    if (phone) {
-      filter.phone = { $regex: escapeRegex(phone), $options: "i" };
+      if (phone) {
+        filter.phone = { $regex: escapeRegex(phone), $options: "i" };
+      }
     }
 
     const [total, users] = await Promise.all([

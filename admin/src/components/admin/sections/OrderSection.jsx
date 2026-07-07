@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getAdminOrders } from "../../../api/api";
+import { deleteAdminOrder, getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdminNotifications } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import { IconTrash } from "../AdminIcons";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
   adminCompactThClass,
   adminTableHeaderClass,
   adminTableWrapperClass,
+  iconBtnDangerClass,
 } from "../adminStyles";
 import AdminOrderFilters from "./AdminOrderFilters";
 import {
@@ -153,6 +155,23 @@ function OrderSection() {
     }
   };
 
+  const handleDelete = async (orderId, event) => {
+    event?.stopPropagation();
+    if (!window.confirm("Delete this order permanently? This cannot be undone.")) return;
+
+    try {
+      setError("");
+      setSuccess("");
+      await deleteAdminOrder(orderId);
+      setSuccess("Order deleted");
+      const nextPage = orders.length === 1 && page > 1 ? page - 1 : page;
+      if (nextPage !== page) setPage(nextPage);
+      else fetchOrders();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to delete order"));
+    }
+  };
+
   return (
     <div className="min-w-0">
       <AdminAlert
@@ -196,6 +215,7 @@ function OrderSection() {
               <col className="w-[14%]" />
               <col className="w-[14%]" />
               <col className="w-[8%]" />
+              <col className="w-[6%]" />
             </colgroup>
             <thead>
               <tr className={adminTableHeaderClass}>
@@ -209,6 +229,7 @@ function OrderSection() {
                 <th className={adminCompactThClass}>Transaction ID</th>
                 <th className={adminCompactThClass}>Message</th>
                 <th className={adminCompactThClass}>Date</th>
+                <th className={adminCompactThClass}>Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -268,6 +289,17 @@ function OrderSection() {
                     </td>
                     <td className={`${adminCompactTdClass} text-neutral-600`}>
                       <span className="block truncate">{formatDate(order.createdAt)}</span>
+                    </td>
+                    <td className={adminCompactTdClass} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(order._id, e)}
+                        className={iconBtnDangerClass}
+                        title="Delete order"
+                        aria-label="Delete order"
+                      >
+                        <IconTrash />
+                      </button>
                     </td>
                   </tr>
                 );

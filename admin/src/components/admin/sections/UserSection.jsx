@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { createUser, deleteUser, getUsers, updateUser } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
+import AdminSearchBar from "../AdminSearchBar";
 import { IconEdit, IconTrash } from "../AdminIcons";
 import UserEditModal from "../UserEditModal";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
   adminCompactThClass,
+  adminFilterCardClass,
   adminTableHeaderClass,
   adminTableWrapperClass,
   btnPrimary,
@@ -26,6 +28,7 @@ function UserSection() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const [pagination, setPagination] = useState({
     page: 1,
     limit: ADMIN_PAGE_SIZE,
@@ -37,7 +40,9 @@ function UserSection() {
     try {
       setLoading(true);
       setError("");
-      const { data } = await getUsers({ page, limit: ADMIN_PAGE_SIZE });
+      const params = { page, limit: ADMIN_PAGE_SIZE };
+      if (searchQuery.trim()) params.search = searchQuery.trim();
+      const { data } = await getUsers(params);
       setUsers(data.data || []);
       setPagination(
         data.pagination || {
@@ -55,7 +60,12 @@ function UserSection() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, searchQuery]);
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setPage(1);
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -132,11 +142,23 @@ function UserSection() {
         </div>
       </div>
 
+      <div className={`${adminFilterCardClass} mb-4`}>
+        <AdminSearchBar
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="Search by name or phone number..."
+        />
+      </div>
+
       {loading ? (
         <p className="text-text-secondary">Loading...</p>
       ) : users.length === 0 ? (
         <p className="text-text-secondary">
-          {error ? "Could not load users." : "No registered users yet."}
+          {error
+            ? "Could not load users."
+            : searchQuery.trim()
+              ? "No users found for this search."
+              : "No registered users yet."}
         </p>
       ) : (
         <div className={adminTableWrapperClass}>

@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import ProductShareMenu from "./ProductShareMenu";
 import {
   adminDetailRowClass,
   btnPrimary,
@@ -146,20 +147,26 @@ function ProductDetailModal({ product, onClose, onEdit }) {
           </div>
         </div>
 
-        <div className={modalFooterClass}>
+        <div className={`${modalFooterClass} sm:justify-between`}>
           <button type="button" onClick={onClose} className={btnSecondary}>
             Close
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              onEdit(product);
-              onClose();
-            }}
-            className={btnPrimary}
-          >
-            Edit Product
-          </button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <ProductShareMenu
+              product={product}
+              imageUrl={product.productImages?.[0] || ""}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onEdit(product);
+                onClose();
+              }}
+              className={btnPrimary}
+            >
+              Edit Product
+            </button>
+          </div>
         </div>
       </div>
     </div>,

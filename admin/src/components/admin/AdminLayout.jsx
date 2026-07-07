@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconUsers,
   IconCreateOrder,
+  IconCoupon,
 } from "./AdminIcons";
 
 const PAGE_TITLES = {
@@ -34,6 +35,7 @@ const PAGE_TITLES = {
   "/orders": "Orders",
   "/orders/create": "Create Order",
   "/payments": "Payments",
+  "/coupons": "Coupons",
   "/support": "Support Messages",
 };
 
@@ -83,6 +85,7 @@ const NAV_ITEMS = [
   },
   { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
+  { type: "link", to: "/coupons", label: "Coupons", icon: IconCoupon },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },
   { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },

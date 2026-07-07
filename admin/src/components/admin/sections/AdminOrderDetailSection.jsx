@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getOrderById, updateAdminOrder } from "../../../api/api";
+import { getOrderById, updateAdminOrder, deleteAdminOrder } from "../../../api/api";
 import AdminOrderShipmentPanel from "../AdminOrderShipmentPanel";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
 import AdminOrderItemsEditor from "../AdminOrderItemsEditor";
+import { IconTrash } from "../AdminIcons";
 import {
   adminFilterInputClass,
+  btnDanger,
   cardClass,
+  iconBtnDangerClass,
 } from "../adminStyles";
 import {
   ADMIN_DETAIL_ORDER_STATUS_OPTIONS,
@@ -150,6 +153,22 @@ function AdminOrderDetailSection() {
     setSuccess("Order items updated");
   };
 
+  const handleDelete = async () => {
+    if (!order || updating) return;
+    if (!window.confirm("Delete this order permanently? This cannot be undone.")) return;
+
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      await deleteAdminOrder(order._id);
+      navigate("/orders", { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete order");
+      setUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-w-0 animate-pulse space-y-4">
@@ -211,6 +230,15 @@ function AdminOrderDetailSection() {
         >
           Bill Invoice
         </Link>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={updating}
+          className={`${btnDanger} inline-flex items-center gap-2`}
+        >
+          <IconTrash className="h-4 w-4" />
+          Delete Order
+        </button>
       </div>
 
       {/* Order ID + status dropdowns */}
