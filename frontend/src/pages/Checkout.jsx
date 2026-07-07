@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -125,6 +125,7 @@ function AddressSummary({ address }) {
 
 function Checkout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const { items, loading: cartLoading, loadCart, resetCart } = useCart();
 
@@ -279,10 +280,10 @@ function Checkout() {
     hasAutoOpenedAddressRef.current = true;
     if (addresses.length === 0) {
       setShowAddressForm(true);
-    } else {
+    } else if (!selectedAddressId) {
       setShowAddressPicker(true);
     }
-  }, [addressesLoading, addresses.length]);
+  }, [addressesLoading, addresses.length, selectedAddressId]);
 
   useEffect(() => {
     if (
@@ -394,6 +395,32 @@ function Checkout() {
     setCouponInput("");
     setCouponError("");
   };
+
+  useEffect(() => {
+    const code = String(location.state?.applyCouponCode || "").trim().toUpperCase();
+    if (!code || authLoading || !user || subtotal <= 0) return;
+
+    let active = true;
+
+    validateCoupon({ code, subtotal })
+      .then(({ data }) => {
+        if (!active) return;
+        setAppliedCoupon(data.data);
+        setCouponInput(data.data.code);
+        setCouponError("");
+      })
+      .catch((err) => {
+        if (!active) return;
+        setCouponError(err.response?.data?.message || "Invalid coupon code");
+      })
+      .finally(() => {
+        navigate(location.pathname, { replace: true, state: null });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [location.state?.applyCouponCode, authLoading, user, subtotal, navigate, location.pathname]);
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
@@ -622,7 +649,10 @@ function Checkout() {
                   name="checkoutAddressPicker"
                   value={addr._id}
                   checked={selectedAddressId === addr._id}
-                  onChange={() => setSelectedAddressId(addr._id)}
+                  onChange={() => {
+                    setSelectedAddressId(addr._id);
+                    setShowAddressPicker(false);
+                  }}
                   className="mt-1 h-4 w-4 shrink-0 accent-primary"
                 />
                 <div className="min-w-0 flex-1 text-sm">
@@ -851,9 +881,14 @@ function Checkout() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <label htmlFor="couponCode" className="text-sm font-semibold text-text-primary">
-                        Have a coupon?
-                      </label>
+                      <div className="flex items-center justify-between gap-3">
+                        <label htmlFor="couponCode" className="text-sm font-semibold text-text-primary">
+                          Have a coupon?
+                        </label>
+                        <Link to="/coupons" className="text-xs font-semibold text-primary hover:underline">
+                          View all coupons
+                        </Link>
+                      </div>
                       <div className="flex gap-2">
                         <input
                           id="couponCode"

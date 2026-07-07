@@ -31,6 +31,12 @@ final productDetailProvider =
   return ref.read(apiServiceProvider).fetchProductById(id);
 });
 
+final similarProductsProvider =
+    FutureProvider.family<List<Product>, String>((ref, productId) async {
+  if (productId.trim().isEmpty) return [];
+  return ref.read(apiServiceProvider).fetchSimilarProducts(productId);
+});
+
 class ProductQuery {
   const ProductQuery({
     this.categoryName,

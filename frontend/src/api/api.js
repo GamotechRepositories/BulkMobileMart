@@ -55,6 +55,8 @@ export const getStoreSettings = () => api.get("/api/settings");
 
 export const getProducts = (params) => api.get("/api/products", { params });
 export const getProductById = (id) => api.get(`/api/products/${id}`);
+export const getSimilarProducts = (id, params) =>
+  api.get(`/api/products/${id}/similar`, { params });
 
 export const getCart = () => api.get("/api/cart");
 export const addToCartItem = (data) => api.post("/api/cart", data);
@@ -132,6 +134,7 @@ export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
 export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
+export const getAvailableCoupons = (params) => api.get("/api/coupons/available", { params });
 
 export const submitSupportMessage = (data) => api.post("/api/support", data);
 

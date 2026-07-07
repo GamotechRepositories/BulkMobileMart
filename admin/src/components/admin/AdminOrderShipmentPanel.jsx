@@ -21,6 +21,7 @@ import {
 import {
   getDefaultCodCollectAmount,
   isOrderCodPayment,
+  isOrderPrepaidShipment,
 } from "@shared/shipping/shipmentPayment.js";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import { adminFilterInputClass, cardClass } from "./adminStyles";
@@ -69,6 +70,8 @@ export default function AdminOrderShipmentPanel({
 }) {
   const [packageForm, setPackageForm] = useState(EMPTY_PACKAGE);
   const [paymentForm, setPaymentForm] = useState({ isCod: false, codAmount: "" });
+  const [paymentTouched, setPaymentTouched] = useState(false);
+  const [quotedPayment, setQuotedPayment] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
     shipmentNote: "",
     evidenceUrl: "",
@@ -112,25 +115,42 @@ export default function AdminOrderShipmentPanel({
   }, [order?._id]);
 
   useEffect(() => {
-    if (!order) return;
+    setPaymentTouched(false);
+    setQuotedPayment(null);
+    setServiceOptions([]);
+    setQuoteErrors([]);
+  }, [order?._id]);
+
+  useEffect(() => {
+    if (!order || paymentTouched) return;
     const isCod = isOrderCodPayment(order);
     const defaultAmount = isCod ? getDefaultCodCollectAmount(order) : "";
     setPaymentForm({
       isCod,
       codAmount: defaultAmount ? String(defaultAmount) : "",
     });
-  }, [order?._id, order?.paymentMethod, order?.total, order?.codAdvanceAmount]);
+  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, paymentTouched]);
+
+  useEffect(() => {
+    setQuotedPayment(null);
+    setServiceOptions([]);
+    setQuoteErrors([]);
+    setSelectedServiceId(SHIPPING_SERVICES[0]?.id || "");
+  }, [paymentForm.isCod]);
 
   const selectedService = useMemo(() => {
     const list = serviceOptions.length ? serviceOptions : SHIPPING_SERVICES;
     return list.find((entry) => entry.id === selectedServiceId);
   }, [serviceOptions, selectedServiceId]);
 
+  const isPrepaidOrder = isOrderPrepaidShipment(order);
+
   const updatePackageField = (field, value) => {
     setPackageForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const updatePaymentField = (field, value) => {
+    setPaymentTouched(true);
     setPaymentForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -190,6 +210,7 @@ export default function AdminOrderShipmentPanel({
       const mapped = mapQuotesToShippingServices(quotes);
       setServiceOptions(mapped);
       setQuoteErrors(data?.data?.errors || []);
+      setQuotedPayment(data?.data?.paymentType || null);
 
       const firstAvailable =
         mapped.find((entry) => entry.quote)?.id || mapped[0]?.id || "";
@@ -205,6 +226,7 @@ export default function AdminOrderShipmentPanel({
       onError(err.response?.data?.message || "Failed to fetch rates");
       setServiceOptions([]);
       setQuoteErrors([]);
+      setQuotedPayment(null);
     } finally {
       setLoadingRates(false);
     }
@@ -542,17 +564,28 @@ export default function AdminOrderShipmentPanel({
 
           <div className="rounded-md border border-neutral-200 p-3">
             <span className="mb-2 block text-xs font-semibold text-neutral-500">Payment type</span>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-800">
+            <label
+              className={`flex items-center gap-2 text-sm text-neutral-800 ${
+                isPrepaidOrder ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={paymentForm.isCod}
+                disabled={isPrepaidOrder}
                 onChange={(e) => updatePaymentField("isCod", e.target.checked)}
-                className="rounded border-neutral-300"
+                className="rounded border-neutral-300 disabled:cursor-not-allowed"
               />
               <span>Cash on Delivery (COD)</span>
             </label>
-            {!paymentForm.isCod ? (
-              <p className="mt-2 text-xs text-neutral-500">Prepaid — no COD collection on delivery.</p>
+            {isPrepaidOrder ? (
+              <p className="mt-2 text-xs text-neutral-500">
+                Prepaid — full payment received. COD is not available for this order.
+              </p>
+            ) : !paymentForm.isCod ? (
+              <p className="mt-2 text-xs text-neutral-500">
+                Prepaid shipment — rates exclude COD collection fees.
+              </p>
             ) : (
               <label className="mt-3 block">
                 <span className="mb-1 block text-xs font-semibold text-neutral-500">
@@ -708,6 +741,22 @@ export default function AdminOrderShipmentPanel({
           >
             {loadingRates ? "Fetching rates…" : "Compare rates"}
           </button>
+
+          {quotedPayment ? (
+            <p className="text-xs font-medium text-neutral-600">
+              Rates quoted for{" "}
+              <span className="font-semibold text-neutral-900">
+                {quotedPayment.isCod
+                  ? `COD (₹${Number(quotedPayment.codAmount || 0).toLocaleString("en-IN")})`
+                  : "Prepaid"}
+              </span>
+              . Change payment type and compare again to refresh.
+            </p>
+          ) : paymentForm.isCod ? (
+            <p className="text-xs text-neutral-500">
+              Compare rates to load COD shipping prices for the selected collection amount.
+            </p>
+          ) : null}
 
           {quoteErrors.length > 0 ? (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">

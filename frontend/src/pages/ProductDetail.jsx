@@ -27,6 +27,8 @@ import {
 } from "../utils/checkoutSession";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import ProductVideo from "../components/product/ProductVideo";
+import ProductDescriptionContent from "../components/product/ProductDescriptionContent";
+import SimilarProducts from "../components/product/SimilarProducts";
 import { normalizeProductImages } from "../utils/productImage";
 import {
   buildProductShareContent,
@@ -1209,19 +1211,11 @@ function ProductDetail() {
 
           <div className="py-5 text-xs leading-relaxed text-text-secondary sm:py-6 sm:text-sm">
             {activeTab === "description" && (
-              <div>
-                <p className="mb-4 text-text-primary">
-                  {product.description ||
-                    `${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.`}
-                </p>
-                {product.features?.length > 0 && (
-                  <ul className="list-disc space-y-2 pl-5 text-text-primary">
-                    {product.features.map((feature) => (
-                      <li key={feature}>{feature}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <ProductDescriptionContent
+                description={product.description}
+                features={product.features}
+                fallback={`${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.`}
+              />
             )}
 
             {activeTab === "specifications" && (
@@ -1255,6 +1249,13 @@ function ProductDetail() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="grid grid-cols-6 gap-5 sm:gap-6 lg:gap-8 xl:gap-10">
+          <SimilarProducts
+            productId={product._id}
+            categoryName={product.categories?.[0] || product.subcategory || ""}
+          />
         </div>
       </div>
     </div>

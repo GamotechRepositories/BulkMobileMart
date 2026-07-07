@@ -45,6 +45,16 @@ const couponSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    maxRedemptionsPerUser: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
+    maxTotalRedemptions: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
   },
   { timestamps: true }
 );

@@ -3,6 +3,7 @@ import {
   getProducts,
   getAllProducts,
   getProductById,
+  getSimilarProducts,
   addProduct,
   updateProduct,
   deleteProduct,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.get("/", getProducts);
 router.get("/all", protect, requireAdmin, getAllProducts);
+router.get("/:id/similar", getSimilarProducts);
 router.get("/:id", getProductById);
 router.post("/", protect, requireAdmin, addProduct);
 router.put("/:id", protect, requireAdmin, updateProduct);

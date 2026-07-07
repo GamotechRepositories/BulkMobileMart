@@ -21,6 +21,7 @@ import HotSellingPage from "./pages/HotSellingPage";
 import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
 import Checkout from "./pages/Checkout";
+import Coupons from "./pages/Coupons";
 import Blog from "./pages/Blog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
@@ -105,6 +106,14 @@ function App() {
             element={
               <MobileLayout>
                 <Checkout />
+              </MobileLayout>
+            }
+          />
+          <Route
+            path="/coupons"
+            element={
+              <MobileLayout>
+                <Coupons />
               </MobileLayout>
             }
           />

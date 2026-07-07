@@ -47,6 +47,12 @@ class ApiService {
   Future<Response<dynamic>> getProductById(String id) =>
       _dio.get('/api/products/$id');
 
+  Future<Response<dynamic>> getSimilarProducts(String id, {int? limit}) =>
+      _dio.get(
+        '/api/products/$id/similar',
+        queryParameters: limit == null ? null : {'limit': limit},
+      );
+
   Future<Response<dynamic>> getCart() => _dio.get('/api/cart');
 
   Future<Response<dynamic>> addToCartItem(Map<String, dynamic> data) =>
@@ -348,6 +354,11 @@ class ApiService {
   Future<Product> fetchProductById(String id) async {
     final response = await getProductById(id);
     return parseOnBackground(parseProductResponse, response.data);
+  }
+
+  Future<List<Product>> fetchSimilarProducts(String id, {int? limit}) async {
+    final response = await getSimilarProducts(id, limit: limit);
+    return parseOnBackground(parseProductsResponse, response.data);
   }
 
   Future<List<CartItem>> fetchCartItems() async {

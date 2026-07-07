@@ -951,7 +951,7 @@ export const quoteOrderShipmentRates = async (req, res) => {
       });
     }
 
-    const overrides = parseShipmentOverrides(req.body || {});
+    const overrides = parseShipmentOverrides(req.body || {}, order);
     const { quotes, errors, carriers } = await quoteEnviaShipmentRates(order, overrides);
 
     res.status(200).json({
@@ -960,6 +960,10 @@ export const quoteOrderShipmentRates = async (req, res) => {
         quotes,
         errors,
         carriers,
+        paymentType: {
+          isCod: overrides.isCod,
+          codAmount: overrides.isCod ? overrides.codAmount : null,
+        },
         package: {
           weight: overrides.weight,
           length: overrides.length,
@@ -998,7 +1002,7 @@ export const createOrderShipment = async (req, res) => {
       });
     }
 
-    const overrides = parseShipmentOverrides(req.body || {});
+    const overrides = parseShipmentOverrides(req.body || {}, order);
     if (!overrides.carrier || !overrides.service) {
       return res.status(400).json({
         success: false,

@@ -1,10 +1,76 @@
 import Coupon from "../models/Coupon.js";
+import Order from "../models/order/Order.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+
+const REDEEMED_ORDER_STATUSES = ["confirm", "processing", "shipping", "delivered"];
 
 function normalizeCouponCode(code) {
   return String(code || "")
     .trim()
     .toUpperCase();
+}
+
+export function isUnlimitedRedemptionLimit(limit) {
+  if (limit === null || limit === undefined) return true;
+  if (typeof limit === "string") {
+    const normalized = limit.trim().toLowerCase();
+    if (!normalized || normalized === "infinity" || normalized === "∞" || normalized === "unlimited") {
+      return true;
+    }
+  }
+  if (limit === -1) return true;
+  return false;
+}
+
+function parseRedemptionLimit(value, fieldName) {
+  if (value === undefined) return undefined;
+  if (isUnlimitedRedemptionLimit(value)) return null;
+  const num = Number(value);
+  if (!Number.isInteger(num) || num < 1) {
+    return { error: `${fieldName} must be a positive whole number or unlimited` };
+  }
+  return num;
+}
+
+export async function countCouponRedemptions(couponCode, { userId, excludeOrderId } = {}) {
+  const query = {
+    couponCode: normalizeCouponCode(couponCode),
+    couponDiscount: { $gt: 0 },
+    status: { $in: REDEEMED_ORDER_STATUSES },
+  };
+
+  if (userId) {
+    query.user = userId;
+  }
+
+  if (excludeOrderId) {
+    query._id = { $ne: excludeOrderId };
+  }
+
+  return Order.countDocuments(query);
+}
+
+async function checkRedemptionLimits(coupon, { userId, excludeOrderId } = {}) {
+  if (!isUnlimitedRedemptionLimit(coupon.maxTotalRedemptions)) {
+    const totalRedemptions = await countCouponRedemptions(coupon.code);
+    if (totalRedemptions >= coupon.maxTotalRedemptions) {
+      return { error: "This coupon has reached its maximum redemptions" };
+    }
+  }
+
+  if (userId && !isUnlimitedRedemptionLimit(coupon.maxRedemptionsPerUser)) {
+    const userRedemptions = await countCouponRedemptions(coupon.code, {
+      userId,
+      excludeOrderId,
+    });
+    if (userRedemptions >= coupon.maxRedemptionsPerUser) {
+      return {
+        error: "You have already used this coupon the maximum number of times",
+      };
+    }
+  }
+
+  return null;
 }
 
 function validateCouponPayload(body, { partial = false } = {}) {
@@ -47,6 +113,19 @@ function validateCouponPayload(body, { partial = false } = {}) {
     }
   }
 
+  if (!partial || body.maxRedemptionsPerUser !== undefined) {
+    const parsed = parseRedemptionLimit(
+      body.maxRedemptionsPerUser,
+      "Max redemptions per user"
+    );
+    if (parsed?.error) errors.push(parsed.error);
+  }
+
+  if (!partial || body.maxTotalRedemptions !== undefined) {
+    const parsed = parseRedemptionLimit(body.maxTotalRedemptions, "Max total redemptions");
+    if (parsed?.error) errors.push(parsed.error);
+  }
+
   return errors;
 }
 
@@ -75,7 +154,7 @@ export function calculateCouponDiscount(coupon, subtotal) {
   return Math.min(Math.max(0, Math.round(discount * 100) / 100), safeSubtotal);
 }
 
-export async function resolveCouponForCheckout(code, subtotal) {
+export async function resolveCouponForCheckout(code, subtotal, options = {}) {
   const normalizedCode = normalizeCouponCode(code);
   if (!normalizedCode) {
     return { error: "Coupon code is required" };
@@ -104,6 +183,14 @@ export async function resolveCouponForCheckout(code, subtotal) {
     };
   }
 
+  const redemptionError = await checkRedemptionLimits(coupon, {
+    userId: options.userId,
+    excludeOrderId: options.excludeOrderId,
+  });
+  if (redemptionError) {
+    return redemptionError;
+  }
+
   const couponDiscount = calculateCouponDiscount(coupon, safeSubtotal);
 
   return {
@@ -113,15 +200,123 @@ export async function resolveCouponForCheckout(code, subtotal) {
   };
 }
 
+function mapAvailableCoupon(coupon, subtotal = 0, redemptionMeta = {}) {
+  const minOrderAmount = Number(coupon.minOrderAmount || 0);
+  const safeSubtotal = Math.max(0, Number(subtotal) || 0);
+  const amountNeeded = Math.max(0, minOrderAmount - safeSubtotal);
+  const meetsMinOrder = safeSubtotal >= minOrderAmount;
+  const redemptionBlocked = redemptionMeta.redemptionBlocked || "";
+  const unlocked = meetsMinOrder && !redemptionBlocked;
+
+  return {
+    code: coupon.code,
+    title: coupon.title || "",
+    discountType: coupon.discountType,
+    discountValue: coupon.discountValue,
+    minOrderAmount,
+    startDate: coupon.startDate,
+    endDate: coupon.endDate,
+    appliesToAllProducts: coupon.appliesToAllProducts !== false,
+    maxRedemptionsPerUser: coupon.maxRedemptionsPerUser,
+    maxTotalRedemptions: coupon.maxTotalRedemptions,
+    perUserUnlimited: isUnlimitedRedemptionLimit(coupon.maxRedemptionsPerUser),
+    totalUnlimited: isUnlimitedRedemptionLimit(coupon.maxTotalRedemptions),
+    userRedemptions: redemptionMeta.userRedemptions ?? null,
+    totalRedemptions: redemptionMeta.totalRedemptions ?? null,
+    unlocked,
+    amountNeeded,
+    redemptionBlocked,
+    discountAmount: unlocked ? calculateCouponDiscount(coupon, safeSubtotal) : 0,
+  };
+}
+
+export const getAvailableCoupons = async (req, res) => {
+  try {
+    const now = new Date();
+    const subtotal = Math.max(0, Number(req.query.subtotal) || 0);
+    const userId = req.user?._id;
+
+    const coupons = await Coupon.find({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    })
+      .sort({ minOrderAmount: 1, discountValue: -1, createdAt: -1 })
+      .lean();
+
+    const mapped = await Promise.all(
+      coupons.map(async (coupon) => {
+        let redemptionMeta = {};
+
+        if (userId) {
+          const [userRedemptions, totalRedemptions] = await Promise.all([
+            countCouponRedemptions(coupon.code, { userId }),
+            countCouponRedemptions(coupon.code),
+          ]);
+
+          let redemptionBlocked = "";
+          if (
+            !isUnlimitedRedemptionLimit(coupon.maxTotalRedemptions) &&
+            totalRedemptions >= coupon.maxTotalRedemptions
+          ) {
+            redemptionBlocked = "This coupon has reached its maximum redemptions";
+          } else if (
+            !isUnlimitedRedemptionLimit(coupon.maxRedemptionsPerUser) &&
+            userRedemptions >= coupon.maxRedemptionsPerUser
+          ) {
+            redemptionBlocked = "You have already used this coupon the maximum number of times";
+          }
+
+          redemptionMeta = { userRedemptions, totalRedemptions, redemptionBlocked };
+        }
+
+        return mapAvailableCoupon(coupon, subtotal, redemptionMeta);
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: mapped,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getAllCoupons = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
     const [total, coupons] = await Promise.all([
       Coupon.countDocuments({}),
-      Coupon.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Coupon.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ]);
 
-    res.status(200).json(buildPaginatedResponse(coupons, total, page, limit));
+    const redemptionCounts = await Order.aggregate([
+      {
+        $match: {
+          couponDiscount: { $gt: 0 },
+          status: { $in: REDEEMED_ORDER_STATUSES },
+          couponCode: { $ne: "" },
+        },
+      },
+      {
+        $group: {
+          _id: "$couponCode",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const redemptionCountMap = new Map(
+      redemptionCounts.map((entry) => [entry._id, entry.count])
+    );
+
+    const data = coupons.map((coupon) => ({
+      ...coupon,
+      totalRedemptions: redemptionCountMap.get(coupon.code) || 0,
+    }));
+
+    res.status(200).json(buildPaginatedResponse(data, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -134,6 +329,22 @@ export const createCoupon = async (req, res) => {
       return res.status(400).json({ success: false, message: errors[0] });
     }
 
+    const maxRedemptionsPerUser = parseRedemptionLimit(
+      req.body.maxRedemptionsPerUser,
+      "Max redemptions per user"
+    );
+    if (maxRedemptionsPerUser?.error) {
+      return res.status(400).json({ success: false, message: maxRedemptionsPerUser.error });
+    }
+
+    const maxTotalRedemptions = parseRedemptionLimit(
+      req.body.maxTotalRedemptions,
+      "Max total redemptions"
+    );
+    if (maxTotalRedemptions?.error) {
+      return res.status(400).json({ success: false, message: maxTotalRedemptions.error });
+    }
+
     const coupon = await Coupon.create({
       code: normalizeCouponCode(req.body.code),
       title: req.body.title?.trim() || "",
@@ -144,6 +355,10 @@ export const createCoupon = async (req, res) => {
       isActive: req.body.isActive ?? true,
       appliesToAllProducts: true,
       minOrderAmount: Number(req.body.minOrderAmount) || 0,
+      maxRedemptionsPerUser:
+        maxRedemptionsPerUser === undefined ? null : maxRedemptionsPerUser,
+      maxTotalRedemptions:
+        maxTotalRedemptions === undefined ? null : maxTotalRedemptions,
     });
 
     res.status(201).json({ success: true, data: coupon });
@@ -174,6 +389,26 @@ export const updateCoupon = async (req, res) => {
     if (req.body.isActive !== undefined) updates.isActive = Boolean(req.body.isActive);
     if (req.body.minOrderAmount !== undefined) {
       updates.minOrderAmount = Number(req.body.minOrderAmount) || 0;
+    }
+    if (req.body.maxRedemptionsPerUser !== undefined) {
+      const parsed = parseRedemptionLimit(
+        req.body.maxRedemptionsPerUser,
+        "Max redemptions per user"
+      );
+      if (parsed?.error) {
+        return res.status(400).json({ success: false, message: parsed.error });
+      }
+      updates.maxRedemptionsPerUser = parsed;
+    }
+    if (req.body.maxTotalRedemptions !== undefined) {
+      const parsed = parseRedemptionLimit(
+        req.body.maxTotalRedemptions,
+        "Max total redemptions"
+      );
+      if (parsed?.error) {
+        return res.status(400).json({ success: false, message: parsed.error });
+      }
+      updates.maxTotalRedemptions = parsed;
     }
 
     const coupon = await Coupon.findByIdAndUpdate(req.params.id, updates, {
@@ -237,6 +472,13 @@ export const validateCoupon = async (req, res) => {
         success: false,
         message: `Minimum order amount is ₹${coupon.minOrderAmount}`,
       });
+    }
+
+    const redemptionError = await checkRedemptionLimits(coupon, {
+      userId: req.user?._id,
+    });
+    if (redemptionError) {
+      return res.status(400).json({ success: false, message: redemptionError.error });
     }
 
     const discountAmount = calculateCouponDiscount(coupon, subtotal);

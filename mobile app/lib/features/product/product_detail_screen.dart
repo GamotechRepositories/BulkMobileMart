@@ -8,6 +8,7 @@ import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/image_gallery_save.dart';
+import '../../core/utils/product_description_display.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
 import '../../core/utils/recently_viewed.dart';
@@ -16,6 +17,7 @@ import '../../features/cart/cart_controller.dart';
 import '../../models/cart_item.dart';
 import '../../features/home/home_providers.dart';
 import '../../features/product/product_providers.dart';
+import 'widgets/similar_products_section.dart';
 import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
 import '../../routes/route_paths.dart';
@@ -511,6 +513,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ),
               const SizedBox(height: 16),
               _buildTabContent(product, rating, specifications),
+              const SizedBox(height: 24),
+              SimilarProductsSection(
+                productId: product.id,
+                categoryName: product.categories.isNotEmpty
+                    ? product.categories.first
+                    : product.subcategory,
+              ),
               const SizedBox(height: 100),
             ],
           ),
@@ -598,19 +607,49 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         );
       case 'description':
       default:
-        final description = product.description.trim().isNotEmpty
-            ? product.description
-            : '${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.';
+        final fallback =
+            '${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.';
+        final parsed = parseProductDescription(
+          product.description.trim().isNotEmpty ? product.description : fallback,
+        );
+        final extraFeatures = product.features
+            .map((feature) => feature.trim())
+            .where((feature) => feature.isNotEmpty)
+            .toList();
+        final descriptionBullets = parsed?.bullets ?? const <String>[];
+        final bullets = [...descriptionBullets, ...extraFeatures];
+        final paragraphs = parsed?.paragraphs.isNotEmpty == true
+            ? parsed!.paragraphs
+            : <String>[fallback];
+        final showKeyFeaturesHeading = parsed?.hasKeyFeaturesHeading == true ||
+            (descriptionBullets.isNotEmpty && bullets.isNotEmpty);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              description,
-              style: const TextStyle(color: AppColors.textPrimary, height: 1.5),
+            ...paragraphs.map(
+              (paragraph) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  paragraph,
+                  style: const TextStyle(color: AppColors.textPrimary, height: 1.5),
+                ),
+              ),
             ),
-            if (product.features.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ...product.features.map(
+            if (bullets.isNotEmpty) ...[
+              if (showKeyFeaturesHeading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Key Features',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ...bullets.map(
                 (feature) => Padding(
                   padding: const EdgeInsets.only(bottom: 6, left: 8),
                   child: Row(

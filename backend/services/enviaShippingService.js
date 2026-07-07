@@ -7,7 +7,7 @@ import {
   buildEnviaOriginStreet,
   extractEnviaStreetNumber,
 } from "../../shared/shipping/enviaOriginAddress.js";
-import { buildEnviaCodAdditionalServices } from "../../shared/shipping/shipmentPayment.js";
+import { buildEnviaCodAdditionalServices, resolveShipmentPaymentOptions } from "../../shared/shipping/shipmentPayment.js";
 import { buildEnviaShipmentComments } from "../../shared/shipping/shipmentMetadata.js";
 
 const TEST_BASE_URL = "https://api-test.envia.com";
@@ -341,10 +341,9 @@ function normalizeRateCarriers(raw) {
   return [...DEFAULT_IN_RATE_CARRIERS];
 }
 
-export function parseShipmentOverrides(body = {}) {
+export function parseShipmentOverrides(body = {}, order = null) {
   const weightInput = normalizePackageWeight(body.weight, body.weightUnit || "KG");
-  const isCod = body.isCod === true || body.isCod === "true";
-  const codAmount = body.codAmount;
+  const payment = resolveShipmentPaymentOptions(order || {}, body);
 
   return {
     carrier: safeTrim(body.carrier),
@@ -361,8 +360,8 @@ export function parseShipmentOverrides(body = {}) {
     declaredValue: body.declaredValue,
     folio: safeTrim(body.folio),
     carriers: normalizeRateCarriers(body.carriers),
-    isCod,
-    codAmount,
+    isCod: payment.isCod,
+    codAmount: payment.codAmount,
     shipmentNote: safeTrim(body.shipmentNote || body.note).slice(0, 500),
     evidenceUrl: safeTrim(body.evidenceUrl),
     evidenceName: safeTrim(body.evidenceName).slice(0, 200),

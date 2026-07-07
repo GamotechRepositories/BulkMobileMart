@@ -574,6 +574,119 @@ export const getProductById = async (req, res) => {
   }
 };
 
+const getSimilarProductLimit = (rawLimit) =>
+  Math.min(Math.max(parseInt(rawLimit, 10) || 12, 1), 24);
+
+const getRelevantCategories = (product) =>
+  (product.categories || [])
+    .map((category) => String(category || "").trim())
+    .filter(
+      (category) =>
+        category && category.toLowerCase() !== MOST_PURCHASE_TAG.toLowerCase()
+    );
+
+const getRelevantSubcategories = (product) => [
+  ...new Set(
+    [product.subcategory, ...(product.subcategories || [])]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  ),
+];
+
+const buildSubcategoryMatch = (subcategories) => {
+  if (!subcategories.length) return null;
+
+  const matches = [];
+  subcategories.forEach((subcategory) => {
+    const regex = new RegExp(`^${escapeRegex(subcategory)}$`, "i");
+    matches.push({ subcategory: regex }, { subcategories: regex });
+  });
+
+  return { $or: matches };
+};
+
+const fetchSimilarProductBatch = async ({ filter, limit, excludeIds }) => {
+  if (limit <= 0) return [];
+
+  return Product.find({
+    ...filter,
+    _id: { $nin: excludeIds },
+  })
+    .sort({ ratings: -1, hotSelling: -1, createdAt: -1 })
+    .limit(limit);
+};
+
+export const getSimilarProducts = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid product id" });
+    }
+
+    const limit = getSimilarProductLimit(req.query.limit);
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+    }
+
+    const baseFilter = { isActive: true };
+    const excludeIds = [product._id];
+    const similar = [];
+    const subcategories = getRelevantSubcategories(product);
+    const categories = getRelevantCategories(product);
+    const subcategoryMatch = buildSubcategoryMatch(subcategories);
+
+    if (subcategoryMatch) {
+      const matches = await fetchSimilarProductBatch({
+        filter: { ...baseFilter, ...subcategoryMatch },
+        limit: limit - similar.length,
+        excludeIds,
+      });
+      similar.push(...matches);
+      excludeIds.push(...matches.map((item) => item._id));
+    }
+
+    if (similar.length < limit && categories.length) {
+      const matches = await fetchSimilarProductBatch({
+        filter: { ...baseFilter, categories: { $in: categories } },
+        limit: limit - similar.length,
+        excludeIds,
+      });
+      similar.push(...matches);
+      excludeIds.push(...matches.map((item) => item._id));
+    }
+
+    if (similar.length < limit && product.brandName?.trim()) {
+      const brandRegex = new RegExp(
+        `^${escapeRegex(product.brandName.trim())}$`,
+        "i"
+      );
+      const matches = await fetchSimilarProductBatch({
+        filter: { ...baseFilter, brandName: brandRegex },
+        limit: limit - similar.length,
+        excludeIds,
+      });
+      similar.push(...matches);
+      excludeIds.push(...matches.map((item) => item._id));
+    }
+
+    if (similar.length < limit) {
+      const matches = await fetchSimilarProductBatch({
+        filter: baseFilter,
+        limit: limit - similar.length,
+        excludeIds,
+      });
+      similar.push(...matches);
+    }
+
+    res.status(200).json({ success: true, data: similar });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const addProduct = async (req, res) => {
   try {
     const payload = buildProductPayload(req.body);

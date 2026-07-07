@@ -19,13 +19,16 @@ import {
 import { calculateOrderTotal } from "./gstHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
 
-async function computeOrderPricing(subtotal, couponCode) {
+async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
   let resolvedCouponCode = "";
   let couponDiscount = 0;
 
   if (couponCode) {
-    const couponResult = await resolveCouponForCheckout(couponCode, subtotal);
+    const couponResult = await resolveCouponForCheckout(couponCode, subtotal, {
+      userId: options.userId,
+      excludeOrderId: options.excludeOrderId,
+    });
     if (couponResult.error) {
       return {
         error: couponResult.error,
@@ -338,7 +341,9 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const { orderItems, subtotal } = built;
 
-  const pricing = await computeOrderPricing(subtotal, options.couponCode);
+  const pricing = await computeOrderPricing(subtotal, options.couponCode, {
+    userId,
+  });
   if (pricing.error) {
     return pricing;
   }
@@ -526,7 +531,16 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   }
 
   const { orderItems, subtotal } = built;
-  const pricing = await computeOrderPricing(subtotal, options.couponCode);
+
+  const attemptedOrder = await Order.findOne({ user: userId, status: "attempted" })
+    .sort({ updatedAt: -1 })
+    .select("_id")
+    .lean();
+
+  const pricing = await computeOrderPricing(subtotal, options.couponCode, {
+    userId,
+    excludeOrderId: attemptedOrder?._id,
+  });
   if (pricing.error) {
     return pricing;
   }

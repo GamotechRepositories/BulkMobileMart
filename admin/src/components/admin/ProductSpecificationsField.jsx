@@ -101,7 +101,7 @@ function isSpecComplete(spec) {
 
 function SpecificationValueField({ spec, index, valueOptions, allowCustomValue, onUpdate }) {
   const inputClass =
-    "min-w-0 w-full flex-1 rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm";
+    "min-w-0 w-full rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm";
   const selectClass = `${inputClass} text-text-primary`;
 
   if (valueOptions.length > 0) {
@@ -111,7 +111,7 @@ function SpecificationValueField({ spec, index, valueOptions, allowCustomValue, 
       (spec.value === SPEC_CUSTOM_VALUE || (spec.value && !isPreset));
 
     return (
-      <>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
         <select
           value={showCustomInput && spec.value !== SPEC_CUSTOM_VALUE ? SPEC_CUSTOM_VALUE : spec.value}
           onChange={(e) => onUpdate(index, "value", e.target.value)}
@@ -138,7 +138,7 @@ function SpecificationValueField({ spec, index, valueOptions, allowCustomValue, 
             className={inputClass}
           />
         ) : null}
-      </>
+      </div>
     );
   }
 
@@ -202,7 +202,7 @@ function ProductSpecificationsField({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-border-light lg:grid-cols-3 lg:gap-4 lg:divide-y-0 lg:p-4">
+      <div className="divide-y divide-border-light">
         {specifications.map((spec, index) => {
           const isCustom = spec.name === SPEC_CUSTOM_NAME;
           const hasName = isCustom || Boolean(spec.name?.trim());
@@ -216,7 +216,7 @@ function ProductSpecificationsField({
           return (
             <div
               key={`spec-row-${index}`}
-              className="flex items-center gap-1.5 px-2.5 py-2.5 sm:gap-2 sm:px-4 sm:py-3 lg:relative lg:rounded-lg lg:border lg:border-border-light lg:px-3 lg:py-3"
+              className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4"
             >
               {editOrder ? (
                 <div className="flex shrink-0 flex-col gap-0.5">
@@ -245,11 +245,11 @@ function ProductSpecificationsField({
                 </div>
               ) : null}
 
-              <div className="flex min-w-0 flex-1 items-center gap-2 lg:w-full">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-primary sm:h-10 sm:w-10">
-                  <SpecIcon name={hasName ? displayName : ""} className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                </div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-primary sm:h-10 sm:w-10">
+                <SpecIcon name={hasName ? displayName : ""} className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+              </div>
 
+              <div className="grid min-w-0 flex-1 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(140px,220px)_minmax(0,1fr)] sm:gap-3">
                 {!hasName ? (
                   <select
                     value={spec.name}
@@ -261,7 +261,7 @@ function ProductSpecificationsField({
                         value: "",
                       });
                     }}
-                    className="min-w-0 flex-1 rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm lg:w-full"
+                    className="min-w-0 w-full rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:col-span-2 sm:px-2.5 sm:py-2 sm:text-sm"
                   >
                     <option value="">Select specification</option>
                     {specificationLibrary.map((item) => (
@@ -271,35 +271,39 @@ function ProductSpecificationsField({
                     ))}
                     <option value={SPEC_CUSTOM_NAME}>+ Custom specification</option>
                   </select>
+                ) : isCustom ? (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Specification name"
+                      value={spec.customName}
+                      onChange={(e) => onUpdate(index, "customName", e.target.value)}
+                      className="min-w-0 w-full rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm"
+                    />
+                    <SpecificationValueField
+                      spec={spec}
+                      index={index}
+                      valueOptions={valueOptions}
+                      allowCustomValue={allowCustomValue}
+                      onUpdate={onUpdate}
+                    />
+                  </>
                 ) : (
-                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2 sm:flex-nowrap lg:gap-2">
-                    {isCustom ? (
-                      <input
-                        type="text"
-                        placeholder="Specification name"
-                        value={spec.customName}
-                        onChange={(e) => onUpdate(index, "customName", e.target.value)}
-                        className="w-full min-w-0 flex-1 rounded-lg border border-border-light bg-white px-1.5 py-1 text-[10px] leading-tight focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 sm:px-2.5 sm:py-2 sm:text-sm lg:max-w-[120px] lg:flex-none xl:max-w-[140px]"
-                      />
-                    ) : (
-                      <div className="flex min-w-[60px] shrink-0 items-center gap-0.5 sm:min-w-[120px] lg:min-w-0 lg:max-w-[100px] xl:max-w-[120px]">
-                        <span className="truncate text-[10px] font-semibold leading-tight text-text-primary sm:text-sm">
-                          {displayName}
-                        </span>
-                        <span className="shrink-0 text-[10px] text-text-muted sm:text-sm">:</span>
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <SpecificationValueField
-                        spec={spec}
-                        index={index}
-                        valueOptions={valueOptions}
-                        allowCustomValue={allowCustomValue}
-                        onUpdate={onUpdate}
-                      />
+                  <>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <span className="truncate text-[10px] font-semibold leading-tight text-text-primary sm:text-sm">
+                        {displayName}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-text-muted sm:text-sm">:</span>
                     </div>
-                  </div>
+                    <SpecificationValueField
+                      spec={spec}
+                      index={index}
+                      valueOptions={valueOptions}
+                      allowCustomValue={allowCustomValue}
+                      onUpdate={onUpdate}
+                    />
+                  </>
                 )}
               </div>
 

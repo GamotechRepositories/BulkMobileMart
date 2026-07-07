@@ -44,17 +44,7 @@ function TopNav() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 hidden bg-white lg:block">
       <div className="mx-auto flex max-w-[1600px] items-center gap-4 px-5 py-3 xl:gap-6 xl:px-8">
-        <div className="flex shrink-0 items-center gap-3">
-          <Link
-            to="/product"
-            className="flex h-10 w-10 items-center justify-center text-text-primary transition hover:text-primary"
-            aria-label="Open categories menu"
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </Link>
-
+        <div className="flex shrink-0 items-center">
           <Link to="/" className="flex items-center">
             <img
               src={LOGO_URL}
