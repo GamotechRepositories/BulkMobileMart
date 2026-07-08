@@ -24,6 +24,7 @@ import {
   formatDateTime,
   formatPrice,
   getOrderAdvanceBillingSummary,
+  getOrderCouponBillingSummary,
   getPaymentStatus,
 } from "./adminOrderUtils";
 
@@ -101,6 +102,8 @@ function AdminOrderDetailSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [editingDeliveryCharge, setEditingDeliveryCharge] = useState(false);
+  const [deliveryChargeInput, setDeliveryChargeInput] = useState("");
 
   const loadOrder = async () => {
     setLoading(true);
@@ -154,6 +157,44 @@ function AdminOrderDetailSection() {
   const handleItemsUpdated = (updatedOrder) => {
     setOrder(updatedOrder);
     setSuccess("Order items updated");
+  };
+
+  const handleStartEditDeliveryCharge = () => {
+    if (!order || updating) return;
+    setError("");
+    setSuccess("");
+    setDeliveryChargeInput(String(Number(order.deliveryCharges) || 0));
+    setEditingDeliveryCharge(true);
+  };
+
+  const handleCancelEditDeliveryCharge = () => {
+    setEditingDeliveryCharge(false);
+    setDeliveryChargeInput("");
+  };
+
+  const handleSaveDeliveryCharge = async () => {
+    if (!order || updating) return;
+
+    const nextCharge = Number(deliveryChargeInput);
+    if (!Number.isFinite(nextCharge) || nextCharge < 0) {
+      setError("Delivery charge must be a valid non-negative number.");
+      return;
+    }
+
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminOrder(order._id, { deliveryCharges: nextCharge });
+      setOrder(data.data);
+      setEditingDeliveryCharge(false);
+      setDeliveryChargeInput("");
+      setSuccess("Delivery charge updated");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update delivery charge");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -229,6 +270,7 @@ function AdminOrderDetailSection() {
   const customerName = order.user?.name || getAddressFullName(addr) || "—";
   const addressLine = formatAddressLine(addr);
   const advanceBilling = getOrderAdvanceBillingSummary(order);
+  const couponBilling = getOrderCouponBillingSummary(order);
 
   return (
     <div className="min-w-0 space-y-4">
@@ -451,11 +493,60 @@ function AdminOrderDetailSection() {
             <span>Subtotal</span>
             <span>{formatPrice(order.subtotal)}</span>
           </div>
+          {couponBilling.hasCoupon ? (
+            <div className="flex justify-between text-green-700">
+              <span>
+                Coupon Applied
+                {couponBilling.couponCode ? ` (${couponBilling.couponCode})` : ""}
+              </span>
+              <span>-{formatPrice(couponBilling.couponDiscount)}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between text-neutral-600">
             <span>Delivery Charges</span>
-            <span>
-              {order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}
-            </span>
+            {editingDeliveryCharge ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={deliveryChargeInput}
+                  onChange={(e) => setDeliveryChargeInput(e.target.value)}
+                  className="w-28 rounded-md border border-neutral-300 px-2 py-1 text-right text-sm"
+                  disabled={updating}
+                />
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  onClick={handleSaveDeliveryCharge}
+                  disabled={updating}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={handleCancelEditDeliveryCharge}
+                  disabled={updating}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span>
+                  {order.deliveryCharges === 0 ? "Free" : formatPrice(order.deliveryCharges)}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleStartEditDeliveryCharge}
+                  disabled={updating}
+                  className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
           </div>
           <p className="text-xs text-neutral-500">All prices include GST.</p>
           {advanceBilling.hasAdvance ? (

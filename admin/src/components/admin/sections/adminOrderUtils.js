@@ -202,6 +202,17 @@ export function getOrderAdvanceBillingSummary(order = {}) {
   };
 }
 
+export function getOrderCouponBillingSummary(order = {}) {
+  const couponCode = String(order.couponCode || "").trim();
+  const couponDiscount = Number(order.couponDiscount) || 0;
+
+  return {
+    hasCoupon: Boolean(couponCode) || couponDiscount > 0,
+    couponCode,
+    couponDiscount: Math.max(0, couponDiscount),
+  };
+}
+
 export function getPaidTypeLabel(order, proof) {
   if (proof) {
     return proof.paymentType === "cod_advance" ? "UPI · COD advance (10%)" : "UPI · Online full";

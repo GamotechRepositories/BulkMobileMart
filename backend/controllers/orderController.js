@@ -837,7 +837,7 @@ export const getAllOrders = async (req, res) => {
 
 export const updateOrder = async (req, res) => {
   try {
-    const { status, paymentStatus, items, notificationStage } = req.body;
+    const { status, paymentStatus, items, deliveryCharges, notificationStage } = req.body;
     const updates = {};
 
     const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
@@ -884,6 +884,29 @@ export const updateOrder = async (req, res) => {
 
       if (existingOrder.paymentStatus === PAYMENT_STATUS.PAID_10) {
         updates.codAdvanceAmount = calculateAdvanceAmount(rebuilt.total);
+      }
+    }
+
+    if (deliveryCharges !== undefined) {
+      const charge = Number(deliveryCharges);
+      if (!Number.isFinite(charge) || charge < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Delivery charge must be a valid number",
+        });
+      }
+
+      const subtotal = Number(updates.subtotal ?? existingOrder.subtotal) || 0;
+      const couponDiscount = Number(existingOrder.couponDiscount) || 0;
+      const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+      const nextTotal = Math.round((discountedSubtotal + charge) * 100) / 100;
+
+      updates.deliveryCharges = charge;
+      updates.total = nextTotal;
+      updates.gstAmount = 0;
+
+      if ((updates.paymentStatus || existingOrder.paymentStatus) === PAYMENT_STATUS.PAID_10) {
+        updates.codAdvanceAmount = calculateAdvanceAmount(nextTotal);
       }
     }
 

@@ -72,6 +72,7 @@ export function normalizeShippingSlabs(slabs = []) {
     .sort((a, b) => a.orderAmount - b.orderAmount);
 }
 
+
 export function normalizeMerchantUpiAccounts(source = {}) {
   const rawAccounts = Array.isArray(source.merchantUpiAccounts)
     ? source.merchantUpiAccounts

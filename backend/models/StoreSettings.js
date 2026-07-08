@@ -16,6 +16,7 @@ const shippingSlabSchema = new mongoose.Schema(
   { _id: false }
 );
 
+
 const giftHamperGiftSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 160 },
