@@ -14,6 +14,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       onAction={onDownload}
       actionLabel={downloading ? "Downloading..." : "Download Invoice"}
       actionLoading={downloading}
+      showAction={false}
     />
   );
 });

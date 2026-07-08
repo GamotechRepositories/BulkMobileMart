@@ -689,7 +689,7 @@ function StoreSettingsSection() {
           </label>
           <p className="text-xs text-neutral-500">
             When disabled, new orders will not receive gift hampers. You can still manage
-            existing gift hamper requests from Orders → Gift Hampers.
+            existing gift hamper requests inside individual order details.
           </p>
 
           {form.giftHamperTiers.length === 0 ? (

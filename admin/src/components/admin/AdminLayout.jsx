@@ -33,7 +33,6 @@ const PAGE_TITLES = {
   "/settings": "Store Settings",
   "/users": "Users",
   "/orders": "Orders",
-  "/orders/gift-hampers": "Gift Hampers",
   "/orders/create": "Create Order",
   "/payments": "Payments",
   "/coupons/add": "Create Coupon",
@@ -61,7 +60,6 @@ const NAV_ITEMS = [
     basePath: "/orders",
     children: [
       { to: "/orders", label: "All Orders", end: true },
-      { to: "/orders/gift-hampers", label: "Gift Hampers" },
     ],
   },
   {
@@ -112,10 +110,7 @@ const navLinkClass = ({ isActive }) =>
 function isOrdersNavActive(pathname) {
   return (
     pathname === "/orders" ||
-    pathname === "/orders/gift-hampers" ||
-    (pathname.startsWith("/orders/") &&
-      pathname !== "/orders/create" &&
-      pathname !== "/orders/gift-hampers")
+    (pathname.startsWith("/orders/") && pathname !== "/orders/create")
   );
 }
 

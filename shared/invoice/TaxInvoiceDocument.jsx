@@ -84,6 +84,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
     onAction,
     actionLabel = "Download Invoice",
     actionLoading = false,
+    showAction = true,
   },
   ref
 ) {
@@ -268,7 +269,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
           </div>
         </div>
 
-        {onAction ? (
+        {onAction && showAction ? (
           <div className="invoice-action-bar no-print">
             <button
               type="button"
@@ -280,6 +281,7 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
             </button>
           </div>
         ) : null}
+
       </div>
     </div>
   );

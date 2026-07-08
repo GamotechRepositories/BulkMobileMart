@@ -46,30 +46,48 @@ function OrderInvoice() {
   }, [user, id]);
 
   const handleDownload = useCallback(async () => {
-    if (downloading || !order || !invoiceRef.current) return;
+    if (downloading || !order) return;
 
     try {
       setDownloading(true);
+      setError("");
       await downloadInvoiceFromElement(
         invoiceRef.current,
-        getInvoiceFilename(order)
+        getInvoiceFilename(order),
+        { order, customer: user, storeSettings }
       );
     } catch {
       setError("Failed to download invoice");
+      throw new Error("invoice-download-failed");
     } finally {
       setDownloading(false);
     }
-  }, [downloading, order]);
+  }, [downloading, order, storeSettings, user]);
 
   useEffect(() => {
     if (loading || !order || autoDownloadedRef.current) return;
+    let cancelled = false;
 
-    autoDownloadedRef.current = true;
+    const attemptAutoDownload = async () => {
+      if (cancelled || autoDownloadedRef.current) return;
+      try {
+        await handleDownload();
+        autoDownloadedRef.current = true;
+      } catch {
+        if (!cancelled) {
+          setError("Failed to download invoice. Please try again.");
+        }
+      }
+    };
+
     const timer = setTimeout(() => {
-      handleDownload();
-    }, 600);
+      attemptAutoDownload();
+    }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [loading, order, handleDownload]);
 
   if (!user) {

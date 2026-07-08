@@ -39,20 +39,21 @@ function AdminOrderInvoice() {
   }, [id]);
 
   const handleDownload = useCallback(async () => {
-    if (downloading || !order || !invoiceRef.current) return;
+    if (downloading || !order) return;
 
     try {
       setDownloading(true);
       await downloadInvoiceFromElement(
         invoiceRef.current,
-        getInvoiceFilename(order)
+        getInvoiceFilename(order),
+        { order, customer: order.user, storeSettings }
       );
     } catch {
       setError("Failed to download invoice");
     } finally {
       setDownloading(false);
     }
-  }, [downloading, order]);
+  }, [downloading, order, storeSettings]);
 
   useEffect(() => {
     if (loading || !order || autoDownloadedRef.current) return;
