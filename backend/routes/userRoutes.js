@@ -1,6 +1,6 @@
 import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
-import { signup, login, sendOtpLogin, verifyOtpLogin, completeOtpSignup, getMe, updateMe, changeMyPassword, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, updateUser, deleteUser } from "../controllers/userController.js";
+import { signup, login, sendOtpLogin, verifyOtpLogin, completeOtpSignup, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, updateUser, deleteUser } from "../controllers/userController.js";
 import { saveFcmToken } from "../controllers/fcmTokenController.js";
 import { addAddressForUser, getAddressesForUser } from "../controllers/addressController.js";
 
@@ -14,6 +14,7 @@ router.post("/otp/send", sendOtpLogin);
 router.post("/otp/verify", verifyOtpLogin);
 router.post("/otp/complete-signup", completeOtpSignup);
 router.get("/me", protect, getMe);
+router.post("/me/security-otp", protect, sendAdminSecurityOtp);
 router.patch("/me", protect, updateMe);
 router.patch("/me/password", protect, changeMyPassword);
 router.post("/fcm-token", protect, saveFcmToken);

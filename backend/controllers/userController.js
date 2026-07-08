@@ -311,12 +311,12 @@ export const getMe = async (req, res) => {
 
 export const changeMyPassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, otp } = req.body;
 
-    if (!currentPassword || !newPassword) {
+    if (!newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Current password and new password are required",
+        message: "New password is required",
       });
     }
 
@@ -332,19 +332,36 @@ export const changeMyPassword = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (!user.password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password change is not available for OTP sign-in accounts",
-      });
-    }
+    if (user.role === "admin") {
+      const verification = await verifyAdminSecurityOtp(user, otp);
+      if (!verification.ok) {
+        return res.status(400).json({
+          success: false,
+          message: verification.message || "Invalid OTP",
+        });
+      }
+    } else {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Current password and new password are required",
+        });
+      }
 
-    const isCurrentValid = await user.comparePassword(currentPassword);
-    if (!isCurrentValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Current password is incorrect",
-      });
+      if (!user.password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password change is not available for OTP sign-in accounts",
+        });
+      }
+
+      const isCurrentValid = await user.comparePassword(currentPassword);
+      if (!isCurrentValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Current password is incorrect",
+        });
+      }
     }
 
     user.password = newPassword;
@@ -370,6 +387,53 @@ function maskPhoneNumber(phone) {
   if (digits.length < 4) return "your registered phone";
   return `******${digits.slice(-4)}`;
 }
+
+async function verifyAdminSecurityOtp(user, otp) {
+  const code = String(otp || "").trim();
+  if (!code) {
+    return { ok: false, message: "OTP is required to confirm this change" };
+  }
+
+  if (!user?.phone) {
+    return { ok: false, message: "No registered phone number found for this admin account" };
+  }
+
+  return validateLoginOtp(user.phone, code);
+}
+
+export const sendAdminSecurityOtp = async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin accounts can request security OTP",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user?.phone) {
+      return res.status(400).json({
+        success: false,
+        message: "No registered phone number found for this admin account",
+      });
+    }
+
+    await dispatchLoginOtp(user.phone);
+
+    res.status(200).json({
+      success: true,
+      message: `OTP sent to ${maskPhoneNumber(user.phone)}`,
+      data: {
+        phoneHint: maskPhoneNumber(user.phone),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to send OTP",
+    });
+  }
+};
 
 export const requestAdminPasswordReset = async (req, res) => {
   try {
@@ -470,8 +534,13 @@ export const resetAdminPassword = async (req, res) => {
 
 export const updateMe = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
+    const { name, email, phone, otp } = req.body;
     const updates = {};
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
     if (name !== undefined) {
       if (!String(name).trim()) {
@@ -503,6 +572,22 @@ export const updateMe = async (req, res) => {
       });
     }
 
+    const emailChanging =
+      updates.email !== undefined &&
+      String(updates.email || "").toLowerCase() !== String(user.email || "").toLowerCase();
+    const phoneChanging =
+      updates.phone !== undefined && String(updates.phone) !== String(user.phone || "");
+
+    if (user.role === "admin" && (emailChanging || phoneChanging)) {
+      const verification = await verifyAdminSecurityOtp(user, otp);
+      if (!verification.ok) {
+        return res.status(400).json({
+          success: false,
+          message: verification.message || "Invalid OTP",
+        });
+      }
+    }
+
     const conflictFilters = [];
     if (updates.email) conflictFilters.push({ email: updates.email });
     if (updates.phone) conflictFilters.push({ phone: updates.phone });
@@ -520,11 +605,6 @@ export const updateMe = async (req, res) => {
           message: `${field} is already registered`,
         });
       }
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     if (updates.name) user.name = updates.name;

@@ -77,6 +77,7 @@ export const resetAdminPassword = (data) =>
   api.post("/api/users/admin/reset-password", data);
 export const getUsers = (params) => api.get("/api/users", { params });
 export const getCurrentUser = () => api.get("/api/users/me");
+export const sendAdminSecurityOtp = () => api.post("/api/users/me/security-otp");
 export const updateCurrentUser = (data) => api.patch("/api/users/me", data);
 export const changeMyPassword = (data) => api.patch("/api/users/me/password", data);
 export const createUser = (data) => api.post("/api/users", data);

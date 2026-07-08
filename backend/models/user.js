@@ -122,7 +122,9 @@ userSchema.pre("validate", function requireAdminCredentials() {
   if (!this.email?.trim()) {
     this.invalidate("email", "Email is required for admin accounts");
   }
-  if (!this.password) {
+
+  // Password is select:false, so skip on profile updates unless setting a new password.
+  if ((this.isNew || this.isModified("password")) && !this.password) {
     this.invalidate("password", "Password is required for admin accounts");
   }
 });

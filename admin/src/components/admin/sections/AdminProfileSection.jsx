@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { changeMyPassword, getCurrentUser } from "../../../api/api";
+import { changeMyPassword, getCurrentUser, sendAdminSecurityOtp } from "../../../api/api";
 import { STORE_URL } from "../../../constants/brand";
 import { useAuth } from "../../../context/AuthContext";
 import AdminAlert from "../AdminAlert";
@@ -35,6 +35,60 @@ function DetailRow({ label, value, children }) {
   );
 }
 
+function maskPhoneNumber(phone) {
+  const digits = String(phone || "");
+  if (digits.length < 4) return "your registered phone";
+  return `******${digits.slice(-4)}`;
+}
+
+function AdminSecurityOtpBlock({
+  idPrefix,
+  otp,
+  onOtpChange,
+  phoneHint,
+  onSendOtp,
+  sendingOtp,
+  otpSent,
+}) {
+  const otpId = `${idPrefix}-security-otp`;
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <p className="text-sm font-semibold text-text-primary">Verify with OTP</p>
+      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+        For security, an OTP must be sent to your registered mobile number
+        {phoneHint ? ` (${phoneHint})` : ""} before saving this change.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onSendOtp}
+          disabled={sendingOtp}
+          className={btnSecondary}
+        >
+          {sendingOtp ? "Sending…" : otpSent ? "Resend OTP" : "Send OTP"}
+        </button>
+      </div>
+      <div className="mt-3">
+        <label className={labelClass} htmlFor={otpId}>
+          OTP *
+        </label>
+        <input
+          id={otpId}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          required
+          value={otp}
+          onChange={(e) => onOtpChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          className={inputClass}
+          placeholder="Enter 6-digit OTP"
+        />
+      </div>
+    </div>
+  );
+}
+
 function buildAccountForm(profile, adminUser) {
   return {
     name: profile?.name ?? adminUser?.name ?? "",
@@ -53,11 +107,16 @@ function AdminProfileSection() {
   const [editingAccount, setEditingAccount] = useState(false);
   const [accountForm, setAccountForm] = useState(() => buildAccountForm(adminUser, adminUser));
   const [savingAccount, setSavingAccount] = useState(false);
+  const [accountOtp, setAccountOtp] = useState("");
+  const [accountOtpSent, setAccountOtpSent] = useState(false);
+  const [sendingAccountOtp, setSendingAccountOtp] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  const [passwordOtp, setPasswordOtp] = useState("");
+  const [passwordOtpSent, setPasswordOtpSent] = useState(false);
+  const [sendingPasswordOtp, setSendingPasswordOtp] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
@@ -90,8 +149,50 @@ function AdminProfileSection() {
     createdAt: profile?.createdAt,
   };
 
+  const registeredPhoneHint = maskPhoneNumber(profile?.phone ?? adminUser?.phone);
+
+  const accountRequiresOtp = useMemo(() => {
+    const currentEmail = String(profile?.email ?? adminUser?.email ?? "").trim().toLowerCase();
+    const currentPhone = String(profile?.phone ?? adminUser?.phone ?? "").trim();
+    const nextEmail = accountForm.email.trim().toLowerCase();
+    const nextPhone = accountForm.phone.trim();
+    return nextEmail !== currentEmail || nextPhone !== currentPhone;
+  }, [accountForm.email, accountForm.phone, profile, adminUser]);
+
   const resetAccountForm = () => {
     setAccountForm(buildAccountForm(profile, adminUser));
+    setAccountOtp("");
+    setAccountOtpSent(false);
+  };
+
+  const handleSendAccountOtp = async () => {
+    setError("");
+    setSuccess("");
+    try {
+      setSendingAccountOtp(true);
+      const { data } = await sendAdminSecurityOtp();
+      setAccountOtpSent(true);
+      setSuccess(data.message || "OTP sent to your registered phone number.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP.");
+    } finally {
+      setSendingAccountOtp(false);
+    }
+  };
+
+  const handleSendPasswordOtp = async () => {
+    setError("");
+    setSuccess("");
+    try {
+      setSendingPasswordOtp(true);
+      const { data } = await sendAdminSecurityOtp();
+      setPasswordOtpSent(true);
+      setSuccess(data.message || "OTP sent to your registered phone number.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to send OTP.");
+    } finally {
+      setSendingPasswordOtp(false);
+    }
   };
 
   const handleStartEditAccount = () => {
@@ -120,11 +221,22 @@ function AdminProfileSection() {
       return;
     }
 
+    if (accountRequiresOtp && !accountOtp.trim()) {
+      setError("OTP is required to change email or phone number.");
+      return;
+    }
+
     try {
       setSavingAccount(true);
-      const { data } = await updateAdminProfile({ name, email, phone });
+      const payload = { name, email, phone };
+      if (accountRequiresOtp) {
+        payload.otp = accountOtp.trim();
+      }
+      const { data } = await updateAdminProfile(payload);
       setProfile(data);
       setEditingAccount(false);
+      setAccountOtp("");
+      setAccountOtpSent(false);
       setSuccess("Account details updated successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update account details.");
@@ -148,18 +260,24 @@ function AdminProfileSection() {
       return;
     }
 
+    if (!passwordOtp.trim()) {
+      setError("OTP is required to change your password.");
+      return;
+    }
+
     try {
       setSavingPassword(true);
       await changeMyPassword({
-        currentPassword: passwordForm.currentPassword,
+        otp: passwordOtp.trim(),
         newPassword: passwordForm.newPassword,
       });
       setSuccess("Password updated successfully.");
       setPasswordForm({
-        currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
+      setPasswordOtp("");
+      setPasswordOtpSent(false);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update password.");
     } finally {
@@ -253,6 +371,17 @@ function AdminProfileSection() {
                 placeholder="10-digit mobile number"
               />
             </div>
+            {accountRequiresOtp ? (
+              <AdminSecurityOtpBlock
+                idPrefix="admin-account"
+                otp={accountOtp}
+                onOtpChange={setAccountOtp}
+                phoneHint={registeredPhoneHint}
+                onSendOtp={handleSendAccountOtp}
+                sendingOtp={sendingAccountOtp}
+                otpSent={accountOtpSent}
+              />
+            ) : null}
             <div className="flex flex-wrap gap-2 pt-1">
               <button type="submit" disabled={savingAccount} className={btnPrimary}>
                 {savingAccount ? "Saving…" : "Save changes"}
@@ -286,19 +415,15 @@ function AdminProfileSection() {
       <div className={cardClass}>
         <h3 className="mb-4 font-semibold text-text-primary">Change password</h3>
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
-          <div>
-            <label className={labelClass}>Current password *</label>
-            <input
-              type="password"
-              required
-              value={passwordForm.currentPassword}
-              onChange={(e) =>
-                setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))
-              }
-              className={inputClass}
-              autoComplete="current-password"
-            />
-          </div>
+          <AdminSecurityOtpBlock
+            idPrefix="admin-password"
+            otp={passwordOtp}
+            onOtpChange={setPasswordOtp}
+            phoneHint={registeredPhoneHint}
+            onSendOtp={handleSendPasswordOtp}
+            sendingOtp={sendingPasswordOtp}
+            otpSent={passwordOtpSent}
+          />
           <div>
             <label className={labelClass}>New password *</label>
             <input
