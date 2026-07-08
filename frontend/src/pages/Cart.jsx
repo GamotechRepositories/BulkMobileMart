@@ -59,7 +59,7 @@ function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact =
   );
 }
 
-function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
+function CartItemMobile({ item, loading, onRemove, onIncrease, onDecrease }) {
   const lineTotal = item.discountedPrice * item.quantity;
 
   return (
@@ -119,15 +119,8 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
               quantity={item.quantity}
               disabled={loading}
               compact
-              onDecrease={() => {
-                const nextQty = getDecreasedCartQuantityForItem(item);
-                if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
-                else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
-              }}
-              onIncrease={() => {
-                const step = getCartStepForItem(item);
-                onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
-              }}
+              onDecrease={() => onDecrease(item)}
+              onIncrease={() => onIncrease(item)}
             />
             <p className="shrink-0 text-base font-bold text-text-primary">
               {formatPrice(lineTotal)}
@@ -139,7 +132,7 @@ function CartItemMobile({ item, loading, onRemove, onUpdateQuantity }) {
   );
 }
 
-function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
+function CartItemDesktop({ item, loading, onRemove, onIncrease, onDecrease }) {
   const lineTotal = item.discountedPrice * item.quantity;
 
   return (
@@ -187,15 +180,8 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
           <QuantityControl
             quantity={item.quantity}
             disabled={loading}
-            onDecrease={() => {
-              const nextQty = getDecreasedCartQuantityForItem(item);
-              if (nextQty <= 0) onRemove(item._id, item.variantName, item.colorName);
-              else onUpdateQuantity(item._id, nextQty, item.variantName, item.colorName);
-            }}
-            onIncrease={() => {
-              const step = getCartStepForItem(item);
-              onUpdateQuantity(item._id, item.quantity + step, item.variantName, item.colorName);
-            }}
+            onDecrease={() => onDecrease(item)}
+            onIncrease={() => onIncrease(item)}
           />
           <p className="min-w-[4.5rem] text-right text-base font-bold text-text-primary">
             {formatPrice(lineTotal)}
@@ -206,7 +192,7 @@ function CartItemDesktop({ item, loading, onRemove, onUpdateQuantity }) {
   );
 }
 
-function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
+function CartItemsSection({ items, loading, onRemove, onIncrease, onDecrease }) {
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -218,7 +204,8 @@ function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
             item={item}
             loading={loading}
             onRemove={onRemove}
-            onUpdateQuantity={onUpdateQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
           />
         ))}
       </div>
@@ -234,7 +221,8 @@ function CartItemsSection({ items, loading, onRemove, onUpdateQuantity }) {
               item={item}
               loading={loading}
               onRemove={onRemove}
-              onUpdateQuantity={onUpdateQuantity}
+              onIncrease={onIncrease}
+              onDecrease={onDecrease}
             />
           ))}
         </ul>
@@ -347,7 +335,8 @@ function CartSidebar({ items, storeSettings }) {
 
 function Cart() {
   const { user, openAuthModal } = useAuth();
-  const { items, removeFromCart, updateQuantity, loading, loadCart } = useCart();
+  const { items, removeFromCart, incrementCartItem, decrementCartItem, loading, loadCart } =
+    useCart();
   const [clearing, setClearing] = useState(false);
   const [storeSettings, setStoreSettings] = useState(null);
 
@@ -448,7 +437,23 @@ function Cart() {
                 items={items}
                 loading={loading || clearing}
                 onRemove={removeFromCart}
-                onUpdateQuantity={updateQuantity}
+                onIncrease={(item) =>
+                  incrementCartItem({
+                    productId: item._id,
+                    variantName: item.variantName || "",
+                    colorName: item.colorName || "",
+                    step: getCartStepForItem(item),
+                  })
+                }
+                onDecrease={(item) =>
+                  decrementCartItem({
+                    productId: item._id,
+                    variantName: item.variantName || "",
+                    colorName: item.colorName || "",
+                    resolveNextQuantity: (currentQty) =>
+                      getDecreasedCartQuantityForItem({ ...item, quantity: currentQty }),
+                  })
+                }
               />
               <CartSidebar items={items} storeSettings={storeSettings} />
             </div>

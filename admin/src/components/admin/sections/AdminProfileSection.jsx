@@ -35,13 +35,24 @@ function DetailRow({ label, value, children }) {
   );
 }
 
+function buildAccountForm(profile, adminUser) {
+  return {
+    name: profile?.name ?? adminUser?.name ?? "",
+    email: profile?.email ?? adminUser?.email ?? "",
+    phone: profile?.phone ?? adminUser?.phone ?? "",
+  };
+}
+
 function AdminProfileSection() {
   const navigate = useNavigate();
-  const { adminUser, adminLogout } = useAuth();
+  const { adminUser, adminLogout, updateAdminProfile } = useAuth();
   const [profile, setProfile] = useState(adminUser);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [accountForm, setAccountForm] = useState(() => buildAccountForm(adminUser, adminUser));
+  const [savingAccount, setSavingAccount] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -77,6 +88,49 @@ function AdminProfileSection() {
     phone: profile?.phone ?? adminUser?.phone,
     role: profile?.role ?? adminUser?.role ?? "admin",
     createdAt: profile?.createdAt,
+  };
+
+  const resetAccountForm = () => {
+    setAccountForm(buildAccountForm(profile, adminUser));
+  };
+
+  const handleStartEditAccount = () => {
+    setError("");
+    setSuccess("");
+    resetAccountForm();
+    setEditingAccount(true);
+  };
+
+  const handleCancelEditAccount = () => {
+    resetAccountForm();
+    setEditingAccount(false);
+  };
+
+  const handleAccountSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    const name = accountForm.name.trim();
+    const email = accountForm.email.trim();
+    const phone = accountForm.phone.trim();
+
+    if (!name || !email || !phone) {
+      setError("Name, email, and phone are required.");
+      return;
+    }
+
+    try {
+      setSavingAccount(true);
+      const { data } = await updateAdminProfile({ name, email, phone });
+      setProfile(data);
+      setEditingAccount(false);
+      setSuccess("Account details updated successfully.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update account details.");
+    } finally {
+      setSavingAccount(false);
+    }
   };
 
   const handleLogout = () => {
@@ -126,11 +180,93 @@ function AdminProfileSection() {
       </div>
 
       <div className={`${cardClass} p-0 sm:p-0`}>
-        <div className="border-b border-border-light px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-border-light px-4 py-3 sm:px-5 sm:py-4">
           <h3 className="font-semibold text-text-primary">Account details</h3>
+          {!editingAccount ? (
+            <button
+              type="button"
+              onClick={handleStartEditAccount}
+              className="text-sm font-semibold text-primary transition hover:underline"
+            >
+              Edit
+            </button>
+          ) : null}
         </div>
         {loading && !account.name && !account.email ? (
           <p className="px-4 py-6 text-sm text-text-muted sm:px-5">Loading profile…</p>
+        ) : editingAccount ? (
+          <form onSubmit={handleAccountSubmit} className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+            <div>
+              <label className={labelClass} htmlFor="admin-profile-name">
+                Name *
+              </label>
+              <input
+                id="admin-profile-name"
+                type="text"
+                required
+                value={accountForm.name}
+                onChange={(e) =>
+                  setAccountForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className={inputClass}
+                placeholder="e.g. Rahul or John Smith"
+                autoComplete="name"
+              />
+              <p className="mt-1 text-xs text-text-muted">1–2 words, letters only.</p>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="admin-profile-email">
+                Email *
+              </label>
+              <input
+                id="admin-profile-email"
+                type="email"
+                required
+                value={accountForm.email}
+                onChange={(e) =>
+                  setAccountForm((prev) => ({ ...prev, email: e.target.value }))
+                }
+                className={inputClass}
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="admin-profile-phone">
+                Phone *
+              </label>
+              <input
+                id="admin-profile-phone"
+                type="tel"
+                required
+                inputMode="numeric"
+                pattern="[6789][0-9]{9}"
+                maxLength={10}
+                value={accountForm.phone}
+                onChange={(e) =>
+                  setAccountForm((prev) => ({
+                    ...prev,
+                    phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                  }))
+                }
+                className={inputClass}
+                autoComplete="tel"
+                placeholder="10-digit mobile number"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button type="submit" disabled={savingAccount} className={btnPrimary}>
+                {savingAccount ? "Saving…" : "Save changes"}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEditAccount}
+                disabled={savingAccount}
+                className={btnSecondary}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         ) : (
           <div className="px-4 pb-1 sm:px-5 sm:pb-2">
             <DetailRow label="Name" value={account.name} />

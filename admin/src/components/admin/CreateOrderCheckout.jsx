@@ -22,6 +22,7 @@ import {
   btnPrimary,
   btnSecondary,
   cardClass,
+  labelClass,
 } from "./adminStyles";
 import { formatPrice } from "./sections/adminOrderUtils";
 import {

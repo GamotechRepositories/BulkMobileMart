@@ -11,6 +11,7 @@ import {
   splitOrderShipments,
 } from "../../utils/orderUtils";
 import Product3DImage from "./Product3DImage";
+import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 
@@ -160,6 +161,12 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
             </div>
           ))}
         </div>
+
+        {order.giftHamper ? (
+          <div className="mt-6">
+            <OrderGiftHamperSection giftHamper={order.giftHamper} />
+          </div>
+        ) : null}
 
         <div className="mt-6 rounded-xl bg-[#F8F8F8] p-4">
           <div className="flex items-center gap-2">

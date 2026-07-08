@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSimilarProducts } from "../../api/api";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
+import HorizontalScrollRow from "../home/HorizontalScrollRow";
 import SectionHeader from "../mobile/SectionHeader";
 import DealProductCard from "./DealProductCard";
 
@@ -57,16 +58,16 @@ function SimilarProducts({ productId, categoryName = "" }) {
       <SectionHeader title="Similar Products" viewAllTo={viewAllTo} className="mb-4" />
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, index) => (
+        <HorizontalScrollRow>
+          {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={`similar-skeleton-${index}`}
-              className="col-span-1 h-[260px] animate-pulse rounded-xl border border-border-light bg-mobile-surface"
+              className="h-[258px] w-[150px] shrink-0 animate-pulse rounded-xl border border-border-light bg-mobile-surface sm:w-[165px]"
             />
           ))}
-        </div>
+        </HorizontalScrollRow>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 [&>div]:col-span-1 [&>div]:h-full">
+        <HorizontalScrollRow>
           {products.map((product) => (
             <DealProductCard
               key={product._id}
@@ -75,10 +76,10 @@ function SimilarProducts({ productId, categoryName = "" }) {
               onIncrease={handleIncrease}
               onDecrease={handleDecrease}
               cartQuantity={getCartQuantity(product)}
-              layout="grid"
+              layout="scroll"
             />
           ))}
-        </div>
+        </HorizontalScrollRow>
       )}
     </section>
   );

@@ -77,6 +77,7 @@ export const resetAdminPassword = (data) =>
   api.post("/api/users/admin/reset-password", data);
 export const getUsers = (params) => api.get("/api/users", { params });
 export const getCurrentUser = () => api.get("/api/users/me");
+export const updateCurrentUser = (data) => api.patch("/api/users/me", data);
 export const changeMyPassword = (data) => api.patch("/api/users/me/password", data);
 export const createUser = (data) => api.post("/api/users", data);
 export const getUserAddresses = (userId) => api.get(`/api/users/${userId}/addresses`);
@@ -94,6 +95,10 @@ export const getDashboardStats = (params) =>
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 export const deleteAdminOrder = (id) => api.delete(`/api/orders/admin/${id}`);
 export const createAdminOrder = (data) => api.post("/api/orders/admin/create", data);
+export const getAdminGiftHamperOrders = (params) =>
+  api.get("/api/orders/admin/gift-hampers", { params });
+export const updateAdminGiftHamper = (id, data) =>
+  api.patch(`/api/orders/admin/${id}/gift-hamper`, data);
 export const quoteAdminOrderShipmentRates = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/rates`, data);
 export const createAdminOrderShipment = (id, data) =>

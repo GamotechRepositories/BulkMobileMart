@@ -1,5 +1,6 @@
 import StoreSettings from "../models/StoreSettings.js";
 import { mergeEnviaOriginDefaults } from "../../shared/shipping/enviaOriginAddress.js";
+import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
 
 export const DEFAULT_STORE_SETTINGS = {
   minimumOrderValue: 3000,
@@ -10,6 +11,8 @@ export const DEFAULT_STORE_SETTINGS = {
     { orderAmount: 8000, shippingCharge: 550 },
     { orderAmount: 12000, shippingCharge: 800 },
   ],
+  giftHamperTiers: [],
+  giftHampersEnabled: false,
   merchantUpiId: "",
   merchantUpiName: "BulkMobileMart",
   merchantUpiAccounts: [],
@@ -123,6 +126,11 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
       ? source.shippingSlabs
       : DEFAULT_STORE_SETTINGS.shippingSlabs
   );
+  const giftHamperTiers = normalizeGiftHamperTiers(
+    source.giftHamperTiers?.length
+      ? source.giftHamperTiers
+      : DEFAULT_STORE_SETTINGS.giftHamperTiers
+  );
   const allAccounts = normalizeMerchantUpiAccounts(source);
   const enabledAccounts = allAccounts.filter((account) => account.enabled);
   const primaryAccount = enabledAccounts[0] || allAccounts[0] || null;
@@ -176,6 +184,8 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
     minimumOrderValue,
     minimumShippingCharge,
     shippingSlabs,
+    giftHamperTiers,
+    giftHampersEnabled: Boolean(source.giftHampersEnabled),
     merchantUpiAccounts: admin ? allAccounts : enabledAccounts,
     merchantUpiId: primaryAccount?.upiId || "",
     merchantUpiName:

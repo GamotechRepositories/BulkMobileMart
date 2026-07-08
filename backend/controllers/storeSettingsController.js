@@ -7,6 +7,7 @@ import {
   normalizeShippingSlabs,
   serializeStoreSettings,
 } from "../utils/storeSettingsHelpers.js";
+import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
 
 const sanitizeNoticeLines = (lines) =>
   Array.isArray(lines)
@@ -125,6 +126,8 @@ export const updateStoreSettings = async (req, res) => {
       merchantUpiId,
       merchantUpiName,
       merchantUpiAccounts,
+      giftHamperTiers,
+      giftHampersEnabled,
       cartNoticeEn,
       cartNoticeHi,
       envia,
@@ -163,6 +166,14 @@ export const updateStoreSettings = async (req, res) => {
         });
       }
       payload.shippingSlabs = normalized;
+    }
+
+    if (giftHamperTiers !== undefined) {
+      payload.giftHamperTiers = normalizeGiftHamperTiers(giftHamperTiers);
+    }
+
+    if (giftHampersEnabled !== undefined) {
+      payload.giftHampersEnabled = Boolean(giftHampersEnabled);
     }
 
     const defaultPayeeName = sanitizeText(merchantUpiName) || "BulkMobileMart";

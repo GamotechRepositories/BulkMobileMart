@@ -27,7 +27,7 @@ function findCartLine(items, product) {
 
 export function useProductCartActions() {
   const { openAuthModal } = useAuth();
-  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { items, addToCart, incrementCartItem, decrementCartItem } = useCart();
 
   const getCartLine = useCallback((product) => findCartLine(items, product), [items]);
 
@@ -75,12 +75,12 @@ export function useProductCartActions() {
 
       if (line) {
         const step = getCartStepForItem(line);
-        await updateQuantity(
-          line._id,
-          line.quantity + step,
-          line.variantName || "",
-          line.colorName || ""
-        );
+        await incrementCartItem({
+          productId: line._id,
+          variantName: line.variantName || "",
+          colorName: line.colorName || "",
+          step,
+        });
         return { success: true };
       }
 
@@ -96,7 +96,7 @@ export function useProductCartActions() {
 
       return result;
     },
-    [getCartLine, addToCart, updateQuantity, openAuthModal]
+    [getCartLine, addToCart, incrementCartItem, openAuthModal]
   );
 
   const handleDecrease = useCallback(
@@ -104,25 +104,15 @@ export function useProductCartActions() {
       const line = getCartLine(product);
       if (!line) return;
 
-      const nextQty = getDecreasedCartQuantityForProduct(
-        product,
-        line.quantity,
-        line.variantName || ""
-      );
-
-      if (nextQty <= 0) {
-        await removeFromCart(line._id, line.variantName || "", line.colorName || "");
-        return;
-      }
-
-      await updateQuantity(
-        line._id,
-        nextQty,
-        line.variantName || "",
-        line.colorName || ""
-      );
+      await decrementCartItem({
+        productId: line._id,
+        variantName: line.variantName || "",
+        colorName: line.colorName || "",
+        resolveNextQuantity: (currentQty) =>
+          getDecreasedCartQuantityForProduct(product, currentQty, line.variantName || ""),
+      });
     },
-    [getCartLine, removeFromCart, updateQuantity]
+    [getCartLine, decrementCartItem]
   );
 
   return {

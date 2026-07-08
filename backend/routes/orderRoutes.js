@@ -15,6 +15,8 @@ import {
   cancelOrder,
   getDashboardStats,
   getOrderUnreadCount,
+  getGiftHamperOrders,
+  updateGiftHamperStatus,
   deleteOrder,
 } from "../controllers/orderController.js";
 
@@ -24,6 +26,8 @@ router.use(protect);
 
 router.get("/admin/dashboard-stats", requireAdmin, getDashboardStats);
 router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
+router.get("/admin/gift-hampers", requireAdmin, getGiftHamperOrders);
+router.patch("/admin/:id/gift-hamper", requireAdmin, updateGiftHamperStatus);
 router.get("/admin/all", requireAdmin, getAllOrders);
 router.post("/admin/create", requireAdmin, adminPlaceOrder);
 router.patch("/admin/:id", requireAdmin, updateOrder);

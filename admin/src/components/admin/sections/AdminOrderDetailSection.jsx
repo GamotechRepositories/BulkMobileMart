@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getOrderById, updateAdminOrder, deleteAdminOrder } from "../../../api/api";
+import { getOrderById, updateAdminOrder, deleteAdminOrder, updateAdminGiftHamper } from "../../../api/api";
 import AdminOrderShipmentPanel from "../AdminOrderShipmentPanel";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
@@ -10,6 +10,8 @@ import { IconTrash } from "../AdminIcons";
 import {
   adminFilterInputClass,
   btnDanger,
+  btnPrimary,
+  btnSecondary,
   cardClass,
   iconBtnDangerClass,
 } from "../adminStyles";
@@ -21,6 +23,7 @@ import {
   canEditOrderItems,
   formatDateTime,
   formatPrice,
+  getOrderAdvanceBillingSummary,
   getPaymentStatus,
 } from "./adminOrderUtils";
 
@@ -169,6 +172,30 @@ function AdminOrderDetailSection() {
     }
   };
 
+  const handleGiftHamperReview = async (status) => {
+    if (!order || updating) return;
+
+    const adminNote =
+      status === "rejected"
+        ? window.prompt("Optional reason for rejection:") || ""
+        : "";
+
+    if (status === "rejected" && adminNote === null) return;
+
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminGiftHamper(order._id, { status, adminNote });
+      setOrder(data.data);
+      setSuccess(status === "approved" ? "Gift hamper approved" : "Gift hamper rejected");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update gift hamper");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-w-0 animate-pulse space-y-4">
@@ -201,6 +228,7 @@ function AdminOrderDetailSection() {
   const customerEmail = order.user?.email || "";
   const customerName = order.user?.name || getAddressFullName(addr) || "—";
   const addressLine = formatAddressLine(addr);
+  const advanceBilling = getOrderAdvanceBillingSummary(order);
 
   return (
     <div className="min-w-0 space-y-4">
@@ -363,6 +391,58 @@ function AdminOrderDetailSection() {
         onSuccess={setSuccess}
       />
 
+      {order.giftHamper?.gift?.name ? (
+        <div className={cardClass}>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-neutral-900">Gift Hamper</h3>
+              <p className="mt-1 text-xs text-neutral-500">
+                Threshold: {formatPrice(order.giftHamper.minOrderAmount)} · Status:{" "}
+                <span className="font-semibold capitalize">{order.giftHamper.status}</span>
+              </p>
+            </div>
+            {order.giftHamper.status === "pending" ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={() => handleGiftHamperReview("approved")}
+                  className={btnPrimary}
+                >
+                  Approve hamper
+                </button>
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={() => handleGiftHamperReview("rejected")}
+                  className={btnSecondary}
+                >
+                  Reject
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-start gap-4">
+            {order.giftHamper.gift.image ? (
+              <img
+                src={order.giftHamper.gift.image}
+                alt=""
+                className="h-16 w-16 rounded-lg object-cover"
+              />
+            ) : null}
+            <div>
+              <p className="font-semibold text-neutral-900">{order.giftHamper.gift.name}</p>
+              {order.giftHamper.gift.description ? (
+                <p className="mt-1 text-sm text-neutral-600">{order.giftHamper.gift.description}</p>
+              ) : null}
+              {order.giftHamper.adminNote ? (
+                <p className="mt-2 text-xs text-neutral-500">Note: {order.giftHamper.adminNote}</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Billing summary */}
       <div className={cardClass}>
         <h3 className="mb-4 text-sm font-bold text-neutral-900">Billing Summary</h3>
@@ -378,10 +458,27 @@ function AdminOrderDetailSection() {
             </span>
           </div>
           <p className="text-xs text-neutral-500">All prices include GST.</p>
-          <div className="flex justify-between border-t border-neutral-200 pt-3 text-base font-bold text-neutral-900">
-            <span>Total Amount</span>
-            <span>{formatPrice(order.total)}</span>
-          </div>
+          {advanceBilling.hasAdvance ? (
+            <>
+              <div className="flex justify-between border-t border-neutral-200 pt-3 text-neutral-900">
+                <span className="font-semibold">Order Total</span>
+                <span className="font-semibold">{formatPrice(advanceBilling.orderTotal)}</span>
+              </div>
+              <div className="flex justify-between text-green-700">
+                <span>Advance Paid (10%)</span>
+                <span>-{formatPrice(advanceBilling.advancePaid)}</span>
+              </div>
+              <div className="flex justify-between border-t border-neutral-200 pt-3 text-base font-bold text-neutral-900">
+                <span>Balance Due on Delivery</span>
+                <span>{formatPrice(advanceBilling.remainingBalance)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between border-t border-neutral-200 pt-3 text-base font-bold text-neutral-900">
+              <span>Total Amount</span>
+              <span>{formatPrice(advanceBilling.orderTotal)}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

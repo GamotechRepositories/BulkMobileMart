@@ -16,6 +16,53 @@ const shippingSlabSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const giftHamperGiftSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 160 },
+    description: { type: String, default: "", trim: true, maxlength: 500 },
+    image: { type: String, default: "", trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
+const giftHamperTierSchema = new mongoose.Schema(
+  {
+    minOrderAmount: {
+      type: Number,
+      required: true,
+      min: [1, "Minimum order amount must be greater than 0"],
+    },
+    gift: {
+      type: giftHamperGiftSchema,
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
+const orderGiftHamperSchema = new mongoose.Schema(
+  {
+    minOrderAmount: { type: Number, required: true, min: 0 },
+    gift: {
+      type: giftHamperGiftSchema,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserBulkMart",
+      default: null,
+    },
+    adminNote: { type: String, default: "", trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
 const merchantUpiAccountSchema = new mongoose.Schema(
   {
     upiId: {
@@ -113,6 +160,14 @@ const storeSettingsSchema = new mongoose.Schema(
         { orderAmount: 8000, shippingCharge: 550 },
         { orderAmount: 12000, shippingCharge: 800 },
       ],
+    },
+    giftHamperTiers: {
+      type: [giftHamperTierSchema],
+      default: () => [],
+    },
+    giftHampersEnabled: {
+      type: Boolean,
+      default: false,
     },
     merchantUpiId: {
       type: String,

@@ -11,6 +11,7 @@ import ShowProductSection from "../components/admin/sections/ShowProductSection"
 import UserSection from "../components/admin/sections/UserSection";
 import CreateOrderSection from "../components/admin/sections/CreateOrderSection";
 import OrderSection from "../components/admin/sections/OrderSection";
+import GiftHampersSection from "../components/admin/sections/GiftHampersSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
 import AdminOrderInvoice from "./AdminOrderInvoice";
 import PaymentSection from "../components/admin/sections/PaymentSection";
@@ -51,6 +52,7 @@ function Admin() {
           <Route path="coupons/show" element={<ShowCouponSection />} />
           <Route path="coupons" element={<Navigate to="show" replace />} />
           <Route path="users" element={<UserSection />} />
+          <Route path="orders/gift-hampers" element={<GiftHampersSection />} />
           <Route path="orders/create" element={<CreateOrderSection />} />
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />

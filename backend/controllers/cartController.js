@@ -46,8 +46,8 @@ function validateCartQuantity(product, variantName, qty) {
   return { valid: true };
 }
 
-const populateCart = (query) =>
-  query.populate({
+const populateCart = (queryOrDoc) =>
+  queryOrDoc.populate({
     path: "items.product",
     select: PRODUCT_PRICING_SELECT,
   });
@@ -259,7 +259,7 @@ export const addToCart = async (req, res) => {
       await cart.save();
     }
 
-    cart = await populateCart(Cart.findById(cart._id));
+    cart = await populateCart(cart);
 
     res.status(200).json({
       success: true,
@@ -295,7 +295,7 @@ export const removeFromCart = async (req, res) => {
     );
     await cart.save();
 
-    const updated = await populateCart(Cart.findById(cart._id));
+    const updated = await populateCart(cart);
 
     res.status(200).json({
       success: true,
@@ -380,7 +380,7 @@ export const updateCartItem = async (req, res) => {
 
     await cart.save();
 
-    const updated = await populateCart(Cart.findById(cart._id));
+    const updated = await populateCart(cart);
 
     res.status(200).json({
       success: true,

@@ -35,7 +35,7 @@ function formatPrice(amount) {
 
 function BuyAgainCard({ item }) {
   const { openAuthModal } = useAuth();
-  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { items, addToCart, incrementCartItem, decrementCartItem } = useCart();
 
   const cartLine = findBuyAgainCartLine(items, item);
   const cartQuantity = cartLine?.quantity || 0;
@@ -55,12 +55,12 @@ function BuyAgainCard({ item }) {
 
   const handleIncrease = async (flySource) => {
     if (cartLine) {
-      await updateQuantity(
-        cartLine._id,
-        cartLine.quantity + 1,
-        cartLine.variantName || "",
-        cartLine.colorName || ""
-      );
+      await incrementCartItem({
+        productId: cartLine._id,
+        variantName: cartLine.variantName || "",
+        colorName: cartLine.colorName || "",
+        step: 1,
+      });
       return;
     }
 
@@ -70,17 +70,12 @@ function BuyAgainCard({ item }) {
   const handleDecrease = async () => {
     if (!cartLine) return;
 
-    if (cartLine.quantity <= 1) {
-      await removeFromCart(cartLine._id, cartLine.variantName || "", cartLine.colorName || "");
-      return;
-    }
-
-    await updateQuantity(
-      cartLine._id,
-      cartLine.quantity - 1,
-      cartLine.variantName || "",
-      cartLine.colorName || ""
-    );
+    await decrementCartItem({
+      productId: cartLine._id,
+      variantName: cartLine.variantName || "",
+      colorName: cartLine.colorName || "",
+      resolveNextQuantity: (currentQty) => Math.max(0, currentQty - 1),
+    });
   };
 
   return (

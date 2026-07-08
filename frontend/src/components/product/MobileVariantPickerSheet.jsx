@@ -36,7 +36,7 @@ function resolveColorForVariant(product, variant, variantName) {
 }
 
 function VariantRow({ product, variant, image, onClose }) {
-  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { items, addToCart, incrementCartItem, decrementCartItem } = useCart();
   const { openAuthModal } = useAuth();
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
@@ -87,31 +87,24 @@ function VariantRow({ product, variant, image, onClose }) {
   const handleIncrease = async () => {
     if (!cartLine) return;
     const step = getCartStepForProduct(product, variantName);
-    await updateQuantity(
-      cartLine._id,
-      cartLine.quantity + step,
-      cartLine.variantName || "",
-      cartLine.colorName || ""
-    );
+    await incrementCartItem({
+      productId: cartLine._id,
+      variantName: cartLine.variantName || "",
+      colorName: cartLine.colorName || "",
+      step,
+    });
   };
 
   const handleDecrease = async () => {
     if (!cartLine) return;
-    const nextQty = getDecreasedCartQuantityForProduct(
-      product,
-      cartLine.quantity,
-      cartLine.variantName || ""
-    );
-    if (nextQty <= 0) {
-      await removeFromCart(cartLine._id, cartLine.variantName || "", cartLine.colorName || "");
-      return;
-    }
-    await updateQuantity(
-      cartLine._id,
-      nextQty,
-      cartLine.variantName || "",
-      cartLine.colorName || ""
-    );
+
+    await decrementCartItem({
+      productId: cartLine._id,
+      variantName: cartLine.variantName || "",
+      colorName: cartLine.colorName || "",
+      resolveNextQuantity: (currentQty) =>
+        getDecreasedCartQuantityForProduct(product, currentQty, cartLine.variantName || ""),
+    });
   };
 
   return (

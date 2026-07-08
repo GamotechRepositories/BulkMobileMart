@@ -30,6 +30,7 @@ import {
   quoteEnviaShipmentRates,
   trackEnviaShipment,
 } from "../services/enviaShippingService.js";
+import { GIFT_HAMPER_STATUSES } from "../../shared/store/giftHamper.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
@@ -422,7 +423,7 @@ export const getMyOrders = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: orders.map((order) => enrichOrderForResponse(order)),
+      data: orders.map((order) => enrichOrderForResponse(order, { customerView: true })),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -448,7 +449,11 @@ export const getOrderById = async (req, res) => {
     }
 
     order = await autoSyncShipmentForOrder(order);
-    res.status(200).json({ success: true, data: enrichOrderForResponse(order) });
+    const customerView = req.user.role !== "admin";
+    res.status(200).json({
+      success: true,
+      data: enrichOrderForResponse(order, { customerView }),
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -890,6 +895,9 @@ export const updateOrder = async (req, res) => {
         });
       }
       updates.status = status;
+      if (previousStatus === "attempted" && status !== "attempted") {
+        updates.createdAt = new Date();
+      }
     }
 
     if (paymentStatus !== undefined) {
@@ -1186,6 +1194,89 @@ export const syncOrderShipmentTracking = async (req, res) => {
       success: false,
       message: error.response?.data?.message || error.message || "Failed to sync tracking",
     });
+  }
+};
+
+export const getGiftHamperOrders = async (req, res) => {
+  try {
+    const { status = "pending", search } = req.query;
+    const filter = {
+      giftHamper: { $exists: true, $ne: null },
+    };
+
+    if (status && status !== "all") {
+      if (!GIFT_HAMPER_STATUSES.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid gift hamper status filter",
+        });
+      }
+      filter["giftHamper.status"] = status;
+    } else {
+      filter["giftHamper.status"] = { $in: GIFT_HAMPER_STATUSES };
+    }
+
+    const searchClause = await buildOrderSearchFilter(search);
+    if (searchClause) {
+      filter.$and = [searchClause];
+    }
+
+    const { page, limit, skip } = getPaginationParams(req.query);
+
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(filter),
+      Order.find(filter)
+        .populate("user", "name email phone")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+    ]);
+
+    res.status(200).json(buildPaginatedResponse(orders, total, page, limit));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateGiftHamperStatus = async (req, res) => {
+  try {
+    const { status, adminNote } = req.body;
+
+    if (!GIFT_HAMPER_STATUSES.includes(status) || status === "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be approved or rejected",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (!order.giftHamper?.gift?.name) {
+      return res.status(400).json({
+        success: false,
+        message: "This order does not have a gift hamper",
+      });
+    }
+
+    order.giftHamper.status = status;
+    order.giftHamper.reviewedAt = new Date();
+    order.giftHamper.reviewedBy = req.user._id;
+    order.giftHamper.adminNote =
+      typeof adminNote === "string" ? adminNote.trim().slice(0, 500) : "";
+
+    await order.save();
+
+    const populated = await populateOrderItems(order);
+    res.status(200).json({
+      success: true,
+      message: status === "approved" ? "Gift hamper approved" : "Gift hamper rejected",
+      data: enrichOrderForResponse(populated),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

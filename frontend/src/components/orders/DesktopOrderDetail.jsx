@@ -17,6 +17,7 @@ import {
   splitOrderShipments,
 } from "../../utils/orderUtils";
 import OrderItemImage from "./OrderItemImage";
+import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 
@@ -299,6 +300,10 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 ))}
               </div>
             </section>
+
+            {order.giftHamper ? (
+              <OrderGiftHamperSection giftHamper={order.giftHamper} />
+            ) : null}
           </div>
 
           {/* Sidebar */}

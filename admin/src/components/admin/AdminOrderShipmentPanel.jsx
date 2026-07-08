@@ -27,6 +27,11 @@ import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import { adminFilterInputClass, cardClass } from "./adminStyles";
 import { formatDateTime, formatPrice } from "./sections/adminOrderUtils";
 
+const compactInputClass =
+  "w-full min-w-0 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs text-text-primary focus:border-primary focus:outline-none";
+
+const compactFieldLabelClass = "mb-0.5 block text-[11px] font-semibold text-neutral-500";
+
 const EMPTY_PACKAGE = {
   weight: "",
   weightUnit: "KG",
@@ -48,18 +53,32 @@ function buildPackagePayload(form) {
   };
 }
 
-function buildShipmentPayload(packageForm, paymentForm, metadataForm = {}) {
+function buildShipmentPayload(packageForm, paymentForm, metadataForm = {}, options = {}) {
   const note = String(metadataForm.shipmentNote ?? "").trim();
   const evidenceUrl = String(metadataForm.evidenceUrl ?? "").trim();
   const evidenceName = String(metadataForm.evidenceName ?? "").trim();
+  const { order = null, paymentTouched = false } = options;
+  const orderRequiresCod = order ? isOrderCodPayment(order) : false;
 
-  return {
+  const payload = {
     ...buildPackagePayload(packageForm),
-    isCod: Boolean(paymentForm.isCod),
-    ...(paymentForm.isCod ? { codAmount: Number(paymentForm.codAmount) } : {}),
     ...(note ? { shipmentNote: note } : {}),
     ...(evidenceUrl ? { evidenceUrl, evidenceName } : {}),
   };
+
+  if (paymentForm.isCod) {
+    payload.isCod = true;
+    if (paymentForm.codAmount) {
+      payload.codAmount = Number(paymentForm.codAmount);
+    }
+  } else if (paymentTouched) {
+    payload.isCod = false;
+    if (orderRequiresCod) {
+      payload.allowPrepaidShipment = true;
+    }
+  }
+
+  return payload;
 }
 
 export default function AdminOrderShipmentPanel({
@@ -121,22 +140,26 @@ export default function AdminOrderShipmentPanel({
     setQuoteErrors([]);
   }, [order?._id]);
 
-  useEffect(() => {
-    if (!order || paymentTouched) return;
+  const derivedPaymentForm = useMemo(() => {
+    if (!order) {
+      return { isCod: false, codAmount: "" };
+    }
     const isCod = isOrderCodPayment(order);
     const defaultAmount = isCod ? getDefaultCodCollectAmount(order) : "";
-    setPaymentForm({
+    return {
       isCod,
       codAmount: defaultAmount ? String(defaultAmount) : "",
-    });
-  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, paymentTouched]);
+    };
+  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount]);
+
+  const effectivePaymentForm = paymentTouched ? paymentForm : derivedPaymentForm;
 
   useEffect(() => {
     setQuotedPayment(null);
     setServiceOptions([]);
     setQuoteErrors([]);
     setSelectedServiceId(SHIPPING_SERVICES[0]?.id || "");
-  }, [paymentForm.isCod]);
+  }, [effectivePaymentForm.isCod]);
 
   const selectedService = useMemo(() => {
     const list = serviceOptions.length ? serviceOptions : SHIPPING_SERVICES;
@@ -191,7 +214,7 @@ export default function AdminOrderShipmentPanel({
 
   const handleFetchRates = async () => {
     if (!order || loadingRates) return;
-    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
+    if (effectivePaymentForm.isCod && (!effectivePaymentForm.codAmount || Number(effectivePaymentForm.codAmount) <= 0)) {
       onError("Enter the COD collection amount.");
       return;
     }
@@ -202,7 +225,10 @@ export default function AdminOrderShipmentPanel({
       const carriers = getShippingServiceCarriers();
 
       const { data } = await quoteAdminOrderShipmentRates(order._id, {
-        ...buildShipmentPayload(packageForm, paymentForm),
+        ...buildShipmentPayload(packageForm, effectivePaymentForm, metadataForm, {
+          order,
+          paymentTouched,
+        }),
         carriers,
       });
 
@@ -234,7 +260,7 @@ export default function AdminOrderShipmentPanel({
 
   const handleCreateLabel = async () => {
     if (!order || creatingLabel || !selectedService?.quote) return;
-    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
+    if (effectivePaymentForm.isCod && (!effectivePaymentForm.codAmount || Number(effectivePaymentForm.codAmount) <= 0)) {
       onError("Enter the COD collection amount.");
       return;
     }
@@ -243,7 +269,10 @@ export default function AdminOrderShipmentPanel({
     onSuccess("");
     try {
       const { data } = await createAdminOrderShipment(order._id, {
-        ...buildShipmentPayload(packageForm, paymentForm, metadataForm),
+        ...buildShipmentPayload(packageForm, effectivePaymentForm, metadataForm, {
+          order,
+          paymentTouched,
+        }),
         carrier: selectedService.quote.carrier,
         service: selectedService.quote.service,
       });
@@ -323,28 +352,28 @@ export default function AdminOrderShipmentPanel({
       </div>
 
       {hasTracking ? (
-        <div className="space-y-3 text-sm text-neutral-700">
-          <p>
-            Tracking:{" "}
-            <span className="font-semibold text-neutral-900">{order.shipment.trackingNumber}</span>
-          </p>
-          <p>
-            Carrier/Service:{" "}
-            <span className="font-medium">
-              {[order.shipment.carrier, order.shipment.service].filter(Boolean).join(" / ") || "—"}
-            </span>
-          </p>
-          <p>
-            Status:{" "}
-            <span className="font-medium">
-              {order.shipment.status || order.shipment.statusMessage || "Not available"}
-            </span>
-          </p>
-          {order.shipment.syncedAt ? (
-            <p className="text-xs text-neutral-500">
-              Last updated {formatDateTime(order.shipment.syncedAt)}
+        <div className="space-y-2 text-xs text-neutral-700">
+          <div className="grid gap-1 sm:grid-cols-2">
+            <p>
+              Tracking:{" "}
+              <span className="font-semibold text-neutral-900">{order.shipment.trackingNumber}</span>
             </p>
-          ) : null}
+            <p>
+              Carrier:{" "}
+              <span className="font-medium">
+                {[order.shipment.carrier, order.shipment.service].filter(Boolean).join(" / ") || "—"}
+              </span>
+            </p>
+            <p>
+              Status:{" "}
+              <span className="font-medium">
+                {order.shipment.status || order.shipment.statusMessage || "Not available"}
+              </span>
+            </p>
+            {order.shipment.syncedAt ? (
+              <p className="text-neutral-500">Updated {formatDateTime(order.shipment.syncedAt)}</p>
+            ) : null}
+          </div>
           {order.shipment.note ? (
             <p className="text-sm text-neutral-700">
               Shipment note:{" "}
@@ -437,59 +466,57 @@ export default function AdminOrderShipmentPanel({
           </form>
         </div>
       ) : (
-        <div className="space-y-4 text-sm text-neutral-700">
-          <p className="text-neutral-600">
-            Enter package details, compare shipping partners, then create the label you want.
-          </p>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-neutral-500">
-              Content <span className="text-red-600">*</span>
-            </span>
-            <select
-              value={packageForm.content}
-              onChange={(e) => updatePackageField("content", e.target.value)}
-              className={adminFilterInputClass}
-            >
-              {SHIPMENT_CONTENTS.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div>
-            <span className="mb-2 block text-xs font-semibold text-neutral-500">Unit</span>
-            <div className="inline-flex rounded-md border border-neutral-300 p-0.5">
-              <button
-                type="button"
-                onClick={() => updatePackageField("weightUnit", "KG")}
-                className={`rounded px-4 py-1.5 text-xs font-semibold ${
-                  packageForm.weightUnit === "KG"
-                    ? "bg-sky-600 text-white"
-                    : "text-neutral-600 hover:bg-neutral-50"
-                }`}
+        <div className="space-y-3 text-sm text-neutral-700">
+          <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="min-w-0">
+              <span className={compactFieldLabelClass}>
+                Content <span className="text-red-600">*</span>
+              </span>
+              <select
+                value={packageForm.content}
+                onChange={(e) => updatePackageField("content", e.target.value)}
+                className={compactInputClass}
               >
-                KG / CM
-              </button>
-              <button
-                type="button"
-                onClick={() => updatePackageField("weightUnit", "G")}
-                className={`rounded px-4 py-1.5 text-xs font-semibold ${
-                  packageForm.weightUnit === "G"
-                    ? "bg-sky-600 text-white"
-                    : "text-neutral-600 hover:bg-neutral-50"
-                }`}
-              >
-                Gram / CM
-              </button>
+                {SHIPMENT_CONTENTS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="shrink-0">
+              <span className={compactFieldLabelClass}>Unit</span>
+              <div className="inline-flex rounded-md border border-neutral-300 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => updatePackageField("weightUnit", "KG")}
+                  className={`rounded px-2.5 py-1 text-[11px] font-semibold ${
+                    packageForm.weightUnit === "KG"
+                      ? "bg-sky-600 text-white"
+                      : "text-neutral-600 hover:bg-neutral-50"
+                  }`}
+                >
+                  KG / CM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updatePackageField("weightUnit", "G")}
+                  className={`rounded px-2.5 py-1 text-[11px] font-semibold ${
+                    packageForm.weightUnit === "G"
+                      ? "bg-sky-600 text-white"
+                      : "text-neutral-600 hover:bg-neutral-50"
+                  }`}
+                >
+                  G / CM
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block sm:col-span-2 lg:col-span-1">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <label className="block">
+              <span className={compactFieldLabelClass}>
                 Weight <span className="text-red-600">*</span>
               </span>
               <div className="flex overflow-hidden rounded-md border border-neutral-300">
@@ -499,205 +526,160 @@ export default function AdminOrderShipmentPanel({
                   step={packageForm.weightUnit === "G" ? "1" : "0.01"}
                   value={packageForm.weight}
                   onChange={(e) => updatePackageField("weight", e.target.value)}
-                  className={`${adminFilterInputClass} border-0 focus:ring-0`}
+                  className={`${compactInputClass} border-0 focus:ring-0`}
                 />
-                <span className="flex min-w-[3.5rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-2 text-xs font-semibold text-neutral-600">
+                <span className="flex min-w-[2.25rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-1.5 text-[10px] font-semibold text-neutral-600">
                   {packageForm.weightUnit === "G" ? "G" : "KG"}
                 </span>
               </div>
             </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                Length <span className="text-red-600">*</span>
-              </span>
-              <div className="flex overflow-hidden rounded-md border border-neutral-300">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={packageForm.length}
-                  onChange={(e) => updatePackageField("length", e.target.value)}
-                  className={`${adminFilterInputClass} border-0 focus:ring-0`}
-                />
-                <span className="flex min-w-[3rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-2 text-xs font-semibold text-neutral-600">
-                  CM
+            {[
+              { key: "length", label: "Length" },
+              { key: "width", label: "Width" },
+              { key: "height", label: "Height" },
+            ].map(({ key, label }) => (
+              <label key={key} className="block">
+                <span className={compactFieldLabelClass}>
+                  {label} <span className="text-red-600">*</span>
                 </span>
-              </div>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                Width <span className="text-red-600">*</span>
-              </span>
-              <div className="flex overflow-hidden rounded-md border border-neutral-300">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={packageForm.width}
-                  onChange={(e) => updatePackageField("width", e.target.value)}
-                  className={`${adminFilterInputClass} border-0 focus:ring-0`}
-                />
-                <span className="flex min-w-[3rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-2 text-xs font-semibold text-neutral-600">
-                  CM
-                </span>
-              </div>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                Height <span className="text-red-600">*</span>
-              </span>
-              <div className="flex overflow-hidden rounded-md border border-neutral-300">
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={packageForm.height}
-                  onChange={(e) => updatePackageField("height", e.target.value)}
-                  className={`${adminFilterInputClass} border-0 focus:ring-0`}
-                />
-                <span className="flex min-w-[3rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-2 text-xs font-semibold text-neutral-600">
-                  CM
-                </span>
-              </div>
-            </label>
-          </div>
-
-          <div className="rounded-md border border-neutral-200 p-3">
-            <span className="mb-2 block text-xs font-semibold text-neutral-500">Payment type</span>
-            <label
-              className={`flex items-center gap-2 text-sm text-neutral-800 ${
-                isPrepaidOrder ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={paymentForm.isCod}
-                disabled={isPrepaidOrder}
-                onChange={(e) => updatePaymentField("isCod", e.target.checked)}
-                className="rounded border-neutral-300 disabled:cursor-not-allowed"
-              />
-              <span>Cash on Delivery (COD)</span>
-            </label>
-            {isPrepaidOrder ? (
-              <p className="mt-2 text-xs text-neutral-500">
-                Prepaid — full payment received. COD is not available for this order.
-              </p>
-            ) : !paymentForm.isCod ? (
-              <p className="mt-2 text-xs text-neutral-500">
-                Prepaid shipment — rates exclude COD collection fees.
-              </p>
-            ) : (
-              <label className="mt-3 block">
-                <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                  COD amount to collect <span className="text-red-600">*</span>
-                </span>
-                <div className="flex max-w-xs overflow-hidden rounded-md border border-neutral-300">
-                  <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-xs font-semibold text-neutral-600">
-                    ₹
-                  </span>
+                <div className="flex overflow-hidden rounded-md border border-neutral-300">
                   <input
                     type="number"
                     min="1"
-                    step="0.01"
-                    value={paymentForm.codAmount}
-                    onChange={(e) => updatePaymentField("codAmount", e.target.value)}
-                    className={`${adminFilterInputClass} border-0 focus:ring-0`}
-                    placeholder="Amount to collect"
+                    step="1"
+                    value={packageForm[key]}
+                    onChange={(e) => updatePackageField(key, e.target.value)}
+                    className={`${compactInputClass} border-0 focus:ring-0`}
                   />
+                  <span className="flex min-w-[2.25rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-1.5 text-[10px] font-semibold text-neutral-600">
+                    CM
+                  </span>
                 </div>
-                {order?.codAdvanceAmount > 0 ? (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Order total {formatPrice(order.total)} · Advance paid{" "}
-                    {formatPrice(order.codAdvanceAmount)}
-                  </p>
-                ) : null}
               </label>
-            )}
+            ))}
           </div>
 
-          <div className="rounded-md border border-neutral-200 p-3">
-            <span className="mb-2 block text-xs font-semibold text-neutral-500">
-              Shipment details
-            </span>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                Additional note
-              </span>
-              <textarea
-                rows={3}
-                value={metadataForm.shipmentNote}
-                onChange={(e) => updateMetadataField("shipmentNote", e.target.value)}
-                className={`${adminFilterInputClass} min-h-[5rem] resize-y`}
-                placeholder="Instructions for the carrier or internal shipment note"
-                maxLength={500}
-              />
-            </label>
-            <div className="mt-3">
-              <span className="mb-1 block text-xs font-semibold text-neutral-500">
-                Upload evidence of shipment
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
-                  {uploadingEvidence ? "Uploading…" : "Choose image"}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    disabled={uploadingEvidence || creatingLabel}
-                    onChange={handleEvidenceUpload}
-                  />
-                </label>
-                {metadataForm.evidenceUrl ? (
-                  <>
-                    <a
-                      href={metadataForm.evidenceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-medium text-sky-700 underline"
-                    >
-                      {metadataForm.evidenceName || "View uploaded evidence"}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setMetadataForm((prev) => ({
-                          ...prev,
-                          evidenceUrl: "",
-                          evidenceName: "",
-                        }))
-                      }
-                      className="text-xs font-medium text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-xs text-neutral-500">
-                    Photo of packed parcel, handover receipt, etc.
+          <div className="rounded-md border border-neutral-200 p-2.5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <label
+                className={`inline-flex items-center gap-1.5 text-xs text-neutral-800 ${
+                  isPrepaidOrder ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={effectivePaymentForm.isCod}
+                  disabled={isPrepaidOrder}
+                  onChange={(e) => updatePaymentField("isCod", e.target.checked)}
+                  className="rounded border-neutral-300 disabled:cursor-not-allowed"
+                />
+                <span className="font-semibold">COD shipment</span>
+              </label>
+              {isPrepaidOrder ? (
+                <span className="text-[11px] text-neutral-500">Prepaid order — COD unavailable</span>
+              ) : !effectivePaymentForm.isCod ? (
+                <span className="text-[11px] text-neutral-500">Prepaid rates (no COD fees)</span>
+              ) : (
+                <label className="flex min-w-[10rem] flex-1 items-center gap-1.5 sm:max-w-xs">
+                  <span className="shrink-0 text-[11px] font-semibold text-neutral-500">
+                    Collect <span className="text-red-600">*</span>
                   </span>
-                )}
+                  <div className="flex min-w-0 flex-1 overflow-hidden rounded-md border border-neutral-300">
+                    <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-2 text-[10px] font-semibold text-neutral-600">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={effectivePaymentForm.codAmount}
+                      onChange={(e) => updatePaymentField("codAmount", e.target.value)}
+                      className={`${compactInputClass} border-0 focus:ring-0`}
+                      placeholder="Amount"
+                    />
+                  </div>
+                </label>
+              )}
+            </div>
+            {effectivePaymentForm.isCod && order?.codAdvanceAmount > 0 ? (
+              <p className="mt-1.5 text-[11px] text-neutral-500">
+                Total {formatPrice(order.total)} · Advance {formatPrice(order.codAdvanceAmount)}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-md border border-neutral-200 p-2.5">
+            <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <label className="block min-w-0">
+                <span className={compactFieldLabelClass}>Note</span>
+                <textarea
+                  rows={2}
+                  value={metadataForm.shipmentNote}
+                  onChange={(e) => updateMetadataField("shipmentNote", e.target.value)}
+                  className={`${compactInputClass} min-h-[2.5rem] resize-y`}
+                  placeholder="Carrier instructions or internal note"
+                  maxLength={500}
+                />
+              </label>
+              <div className="shrink-0">
+                <span className={compactFieldLabelClass}>Evidence</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <label className="inline-flex cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-800 hover:bg-neutral-50">
+                    {uploadingEvidence ? "Uploading…" : "Upload"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      disabled={uploadingEvidence || creatingLabel}
+                      onChange={handleEvidenceUpload}
+                    />
+                  </label>
+                  {metadataForm.evidenceUrl ? (
+                    <>
+                      <a
+                        href={metadataForm.evidenceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="max-w-[8rem] truncate text-[11px] font-medium text-sky-700 underline"
+                      >
+                        {metadataForm.evidenceName || "View"}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMetadataForm((prev) => ({
+                            ...prev,
+                            evidenceUrl: "",
+                            evidenceName: "",
+                          }))
+                        }
+                        className="text-[11px] font-medium text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
 
           <div>
-            <span className="mb-2 block text-xs font-semibold text-neutral-500">
-              Shipping partner
-            </span>
-            <div className="grid grid-cols-2 gap-2 rounded-md border border-neutral-200 p-3 lg:grid-cols-5">
+            <span className={compactFieldLabelClass}>Shipping partner</span>
+            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-neutral-200 p-2 lg:grid-cols-5">
               {(serviceOptions.length ? serviceOptions : SHIPPING_SERVICES).map((entry) => {
                 const quote = entry.quote;
                 const isSelected = selectedServiceId === entry.id;
                 return (
                   <label
                     key={entry.id}
-                    className={`flex h-full cursor-pointer flex-col gap-1.5 rounded-md border px-2 py-2 ${
+                    className={`flex h-full cursor-pointer flex-col gap-1 rounded-md border px-1.5 py-1.5 ${
                       isSelected
                         ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
                         : "border-neutral-200 bg-white"
                     }`}
                   >
-                    <span className="flex items-start gap-2">
+                    <span className="flex items-start gap-1.5">
                       <input
                         type="radio"
                         name="shipping-service"
@@ -705,27 +687,23 @@ export default function AdminOrderShipmentPanel({
                         onChange={() => setSelectedServiceId(entry.id)}
                         className="mt-0.5 shrink-0"
                       />
-                      <span className="min-w-0 text-xs font-medium leading-snug text-neutral-900 lg:text-[11px]">
+                      <span className="min-w-0 text-[11px] font-medium leading-snug text-neutral-900">
                         {entry.label}
                       </span>
                     </span>
                     {quote ? (
-                      <span className="pl-5 text-[10px] leading-snug text-neutral-600 lg:pl-0 lg:text-[10px]">
+                      <span className="pl-4 text-[10px] leading-snug text-neutral-600">
                         <span className="block font-semibold text-neutral-800">
                           {formatPrice(quote.totalPrice)}
                         </span>
                         {quote.deliveryEstimate ? (
-                          <span className="block">{quote.deliveryEstimate}</span>
+                          <span className="block truncate">{quote.deliveryEstimate}</span>
                         ) : null}
                       </span>
                     ) : serviceOptions.length > 0 ? (
-                      <span className="pl-5 text-[10px] text-amber-700 lg:pl-0">
-                        Not available
-                      </span>
+                      <span className="pl-4 text-[10px] text-amber-700">N/A</span>
                     ) : (
-                      <span className="pl-5 text-[10px] text-neutral-500 lg:pl-0">
-                        Compare rates
-                      </span>
+                      <span className="pl-4 text-[10px] text-neutral-500">—</span>
                     )}
                   </label>
                 );
@@ -733,33 +711,42 @@ export default function AdminOrderShipmentPanel({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleFetchRates}
-            disabled={loadingRates}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            {loadingRates ? "Fetching rates…" : "Compare rates"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleFetchRates}
+              disabled={loadingRates}
+              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              {loadingRates ? "Fetching…" : "Compare rates"}
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateLabel}
+              disabled={creatingLabel || !selectedService?.quote}
+              className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {creatingLabel ? "Creating…" : "Create label"}
+            </button>
+          </div>
 
           {quotedPayment ? (
-            <p className="text-xs font-medium text-neutral-600">
-              Rates quoted for{" "}
+            <p className="text-[11px] font-medium text-neutral-600">
+              Quoted for{" "}
               <span className="font-semibold text-neutral-900">
                 {quotedPayment.isCod
                   ? `COD (₹${Number(quotedPayment.codAmount || 0).toLocaleString("en-IN")})`
                   : "Prepaid"}
               </span>
-              . Change payment type and compare again to refresh.
             </p>
-          ) : paymentForm.isCod ? (
-            <p className="text-xs text-neutral-500">
-              Compare rates to load COD shipping prices for the selected collection amount.
+          ) : effectivePaymentForm.isCod ? (
+            <p className="text-[11px] text-neutral-500">
+              Compare rates for COD prices at the collection amount above.
             </p>
           ) : null}
 
           {quoteErrors.length > 0 ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
               {quoteErrors.map((entry) => (
                 <p key={entry.carrier}>
                   {entry.carrier}: {entry.message}
@@ -767,15 +754,6 @@ export default function AdminOrderShipmentPanel({
               ))}
             </div>
           ) : null}
-
-          <button
-            type="button"
-            onClick={handleCreateLabel}
-            disabled={creatingLabel || !selectedService?.quote}
-            className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {creatingLabel ? "Creating label…" : "Create label with selected service"}
-          </button>
         </div>
       )}
     </div>

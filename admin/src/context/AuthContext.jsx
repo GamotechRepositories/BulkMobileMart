@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import api, { loginUser } from "../api/api";
+import api, { loginUser, updateCurrentUser } from "../api/api";
 import { ADMIN_STORAGE_KEY } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
@@ -82,6 +82,18 @@ export function AuthProvider({ children }) {
     clearAdminAuth();
   };
 
+  const updateAdminProfile = async (data) => {
+    const res = await updateCurrentUser(data);
+    const authUser = res.data.data;
+
+    if (!adminToken || authUser.role !== "admin") {
+      throw new Error("Unable to update admin profile.");
+    }
+
+    persistAdminAuth(authUser, adminToken);
+    return res.data;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -90,6 +102,7 @@ export function AuthProvider({ children }) {
         loading,
         adminLogin,
         adminLogout,
+        updateAdminProfile,
       }}
     >
       {children}

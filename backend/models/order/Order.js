@@ -19,6 +19,38 @@ const orderItemSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const orderGiftHamperGiftSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 160 },
+    description: { type: String, default: "", trim: true, maxlength: 500 },
+    image: { type: String, default: "", trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
+const orderGiftHamperSchema = new mongoose.Schema(
+  {
+    minOrderAmount: { type: Number, required: true, min: 0 },
+    gift: {
+      type: orderGiftHamperGiftSchema,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserBulkMart",
+      default: null,
+    },
+    adminNote: { type: String, default: "", trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: {
@@ -111,6 +143,10 @@ const orderSchema = new mongoose.Schema(
       note: { type: String, default: "", trim: true, maxlength: 500 },
       evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
       evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+    },
+    giftHamper: {
+      type: orderGiftHamperSchema,
+      default: null,
     },
   },
   { timestamps: true }

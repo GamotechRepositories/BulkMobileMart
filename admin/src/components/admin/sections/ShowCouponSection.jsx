@@ -56,6 +56,7 @@ function ShowCouponSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [copiedCode, setCopiedCode] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -92,6 +93,16 @@ function ShowCouponSection() {
 
   const handleEdit = (coupon) => {
     navigate("/coupons/add", { state: { editCoupon: coupon } });
+  };
+
+  const handleCopyCode = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      window.setTimeout(() => setCopiedCode(""), 2000);
+    } catch {
+      setCopiedCode("");
+    }
   };
 
   const handleDelete = async (id) => {
@@ -165,7 +176,18 @@ function ShowCouponSection() {
                 return (
                   <tr key={coupon._id} className="border-b border-neutral-100 last:border-0">
                     <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
-                      <span className="block">{coupon.code}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="block">{coupon.code}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(coupon.code)}
+                          className="inline-flex shrink-0 items-center gap-1 rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition hover:border-primary/40 hover:text-primary"
+                          title="Copy coupon code"
+                          aria-label={`Copy coupon code ${coupon.code}`}
+                        >
+                          {copiedCode === coupon.code ? "Copied" : "Copy"}
+                        </button>
+                      </div>
                       {coupon.title ? (
                         <span className="mt-0.5 block text-[10px] font-normal text-neutral-500">
                           {coupon.title}

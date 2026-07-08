@@ -37,13 +37,37 @@ export function parseIsCodFlag(value) {
   return undefined;
 }
 
+export function parsePrepaidShipmentOverride(body = {}) {
+  return (
+    body.allowPrepaidShipment === true ||
+    body.allowPrepaidShipment === "true" ||
+    body.prepaidShipment === true ||
+    body.prepaidShipment === "true"
+  );
+}
+
 export function resolveShipmentPaymentOptions(order = {}, body = {}) {
   if (isOrderPrepaidShipment(order)) {
     return { isCod: false, codAmount: undefined };
   }
 
+  const orderRequiresCod = isOrderCodPayment(order);
   const explicitIsCod = parseIsCodFlag(body.isCod);
-  const isCod = explicitIsCod !== undefined ? explicitIsCod : isOrderCodPayment(order);
+  const allowPrepaidShipment = parsePrepaidShipmentOverride(body);
+
+  let isCod;
+  if (explicitIsCod === true) {
+    isCod = true;
+  } else if (explicitIsCod === false && allowPrepaidShipment) {
+    isCod = false;
+  } else if (explicitIsCod === false && orderRequiresCod) {
+    // Clients used to send isCod:false by default even for COD orders.
+    isCod = true;
+  } else if (explicitIsCod === false) {
+    isCod = false;
+  } else {
+    isCod = orderRequiresCod;
+  }
 
   if (!isCod) {
     return { isCod: false, codAmount: undefined };

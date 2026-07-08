@@ -18,6 +18,7 @@ import {
 } from "./storeSettingsHelpers.js";
 import { calculateOrderTotal } from "./gstHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
+import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../shared/store/giftHamper.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -96,11 +97,15 @@ export const populateOrderItems = (query) =>
     select: "productImages",
   });
 
-export function enrichOrderForResponse(order) {
+export function enrichOrderForResponse(order, { customerView = false } = {}) {
   const doc = typeof order.toObject === "function" ? order.toObject() : { ...order };
+  const giftHamper = customerView
+    ? getCustomerVisibleGiftHamper(doc.giftHamper)
+    : doc.giftHamper ?? null;
 
   return {
     ...doc,
+    giftHamper,
     items: (doc.items || []).map((item) => {
       const productImages =
         item.product && typeof item.product === "object" ? item.product.productImages || [] : [];
@@ -636,6 +641,11 @@ export async function findAttemptedOrderForCheckout(userId, attemptedOrderId) {
   return Order.findOne({ user: userId, status: "attempted" }).sort({ updatedAt: -1 });
 }
 
+async function resolveGiftHamperSnapshot(total) {
+  const storeSettings = await getStoreSettings();
+  return resolveGiftHamperForOrder(total, storeSettings);
+}
+
 export async function completeAttemptedOrder({
   attemptedOrderId,
   userId,
@@ -692,6 +702,11 @@ export async function completeAttemptedOrder({
   order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
   order.codAdvancePaidAt = codAdvancePaidAt || null;
   order.paidAt = paidAt || null;
+
+  if (status !== "attempted") {
+    order.createdAt = new Date();
+    order.giftHamper = await resolveGiftHamperSnapshot(total);
+  }
 
   await order.save();
   await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
@@ -755,6 +770,8 @@ export async function finalizeOrder({
   const orderMessage =
     typeof message === "string" ? message.trim().slice(0, 500) : "";
 
+  const giftHamper = await resolveGiftHamperSnapshot(total);
+
   const order = await Order.create({
     user: userId,
     items: orderItems,
@@ -769,6 +786,7 @@ export async function finalizeOrder({
     status,
     paymentStatus,
     message: orderMessage,
+    ...(giftHamper ? { giftHamper } : {}),
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),
     ...(codAdvanceAmount > 0 && { codAdvanceAmount }),

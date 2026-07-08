@@ -18,7 +18,7 @@ const formatPrice = (amount) =>
 
 function CouponIcon() {
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1FAF38] text-white">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white">
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path
           strokeLinecap="round"
@@ -31,6 +31,18 @@ function CouponIcon() {
 }
 
 function CouponCard({ coupon, expanded, onToggleDetails, onApply }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(coupon.code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <article className="overflow-hidden rounded-2xl border border-[#E7E7E7] bg-white">
       <div className="p-4">
@@ -65,9 +77,32 @@ function CouponCard({ coupon, expanded, onToggleDetails, onApply }) {
       <div className="border-t border-dashed border-[#DADADA]" />
 
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <span className="rounded-md border border-[#ECECEC] bg-[#F7F7F7] px-3 py-1.5 text-sm font-bold tracking-wide text-text-primary">
-          {coupon.code}
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="rounded-md border border-[#ECECEC] bg-[#F7F7F7] px-3 py-1.5 text-sm font-bold tracking-wide text-text-primary">
+            {coupon.code}
+          </span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-light px-2 py-1 text-xs font-semibold text-text-secondary transition hover:border-primary/40 hover:text-primary"
+            aria-label={`Copy coupon code ${coupon.code}`}
+          >
+            {copied ? (
+              "Copied"
+            ) : (
+              <>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy
+              </>
+            )}
+          </button>
+        </div>
 
         <button
           type="button"

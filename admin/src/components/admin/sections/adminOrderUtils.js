@@ -187,6 +187,21 @@ export function getPaymentAmount(order, proof) {
   return order.total ?? 0;
 }
 
+export function getOrderAdvanceBillingSummary(order = {}) {
+  const orderTotal = Number(order.total) || 0;
+  const advancePaid = Number(order.codAdvanceAmount) || 0;
+  const paymentStatus = String(order.paymentStatus || "unpaid");
+  const isFullySettled = paymentStatus === "paid" || paymentStatus === "refundable";
+  const hasAdvance = advancePaid > 0 && !isFullySettled;
+
+  return {
+    hasAdvance,
+    advancePaid,
+    orderTotal,
+    remainingBalance: hasAdvance ? Math.max(0, orderTotal - advancePaid) : orderTotal,
+  };
+}
+
 export function getPaidTypeLabel(order, proof) {
   if (proof) {
     return proof.paymentType === "cod_advance" ? "UPI · COD advance (10%)" : "UPI · Online full";

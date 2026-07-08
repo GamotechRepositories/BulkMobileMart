@@ -33,6 +33,7 @@ const PAGE_TITLES = {
   "/settings": "Store Settings",
   "/users": "Users",
   "/orders": "Orders",
+  "/orders/gift-hampers": "Gift Hampers",
   "/orders/create": "Create Order",
   "/payments": "Payments",
   "/coupons/add": "Create Coupon",
@@ -52,8 +53,17 @@ const NAV_ITEMS = [
       { to: "/products/show", label: "Show Product" },
     ],
   },
-  { type: "link", to: "/orders", label: "Orders", icon: IconOrder, resolveActive: isOrdersNavActive },
   { type: "link", to: "/orders/create", label: "Create Order", icon: IconCreateOrder },
+  {
+    type: "group",
+    label: "Orders",
+    icon: IconOrder,
+    basePath: "/orders",
+    children: [
+      { to: "/orders", label: "All Orders", end: true },
+      { to: "/orders/gift-hampers", label: "Gift Hampers" },
+    ],
+  },
   {
     type: "group",
     label: "Categories",
@@ -102,7 +112,10 @@ const navLinkClass = ({ isActive }) =>
 function isOrdersNavActive(pathname) {
   return (
     pathname === "/orders" ||
-    (pathname.startsWith("/orders/") && pathname !== "/orders/create")
+    pathname === "/orders/gift-hampers" ||
+    (pathname.startsWith("/orders/") &&
+      pathname !== "/orders/create" &&
+      pathname !== "/orders/gift-hampers")
   );
 }
 

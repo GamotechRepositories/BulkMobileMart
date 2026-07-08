@@ -17,9 +17,17 @@ import {
   DEFAULT_ENVIA_PICKUP_ORIGIN,
   mergeEnviaOriginDefaults,
 } from "@shared/shipping/enviaOriginAddress.js";
+import ImagePicker from "../ImagePicker";
+import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 
 const EMPTY_SLAB = { orderAmount: "", shippingCharge: "" };
 const EMPTY_UPI_ACCOUNT = { upiId: "", label: "BulkMobileMart", enabled: false };
+const EMPTY_GIFT_TIER = {
+  minOrderAmount: "",
+  giftName: "",
+  giftDescription: "",
+  giftImage: "",
+};
 
 function enviaOriginToForm(origin = {}) {
   const normalized = mergeEnviaOriginDefaults(origin);
@@ -84,6 +92,18 @@ function serializeOrderSection(form) {
   });
 }
 
+function serializeGiftHampersSection(form) {
+  return JSON.stringify({
+    giftHampersEnabled: Boolean(form.giftHampersEnabled),
+    tiers: (form.giftHamperTiers || []).map((tier) => ({
+      minOrderAmount: String(tier.minOrderAmount ?? ""),
+      giftName: String(tier.giftName ?? "").trim(),
+      giftDescription: String(tier.giftDescription ?? "").trim(),
+      giftImage: String(tier.giftImage ?? "").trim(),
+    })),
+  });
+}
+
 function serializeSlabsSection(form) {
   return JSON.stringify(
     (form.shippingSlabs || []).map((slab) => ({
@@ -143,6 +163,7 @@ function serializeEnviaSection(form) {
 function buildSectionSnapshots(form) {
   return {
     order: serializeOrderSection(form),
+    giftHampers: serializeGiftHampersSection(form),
     slabs: serializeSlabsSection(form),
     upi: serializeUpiSection(form),
     cart: serializeCartSection(form),
@@ -164,6 +185,8 @@ function StoreSettingsSection() {
     minimumOrderValue: "3000",
     minimumShippingCharge: "280",
     shippingSlabs: [{ orderAmount: "3000", shippingCharge: "280" }],
+    giftHamperTiers: [],
+    giftHampersEnabled: false,
     merchantUpiAccounts: [{ ...EMPTY_UPI_ACCOUNT }],
     cartNoticeEn: "",
     cartNoticeHi: "",
@@ -197,6 +220,13 @@ function StoreSettingsSection() {
           orderAmount: String(slab.orderAmount),
           shippingCharge: String(slab.shippingCharge),
         })),
+        giftHamperTiers: (settings.giftHamperTiers || []).map((tier) => ({
+          minOrderAmount: String(tier.minOrderAmount ?? ""),
+          giftName: tier.gift?.name || "",
+          giftDescription: tier.gift?.description || "",
+          giftImage: tier.gift?.image || "",
+        })),
+        giftHampersEnabled: Boolean(settings.giftHampersEnabled),
         cartNoticeEn: (settings.cartNoticeEn || []).join("\n"),
         cartNoticeHi: (settings.cartNoticeHi || []).join("\n"),
         merchantUpiAccounts: normalizeUpiAccounts(
@@ -302,6 +332,28 @@ function StoreSettingsSection() {
     }));
   };
 
+  const addGiftTier = () => {
+    setForm((prev) => ({
+      ...prev,
+      giftHamperTiers: [...prev.giftHamperTiers, { ...EMPTY_GIFT_TIER }],
+    }));
+  };
+
+  const updateGiftTier = (index, field, value) => {
+    setForm((prev) => {
+      const next = [...prev.giftHamperTiers];
+      next[index] = { ...next[index], [field]: value };
+      return { ...prev, giftHamperTiers: next };
+    });
+  };
+
+  const removeGiftTier = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      giftHamperTiers: prev.giftHamperTiers.filter((_, i) => i !== index),
+    }));
+  };
+
   const updateUpiAccount = (index, field, value) => {
     setForm((prev) => {
       const next = [...prev.merchantUpiAccounts];
@@ -340,6 +392,7 @@ function StoreSettingsSection() {
 
   const sectionSaveLabels = {
     order: "Order & shipping rules",
+    giftHampers: "Gift hamper tiers",
     slabs: "Shipping slabs",
     upi: "UPI payment settings",
     cart: "Cart messages",
@@ -348,6 +401,7 @@ function StoreSettingsSection() {
 
   const sectionSerializers = {
     order: serializeOrderSection,
+    giftHampers: serializeGiftHampersSection,
     slabs: serializeSlabsSection,
     upi: serializeUpiSection,
     cart: serializeCartSection,
@@ -359,6 +413,7 @@ function StoreSettingsSection() {
 
   const dirtySections = {
     order: isSectionDirty("order"),
+    giftHampers: isSectionDirty("giftHampers"),
     slabs: isSectionDirty("slabs"),
     upi: isSectionDirty("upi"),
     cart: isSectionDirty("cart"),
@@ -388,6 +443,20 @@ function StoreSettingsSection() {
         payload = {
           minimumOrderValue: Number(form.minimumOrderValue),
           minimumShippingCharge: Number(form.minimumShippingCharge),
+        };
+      } else if (section === "giftHampers") {
+        payload = {
+          giftHampersEnabled: Boolean(form.giftHampersEnabled),
+          giftHamperTiers: form.giftHamperTiers
+            .map((tier) => ({
+              minOrderAmount: Number(tier.minOrderAmount),
+              gift: {
+                name: tier.giftName.trim(),
+                description: tier.giftDescription.trim(),
+                image: tier.giftImage.trim(),
+              },
+            }))
+            .filter((tier) => tier.minOrderAmount > 0 && tier.gift.name),
         };
       } else if (section === "slabs") {
         payload = {
@@ -587,6 +656,113 @@ function StoreSettingsSection() {
           </div>
 
           <SectionSaveButton section="order" />
+        </div>
+
+        <div
+          className={`${cardClass} space-y-4 ${
+            dirtySections.giftHampers ? "ring-2 ring-amber-200" : ""
+          }`}
+        >
+          <div className={formHeaderClass}>
+            <div>
+              <h3 className="font-semibold text-neutral-900">Gift Hamper Tiers</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                Add order value thresholds and the gift hamper customers receive. The highest
+                matching tier applies when an order is placed.
+              </p>
+            </div>
+            <button type="button" onClick={addGiftTier} className={btnPrimary}>
+              Add Tier
+            </button>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-800">
+            <input
+              type="checkbox"
+              checked={form.giftHampersEnabled}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, giftHampersEnabled: e.target.checked }))
+              }
+              className="h-4 w-4 accent-primary"
+            />
+            Enable gift hamper offers on new orders
+          </label>
+          <p className="text-xs text-neutral-500">
+            When disabled, new orders will not receive gift hampers. You can still manage
+            existing gift hamper requests from Orders → Gift Hampers.
+          </p>
+
+          {form.giftHamperTiers.length === 0 ? (
+            <p className="text-sm text-neutral-500">No gift hamper tiers configured yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {form.giftHamperTiers.map((tier, index) => (
+                <div
+                  key={`gift-tier-${index}`}
+                  className="space-y-4 rounded-lg border border-neutral-200 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-neutral-900">Tier {index + 1}</h4>
+                    <button
+                      type="button"
+                      onClick={() => removeGiftTier(index)}
+                      className="text-sm font-semibold text-red-600 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className={labelClass}>Minimum order value (₹)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        className={inputClass}
+                        value={tier.minOrderAmount}
+                        onChange={(e) => updateGiftTier(index, "minOrderAmount", e.target.value)}
+                      />
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Gift applies when order total is at or above this amount.
+                      </p>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Gift name</label>
+                      <input
+                        type="text"
+                        required
+                        className={inputClass}
+                        value={tier.giftName}
+                        onChange={(e) => updateGiftTier(index, "giftName", e.target.value)}
+                        placeholder="Festive gift hamper"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Gift description</label>
+                    <textarea
+                      rows={2}
+                      className={`${inputClass} min-h-[4.5rem] resize-y`}
+                      value={tier.giftDescription}
+                      onChange={(e) => updateGiftTier(index, "giftDescription", e.target.value)}
+                      placeholder="What is included in this hamper?"
+                    />
+                  </div>
+
+                  <ImagePicker
+                    label="Gift image (optional)"
+                    value={tier.giftImage}
+                    onChange={(url) => updateGiftTier(index, "giftImage", url)}
+                    folder={UPLOAD_FOLDERS.PRODUCTS}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <SectionSaveButton section="giftHampers" />
         </div>
 
         <div
