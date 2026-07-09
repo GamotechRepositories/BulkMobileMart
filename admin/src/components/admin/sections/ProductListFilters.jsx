@@ -1,11 +1,20 @@
 import { adminFilterInputClass } from "../adminStyles";
 
 const SORT_OPTIONS = [
+  { value: "createdAt", label: "Newly added" },
   { value: "name", label: "Sort by Name" },
   { value: "sku", label: "Sort by SKU" },
   { value: "price", label: "Sort by Price" },
   { value: "stock", label: "Sort by availability" },
+  { value: "status", label: "Sort by status" },
   { value: "brand", label: "Sort by Brand" },
+];
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All products" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "out_of_stock", label: "Out of stock" },
 ];
 
 function ProductListFilters({
@@ -13,6 +22,8 @@ function ProductListFilters({
   totalCount,
   selectedCategory,
   onCategoryChange,
+  statusFilter,
+  onStatusFilterChange,
   searchQuery,
   onSearchChange,
   sortBy,
@@ -34,6 +45,19 @@ function ProductListFilters({
           {categories.map((cat) => (
             <option key={cat} value={cat}>
               {cat}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => onStatusFilterChange(e.target.value)}
+          className={`${adminFilterInputClass} min-w-0 flex-1`}
+          aria-label="Filter by status"
+        >
+          {STATUS_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>

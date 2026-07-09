@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminNotifications } from "../../context/AdminNotificationContext";
+import AdminNotificationBell from "./AdminNotificationBell";
+import AdminDeviceNotificationPrompt from "./AdminDeviceNotificationPrompt";
+import AdminNotificationToasts from "./AdminNotificationToast";
 import {
   IconBanner,
   IconBrand,
@@ -16,12 +19,14 @@ import {
   IconUsers,
   IconCreateOrder,
   IconCoupon,
+  IconPromotional,
 } from "./AdminIcons";
 
 const PAGE_TITLES = {
   "/": "Dashboard",
   "/profile": "Admin Profile",
   "/banners": "Hero Banners",
+  "/offer-banners": "Offer Banners",
   "/categories/add": "Add Category",
   "/categories/show": "Show Category",
   "/products/add": "Add Product",
@@ -37,6 +42,7 @@ const PAGE_TITLES = {
   "/payments": "Payments",
   "/coupons/add": "Create Coupon",
   "/coupons/show": "Coupons",
+  "/promotional-notifications": "Promotional Notifications",
   "/support": "Support Messages",
 };
 
@@ -95,9 +101,11 @@ const NAV_ITEMS = [
   { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
   { type: "link", to: "/coupons/show", label: "Coupons", icon: IconCoupon },
+  { type: "link", to: "/promotional-notifications", label: "Promotional", icon: IconPromotional },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },
   { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
+  { type: "link", to: "/offer-banners", label: "Offer Banners", icon: IconPromotional },
 ];
 
 const navLinkClass = ({ isActive }) =>
@@ -162,6 +170,7 @@ function NavGroup({
   onExpand,
   openGroupKey,
   setOpenGroupKey,
+  showBadge = false,
 }) {
   const isGroupActive = location.pathname.startsWith(item.basePath);
   const open = openGroupKey === item.basePath;
@@ -192,7 +201,9 @@ function NavGroup({
             : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
         }`}
       >
-        <Icon className="w-5 h-5 shrink-0" />
+        <NavIconWithBadge showBadge={showBadge}>
+          <Icon className="w-5 h-5 shrink-0" />
+        </NavIconWithBadge>
       </button>
     );
   }
@@ -209,7 +220,9 @@ function NavGroup({
         }`}
       >
         <span className="flex items-center gap-3">
-          <Icon className="w-5 h-5 shrink-0" />
+          <NavIconWithBadge showBadge={showBadge}>
+            <Icon className="w-5 h-5 shrink-0" />
+          </NavIconWithBadge>
           {item.label}
         </span>
         <svg
@@ -288,6 +301,8 @@ function SidebarContent({
       <nav className="flex-1 space-y-1">
         {NAV_ITEMS.map((item) => {
           if (item.type === "group") {
+            const showOrdersBadge =
+              item.basePath === "/orders" && hasUnreadOrders;
             return (
               <NavGroup
                 key={item.label}
@@ -298,6 +313,7 @@ function SidebarContent({
                 onExpand={onExpand}
                 openGroupKey={openGroupKey}
                 setOpenGroupKey={setOpenGroupKey}
+                showBadge={showOrdersBadge}
               />
             );
           }
@@ -347,6 +363,8 @@ function AdminLayout() {
     hasUnreadSupport,
     hasUnreadOrders,
     hasUnreadPayments,
+    toasts,
+    dismissToast,
     markSupportAsSeen,
     markOrdersAsSeen,
     markPaymentsAsSeen,
@@ -440,15 +458,20 @@ function AdminLayout() {
             </h1>
           </div>
 
-          <div className="flex min-w-0 shrink items-center justify-end">
+          <div className="flex min-w-0 shrink items-center justify-end gap-2 sm:gap-3">
+            <AdminNotificationBell />
             {isDashboard ? <AdminProfileAvatar adminUser={adminUser} /> : null}
           </div>
         </header>
+
+        <AdminDeviceNotificationPrompt />
 
         <main className="min-w-0 overflow-x-hidden p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
+
+      <AdminNotificationToasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

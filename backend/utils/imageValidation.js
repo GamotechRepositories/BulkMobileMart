@@ -6,7 +6,7 @@ export const MAX_IMAGE_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_HERO_BANNER_BYTES = 15 * 1024 * 1024;
 
 export function getMaxUploadBytesForFolder(folder) {
-  if (folder === "hero-banners") {
+  if (folder === "hero-banners" || folder === "offer-banners") {
     return MAX_HERO_BANNER_BYTES;
   }
   return MAX_IMAGE_FILE_BYTES;

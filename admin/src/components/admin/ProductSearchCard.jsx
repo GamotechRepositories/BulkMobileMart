@@ -16,6 +16,9 @@ import {
 
 const btnCompactPrimary = `${btnPrimary} !px-2.5 !py-1.5 text-xs`;
 const btnCompactSecondary = `${btnSecondary} !px-2.5 !py-1.5 text-xs`;
+const qtyStepBtnClass =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-light bg-white text-base font-semibold leading-none text-text-primary transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50";
+const qtyInputClass = `${adminFilterInputClass} h-9 w-16 shrink-0 px-2 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`;
 const btnAddedClass =
   "inline-flex w-full items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 sm:w-auto";
 
@@ -194,8 +197,14 @@ export default function ProductSearchCard({
 
             <div className="col-span-2 min-w-0 lg:col-span-1">
               <label className={labelClass}>Quantity</label>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <button type="button" onClick={() => adjustQty(-1)} disabled={disabled} className={btnCompactSecondary}>
+              <div className="inline-flex max-w-full items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => adjustQty(-1)}
+                  disabled={disabled}
+                  className={qtyStepBtnClass}
+                  aria-label="Decrease quantity"
+                >
                   −
                 </button>
                 <input
@@ -210,9 +219,15 @@ export default function ProductSearchCard({
                       quantity: Math.max(minQty, Number(e.target.value) || minQty),
                     })
                   }
-                  className={`${adminFilterInputClass} min-w-0 flex-1 text-center`}
+                  className={qtyInputClass}
                 />
-                <button type="button" onClick={() => adjustQty(1)} disabled={disabled} className={btnCompactSecondary}>
+                <button
+                  type="button"
+                  onClick={() => adjustQty(1)}
+                  disabled={disabled}
+                  className={qtyStepBtnClass}
+                  aria-label="Increase quantity"
+                >
                   +
                 </button>
               </div>

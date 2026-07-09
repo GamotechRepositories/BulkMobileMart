@@ -799,8 +799,15 @@ export const getDashboardStats = async (req, res) => {
 
 export const getOrderUnreadCount = async (req, res) => {
   try {
-    const { since } = req.query;
+    const { since, statusGroup } = req.query;
     const filter = {};
+    const normalizedGroup = typeof statusGroup === "string" ? statusGroup.trim().toLowerCase() : "";
+
+    if (normalizedGroup === "attempted") {
+      filter.status = "attempted";
+    } else if (normalizedGroup === "placed") {
+      filter.status = { $ne: "attempted" };
+    }
 
     if (since) {
       const sinceDate = new Date(since);

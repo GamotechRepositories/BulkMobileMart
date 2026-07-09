@@ -13,6 +13,7 @@ import '../models/brand.dart';
 import '../models/cart_item.dart';
 import '../models/category.dart';
 import '../models/hero_banner.dart';
+import '../models/offer_banner.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/store_settings.dart';
@@ -29,6 +30,9 @@ class ApiService {
 
   Future<Response<dynamic>> getHeroBanners({String device = 'mobile'}) =>
       _dio.get('/api/herobanners', queryParameters: {'device': device});
+
+  Future<Response<dynamic>> getOfferBanners({String device = 'mobile'}) =>
+      _dio.get('/api/offerbanners', queryParameters: {'device': device});
 
   Future<Response<dynamic>> getCategories() => _dio.get('/api/categories');
 
@@ -324,6 +328,11 @@ class ApiService {
   Future<List<HeroBanner>> fetchHeroBanners({String device = 'mobile'}) async {
     final response = await getHeroBanners(device: device);
     return parseOnBackground(parseHeroBannersResponse, response.data);
+  }
+
+  Future<List<OfferBanner>> fetchOfferBanners({String device = 'mobile'}) async {
+    final response = await getOfferBanners(device: device);
+    return parseOnBackground(parseOfferBannersResponse, response.data);
   }
 
   Future<List<Category>> fetchCategories() async {

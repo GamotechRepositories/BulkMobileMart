@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../config/contact.dart';
 import '../../config/theme.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/utils/address_utils.dart';
@@ -260,7 +261,7 @@ class _InvoiceDocument extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Mobile Invoice | support@bulkmobilemart.com',
+                      'Mobile Invoice | ${ContactConfig.contactEmail}',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                     ),

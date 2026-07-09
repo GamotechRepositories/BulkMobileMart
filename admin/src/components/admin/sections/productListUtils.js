@@ -1,15 +1,28 @@
 const SORT_GETTERS = {
+  createdAt: (product) => new Date(product.createdAt || 0).getTime(),
   name: (product) => product.name?.toLowerCase() || "",
   price: (product) => Number(product.discountedPrice) || 0,
   stock: (product) => (product.inStock !== false ? 1 : 0),
+  status: (product) => (product.isActive ? 1 : 0),
   brand: (product) => product.brandName?.toLowerCase() || "",
 };
 
-export function filterAndSortProducts(products, { selectedCategory, searchQuery, sortBy, sortDir }) {
+export function filterAndSortProducts(
+  products,
+  { selectedCategory, statusFilter, searchQuery, sortBy, sortDir }
+) {
   let result = [...products];
 
   if (selectedCategory !== "all") {
     result = result.filter((product) => product.categories?.includes(selectedCategory));
+  }
+
+  if (statusFilter === "inactive") {
+    result = result.filter((product) => !product.isActive);
+  } else if (statusFilter === "out_of_stock") {
+    result = result.filter((product) => product.inStock === false);
+  } else if (statusFilter === "active") {
+    result = result.filter((product) => product.isActive && product.inStock !== false);
   }
 
   const query = searchQuery.trim().toLowerCase();

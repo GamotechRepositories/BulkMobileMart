@@ -36,6 +36,7 @@ abstract final class NotificationNavigator {
     final type = payload.type ?? '';
     final orderId = payload.orderId;
     final offerId = payload.offerId;
+    final linkTarget = payload.data['linkTarget']?.toString() ?? '';
     final resolvedNotificationId = notificationId ?? payload.notificationId;
 
     if (resolvedNotificationId != null && resolvedNotificationId.isNotEmpty) {
@@ -50,7 +51,15 @@ abstract final class NotificationNavigator {
       return;
     }
 
-    if (type == 'offer') {
+    if (type == 'offer' || type == 'promotional') {
+      if (linkTarget == 'hot_selling') {
+        _push(context, RoutePaths.hotSelling);
+        return;
+      }
+      if (linkTarget == 'home') {
+        _push(context, RoutePaths.home);
+        return;
+      }
       if (offerId != null && offerId.isNotEmpty) {
         _push(context, '/product/$offerId');
         return;
@@ -87,7 +96,16 @@ abstract final class NotificationNavigator {
       return;
     }
 
-    if (notification.isOffer) {
+    if (notification.isOffer || notification.type == 'promotional') {
+      final linkTarget = notification.data['linkTarget']?.toString() ?? '';
+      if (linkTarget == 'hot_selling') {
+        _push(context, RoutePaths.hotSelling);
+        return;
+      }
+      if (linkTarget == 'home') {
+        _push(context, RoutePaths.home);
+        return;
+      }
       final offerId = notification.offerId;
       if (offerId != null && offerId.isNotEmpty) {
         _push(context, '/product/$offerId');

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { submitSupportMessage, uploadImageFile } from "../api/api";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders";
 import { SUPPORT_ISSUE_OPTIONS } from "../utils/supportConstants";
+import { CONTACT_EMAIL } from "../config/contact";
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 1000;
@@ -14,7 +15,7 @@ const SUPPORT_CONTACT = {
   whatsapp: "+91 74002 22233",
   whatsappHref:
     "https://wa.me/917400222233?text=Hi%2C%20I%20need%20support%20with%20my%20order.",
-  email: "support@bulkmobilemart.com",
+  email: CONTACT_EMAIL,
 };
 
 const SUPPORT_FAQS = [

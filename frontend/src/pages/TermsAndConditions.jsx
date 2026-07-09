@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from "../config/contact";
+
 function TermsAndConditions() {
   return (
     <div className="info-page legal-page">
@@ -53,8 +55,8 @@ function TermsAndConditions() {
             <h2 className="text-xl font-bold text-text-primary mb-3">Contact</h2>
             <p>
               Questions about these terms? Reach us at{" "}
-              <a href="mailto:sales@bulkmobilemart.com" className="text-primary hover:underline">
-                sales@bulkmobilemart.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
+                {CONTACT_EMAIL}
               </a>{" "}
               or call +91 98765 43210.
             </p>

@@ -17,7 +17,7 @@ const supportIssueOptions = <SupportIssueOption>[
 
 const supportContactPhone = '+91 98765 43210';
 const supportContactPhoneHref = 'tel:+919876543210';
-const supportContactEmail = 'support@bulkmobilemart.com';
+const supportContactEmail = 'bulkmobilemart@gmail.com';
 const supportWhatsAppHref =
     'https://wa.me/917400222233?text=Hi%2C%20I%20need%20support%20with%20my%20order.';
 

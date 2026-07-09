@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../config/contact.dart';
 import '../../core/utils/address_utils.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/order_number.dart';
@@ -52,7 +53,7 @@ Future<Uint8List> generateInvoicePdf(
               ),
               pw.SizedBox(height: 6),
               pw.Text(
-                'Mobile Invoice | support@bulkmobilemart.com',
+                'Mobile Invoice | ${ContactConfig.contactEmail}',
                 style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 10),
               ),
             ],

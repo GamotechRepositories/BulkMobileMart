@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from "../config/contact";
+
 function PrivacyPolicy() {
   return (
     <div className="info-page legal-page">
@@ -46,8 +48,8 @@ function PrivacyPolicy() {
             <h2 className="text-xl font-bold text-text-primary mb-3">Contact Us</h2>
             <p>
               For privacy-related questions, email us at{" "}
-              <a href="mailto:sales@bulkmobilemart.com" className="text-primary hover:underline">
-                sales@bulkmobilemart.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
+                {CONTACT_EMAIL}
               </a>
               .
             </p>

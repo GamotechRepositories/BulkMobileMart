@@ -45,6 +45,9 @@ api.interceptors.request.use((config) => {
 export const getHeroBanners = (device = "desktop") =>
   api.get("/api/herobanners", { params: { device } });
 
+export const getOfferBanners = (device = "desktop") =>
+  api.get("/api/offerbanners", { params: { device } });
+
 export const getCategories = () => api.get("/api/categories");
 export const getCategoryById = (id) => api.get(`/api/categories/${id}`);
 

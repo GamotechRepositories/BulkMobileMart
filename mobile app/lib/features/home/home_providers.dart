@@ -45,6 +45,16 @@ final heroBannersProvider = FutureProvider((ref) async {
     ..sort((a, b) => a.order.compareTo(b.order));
 });
 
+final offerBannersProvider = FutureProvider((ref) async {
+  final banners = await ref.read(apiServiceProvider).fetchOfferBanners(
+        device: 'mobile',
+      );
+  return banners
+      .where((banner) => banner.isActive && banner.imageUrl.trim().isNotEmpty)
+      .toList()
+    ..sort((a, b) => a.order.compareTo(b.order));
+});
+
 final justArrivedProvider = FutureProvider<List<Product>>((ref) async {
   final products = await ref.read(apiServiceProvider).fetchProducts({
     'justArrived': true,

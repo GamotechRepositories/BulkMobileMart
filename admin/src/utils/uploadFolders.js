@@ -1,5 +1,6 @@
 export const UPLOAD_FOLDERS = {
   HERO_BANNERS: "hero-banners",
+  OFFER_BANNERS: "offer-banners",
   CATEGORIES: "categories",
   PRODUCTS: "products",
   BRANDS: "brands",
@@ -9,6 +10,7 @@ export const UPLOAD_FOLDERS = {
 export const DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_UPLOAD_BYTES_BY_FOLDER = {
   [UPLOAD_FOLDERS.HERO_BANNERS]: 15 * 1024 * 1024,
+  [UPLOAD_FOLDERS.OFFER_BANNERS]: 15 * 1024 * 1024,
 };
 
 export function getMaxUploadBytes(folder) {
@@ -21,6 +23,7 @@ export function formatMaxUploadMb(bytes) {
 
 export const UPLOAD_FOLDER_LABELS = {
   [UPLOAD_FOLDERS.HERO_BANNERS]: "Hero banners",
+  [UPLOAD_FOLDERS.OFFER_BANNERS]: "Offer banners",
   [UPLOAD_FOLDERS.CATEGORIES]: "Categories",
   [UPLOAD_FOLDERS.PRODUCTS]: "Products",
   [UPLOAD_FOLDERS.BRANDS]: "Brands",

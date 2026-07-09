@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CONTACT_EMAIL } from "../config/contact";
 
 function Contact() {
   const [form, setForm] = useState({
@@ -45,10 +46,10 @@ function Contact() {
               <div>
                 <h3 className="text-text-primary font-semibold mb-1">Email</h3>
                 <a
-                  href="mailto:sales@bulkmobilemart.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="text-primary hover:underline"
                 >
-                  sales@bulkmobilemart.com
+                  {CONTACT_EMAIL}
                 </a>
               </div>
               <div>

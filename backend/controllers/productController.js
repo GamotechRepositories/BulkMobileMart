@@ -553,11 +553,21 @@ export const getProducts = async (req, res) => {
 export const getAllProducts = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
-    const { search, category, sortBy, sortDir } = req.query;
+    const { search, category, sortBy, sortDir, status } = req.query;
     const filter = {};
 
     if (category && category !== "all") {
       filter.categories = category;
+    }
+
+    const statusFilter = typeof status === "string" ? status.trim().toLowerCase() : "";
+    if (statusFilter === "inactive") {
+      filter.isActive = false;
+    } else if (statusFilter === "out_of_stock") {
+      filter.inStock = false;
+    } else if (statusFilter === "active") {
+      filter.isActive = true;
+      filter.inStock = true;
     }
 
     const query = typeof search === "string" ? search.trim() : "";
@@ -579,8 +589,10 @@ export const getAllProducts = async (req, res) => {
       stock: "inStock",
       brand: "brandName",
       sku: "sku",
+      createdAt: "createdAt",
+      status: "isActive",
     };
-    const sortField = sortMap[sortBy] || "name";
+    const sortField = sortMap[sortBy] || "createdAt";
     const sortOrder = sortDir === "desc" ? -1 : 1;
 
     const [total, products] = await Promise.all([

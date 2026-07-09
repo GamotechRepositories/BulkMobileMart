@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { LOGO_URL } from "./Header";
+import { CONTACT_EMAIL } from "../../config/contact";
 
 const essentialLinks = [
   { to: "/", label: "Home" },
@@ -110,8 +111,8 @@ function Footer() {
           <ul className="space-y-2.5 text-sm">
             <li>Mumbai · Delhi · Bangalore</li>
             <li>
-              <a href="mailto:sales@bulkmobilemart.com" className="transition hover:text-primary">
-                sales@bulkmobilemart.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="transition hover:text-primary">
+                {CONTACT_EMAIL}
               </a>
             </li>
             <li>

@@ -52,6 +52,109 @@ input[type="number"] {
   appearance: textfield;
 }
 
+.opening-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fffaf6;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  pointer-events: none;
+  will-change: opacity, transform;
+  contain: layout style paint;
+}
+
+.opening-splash--exit {
+  opacity: 0;
+  transform: scale(1.015);
+  pointer-events: none;
+}
+
+.opening-splash__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  text-align: center;
+  will-change: transform, opacity;
+}
+
+.opening-splash__logo-wrap {
+  animation: opening-logo-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.opening-splash__logo {
+  width: min(52vw, 200px);
+  height: auto;
+  object-fit: contain;
+}
+
+.opening-splash__title {
+  margin: 1rem 0 0;
+  font-size: clamp(1.25rem, 4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #111111;
+  animation: opening-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
+}
+
+.opening-splash__tagline {
+  margin: 0.4rem 0 0;
+  font-size: clamp(0.78rem, 2.6vw, 0.9rem);
+  font-weight: 500;
+  color: #666666;
+  animation: opening-fade-up 0.38s ease 0.12s both;
+}
+
+.opening-splash__bar {
+  width: min(36vw, 140px);
+  height: 3px;
+  margin-top: 1rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ff7a00, #ffb347);
+  transform-origin: center;
+  animation: opening-bar-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+}
+
+@keyframes opening-logo-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes opening-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes opening-bar-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

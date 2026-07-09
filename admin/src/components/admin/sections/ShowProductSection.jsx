@@ -25,9 +25,10 @@ function ShowProductSection() {
   const [success, setSuccess] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("name");
-  const [sortDir, setSortDir] = useState("asc");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -46,7 +47,7 @@ function ShowProductSection() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCategory, searchQuery, sortBy, sortDir]);
+  }, [selectedCategory, statusFilter, searchQuery, sortBy, sortDir]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -59,6 +60,7 @@ function ShowProductSection() {
         sortDir,
       };
       if (selectedCategory !== "all") params.category = selectedCategory;
+      if (statusFilter !== "all") params.status = statusFilter;
       if (searchQuery.trim()) params.search = searchQuery.trim();
 
       const { data } = await getAllProducts(params);
@@ -76,7 +78,7 @@ function ShowProductSection() {
     } finally {
       setLoading(false);
     }
-  }, [page, selectedCategory, searchQuery, sortBy, sortDir]);
+  }, [page, selectedCategory, statusFilter, searchQuery, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProducts();
@@ -125,6 +127,8 @@ function ShowProductSection() {
         totalCount={pagination.total}
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}

@@ -6,6 +6,7 @@ import { ensureUserIndexes } from "./utils/ensureUserIndexes.js";
 import { ensureCartCompatibility } from "./utils/ensureCartCompatibility.js";
 import "./models/user.js";
 import heroBannerRoutes from "./routes/heroBannerRoutes.js";
+import offerBannerRoutes from "./routes/offerBannerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -54,6 +55,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/herobanners", heroBannerRoutes);
+app.use("/api/offerbanners", offerBannerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);

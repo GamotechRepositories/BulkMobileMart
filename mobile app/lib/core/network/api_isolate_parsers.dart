@@ -6,6 +6,7 @@ import '../../models/brand.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/hero_banner.dart';
+import '../../models/offer_banner.dart';
 import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../models/store_settings.dart';
@@ -32,6 +33,10 @@ List<Order> parseOrdersResponse(dynamic responseBody) {
 
 List<HeroBanner> parseHeroBannersResponse(dynamic responseBody) {
   return ApiResponseParser.parseList(responseBody, HeroBanner.fromJson);
+}
+
+List<OfferBanner> parseOfferBannersResponse(dynamic responseBody) {
+  return ApiResponseParser.parseList(responseBody, OfferBanner.fromJson);
 }
 
 List<Testimonial> parseTestimonialsResponse(dynamic responseBody) {

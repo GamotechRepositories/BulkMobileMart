@@ -4,6 +4,7 @@ import AdminRoute from "../components/admin/AdminRoute";
 import OverviewSection from "../components/admin/sections/OverviewSection";
 import AdminProfileSection from "../components/admin/sections/AdminProfileSection";
 import BannerSection from "../components/admin/sections/BannerSection";
+import OfferBannerSection from "../components/admin/sections/OfferBannerSection";
 import AddCategorySection from "../components/admin/sections/AddCategorySection";
 import ShowCategorySection from "../components/admin/sections/ShowCategorySection";
 import AddProductSection from "../components/admin/sections/AddProductSection";
@@ -22,6 +23,7 @@ import ShowTestimonialSection from "../components/admin/sections/ShowTestimonial
 import StoreSettingsSection from "../components/admin/sections/StoreSettingsSection";
 import AddCouponSection from "../components/admin/sections/AddCouponSection";
 import ShowCouponSection from "../components/admin/sections/ShowCouponSection";
+import PromotionalNotificationSection from "../components/admin/sections/PromotionalNotificationSection";
 import AdminLogin from "./AdminLogin";
 
 function Admin() {
@@ -34,6 +36,7 @@ function Admin() {
           <Route index element={<OverviewSection />} />
           <Route path="profile" element={<AdminProfileSection />} />
           <Route path="banners" element={<BannerSection />} />
+          <Route path="offer-banners" element={<OfferBannerSection />} />
           <Route path="categories/add" element={<AddCategorySection />} />
           <Route path="categories/show" element={<ShowCategorySection />} />
           <Route path="categories" element={<Navigate to="show" replace />} />
@@ -57,6 +60,7 @@ function Admin() {
           <Route path="payments" element={<PaymentSection />} />
           <Route path="payment-proofs" element={<Navigate to="/payments" replace />} />
           <Route path="support" element={<SupportSection />} />
+          <Route path="promotional-notifications" element={<PromotionalNotificationSection />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

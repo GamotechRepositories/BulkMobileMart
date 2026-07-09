@@ -32,6 +32,9 @@ import {
   getUnitPriceForQuantity,
 } from "../../utils/productPricing";
 
+const qtyStepBtnClass =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-light bg-white text-base font-semibold leading-none text-text-primary transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50";
+
 function ProductThumb({ product, className = "h-12 w-12" }) {
   const image = product?.productImages?.[0] || "";
   return (
@@ -368,21 +371,23 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pl-[2.875rem]">
-                    <div className="flex items-center gap-1">
+                    <div className="inline-flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => updateLineQty(item.key, -1)}
-                        className={`${btnSecondary} !px-2 !py-1 text-xs`}
+                        className={qtyStepBtnClass}
+                        aria-label="Decrease quantity"
                       >
                         −
                       </button>
-                      <span className="min-w-[1.75rem] text-center text-xs font-medium">
+                      <span className="min-w-[2.5rem] text-center text-sm font-medium">
                         {item.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => updateLineQty(item.key, 1)}
-                        className={`${btnSecondary} !px-2 !py-1 text-xs`}
+                        className={qtyStepBtnClass}
+                        aria-label="Increase quantity"
                       >
                         +
                       </button>
@@ -443,19 +448,21 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
                         {item.variantName || "—"}
                       </td>
                       <td className={adminCompactTdClass}>
-                        <div className="flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => updateLineQty(item.key, -1)}
-                            className={btnSecondary}
+                            className={qtyStepBtnClass}
+                            aria-label="Decrease quantity"
                           >
                             −
                           </button>
-                          <span className="min-w-[1.75rem] text-center text-xs">{item.quantity}</span>
+                          <span className="min-w-[2.5rem] text-center text-xs">{item.quantity}</span>
                           <button
                             type="button"
                             onClick={() => updateLineQty(item.key, 1)}
-                            className={btnSecondary}
+                            className={qtyStepBtnClass}
+                            aria-label="Increase quantity"
                           >
                             +
                           </button>

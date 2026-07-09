@@ -94,6 +94,19 @@ export function IconCoupon({ className = "w-5 h-5" }) {
   );
 }
 
+export function IconPromotional({ className = "w-5 h-5" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.34 3.66a1.5 1.5 0 012.32 0l1.2 1.48a1.5 1.5 0 001.17.57h1.52c1.18 0 1.67 1.51.71 2.2l-1.22.89a1.5 1.5 0 00-.55 1.67l.47 1.45c.36 1.12-.92 2.05-1.98 1.34l-1.28-.84a1.5 1.5 0 00-1.66 0l-1.28.84c-1.06.71-2.34-.22-1.98-1.34l.47-1.45a1.5 1.5 0 00-.55-1.67l-1.22-.89c-.96-.69-.47-2.2.71-2.2h1.52a1.5 1.5 0 001.17-.57l1.2-1.48z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5h15" />
+    </svg>
+  );
+}
+
 export function IconBrand({ className = "w-5 h-5" }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

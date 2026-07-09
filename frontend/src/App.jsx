@@ -27,6 +27,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import ShippingDetails from "./pages/ShippingDetails";
 import AppDownloadPrompt from "./components/mobile/AppDownloadPrompt";
+import OpeningSplash from "./components/layout/OpeningSplash";
+
 function AuthModalHost() {
   const { authModal, closeAuthModal, setAuthModal } = useAuth();
 
@@ -44,6 +46,7 @@ function AuthModalHost() {
 function App() {
   return (
     <BrowserRouter>
+      <OpeningSplash />
       <ScrollToTop />
       <AuthProvider>
         <CartProvider>

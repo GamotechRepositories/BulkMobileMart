@@ -95,7 +95,7 @@ const privacyPolicyPage = StaticPageContent(
     InfoSection(
       title: 'Contact Us',
       body:
-          'For privacy-related questions, email us at sales@bulkmobilemart.com.',
+          'For privacy-related questions, email us at bulkmobilemart@gmail.com.',
     ),
   ],
 );

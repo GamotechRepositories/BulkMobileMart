@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/theme.dart';
+import '../../config/contact.dart';
 import '../../routes/route_paths.dart';
 import 'static_content.dart';
 
@@ -117,7 +118,7 @@ class _ContactScreenState extends State<ContactScreen> {
           const SizedBox(height: 16),
           _contactInfo(Icons.phone, 'Phone / WhatsApp', '+91 98765 43210', 'tel:+919876543210'),
           const SizedBox(height: 10),
-          _contactInfo(Icons.email_outlined, 'Email', 'sales@bulkmobilemart.com', 'mailto:sales@bulkmobilemart.com'),
+          _contactInfo(Icons.email_outlined, 'Email', ContactConfig.contactEmail, 'mailto:${ContactConfig.contactEmail}'),
           const SizedBox(height: 10),
           const _ContactInfoStatic(Icons.schedule, 'Office Hours', 'Mon – Sat · 10:00 AM – 7:00 PM IST'),
           const SizedBox(height: 10),

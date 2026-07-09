@@ -1,5 +1,6 @@
 export const UPLOAD_FOLDERS = {
   HERO_BANNERS: "hero-banners",
+  OFFER_BANNERS: "offer-banners",
   CATEGORIES: "categories",
   PRODUCTS: "products",
   BRANDS: "brands",
@@ -19,6 +20,7 @@ export const ALLOWED_UPLOAD_FOLDERS = new Set(Object.values(UPLOAD_FOLDERS));
 
 export const ADMIN_UPLOAD_FOLDERS = new Set([
   UPLOAD_FOLDERS.HERO_BANNERS,
+  UPLOAD_FOLDERS.OFFER_BANNERS,
   UPLOAD_FOLDERS.CATEGORIES,
   UPLOAD_FOLDERS.PRODUCTS,
   UPLOAD_FOLDERS.BRANDS,

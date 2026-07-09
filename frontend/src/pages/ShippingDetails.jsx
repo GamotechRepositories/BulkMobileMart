@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from "../config/contact";
+
 function ShippingDetails() {
   return (
     <div className="info-page legal-page">
@@ -62,8 +64,8 @@ function ShippingDetails() {
             <h2 className="text-xl font-bold text-text-primary mb-3">Contact for Shipping Help</h2>
             <p>
               For shipping queries, email{" "}
-              <a href="mailto:sales@bulkmobilemart.com" className="text-primary hover:underline">
-                sales@bulkmobilemart.com
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
+                {CONTACT_EMAIL}
               </a>{" "}
               or call{" "}
               <a href="tel:+919876543210" className="text-primary hover:underline">

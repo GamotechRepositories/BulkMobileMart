@@ -6,6 +6,7 @@ import 'features/auth/auth_host.dart';
 import 'features/notifications/notification_bootstrap.dart';
 import 'routes/app_router.dart';
 import 'widgets/cart/cart_feedback_overlay.dart';
+import 'widgets/common/opening_splash_overlay.dart';
 import 'widgets/deep_link_listener.dart';
 
 class BulkMobileMartApp extends ConsumerWidget {
@@ -15,20 +16,22 @@ class BulkMobileMartApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    return DeepLinkListener(
-      child: NotificationBootstrap(
-        child: MaterialApp.router(
-          title: 'BulkMobileMart',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          routerConfig: router,
-          builder: (context, child) {
-            return AuthHost(
-              child: CartFeedbackOverlay(
-                child: child ?? const SizedBox.shrink(),
-              ),
-            );
-          },
+    return OpeningSplashHost(
+      child: DeepLinkListener(
+        child: NotificationBootstrap(
+          child: MaterialApp.router(
+            title: 'BulkMobileMart',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            routerConfig: router,
+            builder: (context, child) {
+              return AuthHost(
+                child: CartFeedbackOverlay(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

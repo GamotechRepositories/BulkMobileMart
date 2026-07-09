@@ -44,6 +44,19 @@ export const updateHeroBanner = (id, data) =>
   });
 export const deleteHeroBanner = (id) => api.delete(`/api/herobanners/${id}`);
 
+export const getOfferBanners = (device = "desktop") =>
+  api.get("/api/offerbanners", { params: { device } });
+export const getAllOfferBanners = (params) => api.get("/api/offerbanners/all", { params });
+export const addOfferBanner = (data) =>
+  api.post("/api/offerbanners", data, {
+    params: { device: data?.device || data?.bannerFor },
+  });
+export const updateOfferBanner = (id, data) =>
+  api.put(`/api/offerbanners/${id}`, data, {
+    params: { device: data?.device || data?.bannerFor },
+  });
+export const deleteOfferBanner = (id) => api.delete(`/api/offerbanners/${id}`);
+
 export const getAllCategories = (params) => api.get("/api/categories/all", { params });
 export const addCategory = (data) => api.post("/api/categories", data);
 export const updateCategory = (id, data) => api.put(`/api/categories/${id}`, data);
@@ -121,6 +134,14 @@ export const updateAdminPaymentProof = (id, data) =>
 export const getAdminSupportMessages = (params) => api.get("/api/support/admin", { params });
 export const getAdminSupportUnreadCount = (params) =>
   api.get("/api/support/admin/unread-count", { params });
+export const getAdminInboxSummary = (params) =>
+  api.get("/api/admin/notifications/inbox-summary", { params });
+export const getPromotionalAudienceStats = () =>
+  api.get("/api/admin/notifications/promotional/audience");
+export const getPromotionalNotificationHistory = (params) =>
+  api.get("/api/admin/notifications/promotional/history", { params });
+export const sendPromotionalNotification = (data) =>
+  api.post("/api/admin/notifications/promotional/send", data);
 export const getAdminSupportMessage = (id) => api.get(`/api/support/admin/${id}`);
 export const updateAdminSupportStatus = (id, data) =>
   api.patch(`/api/support/admin/${id}`, data);

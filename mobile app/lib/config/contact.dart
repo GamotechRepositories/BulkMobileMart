@@ -16,6 +16,8 @@ class SocialLink {
 }
 
 abstract final class ContactConfig {
+  static const contactEmail = 'bulkmobilemart@gmail.com';
+
   static const whatsAppGroupUrl =
       'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8';
 
