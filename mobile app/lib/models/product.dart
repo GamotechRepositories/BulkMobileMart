@@ -27,6 +27,7 @@ class Product {
     this.specifications = const [],
     this.minOrderQuantity,
     this.stepByQuantity,
+    this.purchaseCount = 0,
   });
 
   final String id;
@@ -53,6 +54,7 @@ class Product {
   final List<ProductSpecification> specifications;
   final int? minOrderQuantity;
   final int? stepByQuantity;
+  final int purchaseCount;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -105,6 +107,7 @@ class Product {
         json['stepByQuantity'],
         legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
       ),
+      purchaseCount: _toInt(json['purchaseCount']),
     );
   }
 }

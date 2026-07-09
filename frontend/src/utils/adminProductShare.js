@@ -16,20 +16,6 @@ function getMimeType(ext) {
   return types[ext] || "image/jpeg";
 }
 
-function stripHtml(value) {
-  if (!value) return "";
-  return String(value)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 async function fetchImageBlob(imageUrl) {
   if (!imageUrl) return null;
 
@@ -56,15 +42,10 @@ async function fetchImageBlob(imageUrl) {
 export function buildAdminProductShareContent(product) {
   const productName = product?.name?.trim() || "Product";
   const brandName = product?.brandName?.trim() || "";
-  const description = stripHtml(product?.description);
 
   const lines = [productName];
   if (brandName) {
     lines.push(`Brand: ${brandName}`);
-  }
-  if (description) {
-    lines.push("");
-    lines.push(description);
   }
 
   return {
@@ -72,7 +53,7 @@ export function buildAdminProductShareContent(product) {
     text: lines.join("\n"),
     productName,
     brandName,
-    description,
+    description: "",
   };
 }
 

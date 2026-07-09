@@ -22,7 +22,6 @@ import {
   getCustomerName,
   getCustomerPhone,
   getOrderDisplayId,
-  getOrderMessage,
   getOrderStatusLabel,
   getPaymentStatus,
   getPaymentStatusBadgeClass,
@@ -213,8 +212,7 @@ function OrderSection() {
               <col className="w-[7%]" />
               <col className="w-[7%]" />
               <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
+              <col className="w-[10%]" />
               <col className="w-[6%]" />
             </colgroup>
             <thead>
@@ -227,7 +225,6 @@ function OrderSection() {
                 <th className={adminCompactThClass}>Status</th>
                 <th className={adminCompactThClass}>Payment</th>
                 <th className={adminCompactThClass}>Transaction ID</th>
-                <th className={adminCompactThClass}>Message</th>
                 <th className={adminCompactThClass}>Date</th>
                 <th className={adminCompactThClass}>Delete</th>
               </tr>
@@ -280,11 +277,6 @@ function OrderSection() {
                     <td className={`${adminCompactTdClass} text-neutral-600`}>
                       <span className="line-clamp-2 break-all">
                         {transactionId || "—"}
-                      </span>
-                    </td>
-                    <td className={`${adminCompactTdClass} text-neutral-600`}>
-                      <span className="line-clamp-2 break-words">
-                        {getOrderMessage(order) || "—"}
                       </span>
                     </td>
                     <td className={`${adminCompactTdClass} text-neutral-600`}>

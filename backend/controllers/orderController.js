@@ -35,6 +35,48 @@ import { GIFT_HAMPER_STATUSES } from "../../shared/store/giftHamper.js";
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const INDIA_TZ = "Asia/Kolkata";
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
+const ORDER_ADDRESS_REQUIRED_FIELDS = [
+  "fullName",
+  "number",
+  "email",
+  "shopNo",
+  "shopName",
+  "fullAddress",
+  "landmark",
+  "city",
+  "state",
+  "pincode",
+];
+
+function normalizeManualTrackingInput(payload = {}) {
+  const enabled = Boolean(payload.enabled);
+  const note = String(payload.note || "").trim().slice(0, 500);
+  const evidenceUrl = String(payload.evidenceUrl || "").trim().slice(0, 500);
+  const evidenceName = String(payload.evidenceName || "").trim().slice(0, 200);
+
+  return {
+    enabled,
+    note: enabled ? note : "",
+    evidenceUrl: enabled ? evidenceUrl : "",
+    evidenceName: enabled ? evidenceName : "",
+    updatedAt: enabled ? new Date() : null,
+  };
+}
+
+function normalizeOrderDeliveryAddressInput(payload = {}) {
+  return {
+    fullName: String(payload.fullName || "").trim(),
+    number: String(payload.number || "").trim(),
+    email: String(payload.email || "").trim().toLowerCase(),
+    shopNo: String(payload.shopNo || "").trim(),
+    shopName: String(payload.shopName || "").trim(),
+    fullAddress: String(payload.fullAddress || "").trim(),
+    landmark: String(payload.landmark || "").trim(),
+    city: String(payload.city || "").trim(),
+    state: String(payload.state || "").trim(),
+    pincode: String(payload.pincode || "").trim(),
+  };
+}
 
 function applyShipmentOnOrder(order, shipment, metadata = {}) {
   order.shipment = {
@@ -52,6 +94,13 @@ function applyShipmentOnOrder(order, shipment, metadata = {}) {
     note: String(metadata.shipmentNote || "").trim(),
     evidenceUrl: String(metadata.evidenceUrl || "").trim(),
     evidenceName: String(metadata.evidenceName || "").trim(),
+    manualTracking: order?.shipment?.manualTracking || {
+      enabled: false,
+      note: "",
+      evidenceUrl: "",
+      evidenceName: "",
+      updatedAt: null,
+    },
   };
 }
 
@@ -837,7 +886,15 @@ export const getAllOrders = async (req, res) => {
 
 export const updateOrder = async (req, res) => {
   try {
-    const { status, paymentStatus, items, deliveryCharges, notificationStage } = req.body;
+    const {
+      status,
+      paymentStatus,
+      items,
+      deliveryCharges,
+      notificationStage,
+      manualTracking,
+      deliveryAddress,
+    } = req.body;
     const updates = {};
 
     const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
@@ -931,6 +988,45 @@ export const updateOrder = async (req, res) => {
         });
       }
       updates.paymentStatus = paymentStatus;
+    }
+
+    if (deliveryAddress !== undefined) {
+      if (!deliveryAddress || typeof deliveryAddress !== "object") {
+        return res.status(400).json({
+          success: false,
+          message: "Delivery address is invalid",
+        });
+      }
+
+      if (["delivered", "cancelled"].includes(existingOrder.status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Delivery address cannot be changed after order is delivered or cancelled",
+        });
+      }
+
+      const normalizedAddress = normalizeOrderDeliveryAddressInput(deliveryAddress);
+      const missingField = ORDER_ADDRESS_REQUIRED_FIELDS.find(
+        (field) => !normalizedAddress[field]
+      );
+      if (missingField) {
+        return res.status(400).json({
+          success: false,
+          message: "All delivery address fields are required",
+        });
+      }
+
+      updates.deliveryAddress = normalizedAddress;
+    }
+
+    if (manualTracking !== undefined) {
+      if (!manualTracking || typeof manualTracking !== "object") {
+        return res.status(400).json({
+          success: false,
+          message: "Manual tracking update is invalid",
+        });
+      }
+      updates["shipment.manualTracking"] = normalizeManualTrackingInput(manualTracking);
     }
 
     if (updates.status === "delivered") {
@@ -1059,6 +1155,13 @@ export const createOrderShipment = async (req, res) => {
       note: overrides.shipmentNote || "",
       evidenceUrl: overrides.evidenceUrl || "",
       evidenceName: overrides.evidenceName || "",
+      manualTracking: order.shipment?.manualTracking || {
+        enabled: false,
+        note: "",
+        evidenceUrl: "",
+        evidenceName: "",
+        updatedAt: null,
+      },
     };
     order.markModified("shipment");
 
@@ -1121,6 +1224,13 @@ export const linkOrderShipmentTracking = async (req, res) => {
         "Linked from Envia portal",
       syncedAt: new Date(),
       events: order.shipment?.events || [],
+      manualTracking: order.shipment?.manualTracking || {
+        enabled: false,
+        note: "",
+        evidenceUrl: "",
+        evidenceName: "",
+        updatedAt: null,
+      },
     };
 
     try {

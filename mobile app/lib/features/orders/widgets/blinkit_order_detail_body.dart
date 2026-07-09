@@ -649,6 +649,26 @@ class _OrderDetailsSection extends StatelessWidget {
             label: 'Order placed at',
             value: formatOrderDateTime(order.createdAt),
           ),
+          if (order.shipment.manualTracking.hasDetails &&
+              order.shipment.manualTracking.note.trim().isNotEmpty)
+            _DetailField(
+              label: 'Tracking update',
+              value: order.shipment.manualTracking.note,
+            ),
+          if (order.shipment.manualTracking.hasDetails &&
+              order.shipment.manualTracking.evidenceUrl.trim().isNotEmpty)
+            _DetailField(
+              label: 'Tracking photo',
+              value: order.shipment.manualTracking.evidenceName.trim().isNotEmpty
+                  ? order.shipment.manualTracking.evidenceName
+                  : 'View photo',
+              onTap: () => openExternalUrl(
+                order.shipment.manualTracking.evidenceUrl,
+                context: context,
+                errorMessage: 'Could not open tracking photo.',
+              ),
+              valueColor: AppColors.navSelected,
+            ),
           if (order.shipment.note.trim().isNotEmpty)
             _DetailField(
               label: 'Shipment note',

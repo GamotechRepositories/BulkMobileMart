@@ -157,7 +157,7 @@ function CategoryHeaderSection({ category, categoryName, subcategories = [], act
       {subcategories.length > 0 ? (
         <>
           <hr className="my-2.5 border-border-light" />
-          <div>
+          <div className="sticky top-[7.25rem] z-20 -mx-3 bg-white px-3 py-1 lg:static lg:mx-0 lg:bg-transparent lg:px-0 lg:py-0">
             <p className="mb-1.5 text-xs font-bold text-text-primary sm:text-sm">
               Filter by Subcategory:
             </p>

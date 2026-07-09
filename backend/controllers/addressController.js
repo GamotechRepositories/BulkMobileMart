@@ -151,6 +151,58 @@ export const addAddressForUser = async (req, res) => {
   }
 };
 
+export const updateAddressForUser = async (req, res) => {
+  try {
+    const { userId, addressId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const address = await Address.findOne({ _id: addressId, user: userId });
+    if (!address) {
+      return res.status(404).json({
+        success: false,
+        message: "Address not found",
+      });
+    }
+
+    const normalized = normalizeAddressBody({ ...address.toObject(), ...req.body });
+    const missing = getMissingFields(normalized);
+    if (missing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "All address fields are required",
+      });
+    }
+
+    const { isDefault } = req.body;
+    if (isDefault) {
+      await Address.updateMany(
+        { user: userId, _id: { $ne: addressId } },
+        { $set: { isDefault: false } }
+      );
+    }
+
+    REQUIRED_FIELDS.forEach((field) => {
+      address[field] = normalized[field];
+    });
+    if (isDefault !== undefined) address.isDefault = isDefault;
+
+    await address.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Address updated successfully",
+      data: address,
+    });
+  } catch (error) {
+    const message = formatValidationError(error);
+    const status = error.name === "ValidationError" ? 400 : 500;
+    res.status(status).json({ success: false, message });
+  }
+};
+
 export const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;

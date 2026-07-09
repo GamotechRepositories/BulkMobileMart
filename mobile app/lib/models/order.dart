@@ -14,6 +14,7 @@ class OrderShipment {
     this.note = '',
     this.evidenceUrl = '',
     this.evidenceName = '',
+    this.manualTracking = const OrderManualTracking(),
   });
 
   final String provider;
@@ -27,11 +28,14 @@ class OrderShipment {
   final String note;
   final String evidenceUrl;
   final String evidenceName;
+  final OrderManualTracking manualTracking;
 
   bool get hasTracking => trackingNumber.trim().isNotEmpty;
 
   bool get hasShipmentDetails =>
-      note.trim().isNotEmpty || evidenceUrl.trim().isNotEmpty;
+      manualTracking.hasDetails ||
+      note.trim().isNotEmpty ||
+      evidenceUrl.trim().isNotEmpty;
 
   String get displayStatus {
     final value = status.trim().isNotEmpty ? status.trim() : statusMessage.trim();
@@ -55,6 +59,37 @@ class OrderShipment {
       labelUrl: json['labelUrl']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       statusMessage: json['statusMessage']?.toString() ?? '',
+      note: json['note']?.toString() ?? '',
+      evidenceUrl: json['evidenceUrl']?.toString() ?? '',
+      evidenceName: json['evidenceName']?.toString() ?? '',
+      manualTracking: json['manualTracking'] is Map<String, dynamic>
+          ? OrderManualTracking.fromJson(
+              json['manualTracking'] as Map<String, dynamic>,
+            )
+          : const OrderManualTracking(),
+    );
+  }
+}
+
+class OrderManualTracking {
+  const OrderManualTracking({
+    this.enabled = false,
+    this.note = '',
+    this.evidenceUrl = '',
+    this.evidenceName = '',
+  });
+
+  final bool enabled;
+  final String note;
+  final String evidenceUrl;
+  final String evidenceName;
+
+  bool get hasDetails =>
+      enabled && (note.trim().isNotEmpty || evidenceUrl.trim().isNotEmpty);
+
+  factory OrderManualTracking.fromJson(Map<String, dynamic> json) {
+    return OrderManualTracking(
+      enabled: json['enabled'] == true,
       note: json['note']?.toString() ?? '',
       evidenceUrl: json['evidenceUrl']?.toString() ?? '',
       evidenceName: json['evidenceName']?.toString() ?? '',

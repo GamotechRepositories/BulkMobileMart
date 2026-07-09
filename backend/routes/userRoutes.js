@@ -2,7 +2,11 @@ import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 import { signup, login, sendOtpLogin, verifyOtpLogin, completeOtpSignup, getMe, updateMe, changeMyPassword, sendAdminSecurityOtp, requestAdminPasswordReset, resetAdminPassword, createUser, getUsers, updateUser, deleteUser } from "../controllers/userController.js";
 import { saveFcmToken } from "../controllers/fcmTokenController.js";
-import { addAddressForUser, getAddressesForUser } from "../controllers/addressController.js";
+import {
+  addAddressForUser,
+  getAddressesForUser,
+  updateAddressForUser,
+} from "../controllers/addressController.js";
 
 const router = express.Router();
 
@@ -22,6 +26,7 @@ router.get("/", protect, requireAdmin, getUsers);
 router.post("/", protect, requireAdmin, createUser);
 router.get("/:userId/addresses", protect, requireAdmin, getAddressesForUser);
 router.post("/:userId/addresses", protect, requireAdmin, addAddressForUser);
+router.put("/:userId/addresses/:addressId", protect, requireAdmin, updateAddressForUser);
 router.put("/:id", protect, requireAdmin, updateUser);
 router.delete("/:id", protect, requireAdmin, deleteUser);
 

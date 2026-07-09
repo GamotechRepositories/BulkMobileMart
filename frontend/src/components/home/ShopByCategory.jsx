@@ -73,6 +73,9 @@ function ShopByCategory() {
                 <p className="text-center text-[11px] sm:text-xs md:text-sm font-bold text-white leading-snug px-1">
                   {item.categoryName}
                 </p>
+                <p className="mt-1 text-center text-[10px] sm:text-[11px] text-neutral-400">
+                  {Number(item.productCount) || 0} products
+                </p>
               </Link>
             ))}
           </div>

@@ -143,6 +143,13 @@ const orderSchema = new mongoose.Schema(
       note: { type: String, default: "", trim: true, maxlength: 500 },
       evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
       evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+      manualTracking: {
+        enabled: { type: Boolean, default: false },
+        note: { type: String, default: "", trim: true, maxlength: 500 },
+        evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+        evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+        updatedAt: { type: Date, default: null },
+      },
     },
     giftHamper: {
       type: orderGiftHamperSchema,

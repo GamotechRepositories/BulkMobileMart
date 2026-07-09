@@ -367,19 +367,36 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               if (showMoq || showStepByQty || isMultiVariant(product))
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    [
-                      if (showMoq) 'MOQ: $minOrderQuantity Pieces',
-                      if (showStepByQty) 'Step by QTY: $quantityStep Pieces',
-                      if (isMultiVariant(product))
-                        isProductInStock(product, activeVariantName)
-                            ? 'In Stock'
-                            : 'Out of Stock',
-                    ].join(' · '),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          [
+                            if (showMoq) 'MOQ: $minOrderQuantity Pieces',
+                            if (showStepByQty) 'Step by QTY: $quantityStep Pieces',
+                            if (isMultiVariant(product))
+                              isProductInStock(product, activeVariantName)
+                                  ? 'In Stock'
+                                  : 'Out of Stock',
+                          ].join(' · '),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Purchased ${product.purchaseCount} times',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               Consumer(
@@ -533,7 +550,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           minOrderQuantity: minOrderQuantity,
           maxQuantity: maxQuantity,
           onAddToCart: _addToCart,
-          onBuyNow: _buyNow,
           onQuantityDecrease: _handleQuantityDecrease,
           onQuantityIncrease: _handleQuantityIncrease,
         ),
@@ -830,25 +846,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  Future<void> _buyNow(
-    Product product,
-    String activeVariantName,
-    String selectionColor,
-  ) async {
-    final availableColors = getAvailableColors(product, activeVariantName);
-    if (availableColors.isNotEmpty && selectionColor.isEmpty) return;
-
-    final result = await ref.read(cartControllerProvider.notifier).addToCart(
-          product,
-          _quantity,
-          buyNow: true,
-          variantName: activeVariantName,
-          colorName: selectionColor,
-        );
-    if (result == AddToCartResult.requiresLogin && mounted) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
-  }
 }
 
 class _ProductDetailBottomBar extends ConsumerWidget {
@@ -861,7 +858,6 @@ class _ProductDetailBottomBar extends ConsumerWidget {
     required this.minOrderQuantity,
     required this.maxQuantity,
     required this.onAddToCart,
-    required this.onBuyNow,
     required this.onQuantityDecrease,
     required this.onQuantityIncrease,
   });
@@ -879,11 +875,6 @@ class _ProductDetailBottomBar extends ConsumerWidget {
     String selectionColor,
     BuildContext flySourceContext,
   ) onAddToCart;
-  final Future<void> Function(
-    Product product,
-    String activeVariantName,
-    String selectionColor,
-  ) onBuyNow;
   final Future<void> Function(
     Product product,
     String activeVariantName,
@@ -944,16 +935,18 @@ class _ProductDetailBottomBar extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
-              onPressed: inStock
-                  ? () => onBuyNow(product, activeVariantName, selectionColor)
-                  : null,
+              onPressed: () => showProductShareSheet(
+                context,
+                product,
+                variantName: activeVariantName,
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary, width: 2),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: const Text(
-                'Buy Now',
+                'Share Product',
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),

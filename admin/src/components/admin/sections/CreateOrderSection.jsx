@@ -4,6 +4,7 @@ import {
   createUserAddress,
   getUserAddresses,
   getUsers,
+  updateUserAddress,
 } from "../../../api/api";
 import AdminAlert from "../AdminAlert";
 import AdminAddressForm from "../AdminAddressForm";
@@ -29,6 +30,7 @@ function CreateOrderSection() {
   const [existingAddresses, setExistingAddresses] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -45,9 +47,11 @@ function CreateOrderSection() {
       if (addresses.length > 0) {
         setSavedAddress(addresses[0]);
         setShowAddressForm(false);
+        setEditingAddressId("");
       } else {
         setSavedAddress(null);
         setShowAddressForm(true);
+        setEditingAddressId("");
       }
     } catch (err) {
       setExistingAddresses([]);
@@ -64,6 +68,7 @@ function CreateOrderSection() {
       setExistingAddresses([]);
       setSavedAddress(null);
       setShowAddressForm(false);
+      setEditingAddressId("");
       return;
     }
     loadUserAddresses(selectedUser._id);
@@ -102,6 +107,7 @@ function CreateOrderSection() {
     setSavedAddress(null);
     setExistingAddresses([]);
     setShowAddressForm(false);
+    setEditingAddressId("");
     setSearchResults([]);
     setHasSearched(false);
     setPendingSelectId("");
@@ -149,12 +155,26 @@ function CreateOrderSection() {
       setSavingAddress(true);
       setError("");
       setSuccess("");
-      const { data } = await createUserAddress(selectedUser._id, addressPayload);
-      const address = data.data;
+      let address = null;
+      if (editingAddressId) {
+        const { data } = await updateUserAddress(selectedUser._id, editingAddressId, addressPayload);
+        address = data.data;
+        setExistingAddresses((prev) =>
+          prev.map((item) => (item._id === editingAddressId ? address : item))
+        );
+      } else {
+        const { data } = await createUserAddress(selectedUser._id, addressPayload);
+        address = data.data;
+        setExistingAddresses((prev) => [address, ...prev]);
+      }
       setSavedAddress(address);
-      setExistingAddresses((prev) => [address, ...prev]);
       setShowAddressForm(false);
-      setSuccess("Address saved. Add products to create the order.");
+      setEditingAddressId("");
+      setSuccess(
+        editingAddressId
+          ? "Address updated. Continue to checkout."
+          : "Address saved. Add products to create the order."
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save address");
     } finally {
@@ -167,19 +187,23 @@ function CreateOrderSection() {
     setError("");
   };
 
-  const addressInitial = selectedUser
-    ? {
-        fullName: selectedUser.name || "",
-        number: selectedUser.phone || "",
-        email: selectedUser.email || "",
-        shopNo: "",
-        shopName: "",
-        fullAddress: "",
-        landmark: "",
-        city: "",
-        state: "",
-        pincode: "",
-      }
+  const addressInitial = showAddressForm
+    ? editingAddressId
+      ? existingAddresses.find((item) => item._id === editingAddressId) || null
+      : selectedUser
+        ? {
+            fullName: selectedUser.name || "",
+            number: selectedUser.phone || "",
+            email: selectedUser.email || "",
+            shopNo: "",
+            shopName: "",
+            fullAddress: "",
+            landmark: "",
+            city: "",
+            state: "",
+            pincode: "",
+          }
+        : null
     : null;
 
   return (
@@ -300,13 +324,30 @@ function CreateOrderSection() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-bold text-text-primary">Delivery Address</h2>
               {!showAddressForm ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAddressForm(true)}
-                  className={btnSecondary}
-                >
-                  Add New Address
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {savedAddress?._id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAddressId(savedAddress._id);
+                        setShowAddressForm(true);
+                      }}
+                      className={btnSecondary}
+                    >
+                      Edit Address
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAddressId("");
+                      setShowAddressForm(true);
+                    }}
+                    className={btnSecondary}
+                  >
+                    Add New Address
+                  </button>
+                </div>
               ) : null}
             </div>
 
@@ -321,6 +362,7 @@ function CreateOrderSection() {
                     const address = existingAddresses.find((item) => item._id === e.target.value);
                     setSavedAddress(address || null);
                     setShowAddressForm(false);
+                    setEditingAddressId("");
                   }}
                   className={adminFilterInputClass}
                 >
@@ -350,11 +392,15 @@ function CreateOrderSection() {
                   initial={addressInitial}
                   onSubmit={handleSaveAddress}
                   submitting={savingAddress}
+                  submitLabel={editingAddressId ? "Update Address" : "Save Address"}
                 />
                 {existingAddresses.length > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setShowAddressForm(false)}
+                    onClick={() => {
+                      setShowAddressForm(false);
+                      setEditingAddressId("");
+                    }}
                     className={`${btnSecondary} mt-3`}
                   >
                     Cancel

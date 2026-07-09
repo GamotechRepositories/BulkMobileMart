@@ -84,6 +84,8 @@ export const createUser = (data) => api.post("/api/users", data);
 export const getUserAddresses = (userId) => api.get(`/api/users/${userId}/addresses`);
 export const createUserAddress = (userId, data) =>
   api.post(`/api/users/${userId}/addresses`, data);
+export const updateUserAddress = (userId, addressId, data) =>
+  api.put(`/api/users/${userId}/addresses/${addressId}`, data);
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 

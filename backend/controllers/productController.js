@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import Order from "../models/order/Order.js";
 import mongoose from "mongoose";
 import { normalizeOptionalQuantity, resolvePricingFields } from "../utils/productPricing.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
@@ -422,6 +423,33 @@ const validateRequiredFields = (payload) => {
 
 const sortOptions = { "categories.0": 1, subcategory: 1, createdAt: -1 };
 
+async function getPurchaseCountsByProductIds(productIds = []) {
+  if (!Array.isArray(productIds) || productIds.length === 0) {
+    return new Map();
+  }
+
+  const counts = await Order.aggregate([
+    {
+      $match: {
+        status: { $nin: ["attempted", "cancelled"] },
+        "items.product": { $in: productIds },
+      },
+    },
+    { $unwind: "$items" },
+    { $match: { "items.product": { $in: productIds } } },
+    {
+      $group: {
+        _id: "$items.product",
+        purchaseCount: { $sum: "$items.quantity" },
+      },
+    },
+  ]);
+
+  return new Map(
+    counts.map((entry) => [String(entry._id), Number(entry.purchaseCount) || 0])
+  );
+}
+
 export const getProducts = async (req, res) => {
   try {
     const filter = { isActive: true };
@@ -508,7 +536,15 @@ export const getProducts = async (req, res) => {
     }
 
     const products = await query;
-    res.status(200).json({ success: true, data: products });
+    const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
+    const data = products.map((item) => {
+      const product = item.toObject();
+      return {
+        ...product,
+        purchaseCount: purchaseCounts.get(String(item._id)) || 0,
+      };
+    });
+    res.status(200).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -568,7 +604,14 @@ export const getProductById = async (req, res) => {
         .json({ success: false, message: "Product not found" });
     }
 
-    res.status(200).json({ success: true, data: product });
+    const purchaseCounts = await getPurchaseCountsByProductIds([product._id]);
+    res.status(200).json({
+      success: true,
+      data: {
+        ...product.toObject(),
+        purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

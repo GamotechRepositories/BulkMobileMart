@@ -199,9 +199,14 @@ function CategoryCard({ category }) {
           />
         </div>
       </div>
-      <p className="line-clamp-2 px-1 pb-2 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-2 sm:pb-4 sm:text-sm">
+      <p className="line-clamp-2 px-1 pb-0.5 text-center text-[10px] font-extrabold uppercase leading-tight tracking-tight text-neutral-900 transition-colors duration-300 group-hover:text-primary sm:px-2 sm:pb-1 sm:text-sm">
         {category.name.replace(/&/g, " / ")}
       </p>
+      {Number.isFinite(category.productCount) ? (
+        <p className="px-1 pb-2 text-center text-[9px] font-medium text-neutral-500 sm:px-2 sm:pb-3 sm:text-[11px]">
+          {Math.max(0, Number(category.productCount))} products
+        </p>
+      ) : null}
     </Link>
   );
 }
@@ -257,6 +262,7 @@ function CategoryNav() {
                 ? cat.categoryImage
                 : undefined,
               icon: ICON_TYPES[index % ICON_TYPES.length],
+              productCount: Number(cat.productCount) || 0,
             }))
           );
         }

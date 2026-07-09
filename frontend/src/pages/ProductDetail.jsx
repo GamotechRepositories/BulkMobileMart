@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -21,10 +21,6 @@ import {
 import {
   getDecreasedCartQuantityForProduct,
 } from "../utils/cartDefaults";
-import {
-  buildBuyNowCheckoutItem,
-  setBuyNowCheckout,
-} from "../utils/checkoutSession";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import ProductVideo from "../components/product/ProductVideo";
 import ProductDescriptionContent from "../components/product/ProductDescriptionContent";
@@ -421,7 +417,8 @@ function ActionButtons({
   onAddToCart,
   onDecrease,
   onIncrease,
-  onBuyNow,
+  product,
+  shareImageUrl,
   className = "",
 }) {
   return (
@@ -445,24 +442,19 @@ function ActionButtons({
           Add to Cart
         </button>
       )}
-      <button
-        type="button"
-        onClick={onBuyNow}
-        disabled={!inStock}
-        className="flex-1 rounded-md border-2 border-primary bg-white px-6 py-3.5 text-sm font-bold text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Buy Now
-      </button>
+      <ProductAdminShareMenu
+        className="flex-1 [&>button]:h-full [&>button]:w-full [&>button]:rounded-md [&>button]:border-2 [&>button]:border-primary [&>button]:bg-white [&>button]:px-6 [&>button]:py-3.5 [&>button]:text-sm [&>button]:font-bold [&>button]:text-primary [&>button]:transition hover:[&>button]:bg-primary/5"
+        product={product}
+        imageUrl={shareImageUrl}
+      />
     </div>
   );
 }
 
 function ProductDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { addToCart, items: cartItems, incrementCartItem, decrementCartItem } = useCart();
-  const { user, openAuthModal } = useAuth();
-  const buyNowPendingRef = useRef(false);
+  const { openAuthModal } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -685,34 +677,6 @@ function ProductDetail() {
     setQuantity((prev) => Math.min(maxQty, prev + step));
   };
 
-  const handleBuyNow = async () => {
-    if (!product) return;
-    if (availableColors.length > 0 && !selectedColor) return;
-
-    const checkoutItem = buildBuyNowCheckoutItem(
-      product,
-      quantity,
-      activeVariantName,
-      selectedColor
-    );
-    setBuyNowCheckout(checkoutItem);
-
-    if (!user) {
-      buyNowPendingRef.current = true;
-      openAuthModal("login");
-      return;
-    }
-
-    navigate("/checkout", { state: { mode: "buyNow" } });
-  };
-
-  useEffect(() => {
-    if (!user || !buyNowPendingRef.current) return;
-
-    buyNowPendingRef.current = false;
-    navigate("/checkout", { state: { mode: "buyNow" } });
-  }, [user, navigate]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white pb-28 lg:pb-10">
@@ -852,11 +816,6 @@ function ProductDetail() {
               <h1 className="min-w-0 flex-1 break-words text-2xl font-bold leading-snug lg:text-[1.75rem] xl:text-3xl">
                 {product.name}
               </h1>
-              <ProductAdminShareMenu
-                className="shrink-0"
-                product={product}
-                imageUrl={shareImageUrl}
-              />
             </div>
             <ProductSkuRow product={product} />
 
@@ -930,15 +889,20 @@ function ProductDetail() {
             ) : null}
 
             {(showMoq || showStepByQty || isMultiVariant(product)) ? (
-              <p className="mt-2 text-sm font-medium text-text-primary">
-                {[
-                  showMoq ? `MOQ: ${minOrderQuantity} Pieces` : null,
-                  showStepByQty ? `Step by QTY: ${quantityStep} Pieces` : null,
-                  isMultiVariant(product) ? `Stock: ${variantStock}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-text-primary">
+                  {[
+                    showMoq ? `MOQ: ${minOrderQuantity} Pieces` : null,
+                    showStepByQty ? `Step by QTY: ${quantityStep} Pieces` : null,
+                    isMultiVariant(product) ? `Stock: ${variantStock}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="shrink-0 text-xs font-semibold text-text-secondary">
+                  Purchased {Number(product.purchaseCount) || 0} times
+                </p>
+              </div>
             ) : null}
 
             {!cartLineQuantity ? (
@@ -989,7 +953,8 @@ function ProductDetail() {
               onAddToCart={handleAddToCart}
               onDecrease={handleQuantityDecrease}
               onIncrease={handleQuantityIncrease}
-              onBuyNow={handleBuyNow}
+              product={product}
+              shareImageUrl={shareImageUrl}
               className="mt-5 flex w-full gap-3 lg:mt-auto lg:pt-4"
             />
           </div>

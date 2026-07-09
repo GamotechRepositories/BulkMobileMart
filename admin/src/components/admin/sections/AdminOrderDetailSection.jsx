@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getOrderById, updateAdminOrder, deleteAdminOrder, updateAdminGiftHamper } from "../../../api/api";
+import {
+  getOrderById,
+  updateAdminOrder,
+  deleteAdminOrder,
+  updateAdminGiftHamper,
+  uploadImageFile,
+} from "../../../api/api";
 import AdminOrderShipmentPanel from "../AdminOrderShipmentPanel";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import AdminAlert from "../AdminAlert";
 import AdminOrderItemsEditor from "../AdminOrderItemsEditor";
+import AdminAddressForm from "../AdminAddressForm";
+import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 import { IconTrash } from "../AdminIcons";
 import {
   adminFilterInputClass,
@@ -104,6 +112,12 @@ function AdminOrderDetailSection() {
   const [updating, setUpdating] = useState(false);
   const [editingDeliveryCharge, setEditingDeliveryCharge] = useState(false);
   const [deliveryChargeInput, setDeliveryChargeInput] = useState("");
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [manualTrackingEnabled, setManualTrackingEnabled] = useState(false);
+  const [manualTrackingNote, setManualTrackingNote] = useState("");
+  const [manualTrackingEvidenceUrl, setManualTrackingEvidenceUrl] = useState("");
+  const [manualTrackingEvidenceName, setManualTrackingEvidenceName] = useState("");
+  const [uploadingManualTrackingEvidence, setUploadingManualTrackingEvidence] = useState(false);
 
   const loadOrder = async () => {
     setLoading(true);
@@ -132,6 +146,14 @@ function AdminOrderDetailSection() {
   useEffect(() => {
     loadOrder();
   }, [id]);
+
+  useEffect(() => {
+    const manual = order?.shipment?.manualTracking || {};
+    setManualTrackingEnabled(Boolean(manual.enabled));
+    setManualTrackingNote(String(manual.note || ""));
+    setManualTrackingEvidenceUrl(String(manual.evidenceUrl || ""));
+    setManualTrackingEvidenceName(String(manual.evidenceName || ""));
+  }, [order?._id, order?.shipment?.manualTracking]);
 
   const handleStatusChange = async (field, value) => {
     if (!order || updating) return;
@@ -192,6 +214,87 @@ function AdminOrderDetailSection() {
       setSuccess("Delivery charge updated");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update delivery charge");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveOrderAddress = async (addressPayload) => {
+    if (!order || updating) return;
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminOrder(order._id, {
+        deliveryAddress: {
+          fullName: addressPayload.fullName,
+          number: addressPayload.number,
+          email: addressPayload.email,
+          shopNo: addressPayload.shopNo,
+          shopName: addressPayload.shopName,
+          fullAddress: addressPayload.fullAddress,
+          landmark: addressPayload.landmark,
+          city: addressPayload.city,
+          state: addressPayload.state,
+          pincode: addressPayload.pincode,
+        },
+      });
+      setOrder(data.data);
+      setEditingAddress(false);
+      setSuccess("Order delivery address updated");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update delivery address");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleManualTrackingEvidenceUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file (JPG, PNG, WEBP).");
+      return;
+    }
+
+    setUploadingManualTrackingEvidence(true);
+    setError("");
+    try {
+      const { data } = await uploadImageFile(file, UPLOAD_FOLDERS.SHIPMENT_EVIDENCE);
+      const uploadedUrl = data?.data?.url ?? data?.url ?? "";
+      if (!uploadedUrl) {
+        throw new Error("Upload succeeded but no image URL was returned.");
+      }
+      setManualTrackingEvidenceUrl(uploadedUrl);
+      setManualTrackingEvidenceName(file.name);
+      setSuccess("Manual tracking image uploaded");
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Failed to upload image");
+    } finally {
+      setUploadingManualTrackingEvidence(false);
+    }
+  };
+
+  const handleSaveManualTracking = async () => {
+    if (!order || updating) return;
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminOrder(order._id, {
+        manualTracking: {
+          enabled: manualTrackingEnabled,
+          note: manualTrackingNote,
+          evidenceUrl: manualTrackingEvidenceUrl,
+          evidenceName: manualTrackingEvidenceName,
+        },
+      });
+      setOrder(data.data);
+      setSuccess("Manual tracking update saved");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save manual tracking update");
     } finally {
       setUpdating(false);
     }
@@ -393,7 +496,45 @@ function AdminOrderDetailSection() {
           <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-neutral-500">
             Address
           </h3>
-          <p className="text-sm leading-relaxed text-neutral-700">{addressLine}</p>
+          {!editingAddress ? (
+            <>
+              <p className="text-sm leading-relaxed text-neutral-700">{addressLine}</p>
+              <button
+                type="button"
+                onClick={() => setEditingAddress(true)}
+                disabled={updating || ["delivered", "cancelled"].includes(order.status)}
+                className="mt-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                Edit address
+              </button>
+              {["delivered", "cancelled"].includes(order.status) ? (
+                <p className="mt-1 text-xs text-neutral-500">
+                  Address can not be edited for delivered/cancelled orders.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+              <AdminAddressForm
+                initial={{
+                  fullName: addr?.fullName || "",
+                  number: addr?.number || "",
+                  email: addr?.email || "",
+                  shopNo: addr?.shopNo || "",
+                  shopName: addr?.shopName || "",
+                  fullAddress: addr?.fullAddress || "",
+                  landmark: addr?.landmark || "",
+                  city: addr?.city || "",
+                  state: addr?.state || "",
+                  pincode: addr?.pincode || "",
+                }}
+                onSubmit={handleSaveOrderAddress}
+                onCancel={() => setEditingAddress(false)}
+                submitting={updating}
+                submitLabel="Update Address"
+              />
+            </div>
+          )}
           <p className="mt-3 text-sm text-neutral-600">
             Payment Mode:{" "}
             <span className="capitalize">
@@ -423,6 +564,75 @@ function AdminOrderDetailSection() {
         onError={setError}
         onSuccess={setSuccess}
       />
+
+      <div className={cardClass}>
+        <h3 className="mb-3 text-sm font-bold text-neutral-900">Manual Tracking Update</h3>
+        <label className="inline-flex items-center gap-2 text-sm font-medium text-neutral-800">
+          <input
+            type="checkbox"
+            checked={manualTrackingEnabled}
+            onChange={(event) => setManualTrackingEnabled(event.target.checked)}
+            className="rounded border-neutral-300"
+          />
+          Show manual tracking update to customer
+        </label>
+
+        {manualTrackingEnabled ? (
+          <div className="mt-3 space-y-2">
+            <textarea
+              rows={3}
+              value={manualTrackingNote}
+              onChange={(event) => setManualTrackingNote(event.target.value)}
+              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-neutral-800"
+              placeholder="Add shipment note visible to customer"
+              maxLength={500}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
+                {uploadingManualTrackingEvidence ? "Uploading..." : "Upload shipment image"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  disabled={uploadingManualTrackingEvidence || updating}
+                  onChange={handleManualTrackingEvidenceUpload}
+                />
+              </label>
+              {manualTrackingEvidenceUrl ? (
+                <>
+                  <a
+                    href={manualTrackingEvidenceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="max-w-[14rem] truncate text-xs font-medium text-sky-700 underline"
+                  >
+                    {manualTrackingEvidenceName || "View image"}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualTrackingEvidenceUrl("");
+                      setManualTrackingEvidenceName("");
+                    }}
+                    className="text-xs font-medium text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={handleSaveManualTracking}
+          disabled={updating}
+          className={`${btnPrimary} mt-3`}
+        >
+          {updating ? "Saving..." : "Save Manual Tracking"}
+        </button>
+      </div>
 
       <AdminOrderItemsEditor
         order={order}

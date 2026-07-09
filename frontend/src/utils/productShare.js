@@ -35,10 +35,6 @@ function buildSharePriceLine(priceInfo) {
   if (!priceInfo?.salePrice) return "";
 
   const sale = formatSharePrice(priceInfo.salePrice);
-  if (priceInfo.hasDiscount && priceInfo.originalPrice > priceInfo.salePrice) {
-    return `💰 Price: ${sale} (MRP ${formatSharePrice(priceInfo.originalPrice)})`;
-  }
-
   return `💰 Price: ${sale}`;
 }
 

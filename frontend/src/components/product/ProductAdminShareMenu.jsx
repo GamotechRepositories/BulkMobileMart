@@ -120,8 +120,8 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
       }
       setStatus(
         imageFile
-          ? "Product image downloaded. Description copied for caption."
-          : "Description copied. Paste in Instagram."
+          ? "Product image downloaded. Product details copied for caption."
+          : "Product details copied. Paste in Instagram."
       );
       setOpen(false);
     } catch {
@@ -148,8 +148,8 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
         if (result.mode === "cancelled") return;
         setStatus(
           result.downloadedImage
-            ? "Image downloaded & description copied/opened in WhatsApp."
-            : "WhatsApp opened with product description."
+            ? "Image downloaded & product details copied/opened in WhatsApp."
+            : "WhatsApp opened with product details."
         );
         setOpen(false);
       } catch {
@@ -185,8 +185,8 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
       const result = await copyAdminProductShare({ product, imageUrl });
       setStatus(
         result.copiedImage
-          ? "Image & description copied"
-          : "Description copied (image copy not supported here)"
+          ? "Image & product details copied"
+          : "Product details copied (image copy not supported here)"
       );
       setOpen(false);
     } catch {
@@ -210,7 +210,7 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
         onClick={handleShareClick}
         disabled={sharing}
         className="flex h-9 w-9 items-center justify-center rounded-full border border-border-light text-text-secondary transition hover:border-primary hover:text-primary disabled:opacity-50"
-        aria-label="Share product description"
+        aria-label="Share product details"
         aria-expanded={open}
       >
         <AdminShareIcon />
@@ -226,7 +226,7 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
         <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-border-light bg-white p-3 shadow-xl">
           <p className="mb-1 text-sm font-semibold text-text-primary">Share product</p>
           <p className="mb-3 text-[11px] leading-snug text-text-secondary">
-            Shares product image with name, brand, and description as text. No price or link.
+            Shares product image with name and brand only. No price, description, or link.
           </p>
 
           <div className="grid grid-cols-4 gap-2">
@@ -254,7 +254,7 @@ function ProductAdminShareMenu({ product, imageUrl, className = "" }) {
             disabled={sharing}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:bg-mobile-surface disabled:opacity-50"
           >
-            Copy image & description
+            Copy image & details
           </button>
         </div>
       ) : null}

@@ -299,7 +299,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
 
   if (variant === "mobile") {
     return (
-      <div className="mt-2 bg-white p-2.5">
+      <div className="sticky top-14 z-30 mt-2 bg-white p-2.5">
         <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
           <Link
             to="/product"

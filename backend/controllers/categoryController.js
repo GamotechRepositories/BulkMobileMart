@@ -1,4 +1,5 @@
 import Category from "../models/Category.js";
+import Product from "../models/Product.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { buildCategorySearchFilter } from "../utils/adminSearch.js";
 
@@ -12,11 +13,37 @@ const normalizeSubcategories = (subcategories) => {
 
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({
-      categoryName: 1,
-      createdAt: -1,
+    const [categories, counts] = await Promise.all([
+      Category.find({ isActive: true }).sort({
+        categoryName: 1,
+        createdAt: -1,
+      }),
+      Product.aggregate([
+        { $match: { isActive: true } },
+        { $unwind: "$categories" },
+        {
+          $group: {
+            _id: "$categories",
+            productCount: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const countMap = new Map(
+      counts.map((item) => [String(item._id || "").trim().toLowerCase(), Number(item.productCount) || 0])
+    );
+
+    const data = categories.map((category) => {
+      const categoryObj = category.toObject();
+      const key = String(categoryObj.categoryName || "").trim().toLowerCase();
+      return {
+        ...categoryObj,
+        productCount: countMap.get(key) || 0,
+      };
     });
-    res.status(200).json({ success: true, data: categories });
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
