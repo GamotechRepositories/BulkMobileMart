@@ -528,6 +528,36 @@ export const getProducts = async (req, res) => {
     else if (sortParam === "name") sort = { name: 1 };
     else if (sortParam === "brand") sort = { brandName: 1, name: 1 };
 
+    const usePagination =
+      req.query.page !== undefined &&
+      req.query.page !== null &&
+      String(req.query.page).trim() !== "";
+
+    if (usePagination) {
+      const { page, limit: requestedLimit, skip } = getPaginationParams(req.query, 50);
+      const limit = Math.min(requestedLimit, 50);
+
+      const [total, products] = await Promise.all([
+        Product.countDocuments(filter),
+        Product.find(filter).sort(sort).skip(skip).limit(limit),
+      ]);
+
+      const purchaseCounts = await getPurchaseCountsByProductIds(
+        products.map((item) => item._id)
+      );
+      const data = products.map((item) => {
+        const product = item.toObject();
+        return {
+          ...product,
+          purchaseCount: purchaseCounts.get(String(item._id)) || 0,
+        };
+      });
+
+      return res
+        .status(200)
+        .json(buildPaginatedResponse(data, total, page, limit));
+    }
+
     let query = Product.find(filter).sort(sort);
 
     if (req.query.limit) {

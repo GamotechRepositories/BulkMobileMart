@@ -1,3 +1,5 @@
+import '../config/contact.dart';
+
 class AppConstants {
   AppConstants._();
 
@@ -16,11 +18,9 @@ class AppConstants {
   static const String promoBannerImage =
       'https://res.cloudinary.com/dsafvwkrf/image/upload/v1781347425/Untitled_design_9_lqyd8e.png';
 
-  static const String whatsAppUrl =
-      'https://wa.me/917400222233?text=Hi%2C%20I%20am%20interested%20in%20bulk%20mobile%20accessories%20from%20Bulk%20Mobile%20Mart.';
+  static const String whatsAppUrl = ContactConfig.contactWhatsAppUrl;
 
-  static const String whatsAppGroupUrl =
-      'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8';
+  static const String whatsAppGroupUrl = ContactConfig.whatsAppGroupUrl;
 
   /// @deprecated Use [Env.storeUrl] for share links.
   static const String webShareBaseUrl = 'https://www.bulkmobilemart.in';

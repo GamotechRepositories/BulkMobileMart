@@ -11,9 +11,8 @@ export const INVOICE_CONFIG = {
   tagline: "Your Trusted Mobile Accessories Wholesale Partner",
   email: "bulkmobilemart@gmail.com",
   supportEmail: "bulkmobilemart@gmail.com",
-  phone: "+91 87666 87111",
-  address:
-    "SHOP NO. 2155, 2ND FLOOR, Nathani Heights, Opp. Mumbai Central Railway Station, Mumbai, 400008",
+  phone: "+91 74002 22233",
+  address: "Mumbai Central",
   gstNumber: "",
   stateCode: "27",
   stateName: "Maharashtra",

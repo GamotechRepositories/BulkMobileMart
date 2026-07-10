@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
@@ -251,6 +252,31 @@ function AllProductsFilterToolbar({
   );
 }
 
+function useLoadMoreOnVisible({ enabled, onLoadMore }) {
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    if (!enabled || !onLoadMore) return undefined;
+
+    const node = sentinelRef.current;
+    if (!node) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onLoadMore();
+        }
+      },
+      { rootMargin: "240px 0px" }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [enabled, onLoadMore]);
+
+  return sentinelRef;
+}
+
 function ProductResultsGrid({
   products,
   loading,
@@ -259,8 +285,16 @@ function ProductResultsGrid({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage = false,
+  isFetchingNextPage = false,
+  onLoadMore,
 }) {
-  if (loading) {
+  const loadMoreRef = useLoadMoreOnVisible({
+    enabled: Boolean(hasNextPage && !isFetchingNextPage && !loading && onLoadMore),
+    onLoadMore,
+  });
+
+  if (loading && products.length === 0) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {[...Array(5)].map((_, i) => (
@@ -278,19 +312,25 @@ function ProductResultsGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 [&>div]:h-full">
-      {products.map((product) => (
-        <DealProductCard
-          key={product._id}
-          product={product}
-          onAdd={onAdd}
-          onIncrease={onIncrease}
-          onDecrease={onDecrease}
-          cartQuantity={onGetCartQuantity ? onGetCartQuantity(product) : 0}
-          layout="grid"
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 [&>div]:h-full">
+        {products.map((product) => (
+          <DealProductCard
+            key={product._id}
+            product={product}
+            onAdd={onAdd}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
+            cartQuantity={onGetCartQuantity ? onGetCartQuantity(product) : 0}
+            layout="grid"
+          />
+        ))}
+      </div>
+      {hasNextPage ? <div ref={loadMoreRef} className="h-2 w-full" aria-hidden="true" /> : null}
+      {isFetchingNextPage ? (
+        <p className="py-4 text-center text-sm text-text-secondary">Loading more products...</p>
+      ) : null}
+    </>
   );
 }
 
@@ -388,6 +428,9 @@ function CategoryProductMain({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   const filters = useCategoryFilters(products, categoryName);
   const activeCategoryDoc = categories.find(
@@ -422,6 +465,9 @@ function CategoryProductMain({
           onIncrease={onIncrease}
           onDecrease={onDecrease}
           emptyMessage={emptyMessage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
         />
       </div>
     </div>
@@ -436,6 +482,9 @@ function AllProductsMain({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   const filters = useAllProductsFilters(products);
 
@@ -459,6 +508,9 @@ function AllProductsMain({
           onIncrease={onIncrease}
           onDecrease={onDecrease}
           emptyMessage={emptyMessage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
         />
       </div>
     </div>
@@ -495,6 +547,9 @@ export default function CategoryProductLayout({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   return (
     <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
@@ -510,6 +565,9 @@ export default function CategoryProductLayout({
           onIncrease={onIncrease}
           onDecrease={onDecrease}
           emptyMessage={emptyMessage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
         />
       </ProductPageTwoBoxLayout>
     </div>
@@ -525,6 +583,9 @@ export function AllProductsLayout({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   return (
     <>
@@ -538,6 +599,9 @@ export function AllProductsLayout({
             onIncrease={onIncrease}
             onDecrease={onDecrease}
             emptyMessage={emptyMessage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
           />
         </ProductPageTwoBoxLayout>
       </div>
@@ -552,6 +616,9 @@ export function AllProductsLayout({
             onIncrease={onIncrease}
             onDecrease={onDecrease}
             emptyMessage={emptyMessage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
           />
         </div>
       </div>
@@ -569,6 +636,9 @@ export function MobileCategoryProductLayout({
   onIncrease,
   onDecrease,
   emptyMessage,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   return (
     <div className="lg:hidden">
@@ -584,6 +654,9 @@ export function MobileCategoryProductLayout({
           onIncrease={onIncrease}
           onDecrease={onDecrease}
           emptyMessage={emptyMessage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
         />
       </div>
     </div>

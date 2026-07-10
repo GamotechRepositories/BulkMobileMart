@@ -1,3 +1,5 @@
+import '../../config/contact.dart';
+
 class InfoSection {
   const InfoSection({required this.title, required this.body, this.bullets});
 
@@ -95,7 +97,7 @@ const privacyPolicyPage = StaticPageContent(
     InfoSection(
       title: 'Contact Us',
       body:
-          'For privacy-related questions, email us at bulkmobilemart@gmail.com.',
+          'For privacy-related questions, email us at ${ContactConfig.contactEmail} or call ${ContactConfig.contactPhoneDisplay}.',
     ),
   ],
 );
@@ -128,6 +130,11 @@ const termsPage = StaticPageContent(
       title: 'Returns & Refunds',
       body:
           'Return eligibility depends on product category and condition. Contact support for return requests within the applicable window shown on your order or product page.',
+    ),
+    InfoSection(
+      title: 'Contact',
+      body:
+          'Questions about these terms? Email ${ContactConfig.contactEmail} or call ${ContactConfig.contactPhoneDisplay}.',
     ),
   ],
 );
@@ -164,6 +171,11 @@ const shippingDetailsPage = StaticPageContent(
       title: 'Cash on Delivery (COD)',
       body:
           'COD is available on eligible orders. A 10% advance payment is required at checkout; the balance is collected at delivery. Please ensure someone is available at the delivery address.',
+    ),
+    InfoSection(
+      title: 'Contact for Shipping Help',
+      body:
+          'For shipping queries, email ${ContactConfig.contactEmail} or call ${ContactConfig.contactPhoneDisplay}. Our office is at ${ContactConfig.contactAddress}.',
     ),
   ],
 );

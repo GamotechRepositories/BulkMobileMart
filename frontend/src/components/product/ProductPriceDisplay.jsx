@@ -26,14 +26,12 @@ const sizeStyles = {
 function ProductPriceDisplay({
   product,
   variantName = "",
-  quantity = null,
   size = "md",
   className = "",
 }) {
   const { originalPrice, salePrice, hasDiscount } = getProductListPriceInfo(
     product,
-    variantName,
-    quantity
+    variantName
   );
   const styles = sizeStyles[size] || sizeStyles.md;
 

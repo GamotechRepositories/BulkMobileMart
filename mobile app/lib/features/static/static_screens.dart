@@ -122,8 +122,6 @@ class _ContactScreenState extends State<ContactScreen> {
           const SizedBox(height: 10),
           const _ContactInfoStatic(Icons.schedule, 'Office Hours', 'Mon – Sat · 10:00 AM – 7:00 PM IST'),
           const SizedBox(height: 10),
-          const _ContactInfoStatic(Icons.location_on_outlined, 'Location', ContactConfig.contactLocation),
-          const SizedBox(height: 10),
           const _ContactInfoStatic(Icons.home_work_outlined, 'Address', ContactConfig.contactAddress),
           const SizedBox(height: 20),
           Container(

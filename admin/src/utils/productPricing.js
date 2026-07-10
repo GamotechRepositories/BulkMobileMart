@@ -158,6 +158,20 @@ export function getDisplayPrice(product, variantName = "") {
   return getDisplayPriceForSource(getPricingSource(product, variantName));
 }
 
+export function getSortedBulkSlabs(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source || source.pricingType !== "bulk" || !source.bulkPricing?.slabs?.length) {
+    return [];
+  }
+
+  return [...source.bulkPricing.slabs].sort((a, b) => a.minQuantity - b.minQuantity);
+}
+
+export function getLastBulkSlab(product, variantName = "") {
+  const slabs = getSortedBulkSlabs(product, variantName);
+  return slabs.length ? slabs[slabs.length - 1] : null;
+}
+
 export function getOriginalPriceForQuantity(product, quantity, variantName = "") {
   const qty = Number(quantity);
   if (!Number.isFinite(qty) || qty < 1) return 0;
@@ -197,12 +211,10 @@ export function getProductListPriceInfo(product, variantName = "", quantity = nu
   const isBulk = source.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
 
   if (isBulk) {
-    const qty =
-      quantity != null && Number(quantity) > 0
-        ? Number(quantity)
-        : getMinOrderQuantity(product, variantName);
-    const salePrice = getUnitPriceForQuantity(product, qty, variantName);
-    const originalPrice = getOriginalPriceForQuantity(product, qty, variantName);
+    const lastSlab = getLastBulkSlab(product, variantName);
+    const salePrice = lastSlab?.pricePerUnit ?? 0;
+    const original = Number(lastSlab?.originalPricePerUnit);
+    const originalPrice = Number.isFinite(original) && original > 0 ? original : 0;
     const hasDiscount = originalPrice > salePrice && salePrice > 0;
 
     return { originalPrice, salePrice, hasDiscount, isBulk: true };

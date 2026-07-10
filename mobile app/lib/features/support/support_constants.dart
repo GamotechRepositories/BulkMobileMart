@@ -1,3 +1,5 @@
+import '../../config/contact.dart';
+
 class SupportIssueOption {
   const SupportIssueOption({required this.value, required this.label});
 
@@ -15,11 +17,10 @@ const supportIssueOptions = <SupportIssueOption>[
   SupportIssueOption(value: 'other', label: 'Other'),
 ];
 
-const supportContactPhone = '+91 87666 87111';
-const supportContactPhoneHref = 'tel:+918766687111';
-const supportContactEmail = 'bulkmobilemart@gmail.com';
-const supportWhatsAppHref =
-    'https://wa.me/918766687111?text=Hi%2C%20I%20need%20support%20with%20my%20order.';
+const supportContactPhone = ContactConfig.contactPhoneDisplay;
+const supportContactPhoneHref = ContactConfig.contactPhoneTel;
+const supportContactEmail = ContactConfig.contactEmail;
+const supportWhatsAppHref = ContactConfig.supportWhatsAppUrl;
 
 const supportFaqs = <Map<String, String>>[
   {

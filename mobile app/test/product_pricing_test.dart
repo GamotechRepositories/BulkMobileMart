@@ -179,5 +179,36 @@ void main() {
       expect(hasConfiguredMinOrderQuantity(product), isTrue);
       expect(hasConfiguredQuantityStep(product), isTrue);
     });
+
+    test('bulk list price uses last slab in bulk price range', () {
+      final product = Product.fromJson({
+        'id': 'bulk-price',
+        'name': 'Soundbar',
+        'categories': ['Speakers'],
+        'subcategory': 'Bluetooth',
+        'brandName': 'SMG',
+        'price': 520,
+        'discountedPrice': 510,
+        'discountedPercent': 2,
+        'stock': 100,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'minOrderQuantity': 1,
+        'bulkPricing': {
+          'slabs': [
+            {'minQuantity': 1, 'maxQuantity': 5, 'pricePerUnit': 530},
+            {'minQuantity': 6, 'maxQuantity': null, 'pricePerUnit': 520},
+          ],
+        },
+      });
+
+      final info = getProductListPriceInfo(product, '', 1);
+      expect(info.isBulk, isTrue);
+      expect(info.salePrice, 520);
+      expect(info.hasDiscount, isFalse);
+
+      final qty6 = getProductListPriceInfo(product, '', 6);
+      expect(qty6.salePrice, 520);
+    });
   });
 }

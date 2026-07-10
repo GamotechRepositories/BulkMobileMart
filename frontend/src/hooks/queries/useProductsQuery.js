@@ -1,9 +1,39 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getProducts } from "../../api/api";
 import { getRecentlyViewedIds } from "../../utils/recentlyViewed";
 import { queryKeys } from "./queryKeys";
 
 const HOME_PRODUCT_LIMIT = 12;
+export const PRODUCTS_PAGE_SIZE = 50;
+
+export function useInfiniteProductsQuery(params, options = {}) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.products.infiniteList(params),
+    queryFn: async ({ pageParam = 1 }) => {
+      const { data } = await getProducts({
+        ...params,
+        page: pageParam,
+        limit: PRODUCTS_PAGE_SIZE,
+      });
+
+      return {
+        products: data.data || [],
+        pagination: data.pagination || {
+          page: pageParam,
+          limit: PRODUCTS_PAGE_SIZE,
+          total: data.data?.length || 0,
+          totalPages: 1,
+        },
+      };
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page = 1, totalPages = 1 } = lastPage.pagination || {};
+      return page < totalPages ? page + 1 : undefined;
+    },
+    ...options,
+  });
+}
 
 export function useProductsQuery(params, options = {}) {
   return useQuery({

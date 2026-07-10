@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   CONTACT_ADDRESS,
   CONTACT_EMAIL,
-  CONTACT_LOCATION,
   CONTACT_PHONE_DISPLAY,
   CONTACT_PHONE_TEL,
 } from "../config/contact";
@@ -61,10 +60,6 @@ function Contact() {
               <div>
                 <h3 className="text-text-primary font-semibold mb-1">Office Hours</h3>
                 <p>Mon – Sat · 10:00 AM – 7:00 PM IST</p>
-              </div>
-              <div>
-                <h3 className="text-text-primary font-semibold mb-1">Location</h3>
-                <p>{CONTACT_LOCATION}</p>
               </div>
               <div>
                 <h3 className="text-text-primary font-semibold mb-1">Address</h3>

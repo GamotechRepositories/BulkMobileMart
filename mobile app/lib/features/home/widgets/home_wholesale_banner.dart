@@ -2,14 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/app_decorations.dart';
 import '../../../config/constants.dart';
 import '../../../config/theme.dart';
 import '../../../models/offer_banner.dart';
-import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../home_providers.dart';
 
@@ -62,13 +60,6 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
       duration: const Duration(milliseconds: 450),
       curve: Curves.easeOutCubic,
     );
-  }
-
-  Future<void> _openWhatsApp() async {
-    final uri = Uri.parse(AppConstants.whatsAppUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
   }
 
   Future<void> _openLink(String linkUrl) async {
@@ -252,54 +243,6 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
                       color: Colors.white.withValues(alpha: 0.9),
                       height: 1.35,
                     ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      FilledButton.icon(
-                        onPressed: _openWhatsApp,
-                        icon: const Icon(Icons.chat, size: 16),
-                        label: const Text('WhatsApp'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push(RoutePaths.support),
-                        icon: const Icon(Icons.support_agent_outlined, size: 16),
-                        label: const Text('Support'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white, width: 1.5),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(
-                            inherit: false,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),

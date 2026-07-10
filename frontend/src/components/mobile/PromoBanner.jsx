@@ -18,9 +18,6 @@ const FALLBACK_BANNER = {
   alt: "Mobile accessories wholesale",
 };
 
-const WHATSAPP_HREF =
-  "https://wa.me/917400222233?text=Hi%2C%20I%20am%20interested%20in%20bulk%20mobile%20accessories%20from%20Bulk%20Mobile%20Mart.";
-
 function mapBanners(list) {
   return (list || [])
     .filter((banner) => banner.isActive !== false && banner.imageUrl?.trim())
@@ -55,22 +52,6 @@ function OfferBannerSlide({ banner }) {
         <p className="mt-2 max-w-sm text-xs leading-relaxed text-white/90 sm:text-sm md:text-base">
           {banner.subtitle}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5 sm:gap-3">
-          <a
-            href={WHATSAPP_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 text-xs font-bold text-white transition hover:brightness-110 sm:px-5 sm:py-2.5 sm:text-sm"
-          >
-            WhatsApp
-          </a>
-          <Link
-            to="/support"
-            className="inline-flex items-center gap-2 rounded-lg border-2 border-white bg-white/10 px-4 py-2 text-xs font-bold text-white backdrop-blur-sm transition hover:bg-white hover:text-text-primary sm:px-5 sm:py-2.5 sm:text-sm"
-          >
-            Support
-          </Link>
-        </div>
       </div>
     </>
   );

@@ -16,22 +16,22 @@ class BulkMobileMartApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    return OpeningSplashHost(
-      child: DeepLinkListener(
-        child: NotificationBootstrap(
-          child: MaterialApp.router(
-            title: 'BulkMobileMart',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light,
-            routerConfig: router,
-            builder: (context, child) {
-              return AuthHost(
+    return DeepLinkListener(
+      child: NotificationBootstrap(
+        child: MaterialApp.router(
+          title: 'BulkMobileMart',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          routerConfig: router,
+          builder: (context, child) {
+            return OpeningSplashHost(
+              child: AuthHost(
                 child: CartFeedbackOverlay(
                   child: child ?? const SizedBox.shrink(),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

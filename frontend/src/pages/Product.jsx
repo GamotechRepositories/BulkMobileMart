@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories, getProducts } from "../api/api";
+import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
+import { useInfiniteProductsQuery } from "../hooks/queries/useProductsQuery";
+import { useProductListParams } from "../hooks/useProductListParams";
 import { useProductCartActions } from "../hooks/useProductCartActions";
 import CategoryProductLayout, {
   AllProductsLayout,
@@ -91,6 +93,9 @@ function FilteredProductsView({
   onGetCartQuantity,
   onIncrease,
   onDecrease,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) {
   const sortedProducts = useMemo(() => {
     const list = [...products];
@@ -144,6 +149,9 @@ function FilteredProductsView({
             onIncrease={onIncrease}
             onDecrease={onDecrease}
             emptyMessage={emptyMessage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
           />
         </div>
       </div>
@@ -163,6 +171,9 @@ function FilteredProductsView({
               onIncrease={onIncrease}
               onDecrease={onDecrease}
               emptyMessage={emptyMessage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onLoadMore={onLoadMore}
             />
           </div>
         </div>
@@ -189,46 +200,33 @@ function Product() {
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
-  const justArrived = searchParams.get("justArrived") === "true";
-  const hotSelling = searchParams.get("hotSelling") === "true";
 
-  const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("default");
   const [showSort, setShowSort] = useState(false);
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
+  const productParams = useProductListParams(searchParams);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const params = {};
-        if (categoryName) params.categoryName = categoryName;
-        if (searchQuery) params.q = searchQuery;
-        if (brandName) params.brandName = brandName;
-        if (justArrived) params.justArrived = true;
-        if (hotSelling) params.hotSelling = true;
+  const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
+  const {
+    data,
+    isLoading: productsLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteProductsQuery(productParams);
 
-        const [categoriesRes, productsRes] = await Promise.all([
-          getCategories(),
-          getProducts(params),
-        ]);
+  const products = useMemo(
+    () => data?.pages.flatMap((page) => page.products) ?? [],
+    [data]
+  );
 
-        setCategories(categoriesRes.data.data || []);
-        setProducts(productsRes?.data?.data || []);
-      } catch {
-        setCategories([]);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [categoryName, searchQuery, brandName, justArrived, hotSelling]);
-
+  const loading = categoriesLoading || (productsLoading && products.length === 0);
+  const infiniteScrollProps = {
+    hasNextPage: Boolean(hasNextPage),
+    isFetchingNextPage,
+    onLoadMore: fetchNextPage,
+  };
 
   if (brandName && !categoryName && !searchQuery) {
     return (
@@ -249,6 +247,7 @@ function Product() {
         onGetCartQuantity={getCartQuantity}
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}
+        {...infiniteScrollProps}
       />
     );
   }
@@ -270,6 +269,7 @@ function Product() {
         onGetCartQuantity={getCartQuantity}
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}
+        {...infiniteScrollProps}
       />
     );
   }
@@ -287,6 +287,7 @@ function Product() {
           onIncrease={handleIncrease}
           onDecrease={handleDecrease}
           emptyMessage="No products found in this category yet."
+          {...infiniteScrollProps}
         />
 
         <CategoryProductLayout
@@ -300,6 +301,7 @@ function Product() {
           onIncrease={handleIncrease}
           onDecrease={handleDecrease}
           emptyMessage="No products found in this category yet."
+          {...infiniteScrollProps}
         />
       </div>
     );
@@ -316,6 +318,7 @@ function Product() {
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}
         emptyMessage="No products available yet."
+        {...infiniteScrollProps}
       />
     </div>
   );

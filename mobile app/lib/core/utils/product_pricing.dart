@@ -273,6 +273,19 @@ double getDisplayPrice(Product product, [String variantName = '']) {
   return getDisplayPriceForSource(source);
 }
 
+BulkPricingSlab? getLastBulkSlab(Product product, [String variantName = '']) {
+  final source = getPricingSource(product, variantName);
+  if (source == null ||
+      source.pricingType != 'bulk' ||
+      source.bulkPricing.slabs.isEmpty) {
+    return null;
+  }
+
+  final slabs = [...source.bulkPricing.slabs]
+    ..sort((a, b) => a.minQuantity.compareTo(b.minQuantity));
+  return slabs.last;
+}
+
 class ProductListPriceInfo {
   const ProductListPriceInfo({
     required this.originalPrice,
@@ -287,7 +300,11 @@ class ProductListPriceInfo {
   final bool isBulk;
 }
 
-ProductListPriceInfo getProductListPriceInfo(Product product, [String variantName = '']) {
+ProductListPriceInfo getProductListPriceInfo(
+  Product product, [
+  String variantName = '',
+  int? quantity,
+]) {
   final source = getPricingSource(product, variantName);
   if (source == null) {
     return const ProductListPriceInfo(
@@ -299,11 +316,24 @@ ProductListPriceInfo getProductListPriceInfo(Product product, [String variantNam
   }
 
   final isBulk = source.pricingType == 'bulk' && source.bulkPricing.slabs.isNotEmpty;
-  final salePrice = isBulk
-      ? (source.discountedPrice > 0
-          ? source.discountedPrice
-          : getDisplayPriceForSource(source))
-      : getDisplayPriceForSource(source);
+
+  if (isBulk) {
+    final lastSlab = getLastBulkSlab(product, variantName);
+    final salePrice = lastSlab?.pricePerUnit ?? 0.0;
+    final original = lastSlab?.originalPricePerUnit;
+    final originalPrice =
+        original != null && original > 0 ? original.toDouble() : 0.0;
+    final hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+    return ProductListPriceInfo(
+      originalPrice: originalPrice,
+      salePrice: salePrice,
+      hasDiscount: hasDiscount,
+      isBulk: true,
+    );
+  }
+
+  final salePrice = getDisplayPriceForSource(source);
   final originalPrice = source.price > 0 ? source.price : salePrice;
   final hasDiscount = originalPrice > salePrice && salePrice > 0;
 
@@ -311,8 +341,38 @@ ProductListPriceInfo getProductListPriceInfo(Product product, [String variantNam
     originalPrice: originalPrice,
     salePrice: salePrice,
     hasDiscount: hasDiscount,
-    isBulk: isBulk,
+    isBulk: false,
   );
+}
+
+double getOriginalPriceForQuantity(
+  Product product,
+  int quantity, [
+  String variantName = '',
+]) {
+  if (quantity < 1) return 0;
+
+  final source = getPricingSource(product, variantName);
+  if (source == null) return 0;
+
+  if (source.pricingType == 'bulk' && source.bulkPricing.slabs.isNotEmpty) {
+    final slabs = [...source.bulkPricing.slabs]
+      ..sort((a, b) => a.minQuantity.compareTo(b.minQuantity));
+
+    for (var i = slabs.length - 1; i >= 0; i--) {
+      final slab = slabs[i];
+      final inRange = quantity >= slab.minQuantity &&
+          (slab.maxQuantity == null || quantity <= slab.maxQuantity!);
+      if (inRange) {
+        final original = slab.originalPricePerUnit;
+        return original != null && original > 0 ? original : 0;
+      }
+    }
+
+    return 0;
+  }
+
+  return source.price;
 }
 
 bool isBulkPricing(Product product, [String variantName = '']) {
@@ -328,7 +388,10 @@ List<BulkTierRow> getBulkTierRows(Product product, [String variantName = '']) {
     return const [];
   }
 
-  return source.bulkPricing.slabs.map((slab) {
+  final slabs = [...source.bulkPricing.slabs]
+    ..sort((a, b) => a.minQuantity.compareTo(b.minQuantity));
+
+  return slabs.map((slab) {
     final qtyLabel = slab.maxQuantity != null
         ? '${slab.minQuantity} - ${slab.maxQuantity}'
         : '${slab.minQuantity}+';

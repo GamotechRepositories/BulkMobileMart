@@ -11,7 +11,7 @@ class ParsedProductDescription {
 }
 
 String _stripShortDescriptionLabel(String text) {
-  return text.replaceFirst(RegExp(r'^Short Description\s*', caseSensitive: false)).trim();
+  return text.replaceFirst(RegExp(r'^Short Description\s*', caseSensitive: false), '').trim();
 }
 
 List<String> _splitAsteriskBullets(String text) {

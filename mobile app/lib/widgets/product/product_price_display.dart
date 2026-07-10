@@ -12,16 +12,18 @@ class ProductPriceDisplay extends StatelessWidget {
     super.key,
     required this.product,
     this.variantName = '',
+    this.quantity,
     this.size = ProductPriceSize.md,
   });
 
   final Product product;
   final String variantName;
+  final int? quantity;
   final ProductPriceSize size;
 
   @override
   Widget build(BuildContext context) {
-    final info = getProductListPriceInfo(product, variantName);
+    final info = getProductListPriceInfo(product, variantName, quantity);
     if (info.salePrice <= 0) {
       return const SizedBox.shrink();
     }

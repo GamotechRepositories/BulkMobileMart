@@ -294,6 +294,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ProductPriceDisplay(
                 product: product,
                 variantName: activeVariantName,
+                quantity: _quantity,
                 size: ProductPriceSize.lg,
               ),
               if (isMultiVariant(product)) ...[
