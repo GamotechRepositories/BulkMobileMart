@@ -1,6 +1,18 @@
 /** Primary business contact email */
 export const CONTACT_EMAIL = "bulkmobilemart@gmail.com";
 
+/** Primary business phone */
+export const CONTACT_PHONE_RAW = "8766687111";
+export const CONTACT_PHONE_DISPLAY = "+91 87666 87111";
+export const CONTACT_PHONE_TEL = "tel:+918766687111";
+export const CONTACT_WHATSAPP_URL =
+  "https://wa.me/918766687111?text=Hi%2C%20I%20am%20interested%20in%20bulk%20mobile%20accessories%20from%20Bulk%20Mobile%20Mart.";
+
+export const CONTACT_LOCATION = "Mumbai";
+
+export const CONTACT_ADDRESS =
+  "SHOP NO. 2155, 2ND FLOOR, Nathani Heights, Opp. Mumbai Central Railway Station, Mumbai, 400008";
+
 /** WhatsApp community group invite — header & quick join links */
 export const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8";

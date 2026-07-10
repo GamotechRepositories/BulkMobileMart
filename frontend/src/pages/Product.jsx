@@ -150,7 +150,9 @@ function FilteredProductsView({
 
       <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
         <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[240px_1fr] bg-mobile-bg xl:grid-cols-[260px_1fr]">
-          <DesktopCategorySidebar categories={categories} activeCategory="" />
+          <div className="min-h-0 overflow-hidden">
+            <DesktopCategorySidebar categories={categories} activeCategory="" />
+          </div>
           <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto border-l border-border-light bg-white px-3 py-4 lg:px-6 lg:py-5">
             <h1 className="mb-4 text-xl font-bold text-text-primary">{pageTitle}</h1>
             <ProductResultsGrid

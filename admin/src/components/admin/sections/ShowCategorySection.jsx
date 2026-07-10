@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { deleteCategory, getAllCategories } from "../../../api/api";
+import { deleteCategory } from "../../../api/api";
+import { useAdminCategoriesQuery } from "../../../hooks/queries/useAdminCategoriesQuery";
+import { adminQueryKeys } from "../../../hooks/queries/queryKeys";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import AdminSearchBar from "../AdminSearchBar";
@@ -18,49 +21,42 @@ import {
 
 function ShowCategorySection() {
   const navigate = useNavigate();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: ADMIN_PAGE_SIZE,
-    total: 0,
-    totalPages: 1,
-  });
 
-  const fetchCategories = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const params = { page, limit: ADMIN_PAGE_SIZE };
-      if (searchQuery.trim()) params.search = searchQuery.trim();
-      const { data } = await getAllCategories(params);
-      setCategories(data.data || []);
-      setPagination(
-        data.pagination || {
-          page,
-          limit: ADMIN_PAGE_SIZE,
-          total: data.data?.length || 0,
-          totalPages: 1,
-        }
-      );
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to load categories");
-    } finally {
-      setLoading(false);
-    }
+  const queryParams = useMemo(() => {
+    const params = { page, limit: ADMIN_PAGE_SIZE };
+    if (searchQuery.trim()) params.search = searchQuery.trim();
+    return params;
   }, [page, searchQuery]);
+
+  const { data, isLoading, isError, error: queryError } = useAdminCategoriesQuery(queryParams);
+
+  const categories = data?.items || [];
+  const pagination = data?.pagination || {
+    page,
+    limit: ADMIN_PAGE_SIZE,
+    total: categories.length,
+    totalPages: 1,
+  };
+  const loading = isLoading;
+  const loadError = isError
+    ? queryError?.response?.data?.message || "Failed to load categories"
+    : "";
 
   useEffect(() => {
     setPage(1);
   }, [searchQuery]);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+  const deleteMutation = useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.categories.all });
+    },
+  });
 
   const handleEdit = (cat) => {
     navigate("/categories/add", { state: { editCategory: cat } });
@@ -71,11 +67,11 @@ function ShowCategorySection() {
     try {
       setError("");
       setSuccess("");
-      await deleteCategory(id);
+      await deleteMutation.mutateAsync(id);
       setSuccess("Category deleted");
-      const nextPage = categories.length === 1 && page > 1 ? page - 1 : page;
-      if (nextPage !== page) setPage(nextPage);
-      else fetchCategories();
+      if (categories.length === 1 && page > 1) {
+        setPage(page - 1);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete category");
     }
@@ -83,7 +79,13 @@ function ShowCategorySection() {
 
   return (
     <div className="min-w-0">
-      <AdminAlert error={error} success={success} onClear={() => setError("")} />
+      <AdminAlert
+        error={error || loadError}
+        success={success}
+        onClear={() => {
+          setError("");
+        }}
+      />
 
       <div className={pageHeaderClass}>
         <p className="text-sm font-medium text-neutral-700">

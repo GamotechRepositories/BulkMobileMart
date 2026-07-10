@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getBrands } from "../../api/api";
+import { useBrandsQuery } from "../../hooks/queries/useBrandsQuery";
 import SectionHeader from "./SectionHeader";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
@@ -21,23 +20,7 @@ function BrandCard({ brand }) {
 }
 
 function TopBrands() {
-  const [brands, setBrands] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchBrands = async () => {
-      try {
-        const { data } = await getBrands();
-        setBrands(data.data || []);
-      } catch {
-        setBrands([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBrands();
-  }, []);
+  const { data: brands = [], isLoading: loading } = useBrandsQuery();
 
   if (loading || brands.length === 0) {
     return null;

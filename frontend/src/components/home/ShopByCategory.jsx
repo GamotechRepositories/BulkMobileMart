@@ -1,25 +1,8 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 
 function ShopByCategory() {
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await getCategories();
-        setCategories(data.data || []);
-      } catch {
-        setCategories([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCategories();
-  }, []);
+  const { data: categories = [], isLoading: loading } = useCategoriesQuery();
 
   return (
     <section className="bg-black text-white px-5 sm:px-6 md:px-8 lg:px-12 py-8 md:py-10">

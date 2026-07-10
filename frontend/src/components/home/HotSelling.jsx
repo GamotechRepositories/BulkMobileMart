@@ -1,30 +1,8 @@
-import { useEffect, useState } from "react";
-import { getProducts } from "../../api/api";
+import { useHotSellingProductsQuery } from "../../hooks/queries/useProductsQuery";
 import HomeProductRow from "./HomeProductRow";
 
-const HOME_PRODUCT_LIMIT = 12;
-
 function HotSelling() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data } = await getProducts({
-          hotSelling: true,
-          limit: HOME_PRODUCT_LIMIT,
-        });
-        setProducts((data.data || []).slice(0, HOME_PRODUCT_LIMIT));
-      } catch {
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
+  const { data: products = [], isLoading: loading } = useHotSellingProductsQuery();
 
   return (
     <HomeProductRow

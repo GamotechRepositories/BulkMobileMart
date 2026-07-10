@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, NavLink } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
+import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import Header from "./Header";
@@ -36,25 +37,16 @@ function Navbar() {
   const [menuTop, setMenuTop] = useState(0);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [productExpanded, setProductExpanded] = useState(false);
-  const [categories, setCategories] = useState([]);
+  const { data: categories = [] } = useCategoriesQuery();
   const headerBarRef = useRef(null);
 
-  const menuCategories = categories.filter(
-    (item) => !PROMO_TAGS.includes(item.categoryName?.trim().toLowerCase())
+  const menuCategories = useMemo(
+    () =>
+      categories.filter(
+        (item) => !PROMO_TAGS.includes(item.categoryName?.trim().toLowerCase())
+      ),
+    [categories]
   );
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await getCategories();
-        setCategories(data.data || []);
-      } catch {
-        setCategories([]);
-      }
-    };
-
-    fetchCategories();
-  }, []);
 
   const updateMenuTop = () => {
     if (headerBarRef.current) {
@@ -184,13 +176,13 @@ function Navbar() {
 
           <div className="space-y-3">
             <a
-              href="tel:+919876543210"
+              href={CONTACT_PHONE_TEL}
               className="flex items-center gap-2 text-sm text-neutral-300 hover:text-accent transition"
             >
               <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              +91 98765 43210
+              {CONTACT_PHONE_DISPLAY}
             </a>
 
             <Link

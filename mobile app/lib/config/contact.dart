@@ -18,6 +18,15 @@ class SocialLink {
 abstract final class ContactConfig {
   static const contactEmail = 'bulkmobilemart@gmail.com';
 
+  static const contactPhoneRaw = '8766687111';
+  static const contactPhoneDisplay = '+91 87666 87111';
+  static const contactPhoneTel = 'tel:+918766687111';
+
+  static const contactLocation = 'Mumbai';
+
+  static const contactAddress =
+      'SHOP NO. 2155, 2ND FLOOR, Nathani Heights, Opp. Mumbai Central Railway Station, Mumbai, 400008';
+
   static const whatsAppGroupUrl =
       'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8';
 

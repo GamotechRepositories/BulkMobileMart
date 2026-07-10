@@ -268,7 +268,7 @@ function SidebarContent({
 
   return (
     <>
-      <div className={`mb-6 ${collapsed ? "flex justify-center px-1" : "px-1"}`}>
+      <div className={`mb-6 shrink-0 ${collapsed ? "flex justify-center px-1" : "px-1"}`}>
         {collapsed ? (
           <button
             type="button"
@@ -298,7 +298,7 @@ function SidebarContent({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-y-contain pb-4 [-webkit-overflow-scrolling:touch]">
         {NAV_ITEMS.map((item) => {
           if (item.type === "group") {
             const showOrdersBadge =
@@ -420,7 +420,7 @@ function AdminLayout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-neutral-800 bg-neutral-950 px-4 py-6 transition-all duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col overflow-hidden border-r border-neutral-800 bg-neutral-950 px-4 py-6 transition-all duration-300 lg:translate-x-0 ${
           sidebarCollapsed ? "lg:w-[72px] lg:px-2" : ""
         } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >

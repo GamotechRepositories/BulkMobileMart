@@ -203,22 +203,61 @@ export function getDisplayPrice(product, variantName = "") {
   return getDisplayPriceForSource(getPricingSource(product, variantName));
 }
 
-export function getProductListPriceInfo(product, variantName = "") {
+export function getOriginalPriceForQuantity(product, quantity, variantName = "") {
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty < 1) return 0;
+
+  const source = getPricingSource(product, variantName);
+  if (!source) return 0;
+
+  if (source.pricingType === "bulk" && source.bulkPricing?.slabs?.length) {
+    const slabs = [...source.bulkPricing.slabs].sort(
+      (a, b) => a.minQuantity - b.minQuantity
+    );
+
+    for (let i = slabs.length - 1; i >= 0; i -= 1) {
+      const slab = slabs[i];
+      const inRange =
+        qty >= slab.minQuantity &&
+        (slab.maxQuantity == null || qty <= slab.maxQuantity);
+
+      if (inRange) {
+        const original = Number(slab.originalPricePerUnit);
+        return Number.isFinite(original) && original > 0 ? original : 0;
+      }
+    }
+
+    return 0;
+  }
+
+  return Number(source.price) || 0;
+}
+
+export function getProductListPriceInfo(product, variantName = "", quantity = null) {
   const source = getPricingSource(product, variantName);
   if (!source) {
     return { originalPrice: 0, salePrice: 0, hasDiscount: false, isBulk: false };
   }
 
   const isBulk = source.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
-  const salePrice = isBulk
-    ? Number(source.discountedPrice) > 0
-      ? Number(source.discountedPrice)
-      : getDisplayPriceForSource(source)
-    : getDisplayPriceForSource(source);
+
+  if (isBulk) {
+    const qty =
+      quantity != null && Number(quantity) > 0
+        ? Number(quantity)
+        : getMinOrderQuantity(product, variantName);
+    const salePrice = getUnitPriceForQuantity(product, qty, variantName);
+    const originalPrice = getOriginalPriceForQuantity(product, qty, variantName);
+    const hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+    return { originalPrice, salePrice, hasDiscount, isBulk: true };
+  }
+
+  const salePrice = getDisplayPriceForSource(source);
   const originalPrice = Number(source.price) || salePrice;
   const hasDiscount = originalPrice > salePrice && salePrice > 0;
 
-  return { originalPrice, salePrice, hasDiscount, isBulk };
+  return { originalPrice, salePrice, hasDiscount, isBulk: false };
 }
 
 export function isBulkPricing(product, variantName = "") {

@@ -476,7 +476,9 @@ export {
 function ProductPageTwoBoxLayout({ categories, activeCategory, children }) {
   return (
     <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[260px_1fr] bg-white xl:grid-cols-[280px_1fr]">
-      <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />
+      <div className="min-h-0 overflow-hidden">
+        <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />
+      </div>
       <div className="flex min-h-0 flex-col overflow-hidden bg-white">{children}</div>
     </div>
   );

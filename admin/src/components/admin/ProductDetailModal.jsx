@@ -1,5 +1,13 @@
 import { createPortal } from "react-dom";
 import ProductShareMenu from "./ProductShareMenu";
+import AdminProductPrice from "./AdminProductPrice";
+import {
+  getBulkTierRows,
+  getMinOrderQuantity,
+  getUnitPriceForQuantity,
+  isBulkPricing,
+  isMultiVariant,
+} from "../../utils/productPricing";
 import {
   adminDetailRowClass,
   btnPrimary,
@@ -90,15 +98,33 @@ function ProductDetailModal({ product, onClose, onEdit }) {
                 : "—"}
             </DetailRow>
             <DetailRow label="Price">
-              <span className="line-through text-text-muted mr-2">
-                {formatPrice(product.price)}
-              </span>
-              <span className="font-semibold text-primary">
-                {formatPrice(product.discountedPrice)}
-              </span>
-              <span className="ml-2 text-green-600 text-xs font-semibold">
-                {product.discountedPercent}% off
-              </span>
+              <AdminProductPrice product={product} size="detail" />
+              {isBulkPricing(product) ? (
+                <ul className="mt-2 space-y-1 text-sm text-text-secondary">
+                  {getBulkTierRows(product).map((tier) => (
+                    <li key={tier.key}>
+                      {tier.maxQuantity
+                        ? `${tier.minQuantity}–${tier.maxQuantity} pcs`
+                        : `${tier.minQuantity}+ pcs`}
+                      : {formatPrice(tier.price)}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {isMultiVariant(product) ? (
+                <ul className="mt-2 space-y-1 text-sm text-text-secondary">
+                  {product.variants.map((variant) => {
+                    const moq = getMinOrderQuantity(product, variant.name);
+                    const unitPrice = getUnitPriceForQuantity(product, moq, variant.name);
+                    return (
+                      <li key={variant.name}>
+                        {variant.name}: {formatPrice(unitPrice)}
+                        {variant.pricingType === "bulk" ? " (bulk)" : ""}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
             </DetailRow>
             <DetailRow label="In stock">
               <span className={product.inStock !== false ? "text-green-600" : "text-red-500"}>

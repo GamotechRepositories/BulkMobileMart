@@ -1,31 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
 function DesktopSearchBar({ className = "" }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [categories, setCategories] = useState([]);
+  const { data: allCategories = [] } = useCategoriesQuery();
+  const categories = useMemo(
+    () =>
+      allCategories.filter(
+        (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
+      ),
+    [allCategories]
+  );
   const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await getCategories();
-        setCategories(
-          (data.data || []).filter(
-            (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-          )
-        );
-      } catch {
-        setCategories([]);
-      }
-    };
-
-    fetchCategories();
-  }, []);
 
   useEffect(() => {
     setQuery(searchParams.get("q") || "");

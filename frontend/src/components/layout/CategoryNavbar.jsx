@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 
 function CategoryPill({ name, isActive, compact = false }) {
   return (
@@ -121,31 +121,17 @@ function CategoryPillScroller({ categories, activeCategory, compact = false }) {
 }
 
 function CategoryNavbar() {
-  const [categories, setCategories] = useState([]);
+  const { data: allCategories = [] } = useCategoriesQuery();
   const [searchParams] = useSearchParams();
   const activeCategory = searchParams.get("categoryName")?.trim() || "";
 
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      try {
-        const { data } = await getCategories();
-        if (!active) return;
-
-        const items = (data.data || []).filter(
-          (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-        );
-        setCategories(items);
-      } catch {
-        if (active) setCategories([]);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const categories = useMemo(
+    () =>
+      allCategories.filter(
+        (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
+      ),
+    [allCategories]
+  );
 
   if (!categories.length) return null;
 

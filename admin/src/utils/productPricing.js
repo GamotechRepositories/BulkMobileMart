@@ -125,3 +125,152 @@ export function getCartAdjustStep(product, variantName = "", fallback = DEFAULT_
 export function buildLineItemKey(productId, variantName = "", colorName = "") {
   return `${productId}::${variantName}::${colorName}`;
 }
+
+export function isBulkPricing(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  return source?.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
+}
+
+export function getDisplayPriceForSource(source) {
+  if (!source) return 0;
+
+  if (source.pricingType === "bulk" && source.bulkPricing?.slabs?.length) {
+    return Math.min(...source.bulkPricing.slabs.map((slab) => slab.pricePerUnit));
+  }
+
+  return source.discountedPrice ?? source.price ?? 0;
+}
+
+export function getDisplayPrice(product, variantName = "") {
+  if (isMultiVariant(product) && !variantName) {
+    return Math.min(
+      ...product.variants.map((variant) =>
+        getDisplayPriceForSource({
+          pricingType: variant.pricingType,
+          bulkPricing: variant.bulkPricing,
+          price: variant.price,
+          discountedPrice: variant.discountedPrice,
+        })
+      )
+    );
+  }
+
+  return getDisplayPriceForSource(getPricingSource(product, variantName));
+}
+
+export function getOriginalPriceForQuantity(product, quantity, variantName = "") {
+  const qty = Number(quantity);
+  if (!Number.isFinite(qty) || qty < 1) return 0;
+
+  const source = getPricingSource(product, variantName);
+  if (!source) return 0;
+
+  if (source.pricingType === "bulk" && source.bulkPricing?.slabs?.length) {
+    const slabs = [...source.bulkPricing.slabs].sort(
+      (a, b) => a.minQuantity - b.minQuantity
+    );
+
+    for (let i = slabs.length - 1; i >= 0; i -= 1) {
+      const slab = slabs[i];
+      const inRange =
+        qty >= slab.minQuantity &&
+        (slab.maxQuantity == null || qty <= slab.maxQuantity);
+
+      if (inRange) {
+        const original = Number(slab.originalPricePerUnit);
+        return Number.isFinite(original) && original > 0 ? original : 0;
+      }
+    }
+
+    return 0;
+  }
+
+  return Number(source.price) || 0;
+}
+
+export function getProductListPriceInfo(product, variantName = "", quantity = null) {
+  const source = getPricingSource(product, variantName);
+  if (!source) {
+    return { originalPrice: 0, salePrice: 0, hasDiscount: false, isBulk: false };
+  }
+
+  const isBulk = source.pricingType === "bulk" && source.bulkPricing?.slabs?.length > 0;
+
+  if (isBulk) {
+    const qty =
+      quantity != null && Number(quantity) > 0
+        ? Number(quantity)
+        : getMinOrderQuantity(product, variantName);
+    const salePrice = getUnitPriceForQuantity(product, qty, variantName);
+    const originalPrice = getOriginalPriceForQuantity(product, qty, variantName);
+    const hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+    return { originalPrice, salePrice, hasDiscount, isBulk: true };
+  }
+
+  const salePrice = getDisplayPriceForSource(source);
+  const originalPrice = Number(source.price) || salePrice;
+  const hasDiscount = originalPrice > salePrice && salePrice > 0;
+
+  return { originalPrice, salePrice, hasDiscount, isBulk: false };
+}
+
+export function getBulkTierRows(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source || source.pricingType !== "bulk" || !source.bulkPricing?.slabs?.length) {
+    return [];
+  }
+
+  return [...source.bulkPricing.slabs]
+    .sort((a, b) => a.minQuantity - b.minQuantity)
+    .map((slab) => ({
+      key: `${slab.minQuantity}-${slab.maxQuantity ?? "plus"}`,
+      minQuantity: slab.minQuantity,
+      maxQuantity: slab.maxQuantity,
+      price: slab.pricePerUnit,
+      originalPrice: slab.originalPricePerUnit ?? slab.pricePerUnit,
+      hasDiscount:
+        Number(slab.originalPricePerUnit) > Number(slab.pricePerUnit) &&
+        Number(slab.pricePerUnit) > 0,
+    }));
+}
+
+export function getAdminProductPriceDisplay(product) {
+  if (isMultiVariant(product)) {
+    const prices = product.variants.map((variant) => {
+      const moq = getMinOrderQuantity(product, variant.name);
+      return getUnitPriceForQuantity(product, moq, variant.name);
+    });
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const anyBulk = product.variants.some((variant) => variant.pricingType === "bulk");
+
+    return {
+      primaryPrice: min,
+      secondaryPrice: null,
+      hasDiscount: false,
+      isBulk: anyBulk,
+      bulkRange:
+        min !== max ? `₹${min} – ₹${max}` : anyBulk ? "Bulk pricing" : "Multi variant",
+    };
+  }
+
+  const moq = getMinOrderQuantity(product);
+  const info = getProductListPriceInfo(product, "", moq);
+  const slabPrices = (product.bulkPricing?.slabs || []).map((slab) => slab.pricePerUnit);
+  const minSlab = slabPrices.length ? Math.min(...slabPrices) : null;
+  const maxSlab = slabPrices.length ? Math.max(...slabPrices) : null;
+
+  return {
+    primaryPrice: info.salePrice,
+    secondaryPrice: info.hasDiscount ? info.originalPrice : null,
+    hasDiscount: info.hasDiscount && !info.isBulk,
+    isBulk: info.isBulk,
+    bulkRange:
+      info.isBulk && minSlab != null && maxSlab != null && minSlab !== maxSlab
+        ? `₹${minSlab} – ₹${maxSlab}`
+        : info.isBulk
+          ? "Bulk pricing"
+          : null,
+  };
+}

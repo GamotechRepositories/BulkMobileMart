@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import { useAuth } from "../../context/AuthContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { LOGO_URL } from "../layout/Header";
@@ -16,7 +16,14 @@ function MobileHeader() {
   const [headerHeight, setHeaderHeight] = useState(72);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [categories, setCategories] = useState([]);
+  const { data: allCategories = [] } = useCategoriesQuery();
+  const categories = useMemo(
+    () =>
+      allCategories.filter(
+        (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
+      ),
+    [allCategories]
+  );
 
   useLayoutEffect(() => {
     const node = headerRef.current;
@@ -31,28 +38,6 @@ function MobileHeader() {
     observer.observe(node);
     return () => observer.disconnect();
   }, [searchOpen]);
-
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      try {
-        const { data } = await getCategories();
-        if (!active) return;
-        setCategories(
-          (data.data || []).filter(
-            (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-          )
-        );
-      } catch {
-        if (active) setCategories([]);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const toggleSearch = () => {
     setMenuOpen(false);

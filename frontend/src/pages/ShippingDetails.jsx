@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL } from "../config/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../config/contact";
 
 function ShippingDetails() {
   return (
@@ -68,8 +68,8 @@ function ShippingDetails() {
                 {CONTACT_EMAIL}
               </a>{" "}
               or call{" "}
-              <a href="tel:+919876543210" className="text-primary hover:underline">
-                +91 98765 43210
+              <a href={CONTACT_PHONE_TEL} className="text-primary hover:underline">
+                {CONTACT_PHONE_DISPLAY}
               </a>
               .
             </p>

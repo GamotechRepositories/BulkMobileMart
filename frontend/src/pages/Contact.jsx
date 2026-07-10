@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { CONTACT_EMAIL } from "../config/contact";
+import {
+  CONTACT_ADDRESS,
+  CONTACT_EMAIL,
+  CONTACT_LOCATION,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_TEL,
+} from "../config/contact";
 
 function Contact() {
   const [form, setForm] = useState({
@@ -39,8 +45,8 @@ function Contact() {
             <div className="space-y-6 text-text-secondary">
               <div>
                 <h3 className="text-text-primary font-semibold mb-1">Phone / WhatsApp</h3>
-                <a href="tel:+919876543210" className="text-primary hover:underline">
-                  +91 98765 43210
+                <a href={CONTACT_PHONE_TEL} className="text-primary hover:underline">
+                  {CONTACT_PHONE_DISPLAY}
                 </a>
               </div>
               <div>
@@ -57,8 +63,12 @@ function Contact() {
                 <p>Mon – Sat · 10:00 AM – 7:00 PM IST</p>
               </div>
               <div>
-                <h3 className="text-text-primary font-semibold mb-1">Locations</h3>
-                <p>Mumbai · Delhi NCR · Bangalore</p>
+                <h3 className="text-text-primary font-semibold mb-1">Location</h3>
+                <p>{CONTACT_LOCATION}</p>
+              </div>
+              <div>
+                <h3 className="text-text-primary font-semibold mb-1">Address</h3>
+                <p className="leading-relaxed">{CONTACT_ADDRESS}</p>
               </div>
             </div>
           </div>
@@ -124,8 +134,8 @@ function Contact() {
       <section className="py-8 sm:py-12 px-3 sm:px-4 text-center border-t border-border-light pb-16">
         <p className="text-text-secondary max-w-xl mx-auto">
           Prefer WhatsApp? Message us at{" "}
-          <a href="tel:+919876543210" className="text-primary hover:underline">
-            +91 98765 43210
+          <a href={CONTACT_PHONE_TEL} className="text-primary hover:underline">
+            {CONTACT_PHONE_DISPLAY}
           </a>{" "}
           for fastest bulk pricing.
         </p>

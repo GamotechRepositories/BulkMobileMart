@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { deleteAdminOrder, getAdminOrders } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdminNotifications } from "../../../context/AdminNotificationContext";
+import { useAdminOrdersQuery } from "../../../hooks/queries/useAdminOrdersQuery";
+import { adminQueryKeys } from "../../../hooks/queries/queryKeys";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import { IconTrash } from "../AdminIcons";
@@ -42,8 +45,7 @@ function OrderSection() {
   const [searchParams] = useSearchParams();
   const { adminUser } = useAuth();
   const { markOrdersAsSeen } = useAdminNotifications();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -52,12 +54,6 @@ function OrderSection() {
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: ADMIN_PAGE_SIZE,
-    total: 0,
-    totalPages: 1,
-  });
 
   useEffect(() => {
     const start = searchParams.get("startDate") || "";
@@ -85,55 +81,40 @@ function OrderSection() {
     markOrdersAsSeen();
   }, [markOrdersAsSeen]);
 
-  const fetchOrders = useCallback(async () => {
-    if (adminUser?.role !== "admin") return;
-
-    try {
-      setLoading(true);
-      setError("");
-      const params = { page, limit: ADMIN_PAGE_SIZE };
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-      if (orderStatus === "pending") {
-        params.statusGroup = "pending";
-      } else if (orderStatus !== "all") {
-        params.status = orderStatus;
-      }
-      if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
-      if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
-
-      const { data } = await getAdminOrders(params);
-      setOrders(data.data || []);
-      setPagination(
-        data.pagination || {
-          page,
-          limit: ADMIN_PAGE_SIZE,
-          total: data.data?.length || 0,
-          totalPages: 1,
-        }
-      );
-    } catch (err) {
-      setError(getErrorMessage(err, "Failed to load orders"));
-      setOrders([]);
-    } finally {
-      setLoading(false);
+  const queryParams = useMemo(() => {
+    const params = { page, limit: ADMIN_PAGE_SIZE };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (orderStatus === "pending") {
+      params.statusGroup = "pending";
+    } else if (orderStatus !== "all") {
+      params.status = orderStatus;
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
+    if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
+    if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
+    return params;
+  }, [startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  const { data, isLoading, isError, error: queryError } = useAdminOrdersQuery(queryParams, {
+    enabled: adminUser?.role === "admin",
+  });
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        fetchOrders();
-      }
-    };
+  const orders = data?.items || [];
+  const pagination = data?.pagination || {
+    page,
+    limit: ADMIN_PAGE_SIZE,
+    total: orders.length,
+    totalPages: 1,
+  };
+  const loading = isLoading;
+  const loadError = isError ? getErrorMessage(queryError, "Failed to load orders") : "";
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [fetchOrders]);
+  const deleteMutation = useMutation({
+    mutationFn: deleteAdminOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.orders.all });
+    },
+  });
 
   const handleDownload = async () => {
     try {
@@ -161,11 +142,11 @@ function OrderSection() {
     try {
       setError("");
       setSuccess("");
-      await deleteAdminOrder(orderId);
+      await deleteMutation.mutateAsync(orderId);
       setSuccess("Order deleted");
-      const nextPage = orders.length === 1 && page > 1 ? page - 1 : page;
-      if (nextPage !== page) setPage(nextPage);
-      else fetchOrders();
+      if (orders.length === 1 && page > 1) {
+        setPage(page - 1);
+      }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to delete order"));
     }
@@ -174,7 +155,7 @@ function OrderSection() {
   return (
     <div className="min-w-0">
       <AdminAlert
-        error={error}
+        error={error || loadError}
         success={success}
         onClear={() => {
           setError("");

@@ -827,6 +827,7 @@ function ProductDetail() {
               <ProductPriceDisplay
                 product={product}
                 variantName={activeVariantName}
+                quantity={quantity}
                 size="lg"
               />
             </div>

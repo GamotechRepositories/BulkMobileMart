@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { LOGO_URL } from "./Header";
-import { CONTACT_EMAIL } from "../../config/contact";
+import { CONTACT_EMAIL, CONTACT_ADDRESS, CONTACT_LOCATION, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 
 const essentialLinks = [
   { to: "/", label: "Home" },
@@ -109,15 +109,16 @@ function Footer() {
             Contact
           </h4>
           <ul className="space-y-2.5 text-sm">
-            <li>Mumbai · Delhi · Bangalore</li>
+            <li>{CONTACT_LOCATION}</li>
+            <li className="leading-relaxed text-neutral-400">{CONTACT_ADDRESS}</li>
             <li>
               <a href={`mailto:${CONTACT_EMAIL}`} className="transition hover:text-primary">
                 {CONTACT_EMAIL}
               </a>
             </li>
             <li>
-              <a href="tel:+919876543210" className="transition hover:text-primary">
-                +91 98765 43210
+              <a href={CONTACT_PHONE_TEL} className="transition hover:text-primary">
+                {CONTACT_PHONE_DISPLAY}
               </a>
             </li>
             <li className="text-neutral-500">Mon – Sat: 10:00 AM – 7:00 PM</li>

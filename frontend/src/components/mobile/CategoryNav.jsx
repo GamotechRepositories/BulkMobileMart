@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getCategories } from "../../api/api";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
 const MOBILE_ITEMS_PER_SLIDE = 6;
@@ -244,35 +244,24 @@ function CategoryTwoRowSlider({ sectionKey, categories }) {
 }
 
 function CategoryNav() {
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const { data: apiCategories = [] } = useCategoriesQuery();
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await getCategories();
-        const apiCategories = (data.data || []).filter(
-          (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-        );
+  const categories = useMemo(() => {
+    const filtered = apiCategories.filter(
+      (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
+    );
 
-        if (apiCategories.length > 0) {
-          setCategories(
-            apiCategories.map((cat, index) => ({
-              name: cat.categoryName,
-              image: isUsableCategoryImage(cat.categoryImage)
-                ? cat.categoryImage
-                : undefined,
-              icon: ICON_TYPES[index % ICON_TYPES.length],
-              productCount: Number(cat.productCount) || 0,
-            }))
-          );
-        }
-      } catch {
-        /* keep defaults */
-      }
-    };
+    if (filtered.length === 0) {
+      return DEFAULT_CATEGORIES;
+    }
 
-    fetchCategories();
-  }, []);
+    return filtered.map((cat, index) => ({
+      name: cat.categoryName,
+      image: isUsableCategoryImage(cat.categoryImage) ? cat.categoryImage : undefined,
+      icon: ICON_TYPES[index % ICON_TYPES.length],
+      productCount: Number(cat.productCount) || 0,
+    }));
+  }, [apiCategories]);
 
   const categoriesAZ = useMemo(() => sortCategories(categories, "asc"), [categories]);
   const categoriesZA = useMemo(() => sortCategories(categories, "desc"), [categories]);

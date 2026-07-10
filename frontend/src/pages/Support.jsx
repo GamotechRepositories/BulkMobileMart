@@ -4,17 +4,16 @@ import { useAuth } from "../context/AuthContext";
 import { submitSupportMessage, uploadImageFile } from "../api/api";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders";
 import { SUPPORT_ISSUE_OPTIONS } from "../utils/supportConstants";
-import { CONTACT_EMAIL } from "../config/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL, CONTACT_WHATSAPP_URL } from "../config/contact";
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_MESSAGE_LENGTH = 1000;
 
 const SUPPORT_CONTACT = {
-  phone: "+91 74002 22233",
-  phoneHref: "tel:+917400222233",
-  whatsapp: "+91 74002 22233",
-  whatsappHref:
-    "https://wa.me/917400222233?text=Hi%2C%20I%20need%20support%20with%20my%20order.",
+  phone: CONTACT_PHONE_DISPLAY,
+  phoneHref: CONTACT_PHONE_TEL,
+  whatsapp: CONTACT_PHONE_DISPLAY,
+  whatsappHref: CONTACT_WHATSAPP_URL,
   email: CONTACT_EMAIL,
 };
 

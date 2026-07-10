@@ -199,7 +199,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             children: [
               Expanded(child: _contactCard(Icons.phone, 'Phone', supportContactPhone, supportContactPhoneHref)),
               const SizedBox(width: 10),
-              Expanded(child: _contactCard(Icons.chat, 'WhatsApp', '+91 74002 22233', supportWhatsAppHref)),
+              Expanded(child: _contactCard(Icons.chat, 'WhatsApp', supportContactPhone, supportWhatsAppHref)),
             ],
           ),
           const SizedBox(height: 10),

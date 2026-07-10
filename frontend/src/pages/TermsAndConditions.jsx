@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL } from "../config/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../config/contact";
 
 function TermsAndConditions() {
   return (
@@ -58,7 +58,11 @@ function TermsAndConditions() {
               <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">
                 {CONTACT_EMAIL}
               </a>{" "}
-              or call +91 98765 43210.
+              or call{" "}
+              <a href={CONTACT_PHONE_TEL} className="text-primary hover:underline">
+                {CONTACT_PHONE_DISPLAY}
+              </a>
+              .
             </p>
           </div>
         </div>

@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   addProduct,
-  getAllBrands,
-  getAllCategories,
   uploadVideoFile,
   updateProduct,
 } from "../../../api/api";
+import { useAdminBrandOptionsQuery } from "../../../hooks/queries/useAdminBrandsQuery";
+import { useAdminCategoryOptionsQuery } from "../../../hooks/queries/useAdminCategoriesQuery";
 import AdminAlert from "../AdminAlert";
 import ImagePicker from "../ImagePicker";
 import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
@@ -209,8 +209,8 @@ function AddProductSection() {
   const location = useLocation();
   const editProduct = location.state?.editProduct;
 
-  const [categories, setCategories] = useState([]);
-  const [brands, setBrands] = useState([]);
+  const { data: categories = [] } = useAdminCategoryOptionsQuery();
+  const { data: brands = [] } = useAdminBrandOptionsQuery();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
@@ -221,15 +221,6 @@ function AddProductSection() {
   const [editingId, setEditingId] = useState(null);
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(null);
-
-  useEffect(() => {
-    getAllCategories({ limit: 500 })
-      .then(({ data }) => setCategories(data.data || []))
-      .catch(() => setCategories([]));
-    getAllBrands({ limit: 500 })
-      .then(({ data }) => setBrands(data.data || []))
-      .catch(() => setBrands([]));
-  }, []);
 
   useEffect(() => {
     try {
