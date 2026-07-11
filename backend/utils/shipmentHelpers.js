@@ -44,3 +44,24 @@ export function mergeOrderShipment(order, updates = {}) {
     ),
   };
 }
+
+/** Empty shipment so admin can create a new Envia label. */
+export function getClearedShipment() {
+  return {
+    provider: "",
+    carrier: "",
+    service: "",
+    shipmentId: "",
+    trackingNumber: "",
+    trackUrl: "",
+    labelUrl: "",
+    status: "",
+    statusMessage: "",
+    syncedAt: null,
+    events: [],
+    note: "",
+    evidenceUrl: "",
+    evidenceName: "",
+    manualTracking: getDefaultManualTracking(),
+  };
+}

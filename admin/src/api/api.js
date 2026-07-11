@@ -121,6 +121,8 @@ export const createAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia`, data);
 export const syncAdminOrderShipment = (id) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/sync`);
+export const cancelAdminOrderShipment = (id, data) =>
+  api.post(`/api/orders/admin/${id}/shipment/envia/cancel`, data);
 export const linkAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/link`, data);
 

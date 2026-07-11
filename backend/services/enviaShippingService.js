@@ -785,6 +785,53 @@ export async function trackEnviaShipment(trackingNumber) {
   return pickTrackingData(response.data, normalized);
 }
 
+export function isRecoverableEnviaCancelError(message) {
+  return /already\s*cancel|previously\s*cancel|not\s*found|does\s*not\s*exist|no\s*shipment|inexistent|invalid\s*tracking|cannot\s*find|unknown\s*tracking|voided|deleted/i.test(
+    String(message || "")
+  );
+}
+
+/** Cancel / void an Envia label (POST /ship/cancel/). */
+export async function cancelEnviaShipment({
+  carrier,
+  trackingNumber,
+  folio = "",
+} = {}) {
+  const config = await resolveEnviaConfig();
+  ensureConfigUsable(config);
+
+  const normalizedCarrier = safeTrim(carrier);
+  const normalizedTracking = safeTrim(trackingNumber);
+  if (!normalizedCarrier || !normalizedTracking) {
+    throw new Error("Carrier and tracking number are required to cancel the Envia label");
+  }
+
+  const baseURL = config.useSandbox ? TEST_BASE_URL : PROD_BASE_URL;
+  const client = buildClient(baseURL, config.token);
+  const payload = {
+    carrier: normalizedCarrier,
+    trackingNumber: normalizedTracking,
+  };
+  const folioValue = safeTrim(folio);
+  if (folioValue) {
+    payload.folio = folioValue;
+  }
+
+  try {
+    const response = await client.post("/ship/cancel/", payload);
+    if (response.data?.meta === "error" || response.data?.error) {
+      throw new Error(extractEnviaError({ response: { data: response.data } }));
+    }
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      formatEnviaShipmentError(extractEnviaError(error) || "Failed to cancel Envia label", {
+        carrier: normalizedCarrier,
+      })
+    );
+  }
+}
+
 function applyShipmentOnOrder(order, shipment) {
   order.shipment = {
     provider: shipment.provider || "envia",

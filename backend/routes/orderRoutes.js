@@ -12,6 +12,7 @@ import {
   quoteOrderShipmentRates,
   linkOrderShipmentTracking,
   syncOrderShipmentTracking,
+  cancelOrderShipment,
   cancelOrder,
   getDashboardStats,
   getOrderUnreadCount,
@@ -36,6 +37,7 @@ router.post("/admin/:id/shipment/envia/rates", requireAdmin, quoteOrderShipmentR
 router.post("/admin/:id/shipment/envia", requireAdmin, createOrderShipment);
 router.post("/admin/:id/shipment/envia/link", requireAdmin, linkOrderShipmentTracking);
 router.post("/admin/:id/shipment/envia/sync", requireAdmin, syncOrderShipmentTracking);
+router.post("/admin/:id/shipment/envia/cancel", requireAdmin, cancelOrderShipment);
 router.post("/checkout-attempt", createCheckoutAttempt);
 router.post("/", placeOrder);
 router.get("/", getMyOrders);

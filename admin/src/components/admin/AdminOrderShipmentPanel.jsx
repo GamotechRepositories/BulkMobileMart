@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createAdminOrderShipment,
+  cancelAdminOrderShipment,
   linkAdminOrderShipment,
   quoteAdminOrderShipmentRates,
   syncAdminOrderShipment,
@@ -141,6 +142,7 @@ export default function AdminOrderShipmentPanel({
   const [trackingInput, setTrackingInput] = useState("");
   const [linkingTracking, setLinkingTracking] = useState(false);
   const [syncingTracking, setSyncingTracking] = useState(false);
+  const [cancellingLabel, setCancellingLabel] = useState(false);
   const [mode, setMode] = useState("create");
 
   const hasTracking = Boolean(order?.shipment?.trackingNumber);
@@ -337,6 +339,46 @@ export default function AdminOrderShipmentPanel({
     }
   };
 
+  const handleCancelLabel = async ({ clearOnly = false, forceClear = false } = {}) => {
+    if (!order || cancellingLabel || !order.shipment?.trackingNumber) return;
+
+    const confirmMessage = clearOnly
+      ? "Clear this shipment from the order without calling Envia? Use this if you already cancelled/deleted the label on Envia. You can create a new label after."
+      : forceClear
+        ? "Envia could not cancel this label. Clear it from the order anyway so you can create a new label? (The label may still exist on Envia.)"
+        : "Cancel this Envia label and clear shipment from the order so you can create a new one?";
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setCancellingLabel(true);
+    onError("");
+    onSuccess("");
+    try {
+      const { data } = await cancelAdminOrderShipment(order._id, { clearOnly, forceClear });
+      onOrderUpdated(data.data);
+      setServiceOptions([]);
+      setQuoteErrors([]);
+      setQuotedPayment(null);
+      setMode("create");
+      onSuccess(data.message || "Shipment cancelled. You can create a new label.");
+    } catch (err) {
+      const response = err.response?.data;
+      if (response?.canForceClear && !forceClear && !clearOnly) {
+        const clearAnyway = window.confirm(
+          `${response.message || "Envia could not cancel this label."}\n\nClear shipment from this order anyway so you can create a new label?`
+        );
+        if (clearAnyway) {
+          setCancellingLabel(false);
+          await handleCancelLabel({ forceClear: true });
+          return;
+        }
+      }
+      onError(response?.message || "Failed to cancel shipment");
+    } finally {
+      setCancellingLabel(false);
+    }
+  };
+
   return (
     <div className={cardClass}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -411,7 +453,7 @@ export default function AdminOrderShipmentPanel({
             <button
               type="button"
               onClick={handleSyncTracking}
-              disabled={syncingTracking}
+              disabled={syncingTracking || cancellingLabel}
               className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
             >
               {syncingTracking ? "Refreshing…" : "Refresh tracking"}
@@ -436,6 +478,23 @@ export default function AdminOrderShipmentPanel({
                 Open tracking
               </a>
             ) : null}
+            <button
+              type="button"
+              onClick={() => handleCancelLabel()}
+              disabled={cancellingLabel || syncingTracking || order.status === "delivered"}
+              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              {cancellingLabel ? "Cancelling…" : "Cancel label"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCancelLabel({ clearOnly: true })}
+              disabled={cancellingLabel || syncingTracking || order.status === "delivered"}
+              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              title="Use if the label was already deleted on Envia"
+            >
+              Clear & recreate
+            </button>
           </div>
           {order.shipment.events?.length > 0 ? (
             <div className="border-t border-neutral-200 pt-3">

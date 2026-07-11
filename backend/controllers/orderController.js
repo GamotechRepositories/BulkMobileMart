@@ -14,7 +14,7 @@ import {
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
-import { mergeOrderShipment } from "../utils/shipmentHelpers.js";
+import { getClearedShipment, mergeOrderShipment } from "../utils/shipmentHelpers.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   calculateAdvanceAmount,
@@ -26,7 +26,9 @@ import {
   notifyShipmentLabelCreated,
 } from "../services/orderNotificationDispatcher.js";
 import {
+  cancelEnviaShipment,
   createEnviaShipment,
+  isRecoverableEnviaCancelError,
   parseShipmentOverrides,
   quoteEnviaShipmentRates,
   trackEnviaShipment,
@@ -1313,6 +1315,107 @@ export const syncOrderShipmentTracking = async (req, res) => {
     res.status(400).json({
       success: false,
       message: error.response?.data?.message || error.message || "Failed to sync tracking",
+    });
+  }
+};
+
+export const cancelOrderShipment = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const trackingNumber = String(order.shipment?.trackingNumber || "").trim();
+    if (!trackingNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "No shipment label found on this order",
+      });
+    }
+
+    if (order.status === "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel shipment for a delivered order",
+      });
+    }
+
+    const clearOnly = Boolean(req.body?.clearOnly);
+    const forceClear = Boolean(req.body?.forceClear);
+    const carrier = String(order.shipment?.carrier || "").trim();
+    let enviaCancelled = false;
+    let enviaWarning = "";
+
+    if (!clearOnly) {
+      if (!carrier) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Carrier is missing on this shipment. Clear the shipment locally, then create a new label.",
+          canForceClear: true,
+        });
+      }
+
+      try {
+        await cancelEnviaShipment({
+          carrier,
+          trackingNumber,
+          folio: order.shipment?.shipmentId || order.orderNumber || "",
+        });
+        enviaCancelled = true;
+      } catch (error) {
+        const message = error.message || "Failed to cancel Envia label";
+        if (isRecoverableEnviaCancelError(message) || forceClear) {
+          enviaWarning = message;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message,
+            canForceClear: true,
+          });
+        }
+      }
+    }
+
+    const previousStatus = order.status;
+    order.shipment = getClearedShipment();
+    order.markModified("shipment");
+
+    if (order.status === "shipping") {
+      order.status = "processing";
+    }
+
+    await order.save();
+
+    const populated = await populateOrderItems(
+      Order.findById(order._id).populate("user", "name email phone")
+    );
+
+    if (previousStatus !== populated.status) {
+      void notifyOrderStatusChange(populated, previousStatus);
+    }
+
+    let message = "Shipment cleared. You can create a new label.";
+    if (enviaCancelled) {
+      message = "Envia label cancelled. You can create a new shipment label.";
+    } else if (clearOnly) {
+      message = "Shipment cleared from this order. Create a new label when ready.";
+    } else if (enviaWarning) {
+      message = `Shipment cleared from this order. Envia note: ${enviaWarning}`;
+    }
+
+    res.status(200).json({
+      success: true,
+      message,
+      data: enrichOrderForResponse(populated),
+      enviaCancelled,
+      ...(enviaWarning ? { enviaWarning } : {}),
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to cancel shipment",
     });
   }
 };
