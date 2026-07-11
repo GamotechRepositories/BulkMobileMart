@@ -166,12 +166,37 @@ export function getTransactionId(order) {
 export function getRazorpayPaymentId(order, proof) {
   if (proof?.razorpayPaymentId) return proof.razorpayPaymentId;
   if (!order) return "";
-  return (
-    order.razorpayPaymentId ||
-    order.codAdvanceRazorpayPaymentId ||
-    order.razorpayOrderId ||
-    ""
-  );
+  return order.razorpayTransactionId || order.razorpayPaymentId || order.codAdvanceRazorpayPaymentId || "";
+}
+
+export function getRazorpayTransactionAmount(order) {
+  if (!order) return 0;
+  if (Number(order.razorpayTransactionAmount) > 0) return order.razorpayTransactionAmount;
+  if (Number(order.razorpayPaidAmount) > 0) return order.razorpayPaidAmount;
+  if (order.paymentStatus === "paid_10") {
+    const recorded =
+      Number(order.advancePaidAmount) > 0
+        ? order.advancePaidAmount
+        : Number(order.codAdvanceAmount) || 0;
+    if (recorded > 0) return recorded;
+  }
+  if (order.razorpayPaymentId) return Number(order.total) || 0;
+  if (order.codAdvanceRazorpayPaymentId) {
+    return Number(order.codAdvanceAmount) || 0;
+  }
+  return 0;
+}
+
+export function getRazorpayPaidAt(order) {
+  if (!order) return null;
+  return order.razorpayPaidAt || order.paidAt || order.codAdvancePaidAt || order.createdAt || null;
+}
+
+export function getRazorpayPaymentTypeLabel(order) {
+  if (!order) return "—";
+  if (order.codAdvanceRazorpayPaymentId) return "COD advance (10%)";
+  if (order.razorpayPaymentId) return "Online full";
+  return "Razorpay";
 }
 
 export function getUpiTransactionId(_order, proof) {
@@ -181,15 +206,22 @@ export function getUpiTransactionId(_order, proof) {
 export function getPaymentAmount(order, proof) {
   if (proof?.amount != null) return proof.amount;
   if (!order) return 0;
-  if (order.paymentStatus === "paid_10" && Number(order.codAdvanceAmount) > 0) {
-    return order.codAdvanceAmount;
+  if (order.paymentStatus === "paid_10") {
+    const recorded =
+      Number(order.advancePaidAmount) > 0
+        ? order.advancePaidAmount
+        : Number(order.codAdvanceAmount) || 0;
+    if (recorded > 0) return recorded;
   }
   return order.total ?? 0;
 }
 
 export function getOrderAdvanceBillingSummary(order = {}) {
   const orderTotal = Number(order.total) || 0;
-  const advancePaid = Number(order.codAdvanceAmount) || 0;
+  const advancePaid =
+    Number(order.advancePaidAmount) > 0
+      ? Number(order.advancePaidAmount)
+      : Number(order.codAdvanceAmount) || 0;
   const paymentStatus = String(order.paymentStatus || "unpaid");
   const isFullySettled = paymentStatus === "paid" || paymentStatus === "refundable";
   const hasAdvance = advancePaid > 0 && !isFullySettled;
@@ -233,6 +265,32 @@ function downloadCsv(headers, rows, filename) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export function downloadRazorpayPaymentsCsv(orders, filename = "razorpay-payments.csv") {
+  const headers = [
+    "Order ID",
+    "Customer",
+    "Phone",
+    "Razorpay Payment ID",
+    "Amount",
+    "Type",
+    "Order Total",
+    "Date",
+  ];
+
+  const rows = orders.map((order) => [
+    getOrderNumber(order),
+    getCustomerName(order),
+    getCustomerPhone(order),
+    getRazorpayPaymentId(order),
+    getRazorpayTransactionAmount(order),
+    getRazorpayPaymentTypeLabel(order),
+    order.total,
+    formatDate(getRazorpayPaidAt(order)),
+  ]);
+
+  downloadCsv(headers, rows, filename);
 }
 
 export function downloadPaymentsCsv(orders, filename = "payments.csv") {

@@ -220,7 +220,11 @@ class _InvoiceDocument extends StatelessWidget {
         order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Online Payment';
     final paymentStatus = getInvoicePaymentStatusLabel(order);
     final isAdvancePaid = order.paymentStatus == 'paid_10';
-    final advancePaid = isAdvancePaid ? PaymentUtils.advanceAmount(order.total) : 0.0;
+    final advancePaid = PaymentUtils.recordedAdvanceAmount(
+      total: order.total,
+      paymentStatus: order.paymentStatus,
+      codAdvanceAmount: order.codAdvanceAmount,
+    );
     final remainingBalance =
         isAdvancePaid ? (order.total - advancePaid).clamp(0.0, double.infinity) : 0.0;
 

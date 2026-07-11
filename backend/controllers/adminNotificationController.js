@@ -49,7 +49,7 @@ export const getAdminInboxSummary = async (req, res) => {
         status: "attempted",
         ...buildSinceFilter(attemptedDate),
       }),
-      Payment.countDocuments(buildSinceFilter(paymentDate)),
+      Payment.countDocuments({ status: "pending", ...buildSinceFilter(paymentDate) }),
     ]);
 
     return res.json({

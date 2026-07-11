@@ -20,9 +20,19 @@ export function filterAndSortProducts(
   if (statusFilter === "inactive") {
     result = result.filter((product) => !product.isActive);
   } else if (statusFilter === "out_of_stock") {
-    result = result.filter((product) => product.inStock === false);
+    result = result.filter((product) => product.inStock === false || Number(product.stock) <= 0);
+  } else if (statusFilter === "low_stock") {
+    result = result.filter(
+      (product) =>
+        product.isActive &&
+        product.inStock !== false &&
+        Number(product.stock) > 0 &&
+        Number(product.stock) <= 5
+    );
   } else if (statusFilter === "active") {
-    result = result.filter((product) => product.isActive && product.inStock !== false);
+    result = result.filter(
+      (product) => product.isActive && product.inStock !== false && Number(product.stock) > 0
+    );
   }
 
   const query = searchQuery.trim().toLowerCase();

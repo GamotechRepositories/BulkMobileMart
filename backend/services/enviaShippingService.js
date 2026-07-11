@@ -206,6 +206,15 @@ function formatEnviaShipmentError(message, context = {}) {
     return `${normalized} Try a different shipping partner with Compare rates, or verify the customer's pincode. Carrier: ${carrier}.`;
   }
 
+  if (safeTrim(context.carrier) === "amazon") {
+    if (/carrier.*not.*available|not enabled|not connected|unavailable/i.test(normalized)) {
+      return `${normalized} Connect Amazon Shipping in your Envia account (Carriers → Amazon) and use production mode with a live API token.`;
+    }
+    if (/sandbox|test/i.test(normalized)) {
+      return `${normalized} Amazon Shipping usually requires production Envia (disable sandbox in Store Settings).`;
+    }
+  }
+
   return normalized;
 }
 
@@ -321,6 +330,7 @@ const DEFAULT_IN_RATE_CARRIERS = [
   "xpressbees",
   "delhivery",
   "ekart",
+  "amazon",
   "bluedart",
   "dtdc",
   "ecomexpress",
@@ -561,6 +571,64 @@ async function buildRateQuotePayload(order, config, overrides = {}, carrier) {
   };
 }
 
+async function postRateQuote(client, order, config, overrides, carrier) {
+  const payload = await buildRateQuotePayload(order, config, overrides, carrier);
+  payload.origin = await normalizeEnviaAddress(payload.origin);
+  payload.destination = await normalizeEnviaAddress(payload.destination);
+  const response = await client.post("/ship/rate/", payload);
+  return pickRateQuotes(response.data, carrier);
+}
+
+async function quoteCarrierRates(client, order, config, overrides, carrier) {
+  const withCod = Boolean(overrides.isCod);
+
+  const attempt = async (codOverrides) => postRateQuote(client, order, config, codOverrides, carrier);
+
+  try {
+    let quotes = await attempt(overrides);
+    if (quotes.length || !withCod) {
+      return { quotes, error: null };
+    }
+
+    const prepaidOverrides = { ...overrides, isCod: false, codAmount: undefined };
+    quotes = await attempt(prepaidOverrides);
+    if (quotes.length) {
+      return {
+        quotes: quotes.map((quote) => ({ ...quote, codQuoteFallback: true })),
+        error: null,
+      };
+    }
+
+    return {
+      quotes: [],
+      error: "No rates returned for this pincode. Try another carrier.",
+    };
+  } catch (reason) {
+    if (withCod) {
+      try {
+        const prepaidOverrides = { ...overrides, isCod: false, codAmount: undefined };
+        const quotes = await attempt(prepaidOverrides);
+        if (quotes.length) {
+          return {
+            quotes: quotes.map((quote) => ({ ...quote, codQuoteFallback: true })),
+            error: null,
+          };
+        }
+      } catch {
+        // Fall through to the original carrier error.
+      }
+    }
+
+    return {
+      quotes: [],
+      error: formatEnviaShipmentError(
+        extractEnviaError(reason) || "Rate quote failed",
+        { carrier }
+      ),
+    };
+  }
+}
+
 function pickRateQuotes(responseData = {}, carrier = "") {
   const rows = Array.isArray(responseData?.data) ? responseData.data : [];
   return rows
@@ -644,13 +712,7 @@ export async function quoteEnviaShipmentRates(order, overrides = {}) {
   const client = buildClient(baseURL, config.token);
 
   const results = await Promise.allSettled(
-    carriers.map(async (carrier) => {
-      const payload = await buildRateQuotePayload(order, config, overrides, carrier);
-      payload.origin = await normalizeEnviaAddress(payload.origin);
-      payload.destination = await normalizeEnviaAddress(payload.destination);
-      const response = await client.post("/ship/rate/", payload);
-      return pickRateQuotes(response.data, carrier);
-    })
+    carriers.map((carrier) => quoteCarrierRates(client, order, config, overrides, carrier))
   );
 
   const quotes = [];
@@ -659,12 +721,9 @@ export async function quoteEnviaShipmentRates(order, overrides = {}) {
   results.forEach((result, index) => {
     const carrier = carriers[index];
     if (result.status === "fulfilled") {
-      quotes.push(...result.value);
-      if (!result.value.length) {
-        errors.push({
-          carrier,
-          message: "No rates returned for this pincode. Try another carrier.",
-        });
+      quotes.push(...result.value.quotes);
+      if (result.value.error) {
+        errors.push({ carrier, message: result.value.error });
       }
     } else {
       const message = formatEnviaShipmentError(

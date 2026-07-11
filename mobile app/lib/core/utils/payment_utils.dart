@@ -15,6 +15,17 @@ class PaymentUtils {
   static double advanceAmount(double total) =>
       ((total * advancePercent * 100).roundToDouble()) / 100;
 
+  /// Recorded advance from Razorpay/UPI transaction — not recalculated from order total.
+  static double recordedAdvanceAmount({
+    required double total,
+    required String paymentStatus,
+    double codAdvanceAmount = 0,
+  }) {
+    if (paymentStatus != PaymentStatus.paid10) return 0;
+    if (codAdvanceAmount > 0) return codAdvanceAmount;
+    return 0;
+  }
+
   static double payableAmount(double total, String paymentPlan) {
     if (paymentPlan == PaymentPlan.advance) {
       return advanceAmount(total);

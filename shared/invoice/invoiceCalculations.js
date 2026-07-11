@@ -56,9 +56,11 @@ export function getInvoiceAdvancePaymentDetails(order) {
   }
 
   const advancePaid = roundMoney(
-    Number(order?.codAdvanceAmount) > 0
-      ? order.codAdvanceAmount
-      : calculateAdvanceAmount(grandTotal)
+    Number(order?.advancePaidAmount) > 0
+      ? order.advancePaidAmount
+      : Number(order?.codAdvanceAmount) > 0
+        ? order.codAdvanceAmount
+        : 0
   );
   const remainingBalance = roundMoney(Math.max(0, grandTotal - advancePaid));
 

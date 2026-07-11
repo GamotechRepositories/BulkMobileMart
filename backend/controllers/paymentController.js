@@ -10,8 +10,15 @@ import {
 } from "../utils/orderHelpers.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
-import { calculatePayableAmount } from "../utils/paymentHelpers.js";
+import {
+  calculatePayableAmount,
+  getRazorpayPaidAt,
+  getRazorpayPaymentId,
+  getRazorpayTransactionAmount,
+  RAZORPAY_SUCCESS_PAYMENT_STATUSES,
+} from "../utils/paymentHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   notifyOrderCreated,
   notifyPaymentFailed,
@@ -21,6 +28,44 @@ import {
 function normalizeText(value, maxLength) {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, maxLength);
+}
+
+const SUCCESSFUL_RAZORPAY_STATUSES = new Set(["captured", "authorized"]);
+
+async function fetchRazorpayCapturedAmount(paymentId) {
+  if (!isRazorpayConfigured() || !paymentId) return null;
+
+  try {
+    const payment = await razorpay.payments.fetch(paymentId);
+    if (!payment || !SUCCESSFUL_RAZORPAY_STATUSES.has(payment.status)) {
+      return null;
+    }
+
+    return Math.round(Number(payment.amount) / 100 * 100) / 100;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveOrderRazorpayAmount(order) {
+  const paymentId = getRazorpayPaymentId(order);
+  const apiAmount = await fetchRazorpayCapturedAmount(paymentId);
+
+  if (apiAmount != null) {
+    const updates = {};
+    if (Number(order.razorpayPaidAmount) !== apiAmount) {
+      updates.razorpayPaidAmount = apiAmount;
+    }
+    if (order.paymentStatus === "paid_10" && Number(order.codAdvanceAmount) !== apiAmount) {
+      updates.codAdvanceAmount = apiAmount;
+    }
+    if (Object.keys(updates).length) {
+      await Order.updateOne({ _id: order._id }, { $set: updates });
+    }
+    return apiAmount;
+  }
+
+  return getRazorpayTransactionAmount(order);
 }
 
 export const createRazorpayOrder = async (req, res) => {
@@ -210,6 +255,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       razorpayPaymentId: isCodAdvance ? "" : razorpay_payment_id,
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       codAdvanceRazorpayPaymentId: isCodAdvance ? razorpay_payment_id : "",
+      razorpayPaidAmount: payableAmount,
       paidAt: isCodAdvance ? null : new Date(),
       ...(isCodAdvance ? { codAdvancePaidAt: new Date() } : {}),
       message: orderMessage,
@@ -368,7 +414,7 @@ export const submitUpiPaymentProof = async (req, res) => {
 export const getPaymentUnreadCount = async (req, res) => {
   try {
     const { since } = req.query;
-    const filter = {};
+    const filter = { status: "pending" };
 
     if (since) {
       const sinceDate = new Date(since);
@@ -388,6 +434,82 @@ export const getPaymentUnreadCount = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to load unread payment count",
+    });
+  }
+};
+
+export const getAdminRazorpayTransactions = async (req, res) => {
+  try {
+    const { startDate, endDate, status, search } = req.query;
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const andClauses = [
+      {
+        $or: [
+          { razorpayPaymentId: { $nin: ["", null] } },
+          { codAdvanceRazorpayPaymentId: { $nin: ["", null] } },
+        ],
+      },
+      {
+        paymentStatus: { $in: RAZORPAY_SUCCESS_PAYMENT_STATUSES },
+      },
+    ];
+
+    if (status && status !== "all") {
+      andClauses.push({ status });
+    }
+
+    if (startDate || endDate) {
+      const paidAtRange = {};
+      if (startDate) {
+        paidAtRange.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        paidAtRange.$lte = end;
+      }
+
+      andClauses.push({
+        $or: [{ paidAt: paidAtRange }, { codAdvancePaidAt: paidAtRange }],
+      });
+    }
+
+    const searchClause = await buildOrderSearchFilter(search);
+    if (searchClause) {
+      andClauses.push(searchClause);
+    }
+
+    const filter = { $and: andClauses };
+
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(filter),
+      Order.find(filter)
+        .populate("user", "name email phone")
+        .sort({ paidAt: -1, codAdvancePaidAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    const data = await Promise.all(
+      orders.map(async (order) => {
+        const razorpayTransactionAmount = await resolveOrderRazorpayAmount(order);
+
+        return {
+          ...order,
+          razorpayTransactionId: getRazorpayPaymentId(order),
+          razorpayTransactionAmount,
+          razorpayPaidAmount: razorpayTransactionAmount || order.razorpayPaidAmount || 0,
+          razorpayPaidAt: getRazorpayPaidAt(order),
+        };
+      })
+    );
+
+    res.status(200).json(buildPaginatedResponse(data, total, page, limit));
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load Razorpay transactions",
     });
   }
 };
@@ -508,7 +630,8 @@ export const updatePaymentStatus = async (req, res) => {
       } else {
         await Order.findByIdAndUpdate(payment.order, {
           status: "confirm",
-          paymentStatus: "unpaid",
+          paymentStatus: "paid_10",
+          codAdvanceAmount: payment.amount,
           codAdvancePaidAt: new Date(),
         });
       }

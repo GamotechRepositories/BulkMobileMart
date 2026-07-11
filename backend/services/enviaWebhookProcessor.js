@@ -1,4 +1,5 @@
 import Order from "../models/order/Order.js";
+import { mergeOrderShipment } from "../utils/shipmentHelpers.js";
 import { notifyOrderStatusChange } from "./orderNotificationDispatcher.js";
 import { sendShipmentStatusUpdate } from "./notificationService.js";
 
@@ -127,8 +128,7 @@ export async function processEnviaWebhookEvent(body = {}) {
   const previousStatus = order.status;
   const previousShipmentStatus = text(order.shipment?.status);
 
-  order.shipment = {
-    ...(order.shipment || {}),
+  order.shipment = mergeOrderShipment(order, {
     provider: "envia",
     carrier: payload.carrier || order.shipment?.carrier || "",
     trackingNumber: payload.trackingNumber || order.shipment?.trackingNumber || "",
@@ -137,7 +137,7 @@ export async function processEnviaWebhookEvent(body = {}) {
     statusMessage: payload.statusMessage || order.shipment?.statusMessage || "",
     syncedAt: new Date(),
     events: payload.events.length ? payload.events : order.shipment?.events || [],
-  };
+  });
 
   const nextStatus = mapTrackingToOrderStatus(payload.status, order.status);
   if (nextStatus !== order.status) {

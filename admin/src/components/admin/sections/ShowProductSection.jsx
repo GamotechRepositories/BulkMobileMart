@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { deleteProduct } from "../../../api/api";
 import { useAdminCategoryOptionsQuery } from "../../../hooks/queries/useAdminCategoriesQuery";
 import { useAdminProductsQuery } from "../../../hooks/queries/useAdminProductsQuery";
@@ -21,8 +21,17 @@ import {
 } from "../adminStyles";
 import ProductListFilters from "./ProductListFilters";
 
+const ALLOWED_STATUS_FILTERS = new Set([
+  "all",
+  "active",
+  "inactive",
+  "out_of_stock",
+  "low_stock",
+]);
+
 function ShowProductSection() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -33,6 +42,14 @@ function ShowProductSection() {
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status && ALLOWED_STATUS_FILTERS.has(status)) {
+      setStatusFilter(status);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   const { data: categoryData = [] } = useAdminCategoryOptionsQuery();
   const categoryOptions = useMemo(

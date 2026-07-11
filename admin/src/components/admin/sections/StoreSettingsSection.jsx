@@ -146,17 +146,6 @@ function serializeEnviaSection(form) {
       .map((entry) => entry.trim())
       .filter(Boolean),
     origin: enviaOriginFromForm(form),
-    packageDefaults: {
-      type: String(form.enviaPackageType ?? "").trim(),
-      content: String(form.enviaPackageContent ?? "").trim(),
-      amount: String(form.enviaPackageAmount ?? "").trim(),
-      weightUnit: String(form.enviaWeightUnit ?? "").trim().toUpperCase(),
-      lengthUnit: String(form.enviaLengthUnit ?? "").trim().toUpperCase(),
-      weight: String(form.enviaWeight ?? "").trim(),
-      length: String(form.enviaLength ?? "").trim(),
-      width: String(form.enviaWidth ?? "").trim(),
-      height: String(form.enviaHeight ?? "").trim(),
-    },
   });
 }
 
@@ -195,17 +184,8 @@ function StoreSettingsSection() {
     enviaApiToken: "",
     enviaDefaultCarrier: "",
     enviaDefaultService: "",
-    enviaRateCarriers: "xpressbees, delhivery, ekart, bluedart, dtdc, ecomexpress",
+    enviaRateCarriers: "xpressbees, delhivery, ekart, amazon, bluedart, dtdc, ecomexpress",
     ...enviaOriginToForm(DEFAULT_ENVIA_PICKUP_ORIGIN),
-    enviaPackageType: "box",
-    enviaPackageContent: "Mobile accessories",
-    enviaPackageAmount: "1",
-    enviaWeightUnit: "KG",
-    enviaLengthUnit: "CM",
-    enviaWeight: "1",
-    enviaLength: "20",
-    enviaWidth: "15",
-    enviaHeight: "10",
   });
 
   const loadSettings = useCallback(async () => {
@@ -253,15 +233,6 @@ function StoreSettingsSection() {
         enviaDefaultService: settings.envia?.defaultService || "",
         enviaRateCarriers: (settings.envia?.rateCarriers || []).join(", "),
         ...enviaOriginToForm(settings.envia?.origin),
-        enviaPackageType: settings.envia?.packageDefaults?.type || "box",
-        enviaPackageContent: settings.envia?.packageDefaults?.content || "Mobile accessories",
-        enviaPackageAmount: String(settings.envia?.packageDefaults?.amount ?? 1),
-        enviaWeightUnit: settings.envia?.packageDefaults?.weightUnit || "KG",
-        enviaLengthUnit: settings.envia?.packageDefaults?.lengthUnit || "CM",
-        enviaWeight: String(settings.envia?.packageDefaults?.weight ?? 1),
-        enviaLength: String(settings.envia?.packageDefaults?.length ?? 20),
-        enviaWidth: String(settings.envia?.packageDefaults?.width ?? 15),
-        enviaHeight: String(settings.envia?.packageDefaults?.height ?? 10),
       };
       setForm(nextForm);
       setEnviaHasSavedToken(Boolean(settings.envia?.hasApiToken));
@@ -501,17 +472,6 @@ function StoreSettingsSection() {
               .map((entry) => entry.trim())
               .filter(Boolean),
             origin: enviaOriginFromForm(form),
-            packageDefaults: {
-              type: form.enviaPackageType.trim(),
-              content: form.enviaPackageContent.trim(),
-              amount: Number(form.enviaPackageAmount),
-              weightUnit: form.enviaWeightUnit.trim().toUpperCase(),
-              lengthUnit: form.enviaLengthUnit.trim().toUpperCase(),
-              weight: Number(form.enviaWeight),
-              length: Number(form.enviaLength),
-              width: Number(form.enviaWidth),
-              height: Number(form.enviaHeight),
-            },
           },
         };
       }
@@ -1171,81 +1131,6 @@ function StoreSettingsSection() {
                 value={form.enviaOriginCountry}
                 onChange={(e) => setForm((prev) => ({ ...prev, enviaOriginCountry: e.target.value }))}
                 placeholder="Country code (IN)"
-              />
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-semibold text-neutral-900">Default Package</h4>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <input
-                className={inputClass}
-                value={form.enviaPackageType}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaPackageType: e.target.value }))}
-                placeholder="Type (box)"
-              />
-              <input
-                className={inputClass}
-                value={form.enviaPackageContent}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, enviaPackageContent: e.target.value }))
-                }
-                placeholder="Content"
-              />
-              <input
-                type="number"
-                min="1"
-                className={inputClass}
-                value={form.enviaPackageAmount}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, enviaPackageAmount: e.target.value }))
-                }
-                placeholder="Amount"
-              />
-              <input
-                className={inputClass}
-                value={form.enviaWeightUnit}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaWeightUnit: e.target.value }))}
-                placeholder="Weight unit (KG)"
-              />
-              <input
-                className={inputClass}
-                value={form.enviaLengthUnit}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaLengthUnit: e.target.value }))}
-                placeholder="Length unit (CM)"
-              />
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                className={inputClass}
-                value={form.enviaWeight}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaWeight: e.target.value }))}
-                placeholder="Weight"
-              />
-              <input
-                type="number"
-                min="1"
-                className={inputClass}
-                value={form.enviaLength}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaLength: e.target.value }))}
-                placeholder="Length"
-              />
-              <input
-                type="number"
-                min="1"
-                className={inputClass}
-                value={form.enviaWidth}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaWidth: e.target.value }))}
-                placeholder="Width"
-              />
-              <input
-                type="number"
-                min="1"
-                className={inputClass}
-                value={form.enviaHeight}
-                onChange={(e) => setForm((prev) => ({ ...prev, enviaHeight: e.target.value }))}
-                placeholder="Height"
               />
             </div>
           </div>

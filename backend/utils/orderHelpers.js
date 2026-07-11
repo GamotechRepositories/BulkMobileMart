@@ -17,6 +17,7 @@ import {
   meetsMinimumOrder,
 } from "./storeSettingsHelpers.js";
 import { calculateOrderTotal } from "./gstHelpers.js";
+import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../shared/store/giftHamper.js";
 
@@ -97,14 +98,19 @@ export const populateOrderItems = (query) =>
     select: "productImages",
   });
 
-export function enrichOrderForResponse(order, { customerView = false } = {}) {
+export function enrichOrderForResponse(
+  order,
+  { customerView = false, verifiedAdvancePayment = null } = {}
+) {
   const doc = typeof order.toObject === "function" ? order.toObject() : { ...order };
   const giftHamper = customerView
     ? getCustomerVisibleGiftHamper(doc.giftHamper)
     : doc.giftHamper ?? null;
+  const advancePaidAmount = getRecordedAdvancePaidAmount(doc, verifiedAdvancePayment);
 
   return {
     ...doc,
+    advancePaidAmount,
     giftHamper,
     items: (doc.items || []).map((item) => {
       const productImages =
@@ -666,6 +672,7 @@ export async function completeAttemptedOrder({
   razorpayPaymentId,
   codAdvanceAmount = 0,
   codAdvanceRazorpayPaymentId = "",
+  razorpayPaidAmount = 0,
   codAdvancePaidAt = null,
   paidAt,
   message = "",
@@ -699,6 +706,7 @@ export async function completeAttemptedOrder({
   order.razorpayOrderId = razorpayOrderId || "";
   order.razorpayPaymentId = razorpayPaymentId || "";
   order.codAdvanceAmount = codAdvanceAmount > 0 ? codAdvanceAmount : 0;
+  order.razorpayPaidAmount = razorpayPaidAmount > 0 ? razorpayPaidAmount : 0;
   order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
   order.codAdvancePaidAt = codAdvancePaidAt || null;
   order.paidAt = paidAt || null;
@@ -733,6 +741,7 @@ export async function finalizeOrder({
   razorpayPaymentId,
   codAdvanceAmount = 0,
   codAdvanceRazorpayPaymentId = "",
+  razorpayPaidAmount = 0,
   codAdvancePaidAt = null,
   paidAt,
   message = "",
@@ -758,6 +767,7 @@ export async function finalizeOrder({
     razorpayPaymentId,
     codAdvanceAmount,
     codAdvanceRazorpayPaymentId,
+    razorpayPaidAmount,
     codAdvancePaidAt,
     paidAt,
     message,
@@ -790,6 +800,7 @@ export async function finalizeOrder({
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),
     ...(codAdvanceAmount > 0 && { codAdvanceAmount }),
+    ...(razorpayPaidAmount > 0 && { razorpayPaidAmount }),
     ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
     ...(codAdvancePaidAt && { codAdvancePaidAt }),
     ...(paidAt && { paidAt }),

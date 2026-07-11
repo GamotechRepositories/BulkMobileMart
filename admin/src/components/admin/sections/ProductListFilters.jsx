@@ -15,6 +15,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
   { value: "out_of_stock", label: "Out of stock" },
+  { value: "low_stock", label: "Low stock" },
 ];
 
 function ProductListFilters({

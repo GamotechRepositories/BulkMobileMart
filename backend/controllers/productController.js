@@ -594,10 +594,15 @@ export const getAllProducts = async (req, res) => {
     if (statusFilter === "inactive") {
       filter.isActive = false;
     } else if (statusFilter === "out_of_stock") {
-      filter.inStock = false;
+      filter.$or = [{ inStock: false }, { stock: { $lte: 0 } }];
+    } else if (statusFilter === "low_stock") {
+      filter.isActive = true;
+      filter.inStock = true;
+      filter.stock = { $gt: 0, $lte: 5 };
     } else if (statusFilter === "active") {
       filter.isActive = true;
       filter.inStock = true;
+      filter.stock = { $gt: 0 };
     }
 
     const query = typeof search === "string" ? search.trim() : "";

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createAdminOrderShipment,
-  getStoreSettings,
   linkAdminOrderShipment,
   quoteAdminOrderShipmentRates,
   syncAdminOrderShipment,
@@ -15,11 +14,9 @@ import {
   normalizePackageWeight,
 } from "@shared/shipping/shippingServices.js";
 import {
-  DEFAULT_SHIPMENT_CONTENT,
   SHIPMENT_CONTENTS,
 } from "@shared/shipping/shipmentContents.js";
 import {
-  getDefaultCodCollectAmount,
   isOrderCodPayment,
   isOrderPrepaidShipment,
 } from "@shared/shipping/shipmentPayment.js";
@@ -38,8 +35,23 @@ const EMPTY_PACKAGE = {
   length: "",
   width: "",
   height: "",
-  content: DEFAULT_SHIPMENT_CONTENT,
+  content: "",
 };
+
+function validatePackageForm(packageForm) {
+  const content = String(packageForm.content || "").trim();
+  const weight = Number(packageForm.weight);
+  const length = Number(packageForm.length);
+  const width = Number(packageForm.width);
+  const height = Number(packageForm.height);
+
+  if (!content) return "Select shipment content.";
+  if (!Number.isFinite(weight) || weight <= 0) return "Enter package weight.";
+  if (!Number.isFinite(length) || length <= 0) return "Enter package length.";
+  if (!Number.isFinite(width) || width <= 0) return "Enter package width.";
+  if (!Number.isFinite(height) || height <= 0) return "Enter package height.";
+  return "";
+}
 
 function buildPackagePayload(form) {
   const normalized = normalizePackageWeight(form.weight, form.weightUnit);
@@ -81,6 +93,30 @@ function buildShipmentPayload(packageForm, paymentForm, metadataForm = {}, optio
   return payload;
 }
 
+function buildInitialPaymentForm(order) {
+  if (!order) {
+    return { isCod: false, codAmount: "" };
+  }
+
+  const isCod = isOrderCodPayment(order);
+  if (!isCod) {
+    return { isCod: false, codAmount: "" };
+  }
+
+  const total = Number(order.total) || 0;
+  const advance =
+    Number(order.advancePaidAmount) > 0
+      ? Number(order.advancePaidAmount)
+      : Number(order.codAdvanceAmount) || 0;
+  const remaining = Math.max(0, total - advance);
+  const codAmount = remaining > 0 ? remaining : total;
+
+  return {
+    isCod: true,
+    codAmount: String(codAmount),
+  };
+}
+
 export default function AdminOrderShipmentPanel({
   order,
   onOrderUpdated,
@@ -111,55 +147,23 @@ export default function AdminOrderShipmentPanel({
   const orderId = getOrderNumber(order);
 
   useEffect(() => {
-    let active = true;
-    getStoreSettings()
-      .then(({ data }) => {
-        if (!active) return;
-        const pkg = data?.data?.envia?.packageDefaults || {};
-        setPackageForm({
-          weight: String(pkg.weight ?? 1),
-          weightUnit: "KG",
-          length: String(pkg.length ?? 20),
-          width: String(pkg.width ?? 15),
-          height: String(pkg.height ?? 10),
-          content: SHIPMENT_CONTENTS.includes(pkg.content)
-            ? pkg.content
-            : DEFAULT_SHIPMENT_CONTENT,
-        });
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [order?._id]);
-
-  useEffect(() => {
+    setPackageForm(EMPTY_PACKAGE);
+    setMetadataForm({ shipmentNote: "", evidenceUrl: "", evidenceName: "" });
     setPaymentTouched(false);
+    setPaymentForm(buildInitialPaymentForm(order));
     setQuotedPayment(null);
     setServiceOptions([]);
     setQuoteErrors([]);
-  }, [order?._id]);
-
-  const derivedPaymentForm = useMemo(() => {
-    if (!order) {
-      return { isCod: false, codAmount: "" };
-    }
-    const isCod = isOrderCodPayment(order);
-    const defaultAmount = isCod ? getDefaultCodCollectAmount(order) : "";
-    return {
-      isCod,
-      codAmount: defaultAmount ? String(defaultAmount) : "",
-    };
-  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount]);
-
-  const effectivePaymentForm = paymentTouched ? paymentForm : derivedPaymentForm;
+    setTrackingInput("");
+    setMode("create");
+  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, order?.advancePaidAmount]);
 
   useEffect(() => {
     setQuotedPayment(null);
     setServiceOptions([]);
     setQuoteErrors([]);
     setSelectedServiceId(SHIPPING_SERVICES[0]?.id || "");
-  }, [effectivePaymentForm.isCod]);
+  }, [paymentForm.isCod]);
 
   const selectedService = useMemo(() => {
     const list = serviceOptions.length ? serviceOptions : SHIPPING_SERVICES;
@@ -214,7 +218,12 @@ export default function AdminOrderShipmentPanel({
 
   const handleFetchRates = async () => {
     if (!order || loadingRates) return;
-    if (effectivePaymentForm.isCod && (!effectivePaymentForm.codAmount || Number(effectivePaymentForm.codAmount) <= 0)) {
+    const packageError = validatePackageForm(packageForm);
+    if (packageError) {
+      onError(packageError);
+      return;
+    }
+    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
       onError("Enter the COD collection amount.");
       return;
     }
@@ -225,7 +234,7 @@ export default function AdminOrderShipmentPanel({
       const carriers = getShippingServiceCarriers();
 
       const { data } = await quoteAdminOrderShipmentRates(order._id, {
-        ...buildShipmentPayload(packageForm, effectivePaymentForm, metadataForm, {
+        ...buildShipmentPayload(packageForm, paymentForm, metadataForm, {
           order,
           paymentTouched,
         }),
@@ -260,7 +269,12 @@ export default function AdminOrderShipmentPanel({
 
   const handleCreateLabel = async () => {
     if (!order || creatingLabel || !selectedService?.quote) return;
-    if (effectivePaymentForm.isCod && (!effectivePaymentForm.codAmount || Number(effectivePaymentForm.codAmount) <= 0)) {
+    const packageError = validatePackageForm(packageForm);
+    if (packageError) {
+      onError(packageError);
+      return;
+    }
+    if (paymentForm.isCod && (!paymentForm.codAmount || Number(paymentForm.codAmount) <= 0)) {
       onError("Enter the COD collection amount.");
       return;
     }
@@ -269,7 +283,7 @@ export default function AdminOrderShipmentPanel({
     onSuccess("");
     try {
       const { data } = await createAdminOrderShipment(order._id, {
-        ...buildShipmentPayload(packageForm, effectivePaymentForm, metadataForm, {
+        ...buildShipmentPayload(packageForm, paymentForm, metadataForm, {
           order,
           paymentTouched,
         }),
@@ -478,6 +492,7 @@ export default function AdminOrderShipmentPanel({
                 onChange={(e) => updatePackageField("content", e.target.value)}
                 className={compactInputClass}
               >
+                <option value="">Select content</option>
                 {SHIPMENT_CONTENTS.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -528,6 +543,7 @@ export default function AdminOrderShipmentPanel({
                   value={packageForm.weight}
                   onChange={(e) => updatePackageField("weight", e.target.value)}
                   className={`${compactInputClass} border-0 focus:ring-0`}
+                  placeholder="Enter weight"
                 />
                 <span className="flex min-w-[2.25rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-1.5 text-[10px] font-semibold text-neutral-600">
                   {packageForm.weightUnit === "G" ? "G" : "KG"}
@@ -551,6 +567,7 @@ export default function AdminOrderShipmentPanel({
                     value={packageForm[key]}
                     onChange={(e) => updatePackageField(key, e.target.value)}
                     className={`${compactInputClass} border-0 focus:ring-0`}
+                    placeholder={`Enter ${label.toLowerCase()}`}
                   />
                   <span className="flex min-w-[2.25rem] items-center justify-center border-l border-neutral-300 bg-neutral-50 px-1.5 text-[10px] font-semibold text-neutral-600">
                     CM
@@ -569,7 +586,7 @@ export default function AdminOrderShipmentPanel({
               >
                 <input
                   type="checkbox"
-                  checked={effectivePaymentForm.isCod}
+                  checked={paymentForm.isCod}
                   disabled={isPrepaidOrder}
                   onChange={(e) => updatePaymentField("isCod", e.target.checked)}
                   className="rounded border-neutral-300 disabled:cursor-not-allowed"
@@ -578,7 +595,7 @@ export default function AdminOrderShipmentPanel({
               </label>
               {isPrepaidOrder ? (
                 <span className="text-[11px] text-neutral-500">Prepaid order — COD unavailable</span>
-              ) : !effectivePaymentForm.isCod ? (
+              ) : !paymentForm.isCod ? (
                 <span className="text-[11px] text-neutral-500">Prepaid rates (no COD fees)</span>
               ) : (
                 <label className="flex min-w-[10rem] flex-1 items-center gap-1.5 sm:max-w-xs">
@@ -593,7 +610,7 @@ export default function AdminOrderShipmentPanel({
                       type="number"
                       min="1"
                       step="0.01"
-                      value={effectivePaymentForm.codAmount}
+                      value={paymentForm.codAmount}
                       onChange={(e) => updatePaymentField("codAmount", e.target.value)}
                       className={`${compactInputClass} border-0 focus:ring-0`}
                       placeholder="Amount"
@@ -602,9 +619,11 @@ export default function AdminOrderShipmentPanel({
                 </label>
               )}
             </div>
-            {effectivePaymentForm.isCod && order?.codAdvanceAmount > 0 ? (
+            {paymentForm.isCod &&
+            (order?.advancePaidAmount > 0 || order?.codAdvanceAmount > 0) ? (
               <p className="mt-1.5 text-[11px] text-neutral-500">
-                Total {formatPrice(order.total)} · Advance {formatPrice(order.codAdvanceAmount)}
+                Total {formatPrice(order.total)} · Advance{" "}
+                {formatPrice(order.advancePaidAmount || order.codAdvanceAmount)}
               </p>
             ) : null}
           </div>
@@ -740,7 +759,7 @@ export default function AdminOrderShipmentPanel({
                   : "Prepaid"}
               </span>
             </p>
-          ) : effectivePaymentForm.isCod ? (
+          ) : paymentForm.isCod ? (
             <p className="text-[11px] text-neutral-500">
               Compare rates for COD prices at the collection amount above.
             </p>

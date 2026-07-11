@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAdminOrders, getAdminPaymentProofs } from "../../../api/api";
+import { useCallback, useEffect, useState } from "react";
+import { getAdminRazorpayTransactions } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
-import { useAdminNotifications } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
@@ -14,14 +13,16 @@ import {
 import AdminOrderFilters from "./AdminOrderFilters";
 import PaymentDetailModal from "./PaymentDetailModal";
 import {
-  downloadPaymentsCsv,
+  downloadRazorpayPaymentsCsv,
   formatDate,
   formatPrice,
   getCustomerName,
   getCustomerPhone,
   getOrderDisplayId,
-  getPaymentAmount,
+  getRazorpayPaidAt,
   getRazorpayPaymentId,
+  getRazorpayPaymentTypeLabel,
+  getRazorpayTransactionAmount,
   normalizeAdminSearchQuery,
 } from "./adminOrderUtils";
 
@@ -31,19 +32,14 @@ function getErrorMessage(err, fallback) {
 
 function PaymentSection() {
   const { adminUser } = useAuth();
-  const { markPaymentsAsSeen } = useAdminNotifications();
-  const [orders, setOrders] = useState([]);
-  const [proofs, setProofs] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [orderStatus, setOrderStatus] = useState("all");
-  const [paymentStatus, setPaymentStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedProofId, setSelectedProofId] = useState(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -54,20 +50,7 @@ function PaymentSection() {
 
   useEffect(() => {
     setPage(1);
-  }, [startDate, endDate, orderStatus, paymentStatus, searchQuery]);
-
-  useEffect(() => {
-    markPaymentsAsSeen();
-  }, [markPaymentsAsSeen]);
-
-  const proofByOrderId = useMemo(() => {
-    const map = new Map();
-    proofs.forEach((proof) => {
-      const orderId = proof.order?._id || proof.order;
-      if (orderId) map.set(String(orderId), proof);
-    });
-    return map;
-  }, [proofs]);
+  }, [startDate, endDate, orderStatus, searchQuery]);
 
   const fetchData = useCallback(async () => {
     if (adminUser?.role !== "admin") return;
@@ -79,35 +62,26 @@ function PaymentSection() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
-      if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
       if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
 
-      const ordersRes = await getAdminOrders(params);
-      const loadedOrders = ordersRes.data.data || [];
-      setOrders(loadedOrders);
+      const { data } = await getAdminRazorpayTransactions(params);
+      const loadedTransactions = data.data || [];
+      setTransactions(loadedTransactions);
       setPagination(
-        ordersRes.data.pagination || {
+        data.pagination || {
           page,
           limit: ADMIN_PAGE_SIZE,
-          total: loadedOrders.length,
+          total: loadedTransactions.length,
           totalPages: 1,
         }
       );
-
-      const orderIds = loadedOrders.map((order) => order._id).join(",");
-      const proofsRes = await getAdminPaymentProofs(
-        orderIds ? { orderIds, limit: ADMIN_PAGE_SIZE } : { limit: 1 }
-      );
-
-      setProofs(proofsRes.data.data || []);
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to load payments"));
-      setOrders([]);
-      setProofs([]);
+      setError(getErrorMessage(err, "Failed to load Razorpay payments"));
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
-  }, [adminUser, startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
+  }, [adminUser, startDate, endDate, orderStatus, searchQuery, page]);
 
   useEffect(() => {
     fetchData();
@@ -119,59 +93,45 @@ function PaymentSection() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (orderStatus !== "all") params.status = orderStatus;
-      if (paymentStatus !== "all") params.paymentStatus = paymentStatus;
       if (searchQuery.trim()) params.search = normalizeAdminSearchQuery(searchQuery);
-      const { data } = await getAdminOrders(params);
-      downloadPaymentsCsv(data.data || [], "payments.csv");
+      const { data } = await getAdminRazorpayTransactions(params);
+      downloadRazorpayPaymentsCsv(data.data || [], "razorpay-payments.csv");
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to download payments"));
+      setError(getErrorMessage(err, "Failed to download Razorpay payments"));
     }
-  };
-
-  const handleView = (order) => {
-    const proof = proofByOrderId.get(String(order._id));
-    setSelectedOrder(order);
-    setSelectedProofId(proof?._id || null);
-  };
-
-  const closeModal = () => {
-    setSelectedOrder(null);
-    setSelectedProofId(null);
   };
 
   return (
     <div className="min-w-0">
-      <AdminAlert
-        error={error}
-        success={success}
-        onClear={() => {
-          setError("");
-          setSuccess("");
-        }}
-      />
+      <AdminAlert error={error} onClear={() => setError("")} />
 
-      <p className="mb-4 text-sm font-medium text-neutral-700">
-        {pagination.total} payment{pagination.total === 1 ? "" : "s"}
+      <p className="mb-1 text-sm font-medium text-neutral-700">
+        {pagination.total} successful Razorpay transaction{pagination.total === 1 ? "" : "s"}
+      </p>
+      <p className="mb-4 text-xs text-neutral-500">
+        Only verified Razorpay payments are shown here with the actual amount charged.
       </p>
 
       <AdminOrderFilters
         startDate={startDate}
         endDate={endDate}
         orderStatus={orderStatus}
-        paymentStatus={paymentStatus}
+        paymentStatus="all"
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by order ID, Razorpay ID, product, or customer..."
         onStartDateChange={setStartDate}
         onEndDateChange={setEndDate}
         onOrderStatusChange={setOrderStatus}
-        onPaymentStatusChange={setPaymentStatus}
+        onPaymentStatusChange={() => {}}
         onDownload={handleDownload}
+        showPaymentStatus={false}
       />
 
       {loading ? (
-        <p className="mt-4 text-text-secondary">Loading payments...</p>
-      ) : orders.length === 0 ? (
-        <p className="mt-4 text-text-secondary">No payments found.</p>
+        <p className="mt-4 text-text-secondary">Loading Razorpay payments...</p>
+      ) : transactions.length === 0 ? (
+        <p className="mt-4 text-text-secondary">No successful Razorpay transactions found.</p>
       ) : (
         <div className={adminTableWrapperClass}>
           <table className={adminCompactTableClass}>
@@ -181,51 +141,51 @@ function PaymentSection() {
                 <th className={adminCompactThClass}>Customer</th>
                 <th className={adminCompactThClass}>Razorpay ID</th>
                 <th className={adminCompactThClass}>Amount</th>
+                <th className={adminCompactThClass}>Type</th>
                 <th className={adminCompactThClass}>Date</th>
                 <th className={adminCompactThClass}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
-                const proof = proofByOrderId.get(String(order._id));
-
-                return (
-                  <tr
-                    key={order._id}
-                    className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
-                  >
-                    <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
-                      {getOrderDisplayId(order)}
-                    </td>
-                    <td className={adminCompactTdClass}>
-                      <p className="truncate font-medium text-neutral-900">
-                        {getCustomerName(order)}
-                      </p>
-                      <p className="mt-0.5 truncate text-[10px] text-neutral-500">
-                        {getCustomerPhone(order)}
-                      </p>
-                    </td>
-                    <td className={`${adminCompactTdClass} font-mono text-[10px] text-neutral-600`}>
-                      {getRazorpayPaymentId(order, proof) || "—"}
-                    </td>
-                    <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
-                      {formatPrice(getPaymentAmount(order, proof))}
-                    </td>
-                    <td className={`${adminCompactTdClass} text-neutral-600`}>
-                      {formatDate(proof?.verifiedAt || order.createdAt)}
-                    </td>
-                    <td className={adminCompactTdClass}>
-                      <button
-                        type="button"
-                        onClick={() => handleView(order)}
-                        className="rounded-lg border border-primary px-2.5 py-1 text-[11px] font-semibold text-primary transition hover:bg-orange-50"
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {transactions.map((order) => (
+                <tr
+                  key={order._id}
+                  className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
+                >
+                  <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
+                    {getOrderDisplayId(order)}
+                  </td>
+                  <td className={adminCompactTdClass}>
+                    <p className="truncate font-medium text-neutral-900">
+                      {getCustomerName(order)}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] text-neutral-500">
+                      {getCustomerPhone(order)}
+                    </p>
+                  </td>
+                  <td className={`${adminCompactTdClass} font-mono text-[10px] text-neutral-600`}>
+                    {getRazorpayPaymentId(order) || "—"}
+                  </td>
+                  <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
+                    {formatPrice(getRazorpayTransactionAmount(order))}
+                  </td>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
+                    {getRazorpayPaymentTypeLabel(order)}
+                  </td>
+                  <td className={`${adminCompactTdClass} text-neutral-600`}>
+                    {formatDate(getRazorpayPaidAt(order))}
+                  </td>
+                  <td className={adminCompactTdClass}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOrder(order)}
+                      className="rounded-lg border border-primary px-2.5 py-1 text-[11px] font-semibold text-primary transition hover:bg-orange-50"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
           <AdminPagination
@@ -238,20 +198,8 @@ function PaymentSection() {
         </div>
       )}
 
-      {(selectedOrder || selectedProofId) && (
-        <PaymentDetailModal
-          order={selectedOrder}
-          proofId={selectedProofId}
-          onClose={closeModal}
-          onUpdated={(status) => {
-            setSuccess(
-              status === "verified"
-                ? "Payment approved successfully"
-                : "Payment rejected and order cancelled"
-            );
-            fetchData();
-          }}
-        />
+      {selectedOrder && (
+        <PaymentDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       )}
     </div>
   );

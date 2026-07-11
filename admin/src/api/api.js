@@ -124,6 +124,8 @@ export const syncAdminOrderShipment = (id) =>
 export const linkAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/link`, data);
 
+export const getAdminRazorpayTransactions = (params) =>
+  api.get("/api/payments/admin/razorpay", { params });
 export const getAdminPaymentProofs = (params) => api.get("/api/payments/admin", { params });
 export const getAdminPaymentUnreadCount = (params) =>
   api.get("/api/payments/admin/unread-count", { params });

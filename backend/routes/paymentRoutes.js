@@ -4,6 +4,7 @@ import {
   createRazorpayOrder,
   getAdminPaymentById,
   getAdminPayments,
+  getAdminRazorpayTransactions,
   getPaymentUnreadCount,
   submitUpiPaymentProof,
   updatePaymentStatus,
@@ -17,6 +18,7 @@ router.post("/create-order", protect, createRazorpayOrder);
 router.post("/verify", protect, verifyRazorpayPayment);
 
 router.get("/admin/unread-count", protect, requireAdmin, getPaymentUnreadCount);
+router.get("/admin/razorpay", protect, requireAdmin, getAdminRazorpayTransactions);
 router.get("/admin", protect, requireAdmin, getAdminPayments);
 router.get("/admin/:id", protect, requireAdmin, getAdminPaymentById);
 router.patch("/admin/:id", protect, requireAdmin, updatePaymentStatus);

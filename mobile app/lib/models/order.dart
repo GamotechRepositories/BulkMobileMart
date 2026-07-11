@@ -157,6 +157,7 @@ class Order {
     this.customerMessage = '',
     this.createdAt,
     this.codAdvancePaidAt,
+    this.codAdvanceAmount = 0,
     this.razorpayPaymentId = '',
     this.razorpayOrderId = '',
     this.paidAt,
@@ -177,6 +178,7 @@ class Order {
   final String customerMessage;
   final DateTime? createdAt;
   final DateTime? codAdvancePaidAt;
+  final double codAdvanceAmount;
   final String razorpayPaymentId;
   final String razorpayOrderId;
   final DateTime? paidAt;
@@ -224,6 +226,7 @@ class Order {
       codAdvancePaidAt: json['codAdvancePaidAt'] != null
           ? DateTime.tryParse(json['codAdvancePaidAt'].toString())
           : null,
+      codAdvanceAmount: _toDouble(json['codAdvanceAmount'] ?? json['advancePaidAmount']),
       razorpayPaymentId: json['razorpayPaymentId']?.toString() ?? '',
       razorpayOrderId: json['razorpayOrderId']?.toString() ?? '',
       paidAt: json['paidAt'] != null

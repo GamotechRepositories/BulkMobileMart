@@ -106,6 +106,7 @@ const orderSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
     codAdvanceAmount: { type: Number, default: 0, min: 0 },
+    razorpayPaidAmount: { type: Number, default: 0, min: 0 },
     codAdvanceRazorpayPaymentId: { type: String, default: "" },
     codAdvancePaidAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
@@ -116,40 +117,58 @@ const orderSchema = new mongoose.Schema(
       default: "",
     },
     shipment: {
-      provider: { type: String, default: "" },
-      carrier: { type: String, default: "" },
-      service: { type: String, default: "" },
-      shipmentId: { type: String, default: "" },
-      trackingNumber: { type: String, default: "" },
-      trackUrl: { type: String, default: "" },
-      labelUrl: { type: String, default: "" },
-      status: { type: String, default: "" },
-      statusMessage: { type: String, default: "" },
-      syncedAt: { type: Date, default: null },
-      events: {
-        type: [
-          new mongoose.Schema(
-            {
-              status: { type: String, default: "" },
-              date: { type: String, default: "" },
-              location: { type: String, default: "" },
-              description: { type: String, default: "" },
-            },
-            { _id: false }
-          ),
-        ],
-        default: () => [],
-      },
-      note: { type: String, default: "", trim: true, maxlength: 500 },
-      evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
-      evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
-      manualTracking: {
-        enabled: { type: Boolean, default: false },
-        note: { type: String, default: "", trim: true, maxlength: 500 },
-        evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
-        evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
-        updatedAt: { type: Date, default: null },
-      },
+      type: new mongoose.Schema(
+        {
+          provider: { type: String, default: "" },
+          carrier: { type: String, default: "" },
+          service: { type: String, default: "" },
+          shipmentId: { type: String, default: "" },
+          trackingNumber: { type: String, default: "" },
+          trackUrl: { type: String, default: "" },
+          labelUrl: { type: String, default: "" },
+          status: { type: String, default: "" },
+          statusMessage: { type: String, default: "" },
+          syncedAt: { type: Date, default: null },
+          events: {
+            type: [
+              new mongoose.Schema(
+                {
+                  status: { type: String, default: "" },
+                  date: { type: String, default: "" },
+                  location: { type: String, default: "" },
+                  description: { type: String, default: "" },
+                },
+                { _id: false }
+              ),
+            ],
+            default: () => [],
+          },
+          note: { type: String, default: "", trim: true, maxlength: 500 },
+          evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+          evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+          manualTracking: {
+            type: new mongoose.Schema(
+              {
+                enabled: { type: Boolean, default: false },
+                note: { type: String, default: "", trim: true, maxlength: 500 },
+                evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+                evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+                updatedAt: { type: Date, default: null },
+              },
+              { _id: false }
+            ),
+            default: () => ({
+              enabled: false,
+              note: "",
+              evidenceUrl: "",
+              evidenceName: "",
+              updatedAt: null,
+            }),
+          },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
     },
     giftHamper: {
       type: orderGiftHamperSchema,

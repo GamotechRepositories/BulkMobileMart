@@ -3,9 +3,24 @@ import { cardClass } from "../adminStyles";
 import { formatNumber } from "./dashboardUtils";
 
 const ITEMS = [
-  { key: "activeProducts", label: "Active Products", to: "/products/show", color: "text-green-600" },
-  { key: "outOfStock", label: "Out of Stock", to: "/products/show", color: "text-red-600" },
-  { key: "lowStock", label: "Low Stock", to: "/products/show", color: "text-amber-600" },
+  {
+    key: "activeProducts",
+    label: "Active Products",
+    to: "/products/show?status=active",
+    color: "text-green-600",
+  },
+  {
+    key: "outOfStock",
+    label: "Out of Stock",
+    to: "/products/show?status=out_of_stock",
+    color: "text-red-600",
+  },
+  {
+    key: "lowStock",
+    label: "Low Stock",
+    to: "/products/show?status=low_stock",
+    color: "text-amber-600",
+  },
   { key: "activeUsers", label: "Active Users", to: "/users", color: "text-blue-600" },
 ];
 

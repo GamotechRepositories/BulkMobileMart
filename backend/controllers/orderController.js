@@ -14,6 +14,7 @@ import {
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import { mergeOrderShipment } from "../utils/shipmentHelpers.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   calculateAdvanceAmount,
@@ -79,7 +80,7 @@ function normalizeOrderDeliveryAddressInput(payload = {}) {
 }
 
 function applyShipmentOnOrder(order, shipment, metadata = {}) {
-  order.shipment = {
+  order.shipment = mergeOrderShipment(order, {
     provider: shipment.provider || "envia",
     carrier: shipment.carrier || "",
     service: shipment.service || "",
@@ -94,14 +95,7 @@ function applyShipmentOnOrder(order, shipment, metadata = {}) {
     note: String(metadata.shipmentNote || "").trim(),
     evidenceUrl: String(metadata.evidenceUrl || "").trim(),
     evidenceName: String(metadata.evidenceName || "").trim(),
-    manualTracking: order?.shipment?.manualTracking || {
-      enabled: false,
-      note: "",
-      evidenceUrl: "",
-      evidenceName: "",
-      updatedAt: null,
-    },
-  };
+  });
 }
 
 async function autoSyncShipmentForOrder(order) {
@@ -117,15 +111,14 @@ async function autoSyncShipmentForOrder(order) {
 
   try {
     const tracking = await trackEnviaShipment(order.shipment.trackingNumber);
-    order.shipment = {
-      ...order.shipment,
+    order.shipment = mergeOrderShipment(order, {
       provider: "envia",
       status: tracking.status || order.shipment.status || "",
       statusMessage: tracking.statusMessage || "",
       trackUrl: tracking.trackUrl || order.shipment.trackUrl || "",
       syncedAt: tracking.syncedAt || new Date(),
       events: tracking.events || [],
-    };
+    });
 
     const normalized = String(tracking.status || "").toLowerCase();
     if (normalized.includes("delivered")) {
@@ -499,9 +492,20 @@ export const getOrderById = async (req, res) => {
 
     order = await autoSyncShipmentForOrder(order);
     const customerView = req.user.role !== "admin";
+    let verifiedAdvancePayment = null;
+    if (!customerView && order.paymentStatus === PAYMENT_STATUS.PAID_10) {
+      verifiedAdvancePayment = await Payment.findOne({
+        order: order._id,
+        paymentType: "cod_advance",
+        status: "verified",
+      })
+        .sort({ verifiedAt: -1 })
+        .lean();
+    }
+
     res.status(200).json({
       success: true,
-      data: enrichOrderForResponse(order, { customerView }),
+      data: enrichOrderForResponse(order, { customerView, verifiedAdvancePayment }),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -945,10 +949,6 @@ export const updateOrder = async (req, res) => {
       updates.deliveryCharges = rebuilt.deliveryCharges;
       updates.gstAmount = rebuilt.gstAmount;
       updates.total = rebuilt.total;
-
-      if (existingOrder.paymentStatus === PAYMENT_STATUS.PAID_10) {
-        updates.codAdvanceAmount = calculateAdvanceAmount(rebuilt.total);
-      }
     }
 
     if (deliveryCharges !== undefined) {
@@ -968,10 +968,6 @@ export const updateOrder = async (req, res) => {
       updates.deliveryCharges = charge;
       updates.total = nextTotal;
       updates.gstAmount = 0;
-
-      if ((updates.paymentStatus || existingOrder.paymentStatus) === PAYMENT_STATUS.PAID_10) {
-        updates.codAdvanceAmount = calculateAdvanceAmount(nextTotal);
-      }
     }
 
     if (status !== undefined) {
@@ -1147,7 +1143,7 @@ export const createOrderShipment = async (req, res) => {
     const shipment = await createEnviaShipment(order, overrides);
     const previousStatus = order.status;
 
-    order.shipment = {
+    order.shipment = mergeOrderShipment(order, {
       provider: shipment.provider,
       carrier: shipment.carrier,
       service: shipment.service,
@@ -1162,14 +1158,7 @@ export const createOrderShipment = async (req, res) => {
       note: overrides.shipmentNote || "",
       evidenceUrl: overrides.evidenceUrl || "",
       evidenceName: overrides.evidenceName || "",
-      manualTracking: order.shipment?.manualTracking || {
-        enabled: false,
-        note: "",
-        evidenceUrl: "",
-        evidenceName: "",
-        updatedAt: null,
-      },
-    };
+    });
     order.markModified("shipment");
 
     if (order.status === "confirm" || order.status === "processing") {
@@ -1217,8 +1206,7 @@ export const linkOrderShipmentTracking = async (req, res) => {
 
     const previousStatus = order.status;
 
-    order.shipment = {
-      ...(order.shipment || {}),
+    order.shipment = mergeOrderShipment(order, {
       provider: "envia",
       carrier: String(req.body?.carrier || order.shipment?.carrier || "").trim(),
       service: String(req.body?.service || order.shipment?.service || "").trim(),
@@ -1231,14 +1219,7 @@ export const linkOrderShipmentTracking = async (req, res) => {
         "Linked from Envia portal",
       syncedAt: new Date(),
       events: order.shipment?.events || [],
-      manualTracking: order.shipment?.manualTracking || {
-        enabled: false,
-        note: "",
-        evidenceUrl: "",
-        evidenceName: "",
-        updatedAt: null,
-      },
-    };
+    });
 
     try {
       const tracking = await trackEnviaShipment(trackingNumber);
@@ -1297,8 +1278,7 @@ export const syncOrderShipmentTracking = async (req, res) => {
     }
 
     const tracking = await trackEnviaShipment(trackingNumber);
-    order.shipment = {
-      ...order.shipment,
+    order.shipment = mergeOrderShipment(order, {
       provider: "envia",
       status: tracking.status || order.shipment?.status || "",
       statusMessage: tracking.statusMessage || "",
@@ -1306,7 +1286,7 @@ export const syncOrderShipmentTracking = async (req, res) => {
       trackUrl: tracking.trackUrl || order.shipment?.trackUrl || "",
       syncedAt: tracking.syncedAt,
       events: tracking.events || [],
-    };
+    });
 
     if (tracking.status) {
       const normalized = tracking.status.toLowerCase();

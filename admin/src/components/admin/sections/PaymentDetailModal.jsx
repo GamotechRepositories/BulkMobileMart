@@ -2,20 +2,17 @@ import { useEffect, useState } from "react";
 import { getAddressFullName, formatAddressLine } from "../../../utils/addressDisplay";
 import { getAdminPaymentProof, updateAdminPaymentProof } from "../../../api/api";
 import {
-  formatDate,
   formatPrice,
   getCustomerName,
   getCustomerPhone,
   getOrderDisplayId,
   getOrderMessage,
   getOrderStatusLabel,
-  getPaidTypeLabel,
-  getPaymentAmount,
-  getPaymentMethodLabel,
-  getPaymentStatus,
   getProductSummary,
+  getRazorpayPaidAt,
   getRazorpayPaymentId,
-  getUpiTransactionId,
+  getRazorpayPaymentTypeLabel,
+  getRazorpayTransactionAmount,
 } from "./adminOrderUtils";
 
 function getErrorMessage(err, fallback) {
@@ -46,12 +43,10 @@ function getPaymentStatusBadgeClass(status) {
   if (status === "paid") return "bg-green-100 text-green-800";
   if (status === "paid_10") return "bg-lime-100 text-lime-800";
   if (status === "refundable") return "bg-blue-100 text-blue-800";
-  if (status === "pending_verification") return "bg-amber-100 text-amber-800";
   return "bg-neutral-100 text-neutral-700";
 }
 
 function getPaymentStatusLabel(status) {
-  if (status === "pending_verification") return "Pending verification";
   if (status === "paid_10") return "Paid 10%";
   if (status === "paid") return "Paid";
   if (status === "refundable") return "Refundable";
@@ -73,6 +68,7 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const isRazorpayView = Boolean(order) && !proofId;
 
   useEffect(() => {
     if (!proofId) {
@@ -122,7 +118,6 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
 
   if (!order && !proofId) return null;
 
-  const paymentStatus = getPaymentStatus(order);
   const items = proof?.items?.length ? proof.items : order?.items || [];
   const deliveryAddress = proof?.deliveryAddress || order?.deliveryAddress;
   const customerEmail =
@@ -132,7 +127,9 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-bold text-neutral-900">Payment Details</h3>
+          <h3 className="text-lg font-bold text-neutral-900">
+            {isRazorpayView ? "Razorpay Payment" : "Payment Proof"}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -169,18 +166,24 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         proof
                           ? getProofStatusBadgeClass(proof.status)
-                          : getPaymentStatusBadgeClass(paymentStatus)
+                          : getPaymentStatusBadgeClass(order?.paymentStatus)
                       }`}
                     >
                       {proof
                         ? getProofStatusLabel(proof.status)
-                        : getPaymentStatusLabel(paymentStatus)}
+                        : getPaymentStatusLabel(order?.paymentStatus)}
                     </span>
                   }
                 />
-                <DetailRow label="Payment method" value={getPaymentMethodLabel(order)} />
-                <DetailRow label="Paid type" value={getPaidTypeLabel(order, proof)} />
-                <DetailRow label="Date" value={formatDateTime(proof?.createdAt || order?.createdAt)} />
+                {isRazorpayView ? (
+                  <DetailRow label="Payment type" value={getRazorpayPaymentTypeLabel(order)} />
+                ) : null}
+                <DetailRow
+                  label="Date"
+                  value={formatDateTime(
+                    isRazorpayView ? getRazorpayPaidAt(order) : proof?.createdAt || order?.createdAt
+                  )}
+                />
                 {proof?.verifiedAt ? (
                   <DetailRow label="Reviewed on" value={formatDateTime(proof.verifiedAt)} />
                 ) : null}
@@ -206,41 +209,44 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
                 Payment
               </h4>
               <div className="grid gap-3 rounded-lg bg-neutral-50 p-3 sm:grid-cols-2">
-                <DetailRow
-                  label="Razorpay ID"
-                  value={getRazorpayPaymentId(order, proof) || "—"}
-                  mono
-                  className="sm:col-span-2"
-                />
-                <DetailRow
-                  label="Razorpay order ID"
-                  value={order?.razorpayOrderId || "—"}
-                  mono
-                  className="sm:col-span-2"
-                />
-                <DetailRow
-                  label="UPI / transaction ref"
-                  value={getUpiTransactionId(order, proof) || "—"}
-                  mono
-                  className="sm:col-span-2"
-                />
-                <DetailRow label="Amount paid" value={formatPrice(getPaymentAmount(order, proof))} />
-                <DetailRow
-                  label="Order total"
-                  value={formatPrice(proof?.orderTotal ?? order?.total)}
-                />
-                {order?.subtotal != null ? (
-                  <DetailRow label="Subtotal" value={formatPrice(order.subtotal)} />
-                ) : null}
-                {order?.deliveryCharges != null ? (
-                  <DetailRow label="Delivery" value={formatPrice(order.deliveryCharges)} />
-                ) : null}
-                {proof?.paymentType ? (
-                  <DetailRow label="Proof payment type" value={proof.paymentType} />
-                ) : null}
-                {proof?.source ? (
-                  <DetailRow label="Payment source" value={proof.source} />
-                ) : null}
+                {isRazorpayView ? (
+                  <>
+                    <DetailRow
+                      label="Razorpay payment ID"
+                      value={getRazorpayPaymentId(order) || "—"}
+                      mono
+                      className="sm:col-span-2"
+                    />
+                    <DetailRow
+                      label="Razorpay order ID"
+                      value={order?.razorpayOrderId || "—"}
+                      mono
+                      className="sm:col-span-2"
+                    />
+                    <DetailRow
+                      label="Amount charged"
+                      value={formatPrice(getRazorpayTransactionAmount(order))}
+                    />
+                    <DetailRow label="Current order total" value={formatPrice(order?.total)} />
+                  </>
+                ) : (
+                  <>
+                    <DetailRow
+                      label="UPI / transaction ref"
+                      value={proof?.upiTransactionRef || "—"}
+                      mono
+                      className="sm:col-span-2"
+                    />
+                    <DetailRow label="Amount paid" value={formatPrice(proof?.amount)} />
+                    <DetailRow
+                      label="Order total"
+                      value={formatPrice(proof?.orderTotal ?? order?.total)}
+                    />
+                    {proof?.paymentType ? (
+                      <DetailRow label="Payment type" value={proof.paymentType} />
+                    ) : null}
+                  </>
+                )}
               </div>
             </section>
 
@@ -309,12 +315,6 @@ function PaymentDetailModal({ order, proofId, onClose, onUpdated }) {
               <div className="rounded-lg bg-red-50 p-3 text-red-800">
                 <p className="font-semibold">Rejection reason</p>
                 <p className="mt-1">{proof.rejectionReason}</p>
-              </div>
-            ) : null}
-
-            {proof?.status === "verified" ? (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-800">
-                Payment approved successfully.
               </div>
             ) : null}
 

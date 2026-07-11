@@ -57,7 +57,7 @@ export const SHIPPING_SERVICES = [
     id: "amazon-standard",
     label: "Amazon Shipping Standard",
     carrier: "amazon",
-    serviceMatchers: [/standard/i, /amazon/i],
+    serviceMatchers: [/standard/i, /amazon/i, /ats/i, /shipping/i],
   },
 ];
 
@@ -95,6 +95,14 @@ export function matchQuoteToShippingService(quotes, serviceDef) {
       serviceDef.serviceMatchers[0].test(quoteHaystack(quote))
     );
     if (fallback) return fallback;
+  }
+
+  // Amazon service names vary in Envia responses — use the cheapest quote for that carrier.
+  if (safeLower(serviceDef.carrier) === "amazon") {
+    return carrierQuotes.reduce((best, quote) => {
+      if (!best || quote.totalPrice < best.totalPrice) return quote;
+      return best;
+    }, null);
   }
 
   return carrierQuotes.length === 1 ? carrierQuotes[0] : null;

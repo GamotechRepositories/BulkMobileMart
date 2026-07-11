@@ -63,7 +63,8 @@ const sanitizeEnviaConfig = (envia = {}, existingEnvia = null) => {
   }
 
   const origin = envia.origin || {};
-  const packageDefaults = envia.packageDefaults || {};
+  const packageDefaults =
+    envia.packageDefaults !== undefined ? envia.packageDefaults || {} : existingEnvia?.packageDefaults || {};
   const submittedToken = sanitizeText(envia.apiToken) || "";
   const existingToken = sanitizeText(existingEnvia?.apiToken) || "";
   const apiToken = submittedToken || existingToken;
@@ -79,15 +80,43 @@ const sanitizeEnviaConfig = (envia = {}, existingEnvia = null) => {
       : [],
     origin: normalizeEnviaOriginFields(origin),
     packageDefaults: {
-      type: sanitizeText(packageDefaults.type) || "box",
-      content: sanitizeText(packageDefaults.content) || "Mobile accessories",
-      amount: Math.max(1, Math.round(toPositiveNumber(packageDefaults.amount, 1))),
-      weightUnit: (sanitizeText(packageDefaults.weightUnit) || "KG").toUpperCase(),
-      lengthUnit: (sanitizeText(packageDefaults.lengthUnit) || "CM").toUpperCase(),
-      weight: toPositiveNumber(packageDefaults.weight, 1),
-      length: toPositiveNumber(packageDefaults.length, 20),
-      width: toPositiveNumber(packageDefaults.width, 15),
-      height: toPositiveNumber(packageDefaults.height, 10),
+      type: sanitizeText(packageDefaults.type) || sanitizeText(existingEnvia?.packageDefaults?.type) || "box",
+      content: sanitizeText(packageDefaults.content) || sanitizeText(existingEnvia?.packageDefaults?.content) || "Mobile accessories",
+      amount: Math.max(
+        1,
+        Math.round(
+          toPositiveNumber(
+            packageDefaults.amount,
+            toPositiveNumber(existingEnvia?.packageDefaults?.amount, 1)
+          )
+        )
+      ),
+      weightUnit: (
+        sanitizeText(packageDefaults.weightUnit) ||
+        sanitizeText(existingEnvia?.packageDefaults?.weightUnit) ||
+        "KG"
+      ).toUpperCase(),
+      lengthUnit: (
+        sanitizeText(packageDefaults.lengthUnit) ||
+        sanitizeText(existingEnvia?.packageDefaults?.lengthUnit) ||
+        "CM"
+      ).toUpperCase(),
+      weight: toPositiveNumber(
+        packageDefaults.weight,
+        toPositiveNumber(existingEnvia?.packageDefaults?.weight, 1)
+      ),
+      length: toPositiveNumber(
+        packageDefaults.length,
+        toPositiveNumber(existingEnvia?.packageDefaults?.length, 20)
+      ),
+      width: toPositiveNumber(
+        packageDefaults.width,
+        toPositiveNumber(existingEnvia?.packageDefaults?.width, 15)
+      ),
+      height: toPositiveNumber(
+        packageDefaults.height,
+        toPositiveNumber(existingEnvia?.packageDefaults?.height, 10)
+      ),
     },
   };
 

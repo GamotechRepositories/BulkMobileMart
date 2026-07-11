@@ -15,6 +15,7 @@ import OrderSection from "../components/admin/sections/OrderSection";
 import AdminOrderDetailSection from "../components/admin/sections/AdminOrderDetailSection";
 import AdminOrderInvoice from "./AdminOrderInvoice";
 import PaymentSection from "../components/admin/sections/PaymentSection";
+import PaymentProofsSection from "../components/admin/sections/PaymentProofsSection";
 import SupportSection from "../components/admin/sections/SupportSection";
 import AddBrandSection from "../components/admin/sections/AddBrandSection";
 import ShowBrandSection from "../components/admin/sections/ShowBrandSection";
@@ -58,7 +59,7 @@ function Admin() {
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />
           <Route path="payments" element={<PaymentSection />} />
-          <Route path="payment-proofs" element={<Navigate to="/payments" replace />} />
+          <Route path="payment-proofs" element={<PaymentProofsSection />} />
           <Route path="support" element={<SupportSection />} />
           <Route path="promotional-notifications" element={<PromotionalNotificationSection />} />
           <Route path="*" element={<Navigate to="/" replace />} />
