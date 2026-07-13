@@ -108,6 +108,8 @@ export const getAdminOrderUnreadCount = (params) =>
   api.get("/api/orders/admin/unread-count", { params });
 export const getDashboardStats = (params) =>
   api.get("/api/orders/admin/dashboard-stats", { params });
+export const getEligibleAdminOrderCoupons = (id) =>
+  api.get(`/api/orders/admin/${id}/eligible-coupons`);
 export const updateAdminOrder = (id, data) => api.patch(`/api/orders/admin/${id}`, data);
 export const deleteAdminOrder = (id) => api.delete(`/api/orders/admin/${id}`);
 export const createAdminOrder = (data) => api.post("/api/orders/admin/create", data);

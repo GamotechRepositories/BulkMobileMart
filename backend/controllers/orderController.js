@@ -3,6 +3,7 @@ import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import User from "../models/user.js";
 import Payment from "../models/payment/Payment.js";
+import Coupon from "../models/Coupon.js";
 import {
   enrichOrderForResponse,
   finalizeOrder,
@@ -34,9 +35,18 @@ import {
   trackEnviaShipment,
 } from "../services/enviaShippingService.js";
 import { GIFT_HAMPER_STATUSES } from "../../shared/store/giftHamper.js";
+import {
+  formatIndiaDateString,
+  getIndiaDayEnd,
+  getIndiaDayStart,
+  getIndiaTodayRange,
+  getIndiaYesterdayRange,
+  INDIA_TZ,
+  shiftIndiaDateString,
+} from "../../shared/date/indiaDate.js";
+import { resolveCouponForCheckout } from "./couponController.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
-const INDIA_TZ = "Asia/Kolkata";
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
 const ORDER_ADDRESS_REQUIRED_FIELDS = [
   "fullName",
@@ -153,24 +163,20 @@ function buildDayOrderStats(orders) {
 }
 
 function buildLast7DaysTrend(orders) {
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    return date;
-  });
+  const today = formatIndiaDateString();
 
-  return days.map((date) => {
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
+  return Array.from({ length: 7 }, (_, index) => {
+    const dateString = shiftIndiaDateString(today, index - 6);
+    const dayStart = getIndiaDayStart(dateString);
+    const dayEnd = getIndiaDayEnd(dateString);
 
     const dayOrders = orders.filter((order) => {
       const createdAt = new Date(order.createdAt);
-      return createdAt >= date && createdAt < nextDay;
+      return createdAt >= dayStart && createdAt <= dayEnd;
     });
 
     return {
-      date: date.toISOString().slice(0, 10),
+      date: dateString,
       ...buildDayOrderStats(dayOrders),
     };
   });
@@ -563,16 +569,10 @@ export const getDashboardStats = async (req, res) => {
     const year = Number.parseInt(req.query.year, 10) || currentYear;
     const now = new Date();
 
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const endOfYesterday = new Date(startOfToday);
-    endOfYesterday.setMilliseconds(-1);
-    const start7Days = new Date(startOfToday);
-    start7Days.setDate(start7Days.getDate() - 6);
+    const { start: startOfToday, end: endOfToday, dateString: todayDateString } =
+      getIndiaTodayRange();
+    const { start: startOfYesterday, end: endOfYesterday } = getIndiaYesterdayRange();
+    const start7Days = getIndiaDayStart(shiftIndiaDateString(todayDateString, -6));
 
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -745,9 +745,10 @@ export const getDashboardStats = async (req, res) => {
         yesterday,
         last7Days,
         recentOrders,
-        recentTodayOrders: recentOrders.filter(
-          (order) => new Date(order.createdAt) >= startOfToday
-        ),
+        recentTodayOrders: recentOrders.filter((order) => {
+          const createdAt = new Date(order.createdAt);
+          return createdAt >= startOfToday && createdAt <= endOfToday;
+        }),
         monthlySales,
         years,
         totals: {
@@ -862,12 +863,16 @@ export const getAllOrders = async (req, res) => {
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
-        filter.createdAt.$gte = new Date(startDate);
+        const start = getIndiaDayStart(startDate);
+        if (start) {
+          filter.createdAt.$gte = start;
+        }
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
+        const end = getIndiaDayEnd(endDate);
+        if (end) {
+          filter.createdAt.$lte = end;
+        }
       }
     }
 
@@ -886,7 +891,7 @@ export const getAllOrders = async (req, res) => {
       Order.countDocuments(filter),
       Order.find(filter)
         .populate("user", "name email phone")
-        .sort({ updatedAt: -1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
     ]);
@@ -897,6 +902,76 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
+export const getEligibleOrderCoupons = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).select(
+      "user subtotal couponCode couponDiscount status paymentStatus"
+    );
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    let reason = "";
+    if (order.couponCode || Number(order.couponDiscount) > 0) {
+      reason = "A coupon is already applied to this order";
+    } else if (!["confirm", "processing"].includes(order.status)) {
+      reason = "Coupon can only be applied before the order is shipped";
+    } else if (![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.PAID_10].includes(order.paymentStatus)) {
+      reason = "Coupon cannot be applied after full payment or while payment is under review";
+    }
+
+    if (reason) {
+      return res.status(200).json({
+        success: true,
+        data: { coupons: [], canApply: false, reason },
+      });
+    }
+
+    const now = new Date();
+    const activeCoupons = await Coupon.find({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    })
+      .sort({ minOrderAmount: 1, discountValue: -1, createdAt: -1 })
+      .lean();
+
+    const subtotal = Number(order.subtotal) || 0;
+    const resolved = await Promise.all(
+      activeCoupons.map(async (coupon) => {
+        const result = await resolveCouponForCheckout(coupon.code, subtotal, {
+          userId: order.user,
+          excludeOrderId: order._id,
+        });
+        if (result.error || Number(result.couponDiscount) <= 0) return null;
+
+        return {
+          code: result.couponCode,
+          title: result.couponTitle || coupon.title || "",
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue,
+          minOrderAmount: Number(coupon.minOrderAmount) || 0,
+          discountAmount: result.couponDiscount,
+        };
+      })
+    );
+
+    const coupons = resolved
+      .filter(Boolean)
+      .sort((a, b) => b.discountAmount - a.discountAmount);
+
+    res.status(200).json({
+      success: true,
+      data: { coupons, canApply: true, reason: "" },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load eligible coupons",
+    });
+  }
+};
+
 export const updateOrder = async (req, res) => {
   try {
     const {
@@ -904,6 +979,7 @@ export const updateOrder = async (req, res) => {
       paymentStatus,
       items,
       deliveryCharges,
+      couponCode,
       notificationStage,
       manualTracking,
       deliveryAddress,
@@ -928,6 +1004,59 @@ export const updateOrder = async (req, res) => {
     }
 
     const previousStatus = existingOrder.status;
+
+    if (couponCode !== undefined) {
+      const normalizedCouponCode = String(couponCode || "").trim().toUpperCase();
+
+      if (!normalizedCouponCode) {
+        return res.status(400).json({
+          success: false,
+          message: "Select a coupon to apply",
+        });
+      }
+
+      if (existingOrder.couponCode || Number(existingOrder.couponDiscount) > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "A coupon is already applied to this order",
+        });
+      }
+
+      if (!["confirm", "processing"].includes(existingOrder.status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Coupon can only be applied before the order is shipped",
+        });
+      }
+
+      if (![PAYMENT_STATUS.UNPAID, PAYMENT_STATUS.PAID_10].includes(existingOrder.paymentStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: "Coupon cannot be applied after full payment or while payment is under review",
+        });
+      }
+
+      const subtotal = Number(existingOrder.subtotal) || 0;
+      const couponResult = await resolveCouponForCheckout(normalizedCouponCode, subtotal, {
+        userId: existingOrder.user,
+        excludeOrderId: existingOrder._id,
+      });
+
+      if (couponResult.error) {
+        return res.status(400).json({
+          success: false,
+          message: couponResult.error,
+        });
+      }
+
+      const charge = Number(existingOrder.deliveryCharges) || 0;
+      const discountedSubtotal = Math.max(0, subtotal - couponResult.couponDiscount);
+
+      updates.couponCode = couponResult.couponCode;
+      updates.couponDiscount = couponResult.couponDiscount;
+      updates.gstAmount = 0;
+      updates.total = Math.round((discountedSubtotal + charge) * 100) / 100;
+    }
 
     if (items !== undefined) {
       const lockedStatuses = ["shipping", "delivered", "cancelled"];

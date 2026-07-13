@@ -3,6 +3,7 @@ import { formatAddressLine, getAddressFullName } from "../../../utils/addressDis
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getOrderById,
+  getEligibleAdminOrderCoupons,
   updateAdminOrder,
   deleteAdminOrder,
   updateAdminGiftHamper,
@@ -118,6 +119,30 @@ function AdminOrderDetailSection() {
   const [manualTrackingEvidenceUrl, setManualTrackingEvidenceUrl] = useState("");
   const [manualTrackingEvidenceName, setManualTrackingEvidenceName] = useState("");
   const [uploadingManualTrackingEvidence, setUploadingManualTrackingEvidence] = useState(false);
+  const [eligibleCoupons, setEligibleCoupons] = useState([]);
+  const [selectedCouponCode, setSelectedCouponCode] = useState("");
+  const [couponEligibilityReason, setCouponEligibilityReason] = useState("");
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+
+  const loadEligibleCoupons = async (orderId) => {
+    setLoadingCoupons(true);
+    try {
+      const { data } = await getEligibleAdminOrderCoupons(orderId);
+      const result = data.data || {};
+      const coupons = result.coupons || [];
+      setEligibleCoupons(coupons);
+      setSelectedCouponCode(coupons[0]?.code || "");
+      setCouponEligibilityReason(result.reason || "");
+    } catch (err) {
+      setEligibleCoupons([]);
+      setSelectedCouponCode("");
+      setCouponEligibilityReason(
+        err.response?.data?.message || "Failed to load eligible coupons"
+      );
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
 
   const loadOrder = async () => {
     setLoading(true);
@@ -135,6 +160,7 @@ function AdminOrderDetailSection() {
       }
 
       setOrder(orderData);
+      await loadEligibleCoupons(orderData._id);
     } catch {
       setError("Order not found");
       setOrder(null);
@@ -179,6 +205,30 @@ function AdminOrderDetailSection() {
   const handleItemsUpdated = (updatedOrder) => {
     setOrder(updatedOrder);
     setSuccess("Order items updated");
+    loadEligibleCoupons(updatedOrder._id);
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!order || updating || !selectedCouponCode) return;
+
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminOrder(order._id, {
+        couponCode: selectedCouponCode,
+      });
+      setOrder(data.data);
+      setEligibleCoupons([]);
+      setSelectedCouponCode("");
+      setCouponEligibilityReason("A coupon is already applied to this order");
+      setSuccess(`Coupon ${data.data.couponCode || selectedCouponCode} applied`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to apply coupon");
+      await loadEligibleCoupons(order._id);
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleStartEditDeliveryCharge = () => {
@@ -374,6 +424,9 @@ function AdminOrderDetailSection() {
   const addressLine = formatAddressLine(addr);
   const advanceBilling = getOrderAdvanceBillingSummary(order);
   const couponBilling = getOrderCouponBillingSummary(order);
+  const selectedCoupon = eligibleCoupons.find(
+    (coupon) => coupon.code === selectedCouponCode
+  );
 
   return (
     <div className="min-w-0 space-y-4">
@@ -711,7 +764,51 @@ function AdminOrderDetailSection() {
               </span>
               <span>-{formatPrice(couponBilling.couponDiscount)}</span>
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                Apply eligible coupon
+              </p>
+              {loadingCoupons ? (
+                <p className="mt-2 text-xs text-neutral-500">Checking eligible coupons...</p>
+              ) : eligibleCoupons.length > 0 ? (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    value={selectedCouponCode}
+                    onChange={(event) => setSelectedCouponCode(event.target.value)}
+                    disabled={updating}
+                    className={`${adminFilterInputClass} min-w-0 flex-1`}
+                    aria-label="Select eligible coupon"
+                  >
+                    {eligibleCoupons.map((coupon) => (
+                      <option key={coupon.code} value={coupon.code}>
+                        {coupon.code}
+                        {coupon.title ? ` — ${coupon.title}` : ""}
+                        {` (save ${formatPrice(coupon.discountAmount)})`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={updating || !selectedCouponCode}
+                    className={btnPrimary}
+                  >
+                    {updating ? "Applying..." : "Apply Coupon"}
+                  </button>
+                  {selectedCoupon ? (
+                    <span className="shrink-0 text-xs font-semibold text-green-700">
+                      -{formatPrice(selectedCoupon.discountAmount)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-neutral-500">
+                  {couponEligibilityReason || "No eligible coupons for this order."}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex justify-between text-neutral-600">
             <span>Delivery Charges</span>
             {editingDeliveryCharge ? (

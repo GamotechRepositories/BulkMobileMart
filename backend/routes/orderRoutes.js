@@ -7,6 +7,7 @@ import {
   getMyOrders,
   getOrderById,
   getAllOrders,
+  getEligibleOrderCoupons,
   updateOrder,
   createOrderShipment,
   quoteOrderShipmentRates,
@@ -30,6 +31,7 @@ router.get("/admin/unread-count", requireAdmin, getOrderUnreadCount);
 router.get("/admin/gift-hampers", requireAdmin, getGiftHamperOrders);
 router.patch("/admin/:id/gift-hamper", requireAdmin, updateGiftHamperStatus);
 router.get("/admin/all", requireAdmin, getAllOrders);
+router.get("/admin/:id/eligible-coupons", requireAdmin, getEligibleOrderCoupons);
 router.post("/admin/create", requireAdmin, adminPlaceOrder);
 router.patch("/admin/:id", requireAdmin, updateOrder);
 router.delete("/admin/:id", requireAdmin, deleteOrder);

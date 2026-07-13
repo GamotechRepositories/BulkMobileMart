@@ -40,6 +40,19 @@ function getErrorMessage(err, fallback) {
   return err.response?.data?.message || err.message || fallback;
 }
 
+function getOrderStatusFromSearchParams(searchParams) {
+  const status = searchParams.get("status");
+  const statusGroup = searchParams.get("statusGroup");
+
+  if (statusGroup === "pending") {
+    return "pending";
+  }
+  if (status) {
+    return status;
+  }
+  return "all";
+}
+
 function OrderSection() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -48,29 +61,17 @@ function OrderSection() {
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [orderStatus, setOrderStatus] = useState("all");
+  const [startDate, setStartDate] = useState(() => searchParams.get("startDate") || "");
+  const [endDate, setEndDate] = useState(() => searchParams.get("endDate") || "");
+  const [orderStatus, setOrderStatus] = useState(() => getOrderStatusFromSearchParams(searchParams));
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    const start = searchParams.get("startDate") || "";
-    const end = searchParams.get("endDate") || "";
-    const status = searchParams.get("status");
-    const statusGroup = searchParams.get("statusGroup");
-
-    setStartDate(start);
-    setEndDate(end);
-
-    if (statusGroup === "pending") {
-      setOrderStatus("pending");
-    } else if (status) {
-      setOrderStatus(status);
-    } else {
-      setOrderStatus("all");
-    }
+    setStartDate(searchParams.get("startDate") || "");
+    setEndDate(searchParams.get("endDate") || "");
+    setOrderStatus(getOrderStatusFromSearchParams(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
