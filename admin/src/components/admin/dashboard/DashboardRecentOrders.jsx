@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getAddressFullName } from "../../../utils/addressDisplay";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import { cardClass } from "../adminStyles";
@@ -14,6 +14,8 @@ const STATUS_STYLES = {
 };
 
 function DashboardRecentOrders({ orders = [], loading }) {
+  const navigate = useNavigate();
+
   return (
     <div className={cardClass}>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -40,14 +42,13 @@ function DashboardRecentOrders({ orders = [], loading }) {
             </thead>
             <tbody>
               {orders.map((order) => (
-                <tr key={order._id} className="border-b border-neutral-100 last:border-0">
-                  <td className="py-3 pr-4">
-                    <Link
-                      to={`/orders/${order._id}`}
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      #{getOrderNumber(order)}
-                    </Link>
+                <tr
+                  key={order._id}
+                  onClick={() => navigate(`/orders/${order._id}`)}
+                  className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
+                >
+                  <td className="py-3 pr-4 font-semibold text-primary">
+                    #{getOrderNumber(order)}
                   </td>
                   <td className="py-3 pr-4 text-neutral-700">
                     {order.user?.name || getAddressFullName(order.deliveryAddress) || "—"}

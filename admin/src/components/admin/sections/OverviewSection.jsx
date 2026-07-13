@@ -7,7 +7,7 @@ import StoreOverview from "../dashboard/StoreOverview";
 import TodayStatCard from "../dashboard/TodayStatCard";
 import TopCategoriesChart from "../dashboard/TopCategoriesChart";
 import TotalMiniCard from "../dashboard/TotalMiniCard";
-import { getTodayDateString } from "../dashboardUtils";
+import { getCurrentMonthDateRange, getCurrentMonthName, getTodayDateString } from "../dashboardUtils";
 import { IconCategory, IconOrder, IconProduct } from "../AdminIcons";
 
 const EMPTY_DAY_STATS = { orders: 0, attempted: 0, pending: 0, delivered: 0, cancelled: 0 };
@@ -31,6 +31,19 @@ function OverviewSection() {
   });
   const [topCategories, setTopCategories] = useState([]);
   const [topCategoriesTotal, setTopCategoriesTotal] = useState(0);
+  const [monthOrders, setMonthOrders] = useState({ count: 0 });
+  const [todayDate, setTodayDate] = useState(() => getTodayDateString());
+
+  useEffect(() => {
+    const syncTodayDate = () => {
+      const nextDate = getTodayDateString();
+      setTodayDate((prev) => (prev === nextDate ? prev : nextDate));
+    };
+
+    syncTodayDate();
+    const intervalId = window.setInterval(syncTodayDate, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -57,6 +70,7 @@ function OverviewSection() {
         );
         setTopCategories(stats.topCategories || []);
         setTopCategoriesTotal(Number(stats.topCategoriesTotal) || 0);
+        setMonthOrders(stats.monthOrders || { count: 0 });
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
       } finally {
@@ -65,13 +79,17 @@ function OverviewSection() {
     };
 
     loadDashboard();
-  }, [year, currentYear]);
+  }, [year, currentYear, todayDate]);
 
-  const todayDate = getTodayDateString();
   const todayOrdersLink = useMemo(
     () => `/orders?startDate=${todayDate}&endDate=${todayDate}`,
     [todayDate]
   );
+  const monthOrdersLink = useMemo(() => {
+    const { startDate, endDate } = getCurrentMonthDateRange();
+    return `/orders?startDate=${startDate}&endDate=${endDate}`;
+  }, []);
+  const currentMonthName = useMemo(() => getCurrentMonthName(), []);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -137,33 +155,40 @@ function OverviewSection() {
         </TodayStatCard>
       </div>
 
-      <div className="flex flex-col gap-3 sm:gap-4 xl:grid xl:grid-cols-4 xl:items-stretch">
-        <div className="flex gap-3 sm:gap-4 xl:contents">
-          <TotalMiniCard
-            className="flex-1"
-            label="Total Products"
-            value={totals.products}
-            loading={loading}
-            to="/products/show"
-            icon={IconProduct}
-            iconBg="bg-violet-50 text-violet-600"
-          />
-          <TotalMiniCard
-            className="flex-1"
-            label="Total Categories"
-            value={totals.categories}
-            loading={loading}
-            to="/categories/show"
-            icon={IconCategory}
-            iconBg="bg-blue-50 text-blue-600"
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:items-stretch">
+        <TotalMiniCard
+          label="Total Products"
+          value={totals.products}
+          loading={loading}
+          to="/products/show"
+          icon={IconProduct}
+          iconBg="bg-violet-50 text-violet-600"
+        />
+        <TotalMiniCard
+          label="Total Categories"
+          value={totals.categories}
+          loading={loading}
+          to="/categories/show"
+          icon={IconCategory}
+          iconBg="bg-blue-50 text-blue-600"
+        />
         <RevenueCard
+          compact
+          className="col-span-2 xl:col-span-1"
           totalRevenue={totals.totalRevenue}
           currentMonth={revenue.currentMonth}
           lastMonth={revenue.lastMonth}
           monthlyTrend={revenue.monthlyTrend}
           loading={loading}
+        />
+        <TotalMiniCard
+          className="col-span-2 xl:col-span-1"
+          label={`${currentMonthName} Orders`}
+          value={monthOrders.count}
+          loading={loading}
+          to={monthOrdersLink}
+          icon={IconOrder}
+          iconBg="bg-orange-50 text-primary"
         />
       </div>
 

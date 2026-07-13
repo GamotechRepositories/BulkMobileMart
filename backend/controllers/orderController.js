@@ -43,10 +43,14 @@ import {
   getIndiaYesterdayRange,
   INDIA_TZ,
   shiftIndiaDateString,
+  buildCreatedOnIndiaDateExpr,
+  buildCreatedInIndiaDateRangeExpr,
 } from "../../shared/date/indiaDate.js";
 import { resolveCouponForCheckout } from "./couponController.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
+const REVENUE_STATUSES = ["confirm", "processing", "shipping", "delivered"];
+const RECENT_ORDERS_STATUSES = ["confirm", "processing", "shipping", "delivered", "cancelled"];
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
 const ORDER_ADDRESS_REQUIRED_FIELDS = [
   "fullName",
@@ -195,8 +199,8 @@ function getPercentChange(current, previous) {
 }
 
 function buildMonthStats(orders) {
-  const nonCancelled = orders.filter((order) => order.status !== "cancelled");
-  const totalSales = nonCancelled.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+  const revenueOrders = orders.filter((order) => REVENUE_STATUSES.includes(order.status));
+  const totalSales = revenueOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
   const totalOrders = orders.length;
   const delivered = orders.filter((order) => order.status === "delivered").length;
 
@@ -571,8 +575,9 @@ export const getDashboardStats = async (req, res) => {
 
     const { start: startOfToday, end: endOfToday, dateString: todayDateString } =
       getIndiaTodayRange();
-    const { start: startOfYesterday, end: endOfYesterday } = getIndiaYesterdayRange();
-    const start7Days = getIndiaDayStart(shiftIndiaDateString(todayDateString, -6));
+    const { start: startOfYesterday, end: endOfYesterday, dateString: yesterdayDateString } =
+      getIndiaYesterdayRange();
+    const start7DaysDateString = shiftIndiaDateString(todayDateString, -6);
 
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -597,10 +602,12 @@ export const getDashboardStats = async (req, res) => {
       topCategoriesAgg,
       yearOrderSummary,
     ] = await Promise.all([
-      Order.find({ createdAt: { $gte: startOfToday, $lte: endOfToday } }).select("status"),
-      Order.find({ createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } }).select("status"),
-      Order.find({ createdAt: { $gte: start7Days, $lte: endOfToday } }).select("status createdAt"),
-      Order.find()
+      Order.find({ $expr: buildCreatedOnIndiaDateExpr(todayDateString) }).select("status"),
+      Order.find({ $expr: buildCreatedOnIndiaDateExpr(yesterdayDateString) }).select("status"),
+      Order.find({
+        $expr: buildCreatedInIndiaDateRangeExpr(start7DaysDateString, todayDateString),
+      }).select("status createdAt"),
+      Order.find({ status: { $in: RECENT_ORDERS_STATUSES } })
         .populate("user", "name email phone")
         .sort({ updatedAt: -1 })
         .limit(6)
@@ -608,7 +615,7 @@ export const getDashboardStats = async (req, res) => {
       Order.aggregate([
         {
           $match: {
-            status: { $ne: "cancelled" },
+            status: { $in: REVENUE_STATUSES },
             $expr: {
               $eq: [{ $year: { date: "$createdAt", timezone: INDIA_TZ } }, year],
             },
@@ -631,7 +638,7 @@ export const getDashboardStats = async (req, res) => {
       Category.countDocuments(),
       User.countDocuments({ role: "user" }),
       Order.aggregate([
-        { $match: { status: { $ne: "cancelled" } } },
+        { $match: { status: { $in: REVENUE_STATUSES } } },
         { $group: { _id: null, total: { $sum: "$total" } } },
       ]),
       Order.find({ createdAt: { $gte: currentMonthStart, $lte: endOfToday } }).select(
@@ -648,7 +655,7 @@ export const getDashboardStats = async (req, res) => {
       Order.aggregate([
         {
           $match: {
-            status: { $ne: "cancelled" },
+            status: { $in: REVENUE_STATUSES },
             $expr: {
               $eq: [{ $year: { date: "$createdAt", timezone: INDIA_TZ } }, year],
             },
@@ -764,6 +771,9 @@ export const getDashboardStats = async (req, res) => {
             month: item.month,
             revenue: item.revenue,
           })),
+        },
+        monthOrders: {
+          count: currentMonthStats.totalOrders,
         },
         storeOverview: {
           activeProducts,

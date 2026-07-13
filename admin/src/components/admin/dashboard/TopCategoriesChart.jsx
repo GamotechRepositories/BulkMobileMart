@@ -1,27 +1,66 @@
 import { Link } from "react-router-dom";
 import { cardClass } from "../adminStyles";
-import { formatCompactCurrency, formatNumber } from "./dashboardUtils";
+import { formatCompactCurrency, formatCurrency, formatNumber } from "./dashboardUtils";
 
 const CATEGORY_COLORS = ["#ff7a00", "#2563eb", "#16a34a", "#eab308"];
 
-function buildDonutSegments(categories, total) {
-  const radius = 38;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
+function polarToCartesian(cx, cy, radius, angleDeg) {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(angleRad),
+    y: cy + radius * Math.sin(angleRad),
+  };
+}
 
-  return categories.map((item, index) => {
+function describeDonutSlice(cx, cy, outerRadius, innerRadius, startAngle, endAngle) {
+  const sweep = endAngle - startAngle;
+  if (sweep <= 0) return "";
+  if (sweep >= 359.999) {
+    return [
+      `M ${cx} ${cy - outerRadius}`,
+      `A ${outerRadius} ${outerRadius} 0 1 1 ${cx - 0.01} ${cy - outerRadius}`,
+      `L ${cx - 0.01} ${cy - innerRadius}`,
+      `A ${innerRadius} ${innerRadius} 0 1 0 ${cx} ${cy - innerRadius}`,
+      "Z",
+    ].join(" ");
+  }
+
+  const outerStart = polarToCartesian(cx, cy, outerRadius, startAngle);
+  const outerEnd = polarToCartesian(cx, cy, outerRadius, endAngle);
+  const innerEnd = polarToCartesian(cx, cy, innerRadius, endAngle);
+  const innerStart = polarToCartesian(cx, cy, innerRadius, startAngle);
+  const largeArc = sweep > 180 ? 1 : 0;
+
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function buildDonutSegments(categories, total) {
+  const visible = categories.filter((item) => (Number(item.value) || 0) > 0);
+  const segmentTotal = visible.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const baseTotal = total > 0 ? total : segmentTotal;
+  let currentAngle = 0;
+
+  return visible.map((item, index) => {
     const value = Number(item.value) || 0;
-    const share = total > 0 ? value / total : 0;
-    const dash = share * circumference;
-    const segment = {
+    const share = baseTotal > 0 ? value / baseTotal : 0;
+    const sweep = share * 360;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + sweep;
+    currentAngle = endAngle;
+
+    return {
       ...item,
       color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
-      percent: item.percent ?? (total > 0 ? Math.round(share * 100) : 0),
-      dash,
-      offset,
+      percent: item.percent ?? (baseTotal > 0 ? Math.round(share * 100) : 0),
+      startAngle,
+      endAngle,
     };
-    offset += dash;
-    return segment;
   });
 }
 
@@ -29,8 +68,8 @@ function TopCategoriesChart({ categories = [], totalSales, loading }) {
   const segmentTotal = categories.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const displayTotal = Number(totalSales) > 0 ? Number(totalSales) : segmentTotal;
   const segments = buildDonutSegments(categories, displayTotal);
-  const radius = 38;
-  const circumference = 2 * Math.PI * radius;
+  const centerAmount =
+    displayTotal >= 100000 ? formatCompactCurrency(displayTotal) : formatCurrency(displayTotal);
 
   return (
     <div className={`${cardClass} flex h-full w-full min-h-0 flex-col`}>
@@ -60,28 +99,34 @@ function TopCategoriesChart({ categories = [], totalSales, loading }) {
       ) : (
         <div className="flex min-h-[300px] flex-1 items-center gap-3 sm:gap-4">
           <div className="relative mx-auto flex h-40 w-40 shrink-0 items-center justify-center sm:h-44 sm:w-44">
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r={radius} fill="none" stroke="#f3f4f6" strokeWidth="15" />
-              {segments.map((segment) => (
-                <circle
-                  key={segment.name}
-                  cx="50"
-                  cy="50"
-                  r={radius}
-                  fill="none"
-                  stroke={segment.color}
-                  strokeWidth="15"
-                  strokeDasharray={`${segment.dash} ${circumference - segment.dash}`}
-                  strokeDashoffset={-segment.offset}
-                  strokeLinecap="butt"
-                />
-              ))}
+            <svg viewBox="0 0 100 100" className="h-full w-full">
+              <circle cx="50" cy="50" r="42" fill="#f3f4f6" />
+              {segments.map((segment) => {
+                const path = describeDonutSlice(
+                  50,
+                  50,
+                  42,
+                  27,
+                  segment.startAngle,
+                  segment.endAngle
+                );
+                if (!path) return null;
+
+                return (
+                  <path
+                    key={segment.name}
+                    d={path}
+                    fill={segment.color}
+                    stroke="#ffffff"
+                    strokeWidth="0.6"
+                  />
+                );
+              })}
+              <circle cx="50" cy="50" r="27" fill="#ffffff" />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
               <p className="text-[10px] font-medium text-neutral-500">Total Sales</p>
-              <p className="mt-0.5 text-xs font-bold text-neutral-900 sm:text-sm">
-                {formatCompactCurrency(displayTotal)}
-              </p>
+              <p className="mt-0.5 text-xs font-bold text-neutral-900 sm:text-sm">{centerAmount}</p>
             </div>
           </div>
 
@@ -96,7 +141,7 @@ function TopCategoriesChart({ categories = [], totalSales, loading }) {
                   style={{ backgroundColor: segment.color }}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-medium leading-snug text-neutral-800 break-words sm:text-[11px]">
+                  <p className="break-words text-[10px] font-medium leading-snug text-neutral-800 sm:text-[11px]">
                     {segment.name}
                   </p>
                   <p className="mt-0.5 text-[10px] text-neutral-600">

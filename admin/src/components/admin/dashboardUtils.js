@@ -1,9 +1,28 @@
-import { formatIndiaDateString } from "@shared/date/indiaDate.js";
+import { formatIndiaDateString, parseIndiaDateOnly, INDIA_TZ } from "@shared/date/indiaDate.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 
 export function getTodayDateString() {
   return formatIndiaDateString();
+}
+
+export function getCurrentMonthDateRange() {
+  const today = formatIndiaDateString();
+  const parsed = parseIndiaDateOnly(today);
+  if (!parsed) {
+    return { startDate: today, endDate: today };
+  }
+
+  const month = String(parsed.month).padStart(2, "0");
+  const startDate = `${parsed.year}-${month}-01`;
+  const daysInMonth = new Date(parsed.year, parsed.month, 0).getDate();
+  const endDate = `${parsed.year}-${month}-${String(daysInMonth).padStart(2, "0")}`;
+
+  return { startDate, endDate };
+}
+
+export function getCurrentMonthName() {
+  return new Intl.DateTimeFormat("en-IN", { timeZone: INDIA_TZ, month: "long" }).format(new Date());
 }
 
 export function buildMonthlySales(orders, year) {

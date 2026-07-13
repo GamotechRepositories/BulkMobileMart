@@ -3,31 +3,43 @@ import { cardClass } from "../adminStyles";
 import { formatNumber } from "./dashboardUtils";
 
 function TotalMiniCard({ label, value, loading, to, icon: Icon, iconBg, className = "" }) {
-  return (
+  const content = (
     <div
-      className={`${cardClass} flex h-full min-w-0 items-center gap-2 p-3 sm:gap-3 sm:p-5 ${className}`}
+      className={`${cardClass} flex h-full min-w-0 items-start gap-2.5 p-3 ${
+        to ? "transition hover:border-neutral-300 hover:shadow-sm" : ""
+      } ${className}`}
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-11 sm:w-11 ${iconBg}`}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${iconBg}`}
       >
-        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+        <Icon className="h-4 w-4" />
       </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-medium leading-tight text-neutral-500 sm:text-sm">{label}</p>
-        <Link
-          to={to}
-          className="mt-0.5 inline-block text-[9px] font-medium text-primary hover:underline sm:text-xs"
-        >
-          View All →
-        </Link>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <p className="truncate text-[11px] font-medium leading-tight text-neutral-500 sm:text-xs">
+          {label}
+        </p>
+        <p className="mt-1 text-lg font-bold leading-none text-neutral-900 sm:text-xl">
+          {loading ? "—" : formatNumber(value)}
+        </p>
+        {to ? (
+          <span className="mt-1 inline-block text-[10px] font-medium text-primary">
+            View All →
+          </span>
+        ) : null}
       </div>
-
-      <p className="shrink-0 text-lg font-bold text-neutral-900 sm:text-2xl">
-        {loading ? "—" : formatNumber(value)}
-      </p>
     </div>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className="block h-full min-w-0 cursor-pointer">
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
 }
 
 export default TotalMiniCard;

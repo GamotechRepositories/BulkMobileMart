@@ -57,3 +57,31 @@ export function shiftIndiaDateString(dateString, days) {
   if (!start || !Number.isFinite(days)) return null;
   return formatIndiaDateString(new Date(start.getTime() + days * 24 * 60 * 60 * 1000));
 }
+
+export function buildCreatedOnIndiaDateExpr(dateString) {
+  if (!dateString) return null;
+  return {
+    $eq: [
+      { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: INDIA_TZ } },
+      dateString,
+    ],
+  };
+}
+
+export function buildCreatedInIndiaDateRangeExpr(startDateString, endDateString) {
+  const createdDate = {
+    $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: INDIA_TZ },
+  };
+  const clauses = [];
+
+  if (startDateString) {
+    clauses.push({ $gte: [createdDate, startDateString] });
+  }
+  if (endDateString) {
+    clauses.push({ $lte: [createdDate, endDateString] });
+  }
+
+  if (clauses.length === 0) return null;
+  if (clauses.length === 1) return clauses[0];
+  return { $and: clauses };
+}
