@@ -404,6 +404,10 @@ function AdminLayout() {
     }
   }, [isPaymentsPage, markPaymentsAsSeen]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   const expandSidebar = () => setSidebarCollapsed(false);
   const handleSidebarHeaderClose = () => {
     setSidebarOpen(false);
