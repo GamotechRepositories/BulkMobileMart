@@ -5,11 +5,13 @@ import { adminQueryKeys } from "./queryKeys";
 export function useAdminOrdersQuery(params, options = {}) {
   return useQuery({
     queryKey: adminQueryKeys.orders.list(params),
-    queryFn: async () => {
-      const { data } = await getAdminOrders(params);
+    queryFn: async ({ queryKey }) => {
+      const queryParams = queryKey[3];
+      const { data } = await getAdminOrders(queryParams);
       return {
         items: data.data || [],
         pagination: data.pagination || null,
+        statusCounts: data.statusCounts || null,
       };
     },
     ...options,

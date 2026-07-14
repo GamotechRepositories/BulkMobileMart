@@ -51,6 +51,7 @@ import { resolveCouponForCheckout } from "./couponController.js";
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const REVENUE_STATUSES = ["confirm", "processing", "shipping", "delivered"];
 const RECENT_ORDERS_STATUSES = ["confirm", "processing", "shipping", "delivered", "cancelled"];
+const LEGACY_CONFIRM_STATUSES = ["pending", "confirmed"];
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
 const ORDER_ADDRESS_REQUIRED_FIELDS = [
   "fullName",
@@ -64,6 +65,117 @@ const ORDER_ADDRESS_REQUIRED_FIELDS = [
   "state",
   "pincode",
 ];
+
+function normalizeOrderListStatus(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function applyAdminOrderStatusFilter(filter, { status, statusGroup }) {
+  const normalizedGroup = normalizeOrderListStatus(
+    Array.isArray(statusGroup) ? statusGroup[0] : statusGroup
+  );
+  const normalizedStatus = normalizeOrderListStatus(Array.isArray(status) ? status[0] : status);
+
+  if (normalizedGroup === "pending" || normalizedStatus === "pending") {
+    filter.status = {
+      $in: [...ACTIVE_PENDING_STATUSES, ...LEGACY_CONFIRM_STATUSES],
+    };
+    return;
+  }
+
+  if (!normalizedStatus || normalizedStatus === "all") {
+    return;
+  }
+
+  if (normalizedStatus === "confirm") {
+    filter.status = { $in: ["confirm", ...LEGACY_CONFIRM_STATUSES] };
+    return;
+  }
+
+  if (normalizedStatus === "shipping") {
+    filter.status = { $in: ["shipping", "shipped"] };
+    return;
+  }
+
+  filter.status = normalizedStatus;
+}
+
+function buildAdminOrderBaseFilter({ startDate, endDate, paymentStatus, searchClause }) {
+  const filter = {};
+  const andClauses = [];
+
+  if (paymentStatus && paymentStatus !== "all") {
+    if (paymentStatus === "unpaid") {
+      andClauses.push({
+        $or: [{ paymentStatus: "unpaid" }, { paymentStatus: { $exists: false } }],
+      });
+    } else {
+      filter.paymentStatus = paymentStatus;
+    }
+  }
+
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) {
+      const start = getIndiaDayStart(startDate);
+      if (start) {
+        filter.createdAt.$gte = start;
+      }
+    }
+    if (endDate) {
+      const end = getIndiaDayEnd(endDate);
+      if (end) {
+        filter.createdAt.$lte = end;
+      }
+    }
+  }
+
+  if (searchClause) {
+    andClauses.push(searchClause);
+  }
+
+  if (andClauses.length) {
+    const rootClauses = Object.entries(filter).map(([key, value]) => ({ [key]: value }));
+    Object.keys(filter).forEach((key) => delete filter[key]);
+    filter.$and = [...rootClauses, ...andClauses];
+  }
+
+  return filter;
+}
+
+function buildOrderStatusCounts(statusAgg = []) {
+  const byStatus = {};
+  let all = 0;
+
+  statusAgg.forEach((entry) => {
+    const key = String(entry._id || "").toLowerCase();
+    const count = Number(entry.count) || 0;
+    byStatus[key] = (byStatus[key] || 0) + count;
+    all += count;
+  });
+
+  const confirm =
+    (byStatus.confirm || 0) +
+    (byStatus.pending || 0) +
+    (byStatus.confirmed || 0);
+  const processing = byStatus.processing || 0;
+  const shipping = (byStatus.shipping || 0) + (byStatus.shipped || 0);
+  const attempted = byStatus.attempted || 0;
+  const delivered = byStatus.delivered || 0;
+  const cancelled = byStatus.cancelled || 0;
+  const pending = confirm + processing + shipping;
+
+  return {
+    all,
+    attempted,
+    pending,
+    confirm,
+    processing,
+    shipping,
+    delivered,
+    cancelled,
+  };
+}
 
 function normalizeManualTrackingInput(payload = {}) {
   const enabled = Boolean(payload.enabled);
@@ -573,8 +685,7 @@ export const getDashboardStats = async (req, res) => {
     const year = Number.parseInt(req.query.year, 10) || currentYear;
     const now = new Date();
 
-    const { start: startOfToday, end: endOfToday, dateString: todayDateString } =
-      getIndiaTodayRange();
+    const { end: endOfToday, dateString: todayDateString } = getIndiaTodayRange();
     const { start: startOfYesterday, end: endOfYesterday, dateString: yesterdayDateString } =
       getIndiaYesterdayRange();
     const start7DaysDateString = shiftIndiaDateString(todayDateString, -6);
@@ -607,9 +718,12 @@ export const getDashboardStats = async (req, res) => {
       Order.find({
         $expr: buildCreatedInIndiaDateRangeExpr(start7DaysDateString, todayDateString),
       }).select("status createdAt"),
-      Order.find({ status: { $in: RECENT_ORDERS_STATUSES } })
+      Order.find({
+        status: { $in: RECENT_ORDERS_STATUSES },
+        $expr: buildCreatedOnIndiaDateExpr(todayDateString),
+      })
         .populate("user", "name email phone")
-        .sort({ updatedAt: -1 })
+        .sort({ createdAt: -1 })
         .limit(6)
         .select("orderNumber total status createdAt user deliveryAddress"),
       Order.aggregate([
@@ -752,10 +866,7 @@ export const getDashboardStats = async (req, res) => {
         yesterday,
         last7Days,
         recentOrders,
-        recentTodayOrders: recentOrders.filter((order) => {
-          const createdAt = new Date(order.createdAt);
-          return createdAt >= startOfToday && createdAt <= endOfToday;
-        }),
+        recentTodayOrders: recentOrders,
         monthlySales,
         years,
         totals: {
@@ -851,62 +962,39 @@ export const getOrderUnreadCount = async (req, res) => {
 export const getAllOrders = async (req, res) => {
   try {
     const { startDate, endDate, status, statusGroup, paymentStatus, search } = req.query;
-    const filter = {};
-    const andClauses = [];
-
-    if (statusGroup === "pending") {
-      filter.status = { $in: ACTIVE_PENDING_STATUSES };
-    } else if (status && status !== "all") {
-      filter.status = status;
-    }
-
-    if (paymentStatus && paymentStatus !== "all") {
-      if (paymentStatus === "unpaid") {
-        andClauses.push({
-          $or: [{ paymentStatus: "unpaid" }, { paymentStatus: { $exists: false } }],
-        });
-      } else {
-        filter.paymentStatus = paymentStatus;
-      }
-    }
-
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) {
-        const start = getIndiaDayStart(startDate);
-        if (start) {
-          filter.createdAt.$gte = start;
-        }
-      }
-      if (endDate) {
-        const end = getIndiaDayEnd(endDate);
-        if (end) {
-          filter.createdAt.$lte = end;
-        }
-      }
-    }
-
     const searchClause = await buildOrderSearchFilter(search);
-    if (searchClause) andClauses.push(searchClause);
+    const baseFilter = buildAdminOrderBaseFilter({
+      startDate,
+      endDate,
+      paymentStatus,
+      searchClause,
+    });
 
-    if (andClauses.length) {
-      const rootClauses = Object.entries(filter).map(([key, value]) => ({ [key]: value }));
-      Object.keys(filter).forEach((key) => delete filter[key]);
-      filter.$and = [...rootClauses, ...andClauses];
+    const filter = { ...baseFilter };
+    if (filter.$and) {
+      filter.$and = [...filter.$and];
     }
+    applyAdminOrderStatusFilter(filter, { status, statusGroup });
 
     const { page, limit, skip } = getPaginationParams(req.query);
 
-    const [total, orders] = await Promise.all([
+    const [total, orders, statusAgg] = await Promise.all([
       Order.countDocuments(filter),
       Order.find(filter)
         .populate("user", "name email phone")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),
+      Order.aggregate([
+        ...(Object.keys(baseFilter).length ? [{ $match: baseFilter }] : []),
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
     ]);
 
-    res.status(200).json(buildPaginatedResponse(orders, total, page, limit));
+    const response = buildPaginatedResponse(orders, total, page, limit);
+    response.statusCounts = buildOrderStatusCounts(statusAgg);
+
+    res.status(200).json(response);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

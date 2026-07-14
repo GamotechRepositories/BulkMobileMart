@@ -47,7 +47,7 @@ function getOrderStatusFromSearchParams(searchParams) {
   if (statusGroup === "pending") {
     return "pending";
   }
-  if (status) {
+  if (status && status !== "pending") {
     return status;
   }
   return "all";
@@ -55,24 +55,43 @@ function getOrderStatusFromSearchParams(searchParams) {
 
 function OrderSection() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { adminUser } = useAuth();
   const { markOrdersAsSeen } = useAdminNotifications();
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [startDate, setStartDate] = useState(() => searchParams.get("startDate") || "");
-  const [endDate, setEndDate] = useState(() => searchParams.get("endDate") || "");
-  const [orderStatus, setOrderStatus] = useState(() => getOrderStatusFromSearchParams(searchParams));
   const [paymentStatus, setPaymentStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    setStartDate(searchParams.get("startDate") || "");
-    setEndDate(searchParams.get("endDate") || "");
-    setOrderStatus(getOrderStatusFromSearchParams(searchParams));
-  }, [searchParams]);
+  const startDate = searchParams.get("startDate") || "";
+  const endDate = searchParams.get("endDate") || "";
+  const orderStatus = getOrderStatusFromSearchParams(searchParams);
+
+  const updateDateFilters = (updates) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    });
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleOrderStatusChange = (value) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("status");
+    next.delete("statusGroup");
+
+    if (value === "pending") {
+      next.set("statusGroup", "pending");
+    } else if (value !== "all") {
+      next.set("status", value);
+    }
+
+    setPage(1);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     setPage(1);
@@ -96,7 +115,7 @@ function OrderSection() {
     return params;
   }, [startDate, endDate, orderStatus, paymentStatus, searchQuery, page]);
 
-  const { data, isLoading, isError, error: queryError } = useAdminOrdersQuery(queryParams, {
+  const { data, isLoading, isFetching, isError, error: queryError } = useAdminOrdersQuery(queryParams, {
     enabled: adminUser?.role === "admin",
   });
 
@@ -107,7 +126,8 @@ function OrderSection() {
     total: orders.length,
     totalPages: 1,
   };
-  const loading = isLoading;
+  const statusCounts = data?.statusCounts || null;
+  const loading = isLoading || isFetching;
   const loadError = isError ? getErrorMessage(queryError, "Failed to load orders") : "";
 
   const deleteMutation = useMutation({
@@ -171,11 +191,18 @@ function OrderSection() {
         paymentStatus={paymentStatus}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-        onOrderStatusChange={setOrderStatus}
+        onStartDateChange={(value) => {
+          setPage(1);
+          updateDateFilters({ startDate: value });
+        }}
+        onEndDateChange={(value) => {
+          setPage(1);
+          updateDateFilters({ endDate: value });
+        }}
+        onOrderStatusChange={handleOrderStatusChange}
         onPaymentStatusChange={setPaymentStatus}
         onDownload={handleDownload}
+        statusCounts={statusCounts}
       />
 
       {loading ? (

@@ -6,7 +6,6 @@ export const ORDER_STATUSES = ["attempted", "confirm", "processing", "shipping",
 export const ORDER_STATUS_OPTIONS = [
   { value: "all", label: "All Status" },
   { value: "attempted", label: "Attempted" },
-  { value: "pending", label: "Pending" },
   { value: "confirm", label: "Confirm" },
   { value: "processing", label: "Processing" },
   { value: "shipping", label: "Shipping" },

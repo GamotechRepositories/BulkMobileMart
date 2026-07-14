@@ -21,7 +21,24 @@ function AdminOrderFilters({
   onDownload,
   showOrderStatus = true,
   showPaymentStatus = true,
+  statusCounts = null,
 }) {
+  const formatStatusLabel = (opt) => {
+    if (!statusCounts || statusCounts[opt.value] == null) {
+      return opt.label;
+    }
+    return `${opt.label} (${statusCounts[opt.value]})`;
+  };
+
+  const statusOptions =
+    orderStatus === "pending"
+      ? [
+          ...ORDER_STATUS_OPTIONS.slice(0, 2),
+          { value: "pending", label: "Pending" },
+          ...ORDER_STATUS_OPTIONS.slice(2),
+        ]
+      : ORDER_STATUS_OPTIONS;
+
   return (
     <div className={adminFilterCardClass}>
       {onSearchChange ? (
@@ -63,9 +80,9 @@ function AdminOrderFilters({
                 onChange={(e) => onOrderStatusChange(e.target.value)}
                 className={adminFilterInputClass}
               >
-                {ORDER_STATUS_OPTIONS.map((opt) => (
+                {statusOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {formatStatusLabel(opt)}
                   </option>
                 ))}
               </select>

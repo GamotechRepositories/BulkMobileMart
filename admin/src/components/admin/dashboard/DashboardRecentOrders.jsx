@@ -13,14 +13,14 @@ const STATUS_STYLES = {
   shipping: "bg-blue-100 text-blue-800",
 };
 
-function DashboardRecentOrders({ orders = [], loading }) {
+function DashboardRecentOrders({ orders = [], loading, viewAllTo = "/orders" }) {
   const navigate = useNavigate();
 
   return (
     <div className={cardClass}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-neutral-900">Recent Orders</h3>
-        <Link to="/orders" className="text-sm font-medium text-primary hover:underline">
+        <h3 className="text-base font-semibold text-neutral-900">Today's Orders</h3>
+        <Link to={viewAllTo} className="text-sm font-medium text-primary hover:underline">
           View All
         </Link>
       </div>
@@ -28,7 +28,7 @@ function DashboardRecentOrders({ orders = [], loading }) {
       {loading ? (
         <p className="py-8 text-center text-sm text-neutral-500">Loading orders...</p>
       ) : orders.length === 0 ? (
-        <p className="py-8 text-center text-sm text-neutral-500">No orders yet.</p>
+        <p className="py-8 text-center text-sm text-neutral-500">No orders today.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left text-sm">

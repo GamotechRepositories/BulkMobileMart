@@ -213,7 +213,11 @@ function OverviewSection() {
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <DashboardRecentOrders orders={recentOrders} loading={loading} />
+          <DashboardRecentOrders
+            orders={recentOrders}
+            loading={loading}
+            viewAllTo={todayOrdersLink}
+          />
         </div>
         <StoreOverview overview={storeOverview} loading={loading} />
       </div>
