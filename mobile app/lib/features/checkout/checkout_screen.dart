@@ -20,6 +20,7 @@ import '../../features/cart/cart_controller.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
+import '../../models/coupon.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/common/minimum_order_warning.dart';
@@ -28,7 +29,9 @@ import '../../widgets/common/skeleton_loaders.dart';
 const _maxOrderNoteLength = 200;
 
 class CheckoutScreen extends ConsumerStatefulWidget {
-  const CheckoutScreen({super.key});
+  const CheckoutScreen({super.key, this.initialCouponCode});
+
+  final String? initialCouponCode;
 
   @override
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -54,6 +57,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
 
+  final _couponController = TextEditingController();
+  AppliedCoupon? _appliedCoupon;
+  bool _applyingCoupon = false;
+  String _couponError = '';
+
   @override
   void initState() {
     super.initState();
@@ -72,13 +80,60 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (addresses.addresses.isEmpty && !addresses.loading) {
         ref.read(addressControllerProvider.notifier).loadAddresses();
       }
+      final initialCode = widget.initialCouponCode?.trim() ?? '';
+      if (initialCode.isNotEmpty) {
+        _applyCoupon(initialCode);
+      }
     });
   }
 
   @override
   void dispose() {
     _razorpay.clear();
+    _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyCoupon(String code) async {
+    final trimmed = code.trim().toUpperCase();
+    if (trimmed.isEmpty || _applyingCoupon) return;
+
+    setState(() {
+      _applyingCoupon = true;
+      _couponError = '';
+    });
+
+    try {
+      var items = ref.read(cartControllerProvider).items;
+      if (items.isEmpty) {
+        await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+        items = ref.read(cartControllerProvider).items;
+      }
+      final subtotal = calculateCartSummary(items).subtotal;
+      final coupon = await ref
+          .read(apiServiceProvider)
+          .validateCoupon(code: trimmed, subtotal: subtotal);
+      if (!mounted) return;
+      setState(() {
+        _appliedCoupon = coupon;
+        _applyingCoupon = false;
+        _couponError = '';
+        _couponController.clear();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _applyingCoupon = false;
+        _couponError = apiErrorMessage(e, fallback: 'Failed to apply coupon.');
+      });
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _couponError = '';
+    });
   }
 
   void _syncSelectedAddress(List<Address> addresses) {
@@ -111,7 +166,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_orderPlaced || items.isEmpty) return _attemptedOrderId;
 
     final key =
-        '${_selectedAddressId ?? ''}|$_paymentPlan|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
+        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (!force && key == _lastCheckoutAttemptKey && _attemptedOrderId != null) {
       return _attemptedOrderId;
     }
@@ -122,6 +177,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
         'checkoutItems': _checkoutItemsPayload(items),
         'checkoutMode': 'cart',
+        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -226,6 +282,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'paymentMode': _apiPaymentMode,
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
+        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -305,6 +362,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'customerMessage': _message.trim(),
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
+        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
@@ -392,7 +450,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     _syncSelectedAddress(addressList);
-    final summary = calculateCartSummary(cartItems);
+    final baseSummary = calculateCartSummary(cartItems);
+    final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
+        .clamp(0.0, baseSummary.subtotal)
+        .toDouble();
+    final summary = applyCouponDiscount(baseSummary, couponDiscount);
     final storeSettings = ref.watch(storeSettingsProvider).value;
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
@@ -478,11 +540,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (addressList.isEmpty && !_showAddressForm)
+                                if (addressList.isEmpty && !_showAddressForm) ...[
                                   const Text(
                                     'No saved address yet. Add one to continue.',
                                     style: TextStyle(color: AppColors.textSecondary),
                                   ),
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FilledButton.icon(
+                                      onPressed: () => setState(() => _showAddressForm = true),
+                                      icon: const Icon(Icons.add, size: 20),
+                                      label: const Text('Add delivery address'),
+                                      style: FilledButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (selectedAddress != null &&
                                     !_showAddressForm &&
                                     !_showAddressPicker)
@@ -568,6 +646,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     const SizedBox(height: 12),
                     _StepSection(
+                      title: 'Coupon',
+                      child: _buildCouponSection(),
+                    ),
+                    const SizedBox(height: 12),
+                    _StepSection(
                       title: 'Order Summary',
                       child: Column(
                         children: [
@@ -594,6 +677,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             'Shipping',
                             summary.shippingFree ? 'FREE' : formatInr(summary.shipping),
                           ),
+                          if (couponDiscount > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Coupon discount (${_appliedCoupon!.code})',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  '-${formatInr(couponDiscount)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           const Align(
                             alignment: Alignment.centerLeft,
@@ -752,6 +857,123 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
+  Widget _buildCouponSection() {
+    final applied = _appliedCoupon;
+
+    if (applied != null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_offer, size: 20, color: Colors.green.shade700),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    applied.code,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'You save ${formatInr(applied.discountAmount)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: _removeCoupon,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _couponController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  hintText: 'Enter coupon code',
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                onSubmitted: _applyCoupon,
+              ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton(
+              onPressed: _applyingCoupon
+                  ? null
+                  : () => _applyCoupon(_couponController.text),
+              child: _applyingCoupon
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Apply'),
+            ),
+          ],
+        ),
+        if (_couponError.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            _couponError,
+            style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () async {
+              final code = await context.push<String>(RoutePaths.coupons);
+              if (code != null && code.isNotEmpty && mounted) {
+                _applyCoupon(code);
+              }
+            },
+            icon: const Icon(Icons.local_offer_outlined, size: 16),
+            label: const Text('View all coupons'),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _summaryRow(String label, String value, {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -809,7 +1031,7 @@ class _CheckoutPayBar extends StatelessWidget {
       helperText =
           'Add ${formatInr(orderShortfall)} more to reach minimum order of ${formatInr(minimumOrderValue)}';
     } else if (!hasAddress) {
-      helperText = 'Select a delivery address to continue';
+      helperText = 'Add a delivery address to continue';
     }
 
     return DecoratedBox(
@@ -965,7 +1187,7 @@ class _CheckoutLineItem extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: AppColors.mobileSurface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppColors.borderLight),
           ),

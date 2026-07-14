@@ -66,18 +66,37 @@ export const signup = async (_req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, phone, password } = req.body;
 
-    if (!email?.trim() || !password) {
+    if (!password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message: "Password is required",
       });
     }
 
-    const user = await User.findOne({
-      email: email.trim().toLowerCase(),
-    }).select("+password");
+    const normalizedPhone = phone ? normalizeIndianPhone(phone) : null;
+    const normalizedEmail = email?.trim().toLowerCase();
+
+    if (!normalizedPhone && !normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number or email is required",
+      });
+    }
+
+    if (normalizedPhone && normalizedEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Please sign in with either phone or email, not both",
+      });
+    }
+
+    if (normalizedPhone) {
+      return loginWithPhoneCredentials(req, res, normalizedPhone, password);
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
@@ -89,7 +108,7 @@ export const login = async (req, res) => {
     if (user.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Please sign in with OTP on the website or app.",
+        message: "Please sign in with your phone number and password.",
       });
     }
 
@@ -106,6 +125,73 @@ export const login = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const loginWithPhone = async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const normalizedPhone = normalizeIndianPhone(phone);
+
+    if (!normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+
+    return loginWithPhoneCredentials(req, res, normalizedPhone, password);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+async function loginWithPhoneCredentials(_req, res, phone, password) {
+  const user = await User.findOne({ phone }).select("+password");
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid phone number or password",
+    });
+  }
+
+  if (!user.password) {
+    return res.status(401).json({
+      success: false,
+      message: "No password set for this account. Please sign in with OTP.",
+    });
+  }
+
+  if (!(await user.comparePassword(password))) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid phone number or password",
+    });
+  }
+
+  if (user.role === "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Please use the admin panel to sign in.",
+    });
+  }
+
+  const token = signToken(user._id);
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      user: formatAuthUser(user),
+      token,
+    },
+  });
+}
 
 export const sendOtpLogin = async (req, res) => {
   try {
@@ -253,8 +339,26 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
+    const password = String(req.body.password || "").trim();
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     const existingPhoneUser = await User.findOne({ phone });
     if (existingPhoneUser) {
+      if (password) {
+        existingPhoneUser.password = password;
+        await existingPhoneUser.save();
+      }
       const token = signToken(existingPhoneUser._id);
       return res.status(200).json({
         success: true,
@@ -268,6 +372,7 @@ export const completeOtpSignup = async (req, res) => {
     const user = await User.create({
       name: name.trim(),
       phone,
+      password,
       role: "user",
       ...optionalSignupFields,
     });
@@ -276,6 +381,81 @@ export const completeOtpSignup = async (req, res) => {
 
     res.status(201).json({
       success: true,
+      data: {
+        user: formatAuthUser(user),
+        token,
+      },
+    });
+  } catch (error) {
+    respondWithControllerError(res, error);
+  }
+};
+
+export const resetPasswordWithPhoneOtp = async (req, res) => {
+  try {
+    const phone = normalizeIndianPhone(req.body.phone);
+    const otp = String(req.body.otp || "").trim();
+    const newPassword = String(req.body.newPassword || "").trim();
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is required",
+      });
+    }
+
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this phone number",
+      });
+    }
+
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Please use the admin panel to reset your password.",
+      });
+    }
+
+    const verification = await validateLoginOtp(phone, otp);
+    if (!verification.ok) {
+      return res.status(400).json({
+        success: false,
+        message: verification.message,
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    const token = signToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Password set successfully",
       data: {
         user: formatAuthUser(user),
         token,

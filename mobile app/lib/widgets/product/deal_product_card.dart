@@ -18,13 +18,13 @@ class DealProductCardDimensions {
   const DealProductCardDimensions._();
 
   static const double width = 152;
-  static const double height = 258;
-  static const double titleHeight = 29;
-  static const double priceHeight = 18;
+  static const double height = 244;
+  static const double titleHeight = 15;
+  static const double priceHeight = 16;
   static const double buttonHeight = 34;
-  static const double contentPaddingVertical = 10;
+  static const double contentPaddingVertical = 8;
   static const double bottomSectionHeight =
-      contentPaddingVertical + titleHeight + 2 + priceHeight + 4 + buttonHeight;
+      contentPaddingVertical + titleHeight + priceHeight + 2 + buttonHeight;
 
   /// Use for `SliverGridDelegateWithFixedCrossAxisCount.childAspectRatio`.
   static const double gridChildAspectRatio = 0.58;
@@ -136,18 +136,17 @@ class DealProductCard extends ConsumerWidget {
           SizedBox(
             height: DealProductCardDimensions.bottomSectionHeight,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+              padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
                     height: DealProductCardDimensions.titleHeight,
                     child: Align(
-                      alignment: Alignment.topLeft,
+                      alignment: Alignment.centerLeft,
                       child: _buildTitle(context),
                     ),
                   ),
-                  const SizedBox(height: 2),
                   SizedBox(
                     height: DealProductCardDimensions.priceHeight,
                     child: Align(
@@ -190,13 +189,13 @@ class DealProductCard extends ConsumerWidget {
           : null,
       child: Text(
         product.name,
-        maxLines: 2,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 12,
           color: AppColors.textPrimary,
-          height: 1.2,
+          height: 1.1,
         ),
       ),
     );
@@ -216,7 +215,8 @@ class DealProductCard extends ConsumerWidget {
               ? () => context.push('/product/${product.id}')
               : null,
           child: ColoredBox(
-            color: AppColors.mobileSurface,
+            // Match website: product images sit on a plain white background.
+            color: Colors.white,
             child: product.primaryImage != null
                 ? Padding(
                     padding: const EdgeInsets.all(10),

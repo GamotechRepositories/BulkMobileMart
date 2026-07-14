@@ -67,7 +67,8 @@ class AppNetworkImage extends StatelessWidget {
 
   Widget _loadingBox() {
     return ColoredBox(
-      color: AppColors.mobileSurface,
+      // White like the website's .product-image background — no gray flash.
+      color: Colors.white,
       child: Center(
         child: SizedBox(
           width: 20,
@@ -83,7 +84,7 @@ class AppNetworkImage extends StatelessWidget {
 
   Widget _errorBox() {
     return ColoredBox(
-      color: AppColors.mobileSurface,
+      color: Colors.white,
       child: Center(
         child: Icon(errorIcon, size: errorIconSize, color: AppColors.textMuted),
       ),

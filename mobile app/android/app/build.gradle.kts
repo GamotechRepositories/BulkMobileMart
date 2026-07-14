@@ -51,11 +51,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            // Never fall back to debug signing — Play Console rejects debug-signed AABs.
+            check(keystorePropertiesFile.exists()) {
+                "Missing android/key.properties. Copy key.properties.example and create upload-keystore.jks for release builds."
             }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

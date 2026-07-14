@@ -93,7 +93,13 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
 
     buffer
       ..writeln()
-      ..writeln('Subtotal: ${formatInr(order.subtotal)}')
+      ..writeln('Subtotal: ${formatInr(order.subtotal)}');
+    if (order.couponDiscount > 0) {
+      buffer.writeln(
+        'Coupon Discount${order.couponCode.isNotEmpty ? ' (${order.couponCode})' : ''}: -${formatInr(order.couponDiscount)}',
+      );
+    }
+    buffer
       ..writeln('Delivery: ${order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges)}')
       ..writeln('Total: ${formatInr(order.total)}')
       ..writeln()
@@ -432,6 +438,13 @@ class _InvoiceDocument extends StatelessWidget {
                         child: Column(
                           children: [
                             _totalRow('Subtotal', formatInr(order.subtotal)),
+                            if (order.couponDiscount > 0)
+                              _totalRow(
+                                order.couponCode.isNotEmpty
+                                    ? 'Coupon (${order.couponCode})'
+                                    : 'Coupon Discount',
+                                '-${formatInr(order.couponDiscount)}',
+                              ),
                             _totalRow(
                               'Delivery',
                               order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges),

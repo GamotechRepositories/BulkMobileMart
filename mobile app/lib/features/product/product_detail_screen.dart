@@ -1142,7 +1142,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                 height: 280,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: isVideoActive ? Colors.black : AppColors.mobileSurface,
+                  color: isVideoActive ? Colors.black : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.borderLight),
                 ),

@@ -141,6 +141,40 @@ class OrderItem {
     );
   }
 }
+class OrderGiftHamper {
+  const OrderGiftHamper({
+    this.minOrderAmount = 0,
+    this.giftName = '',
+    this.giftDescription = '',
+    this.giftImage = '',
+    this.status = '',
+  });
+
+  final double minOrderAmount;
+  final String giftName;
+  final String giftDescription;
+  final String giftImage;
+  final String status;
+
+  bool get isApproved => status == 'approved';
+  bool get isPending => status == 'pending';
+
+  /// Mirrors web `OrderGiftHamperSection` visibility rules.
+  bool get isVisible => giftName.trim().isNotEmpty && (isApproved || isPending);
+
+  factory OrderGiftHamper.fromJson(Map<String, dynamic> json) {
+    final gift = json['gift'];
+    return OrderGiftHamper(
+      minOrderAmount: _toDouble(json['minOrderAmount']),
+      giftName: gift is Map<String, dynamic> ? gift['name']?.toString() ?? '' : '',
+      giftDescription:
+          gift is Map<String, dynamic> ? gift['description']?.toString() ?? '' : '',
+      giftImage: gift is Map<String, dynamic> ? gift['image']?.toString() ?? '' : '',
+      status: json['status']?.toString() ?? '',
+    );
+  }
+}
+
 class Order {
   const Order({
     required this.id,
@@ -162,6 +196,9 @@ class Order {
     this.razorpayOrderId = '',
     this.paidAt,
     this.shipment = const OrderShipment(),
+    this.couponCode = '',
+    this.couponDiscount = 0,
+    this.giftHamper,
   });
 
   final String id;
@@ -183,6 +220,9 @@ class Order {
   final String razorpayOrderId;
   final DateTime? paidAt;
   final OrderShipment shipment;
+  final String couponCode;
+  final double couponDiscount;
+  final OrderGiftHamper? giftHamper;
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];
@@ -235,6 +275,11 @@ class Order {
       shipment: json['shipment'] is Map<String, dynamic>
           ? OrderShipment.fromJson(json['shipment'] as Map<String, dynamic>)
           : const OrderShipment(),
+      couponCode: json['couponCode']?.toString() ?? '',
+      couponDiscount: _toDouble(json['couponDiscount']),
+      giftHamper: json['giftHamper'] is Map<String, dynamic>
+          ? OrderGiftHamper.fromJson(json['giftHamper'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

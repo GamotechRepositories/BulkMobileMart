@@ -42,6 +42,21 @@ CartSummary calculateCartSummary(List<CartItem> items) {
   );
 }
 
+/// Applies a coupon discount to the summary total. Shipping stays based on
+/// the pre-coupon subtotal (mirrors backend `computeOrderPricing`).
+CartSummary applyCouponDiscount(CartSummary summary, double couponDiscount) {
+  final discount = couponDiscount.clamp(0.0, summary.subtotal);
+  if (discount <= 0) return summary;
+  return CartSummary(
+    subtotal: summary.subtotal,
+    shipping: summary.shipping,
+    total: (summary.subtotal - discount) + summary.shipping,
+    itemCount: summary.itemCount,
+    shippingFree: summary.shippingFree,
+    savings: summary.savings,
+  );
+}
+
 bool meetsMinimumOrder(double subtotal, double minimumOrderValue) {
   return subtotal >= minimumOrderValue;
 }

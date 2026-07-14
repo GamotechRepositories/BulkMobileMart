@@ -268,8 +268,9 @@ class _CategoriesProductLayout extends StatelessWidget {
         physics: AppScrollConfig.listPhysics,
         cacheExtent: AppScrollConfig.cacheExtent,
         slivers: [
-          SliverToBoxAdapter(
-            child: CategoryHorizontalStrip(
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyCategoryStripDelegate(
               categories: categories,
               selectedCategoryName: selectedCategoryName,
               onSelect: onCategorySelected,
@@ -359,6 +360,52 @@ class _CategoriesProductLayout extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _StickyCategoryStripDelegate extends SliverPersistentHeaderDelegate {
+  _StickyCategoryStripDelegate({
+    required this.categories,
+    required this.selectedCategoryName,
+    required this.onSelect,
+  });
+
+  /// Matches [CategoryHorizontalStrip] padding (10+10) + list height (84).
+  static const double stripHeight = 104;
+
+  final List<Category> categories;
+  final String? selectedCategoryName;
+  final ValueChanged<String?> onSelect;
+
+  @override
+  double get minExtent => stripHeight;
+
+  @override
+  double get maxExtent => stripHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(
+      color: Colors.white,
+      elevation: overlapsContent || shrinkOffset > 0 ? 1.5 : 0,
+      shadowColor: const Color(0x1A000000),
+      child: CategoryHorizontalStrip(
+        categories: categories,
+        selectedCategoryName: selectedCategoryName,
+        onSelect: onSelect,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyCategoryStripDelegate oldDelegate) {
+    return oldDelegate.selectedCategoryName != selectedCategoryName ||
+        oldDelegate.categories != categories ||
+        oldDelegate.onSelect != onSelect;
   }
 }
 

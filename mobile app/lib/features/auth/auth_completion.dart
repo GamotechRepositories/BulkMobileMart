@@ -16,18 +16,26 @@ void completeAuthAndGoHome({
 }) {
   ref.read(authControllerProvider.notifier).closeAuthModal();
 
-  if (sheetContext.mounted) {
-    Navigator.of(sheetContext).pop();
+  final rootContext = rootNavigatorKey.currentContext;
+  final navigator = rootContext != null && rootContext.mounted
+      ? Navigator.of(rootContext, rootNavigator: true)
+      : sheetContext.mounted
+          ? Navigator.of(sheetContext, rootNavigator: true)
+          : null;
+
+  if (navigator != null && navigator.canPop()) {
+    navigator.pop();
   }
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    final rootContext = rootNavigatorKey.currentContext;
-    if (rootContext == null || !rootContext.mounted) return;
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
 
-    GoRouter.of(rootContext).go(RoutePaths.home);
+    GoRouter.of(ctx).go(RoutePaths.home);
 
-    final greetingName = user.name.trim().isNotEmpty ? user.name.trim() : 'there';
-    ScaffoldMessenger.of(rootContext).showSnackBar(
+    final greetingName =
+        user.name.trim().isNotEmpty ? user.name.trim() : 'there';
+    ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
         content: Text(
           isSignup

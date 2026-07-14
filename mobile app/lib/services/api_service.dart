@@ -12,6 +12,7 @@ import '../models/app_notification.dart';
 import '../models/brand.dart';
 import '../models/cart_item.dart';
 import '../models/category.dart';
+import '../models/coupon.dart';
 import '../models/hero_banner.dart';
 import '../models/offer_banner.dart';
 import '../models/order.dart';
@@ -112,6 +113,15 @@ class ApiService {
 
   Future<Response<dynamic>> completeOtpSignup(Map<String, dynamic> data) =>
       _dio.post('/api/users/otp/complete-signup', data: data);
+
+  Future<Response<dynamic>> resetPasswordWithPhoneOtp(Map<String, dynamic> data) =>
+      _dio.post('/api/users/password/reset', data: data);
+
+  Future<Response<dynamic>> getAvailableCoupons({double subtotal = 0}) =>
+      _dio.get('/api/coupons/available', queryParameters: {'subtotal': subtotal});
+
+  Future<Response<dynamic>> postValidateCoupon(Map<String, dynamic> data) =>
+      _dio.post('/api/coupons/validate', data: data);
 
   Future<Response<dynamic>> getMe() => _dio.get('/api/users/me');
 
@@ -375,12 +385,74 @@ class ApiService {
     return parseOnBackground(parseCartItemsResponse, response.data);
   }
 
-  Future<AuthSession> login({
-    required String email,
+  Future<List<Coupon>> fetchAvailableCoupons({double subtotal = 0}) async {
+    final response = await getAvailableCoupons(subtotal: subtotal);
+    final data = ApiResponseParser.getData(response.data);
+    if (data is List) {
+      return data.whereType<Map<String, dynamic>>().map(Coupon.fromJson).toList();
+    }
+    return const [];
+  }
+
+  Future<AppliedCoupon> validateCoupon({
+    required String code,
+    required double subtotal,
+  }) async {
+    final response = await postValidateCoupon({
+      'code': code.trim().toUpperCase(),
+      'subtotal': subtotal,
+    });
+    final data = ApiResponseParser.getData(response.data);
+    if (data is Map<String, dynamic>) {
+      return AppliedCoupon.fromJson(data);
+    }
+    throw ApiException(
+      ApiResponseParser.getMessage(response.data) ?? 'Invalid coupon code',
+    );
+  }
+
+  Future<AuthSession> loginWithPhone({
+    required String phone,
     required String password,
   }) async {
-    final response = await loginUser({'email': email, 'password': password});
-    final data = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
+    final response = await loginUser({
+      'phone': phone.trim(),
+      'password': password,
+    });
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Sign in failed',
+      );
+    }
+    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
+    return AuthSession(
+      user: User.fromJson(data['user'] as Map<String, dynamic>),
+      token: data['token']?.toString() ?? '',
+    );
+  }
+
+  Future<AuthSession> login({
+    String? email,
+    String? phone,
+    required String password,
+  }) async {
+    final payload = <String, dynamic>{'password': password};
+    final trimmedPhone = phone?.trim();
+    final trimmedEmail = email?.trim();
+    if (trimmedPhone != null && trimmedPhone.isNotEmpty) {
+      payload['phone'] = trimmedPhone;
+    } else if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
+      payload['email'] = trimmedEmail;
+    }
+    final response = await loginUser(payload);
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Sign in failed',
+      );
+    }
+    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
     return AuthSession(
       user: User.fromJson(data['user'] as Map<String, dynamic>),
       token: data['token']?.toString() ?? '',
@@ -425,6 +497,32 @@ class ApiService {
     final body = ApiResponseParser.getData(raw);
     if (body is! Map<String, dynamic>) {
       throw ApiException('Invalid signup response');
+    }
+    return AuthSession(
+      user: User.fromJson(body['user'] as Map<String, dynamic>),
+      token: body['token']?.toString() ?? '',
+    );
+  }
+
+  Future<AuthSession> resetPasswordWithOtp({
+    required String phone,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final response = await resetPasswordWithPhoneOtp({
+      'phone': phone.trim(),
+      'otp': otp.trim(),
+      'newPassword': newPassword,
+    });
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Could not reset password',
+      );
+    }
+    final body = ApiResponseParser.getData(raw);
+    if (body is! Map<String, dynamic>) {
+      throw ApiException('Invalid password reset response');
     }
     return AuthSession(
       user: User.fromJson(body['user'] as Map<String, dynamic>),

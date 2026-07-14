@@ -10,6 +10,7 @@ import '../../../core/utils/external_link.dart';
 import '../../../core/utils/order_number.dart';
 import '../../../core/utils/order_utils.dart';
 import '../../../models/order.dart';
+import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../delivery_rating_controller.dart';
 
@@ -130,6 +131,10 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ),
                 const SizedBox(height: 8),
                 _BillSummary(order: order),
+                if (order.giftHamper?.isVisible == true) ...[
+                  const SizedBox(height: 16),
+                  _GiftHamperSection(giftHamper: order.giftHamper!),
+                ],
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -467,6 +472,16 @@ class _BillSummary extends StatelessWidget {
             label: 'Item total',
             value: formatInr(order.subtotal, withDecimals: true),
           ),
+          if (order.couponDiscount > 0) ...[
+            const SizedBox(height: 10),
+            _BillRow(
+              label: order.couponCode.isNotEmpty
+                  ? 'Coupon discount (${order.couponCode})'
+                  : 'Coupon discount',
+              value: '-${formatInr(order.couponDiscount, withDecimals: true)}',
+              valueColor: const Color(0xFF2E7D32),
+            ),
+          ],
           const SizedBox(height: 10),
           _BillRow(
             label: 'Delivery fee',
@@ -552,6 +567,159 @@ class _BillRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GiftHamperSection extends StatelessWidget {
+  const _GiftHamperSection({required this.giftHamper});
+
+  final OrderGiftHamper giftHamper;
+
+  @override
+  Widget build(BuildContext context) {
+    final approved = giftHamper.isApproved;
+    final title = approved ? 'Gift Hamper' : 'Gift Hamper Pending';
+    final subtitle = approved
+        ? 'This complimentary gift is included with your order.'
+        : 'Your gift hamper is being confirmed. We will update this order once it is approved.';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: approved ? const Color(0xFFFFF8F0) : const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: approved ? const Color(0xFFF5D0A8) : const Color(0xFFFDE68A),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: Row(
+              children: [
+                const Text('🎁', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0x0D000000)),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF5D0A8)),
+                  ),
+                  child: giftHamper.giftImage.trim().isNotEmpty
+                      ? AppNetworkImage(
+                          imageUrl: giftHamper.giftImage,
+                          fit: BoxFit.contain,
+                          width: 56,
+                          height: 56,
+                        )
+                      : const Center(
+                          child: Text('🎁', style: TextStyle(fontSize: 24)),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        giftHamper.giftName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (giftHamper.giftDescription.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          giftHamper.giftDescription,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      if (giftHamper.minOrderAmount > 0) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Unlocked on orders of ${formatInr(giftHamper.minOrderAmount)} or more',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: approved
+                              ? const Color(0x1A2E7D32)
+                              : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          approved ? 'Approved' : 'Pending approval',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: approved
+                                ? const Color(0xFF2E7D32)
+                                : const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

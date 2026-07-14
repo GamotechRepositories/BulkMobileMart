@@ -13,11 +13,7 @@ import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
 
-import '../../widgets/layout/mobile_search_bar.dart';
-
 import 'home_load_gate.dart';
-
-import 'home_search_focus.dart';
 
 import '../../widgets/layout/shell_bottom_insets.dart';
 import 'widgets/best_deals_section.dart';
@@ -60,8 +56,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
 
-  late final FocusNode _searchFocusNode;
-
   late final TabScrollRegistry _tabScrollRegistry;
 
   final _scrollController = ScrollController();
@@ -79,10 +73,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
 
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
-
-    _searchFocusNode = FocusNode();
-
-    HomeSearchFocus.attach(_searchFocusNode);
 
     _scrollController.addListener(_onScroll);
 
@@ -155,10 +145,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     _tabScrollRegistry.unregister(ShellTabIndex.home, _scrollController);
 
-    HomeSearchFocus.detach();
-
-    _searchFocusNode.dispose();
-
     _scrollController.dispose();
 
     super.dispose();
@@ -226,15 +212,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   children: [
 
-                    Padding(
+                    const Padding(
 
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
 
-                      child: MobileSearchBar(focusNode: _searchFocusNode),
+                      child: RepaintBoundary(child: HeroBannerCarousel()),
 
                     ),
-
-                    const RepaintBoundary(child: HeroBannerCarousel()),
 
                   ],
 

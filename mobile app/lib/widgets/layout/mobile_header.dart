@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/utils/product_search.dart';
-import '../../core/utils/external_link.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/home/home_providers.dart';
 import '../../features/wishlist/wishlist_controller.dart';
@@ -15,17 +13,15 @@ import '../../routes/route_paths.dart';
 import '../common/app_logo.dart';
 import '../common/fly_target_anchor.dart';
 import '../common/nav_icon_locator.dart';
-import '../common/whatsapp_icon.dart';
 import 'mobile_search_bar.dart';
 
 class MobileHeader extends ConsumerStatefulWidget {
   const MobileHeader({
     super.key,
-    this.showSearchBar = true,
+    this.isHomeTab = false,
   });
 
-  /// When false, search bar is rendered inside the home scroll view instead.
-  final bool showSearchBar;
+  final bool isHomeTab;
 
   @override
   ConsumerState<MobileHeader> createState() => _MobileHeaderState();
@@ -35,8 +31,13 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
   static const _homeBottomRadius = 22.0;
 
   final _searchFocusNode = FocusNode();
+  bool _searchOpen = false;
 
   void _openMenu() {
+    if (_searchOpen) {
+      setState(() => _searchOpen = false);
+      _searchFocusNode.unfocus();
+    }
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -62,12 +63,21 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
     );
   }
 
-  Future<void> _openWhatsAppGroup() async {
-    await openExternalUrl(
-      AppConstants.whatsAppGroupUrl,
-      context: context,
-      errorMessage: 'Could not open WhatsApp.',
-    );
+  void _toggleSearch() {
+    setState(() => _searchOpen = !_searchOpen);
+    if (_searchOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocusNode.requestFocus();
+      });
+    } else {
+      _searchFocusNode.unfocus();
+    }
+  }
+
+  void _closeSearch() {
+    if (!_searchOpen) return;
+    setState(() => _searchOpen = false);
+    _searchFocusNode.unfocus();
   }
 
   @override
@@ -78,11 +88,11 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final searchBottomPadding = widget.showSearchBar ? 12.0 : 0.0;
     final topInset = MediaQuery.paddingOf(context).top;
     final wishlistCount = ref.watch(
       wishlistControllerProvider.select((s) => s.items.length),
     );
+    final roundedHomeBottom = widget.isHomeTab && !_searchOpen;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.storefrontHeaderOverlay,
@@ -90,12 +100,12 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ClipRRect(
-            borderRadius: widget.showSearchBar
-                ? BorderRadius.zero
-                : const BorderRadius.only(
+            borderRadius: roundedHomeBottom
+                ? const BorderRadius.only(
                     bottomLeft: Radius.circular(_homeBottomRadius),
                     bottomRight: Radius.circular(_homeBottomRadius),
-                  ),
+                  )
+                : BorderRadius.zero,
             child: DecoratedBox(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -110,49 +120,54 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
               child: Padding(
                 padding: EdgeInsets.only(top: topInset),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-                  child: Row(
+                  padding: EdgeInsets.fromLTRB(12, 6, 12, _searchOpen ? 8 : 10),
+                  child: Column(
                     children: [
-                      _HeaderIconButton(
-                        icon: Icons.menu_rounded,
-                        onPressed: _openMenu,
-                        light: true,
+                      Row(
+                        children: [
+                          _HeaderIconButton(
+                            icon: Icons.menu_rounded,
+                            onPressed: _openMenu,
+                            light: true,
+                          ),
+                          const Expanded(
+                            child: Center(
+                              child: AppLogo(height: 42),
+                            ),
+                          ),
+                          _HeaderIconButton(
+                            icon: Icons.search_rounded,
+                            onPressed: _toggleSearch,
+                            light: true,
+                            active: _searchOpen,
+                          ),
+                          const SizedBox(width: 4),
+                          FlyTargetAnchor(
+                            onReport: NavIconLocator.reportWishlist,
+                            onClear: NavIconLocator.clearWishlist,
+                            child: _HeaderIconButton(
+                              icon: Icons.favorite_border_rounded,
+                              onPressed: () => context.go(RoutePaths.wishlist),
+                              light: true,
+                              badgeCount: wishlistCount,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Expanded(
-                        child: Center(
-                          child: AppLogo(height: 42),
+                      if (_searchOpen) ...[
+                        const SizedBox(height: 10),
+                        MobileSearchBar(
+                          focusNode: _searchFocusNode,
+                          autoFocus: true,
+                          onSubmitted: _closeSearch,
                         ),
-                      ),
-                      _HeaderIconButton(
-                        onPressed: _openWhatsAppGroup,
-                        light: true,
-                        child: const WhatsAppIcon(size: 22),
-                      ),
-                      const SizedBox(width: 4),
-                      FlyTargetAnchor(
-                        onReport: NavIconLocator.reportWishlist,
-                        onClear: NavIconLocator.clearWishlist,
-                        child: _HeaderIconButton(
-                          icon: Icons.favorite_border_rounded,
-                          onPressed: () => context.go(RoutePaths.wishlist),
-                          light: true,
-                          badgeCount: wishlistCount,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          if (widget.showSearchBar)
-            ColoredBox(
-              color: AppColors.headerSearchBg,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(12, 8, 12, searchBottomPadding),
-                child: MobileSearchBar(focusNode: _searchFocusNode),
-              ),
-            ),
         ],
       ),
     );
@@ -166,6 +181,7 @@ class _HeaderIconButton extends StatelessWidget {
     this.child,
     required this.onPressed,
     this.light = false,
+    this.active = false,
     this.badgeCount = 0,
   }) : assert(icon != null || child != null);
 
@@ -173,13 +189,16 @@ class _HeaderIconButton extends StatelessWidget {
   final Widget? child;
   final VoidCallback onPressed;
   final bool light;
+  final bool active;
   final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: light
-          ? Colors.white.withValues(alpha: 0.28)
+          ? (active
+              ? Colors.white.withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.28))
           : const Color(0xFFF5F5F5),
       shape: const CircleBorder(),
       child: InkWell(
@@ -196,7 +215,9 @@ class _HeaderIconButton extends StatelessWidget {
                   Icon(
                     icon,
                     size: 22,
-                    color: light ? Colors.white : AppColors.textPrimary,
+                    color: light
+                        ? (active ? Colors.white : Colors.white)
+                        : AppColors.textPrimary,
                   ),
               if (badgeCount > 0)
                 Positioned(

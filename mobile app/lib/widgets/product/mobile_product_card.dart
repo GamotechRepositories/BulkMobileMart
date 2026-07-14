@@ -43,7 +43,7 @@ class MobileProductCard extends StatelessWidget {
                   width: 84,
                   height: 104,
                   decoration: BoxDecoration(
-                    color: AppColors.mobileSurface,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: product.primaryImage != null

@@ -116,7 +116,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               Column(
                 children: [
                   MobileHeader(
-                    showSearchBar: widget.navigationShell.currentIndex != 0,
+                    key: ValueKey(widget.navigationShell.currentIndex),
+                    isHomeTab: widget.navigationShell.currentIndex == 0,
                   ),
                   Expanded(child: widget.navigationShell),
                 ],

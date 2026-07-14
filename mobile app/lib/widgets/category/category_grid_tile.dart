@@ -328,7 +328,7 @@ class CategoryGridTile extends StatelessWidget {
                     child: ColoredBox(
                       color: isMore
                           ? AppColors.primary.withValues(alpha: 0.1)
-                          : const Color(0xFFF7F7F8),
+                          : Colors.white,
                       child: isMore
                           ? const Center(
                               child: Icon(
@@ -469,7 +469,7 @@ class CategorySliderTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isMore
                             ? AppColors.primary.withValues(alpha: 0.1)
-                            : const Color(0xFFF7F7F8),
+                            : Colors.white,
                         borderRadius:
                             BorderRadius.circular(AppDecorations.radiusMd),
                       ),

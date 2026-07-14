@@ -123,6 +123,13 @@ Future<Uint8List> generateInvoicePdf(
             child: pw.Column(
               children: [
                 _pdfTotalRow('Subtotal', formatInr(order.subtotal)),
+                if (order.couponDiscount > 0)
+                  _pdfTotalRow(
+                    order.couponCode.isNotEmpty
+                        ? 'Coupon (${order.couponCode})'
+                        : 'Coupon Discount',
+                    '-${formatInr(order.couponDiscount)}',
+                  ),
                 _pdfTotalRow(
                   'Delivery',
                   order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges),

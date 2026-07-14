@@ -27,6 +27,9 @@ class _AuthHostState extends ConsumerState<AuthHost> {
       context: sheetContext,
       isScrollControlled: true,
       useSafeArea: true,
+      useRootNavigator: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

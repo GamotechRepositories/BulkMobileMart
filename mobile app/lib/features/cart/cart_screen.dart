@@ -192,6 +192,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 8),
                   ImportantMessageCards(settings: storeSettings),
                   const SizedBox(height: 12),
+                  _CouponsBanner(
+                    onTap: () => context.push(RoutePaths.coupons),
+                  ),
+                  const SizedBox(height: 12),
                   _OrderSummary(
                     summary: summary,
                     onCheckout: () => context.push(RoutePaths.checkout),
@@ -276,7 +280,7 @@ class _CartItemRow extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: ColoredBox(
-                color: AppColors.mobileSurface,
+                color: Colors.white,
                 child: SizedBox(
                   width: 72,
                   height: 72,
@@ -417,6 +421,48 @@ class _QuantityControl extends StatelessWidget {
               fontSize: 16,
               color: AppColors.textSecondary,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CouponsBanner extends StatelessWidget {
+  const _CouponsBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.local_offer_outlined, size: 20, color: AppColors.primary),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'View available coupons',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 20, color: AppColors.textMuted),
+            ],
           ),
         ),
       ),
