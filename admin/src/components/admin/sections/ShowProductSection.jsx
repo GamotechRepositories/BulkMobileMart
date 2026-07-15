@@ -79,6 +79,7 @@ function ShowProductSection() {
     total: products.length,
     totalPages: 1,
   };
+  const statusCounts = data?.statusCounts || null;
   const loading = isLoading;
   const loadError = isError
     ? queryError?.response?.data?.message || "Failed to load products"
@@ -139,11 +140,12 @@ function ShowProductSection() {
 
       <ProductListFilters
         categories={categoryOptions}
-        totalCount={pagination.total}
+        totalCount={statusCounts?.all ?? pagination.total}
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        statusCounts={statusCounts}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}

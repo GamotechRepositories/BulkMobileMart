@@ -351,3 +351,19 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
 
   downloadCsv(headers, rows, filename);
 }
+
+export function downloadRevenueCsv(orders, filename = "revenue.csv") {
+  const headers = ["Order ID", "Customer", "Phone", "Invoice", "Status", "Amount", "Date"];
+
+  const rows = orders.map((order) => [
+    getOrderDisplayId(order),
+    getCustomerName(order),
+    getCustomerPhone(order),
+    getOrderDisplayId(order),
+    getOrderStatusLabel(order.status),
+    order.total,
+    formatDate(order.createdAt),
+  ]);
+
+  downloadCsv(headers, rows, filename);
+}

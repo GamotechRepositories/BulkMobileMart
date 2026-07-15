@@ -86,7 +86,7 @@ function getAlertMeta(type, count) {
   return {
     title: "New payment proof",
     message: `A new payment proof was uploaded${suffix}.`,
-    link: "/payment-proofs",
+    link: "/payments",
   };
 }
 

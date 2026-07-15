@@ -83,6 +83,11 @@ function applyAdminOrderStatusFilter(filter, { status, statusGroup }) {
     return;
   }
 
+  if (normalizedGroup === "revenue") {
+    filter.status = { $in: [...REVENUE_STATUSES, "shipped"] };
+    return;
+  }
+
   if (!normalizedStatus || normalizedStatus === "all") {
     return;
   }
@@ -273,6 +278,9 @@ function buildDayOrderStats(orders) {
     orders: orders.length,
     attempted: orders.filter((order) => order.status === "attempted").length,
     pending: orders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
+    shipping: orders.filter(
+      (order) => order.status === "shipping" || order.status === "shipped"
+    ).length,
     delivered: orders.filter((order) => order.status === "delivered").length,
     cancelled: orders.filter((order) => order.status === "cancelled").length,
   };
@@ -978,7 +986,7 @@ export const getAllOrders = async (req, res) => {
 
     const { page, limit, skip } = getPaginationParams(req.query);
 
-    const [total, orders, statusAgg] = await Promise.all([
+    const [total, orders, statusAgg, amountAgg] = await Promise.all([
       Order.countDocuments(filter),
       Order.find(filter)
         .populate("user", "name email phone")
@@ -989,10 +997,15 @@ export const getAllOrders = async (req, res) => {
         ...(Object.keys(baseFilter).length ? [{ $match: baseFilter }] : []),
         { $group: { _id: "$status", count: { $sum: 1 } } },
       ]),
+      Order.aggregate([
+        ...(Object.keys(filter).length ? [{ $match: filter }] : []),
+        { $group: { _id: null, totalAmount: { $sum: "$total" } } },
+      ]),
     ]);
 
     const response = buildPaginatedResponse(orders, total, page, limit);
     response.statusCounts = buildOrderStatusCounts(statusAgg);
+    response.amountTotal = Number(amountAgg[0]?.totalAmount) || 0;
 
     res.status(200).json(response);
   } catch (error) {

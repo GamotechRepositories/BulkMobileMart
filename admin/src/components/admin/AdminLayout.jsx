@@ -40,7 +40,7 @@ const PAGE_TITLES = {
   "/orders": "Orders",
   "/orders/create": "Create Order",
   "/payments": "Payments",
-  "/payment-proofs": "UPI Payment Proofs",
+  "/revenue": "Revenue",
   "/coupons/add": "Create Coupon",
   "/coupons/show": "Coupons",
   "/promotional-notifications": "Promotional Notifications",
@@ -101,7 +101,7 @@ const NAV_ITEMS = [
   },
   { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
   { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
-  { type: "link", to: "/payment-proofs", label: "UPI Proofs", icon: IconPayment },
+  { type: "link", to: "/revenue", label: "Revenue", icon: IconPayment },
   { type: "link", to: "/coupons/show", label: "Coupons", icon: IconCoupon },
   { type: "link", to: "/promotional-notifications", label: "Promotional", icon: IconPromotional },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
@@ -323,7 +323,7 @@ function SidebarContent({
           const Icon = item.icon;
           const showSupportBadge = item.to === "/support" && hasUnreadSupport;
           const showOrdersBadge = item.to === "/orders" && hasUnreadOrders;
-          const showPaymentsBadge = item.to === "/payment-proofs" && hasUnreadPayments;
+          const showPaymentsBadge = item.to === "/payments" && hasUnreadPayments;
           const showBadge = showSupportBadge || showOrdersBadge || showPaymentsBadge;
           const resolveLinkActive = (defaultActive) =>
             item.resolveActive ? item.resolveActive(location.pathname) : defaultActive;
@@ -384,7 +384,7 @@ function AdminLayout() {
   const isDashboard = location.pathname === "/" || location.pathname === "";
   const isSupportPage = location.pathname === "/support";
   const isOrdersPage = isOrdersSectionPath(location.pathname);
-  const isPaymentsPage = location.pathname === "/payment-proofs";
+  const isPaymentsPage = location.pathname === "/payments";
 
   useEffect(() => {
     if (isSupportPage) {

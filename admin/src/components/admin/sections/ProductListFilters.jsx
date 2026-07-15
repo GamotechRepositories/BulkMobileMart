@@ -25,6 +25,7 @@ function ProductListFilters({
   onCategoryChange,
   statusFilter,
   onStatusFilterChange,
+  statusCounts = null,
   searchQuery,
   onSearchChange,
   sortBy,
@@ -32,6 +33,13 @@ function ProductListFilters({
   sortDir,
   onSortDirToggle,
 }) {
+  const formatStatusLabel = (opt) => {
+    if (!statusCounts || statusCounts[opt.value] == null) {
+      return opt.label;
+    }
+    return `${opt.label} (${statusCounts[opt.value]})`;
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -58,7 +66,7 @@ function ProductListFilters({
         >
           {STATUS_FILTER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.label}
+              {formatStatusLabel(opt)}
             </option>
           ))}
         </select>

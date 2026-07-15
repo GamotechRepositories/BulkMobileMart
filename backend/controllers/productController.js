@@ -584,39 +584,64 @@ export const getAllProducts = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
     const { search, category, sortBy, sortDir, status } = req.query;
-    const filter = {};
 
-    if (category && category !== "all") {
-      filter.categories = category;
-    }
+    const buildBaseFilter = () => {
+      const filter = {};
+      const andClauses = [];
 
+      if (category && category !== "all") {
+        filter.categories = category;
+      }
+
+      const query = typeof search === "string" ? search.trim() : "";
+      if (query) {
+        const pattern = new RegExp(escapeRegex(query), "i");
+        andClauses.push({
+          $or: [
+            { name: pattern },
+            { brandName: pattern },
+            { subcategory: pattern },
+            { subcategories: pattern },
+            { categories: pattern },
+            { sku: pattern },
+          ],
+        });
+      }
+
+      if (andClauses.length) {
+        const rootClauses = Object.entries(filter).map(([key, value]) => ({ [key]: value }));
+        Object.keys(filter).forEach((key) => delete filter[key]);
+        filter.$and = [...rootClauses, ...andClauses];
+      }
+
+      return filter;
+    };
+
+    const mergeProductFilters = (baseFilter, extraFilter) => {
+      if (!Object.keys(baseFilter).length) return { ...extraFilter };
+      if (!Object.keys(extraFilter).length) return { ...baseFilter };
+      return { $and: [baseFilter, extraFilter] };
+    };
+
+    const getStatusExtraFilter = (statusFilter) => {
+      if (statusFilter === "inactive") {
+        return { isActive: false };
+      }
+      if (statusFilter === "out_of_stock") {
+        return { $or: [{ inStock: false }, { stock: { $lte: 0 } }] };
+      }
+      if (statusFilter === "low_stock") {
+        return { isActive: true, inStock: true, stock: { $gt: 0, $lte: 5 } };
+      }
+      if (statusFilter === "active") {
+        return { isActive: true, inStock: true, stock: { $gt: 0 } };
+      }
+      return {};
+    };
+
+    const baseFilter = buildBaseFilter();
     const statusFilter = typeof status === "string" ? status.trim().toLowerCase() : "";
-    if (statusFilter === "inactive") {
-      filter.isActive = false;
-    } else if (statusFilter === "out_of_stock") {
-      filter.$or = [{ inStock: false }, { stock: { $lte: 0 } }];
-    } else if (statusFilter === "low_stock") {
-      filter.isActive = true;
-      filter.inStock = true;
-      filter.stock = { $gt: 0, $lte: 5 };
-    } else if (statusFilter === "active") {
-      filter.isActive = true;
-      filter.inStock = true;
-      filter.stock = { $gt: 0 };
-    }
-
-    const query = typeof search === "string" ? search.trim() : "";
-    if (query) {
-      const pattern = new RegExp(escapeRegex(query), "i");
-      filter.$or = [
-        { name: pattern },
-        { brandName: pattern },
-        { subcategory: pattern },
-        { subcategories: pattern },
-        { categories: pattern },
-        { sku: pattern },
-      ];
-    }
+    const filter = mergeProductFilters(baseFilter, getStatusExtraFilter(statusFilter));
 
     const sortMap = {
       name: "name",
@@ -630,12 +655,29 @@ export const getAllProducts = async (req, res) => {
     const sortField = sortMap[sortBy] || "createdAt";
     const sortOrder = sortDir === "desc" ? -1 : 1;
 
-    const [total, products] = await Promise.all([
-      Product.countDocuments(filter),
-      Product.find(filter).sort({ [sortField]: sortOrder }).skip(skip).limit(limit),
-    ]);
+    const [total, products, allCount, activeCount, inactiveCount, outOfStockCount, lowStockCount] =
+      await Promise.all([
+        Product.countDocuments(filter),
+        Product.find(filter).sort({ [sortField]: sortOrder }).skip(skip).limit(limit),
+        Product.countDocuments(baseFilter),
+        Product.countDocuments(mergeProductFilters(baseFilter, getStatusExtraFilter("active"))),
+        Product.countDocuments(mergeProductFilters(baseFilter, getStatusExtraFilter("inactive"))),
+        Product.countDocuments(
+          mergeProductFilters(baseFilter, getStatusExtraFilter("out_of_stock"))
+        ),
+        Product.countDocuments(mergeProductFilters(baseFilter, getStatusExtraFilter("low_stock"))),
+      ]);
 
-    res.status(200).json(buildPaginatedResponse(products, total, page, limit));
+    const response = buildPaginatedResponse(products, total, page, limit);
+    response.statusCounts = {
+      all: allCount,
+      active: activeCount,
+      inactive: inactiveCount,
+      out_of_stock: outOfStockCount,
+      low_stock: lowStockCount,
+    };
+
+    res.status(200).json(response);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

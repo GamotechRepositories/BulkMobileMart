@@ -59,6 +59,9 @@ export function buildTodayStats(orders) {
     orders: todayOrders.length,
     attempted: todayOrders.filter((order) => order.status === "attempted").length,
     pending: todayOrders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
+    shipping: todayOrders.filter(
+      (order) => order.status === "shipping" || order.status === "shipped"
+    ).length,
     delivered: todayOrders.filter((order) => order.status === "delivered").length,
     cancelled: todayOrders.filter((order) => order.status === "cancelled").length,
   };

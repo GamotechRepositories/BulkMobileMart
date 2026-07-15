@@ -12,6 +12,7 @@ export function useAdminOrdersQuery(params, options = {}) {
         items: data.data || [],
         pagination: data.pagination || null,
         statusCounts: data.statusCounts || null,
+        amountTotal: data.amountTotal ?? 0,
       };
     },
     ...options,
