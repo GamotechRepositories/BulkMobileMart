@@ -1,5 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import api, { completeOtpSignup, sendOtpLogin, updateMe, verifyOtpLogin } from "../api/api";
+import api, {
+  completeOtpSignup,
+  loginWithPhone,
+  resetPasswordWithPhoneOtp,
+  sendOtpLogin,
+  updateMe,
+  verifyOtpLogin,
+} from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
 
 const AuthContext = createContext(null);
@@ -9,6 +16,12 @@ async function fetchMeWithToken(token) {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data.data;
+}
+
+function assertCustomerUser(authUser) {
+  if (authUser?.role === "admin") {
+    throw new Error("Please use the admin panel to sign in.");
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -80,37 +93,68 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const completeOtpSignupProfile = async ({ phone, name, shopName, shopAddress, gstNumber }) => {
+  const persistAuthSession = (authUser, authToken) => {
+    assertCustomerUser(authUser);
+    persistCustomerAuth(authUser, authToken);
+    closeAuthModal();
+  };
+
+  const completeOtpSignupProfile = async ({
+    phone,
+    name,
+    shopName,
+    shopAddress,
+    gstNumber,
+    password,
+  }) => {
     const res = await completeOtpSignup({
       phone,
       name,
+      password,
       shopName: shopName?.trim() || "",
       shopAddress: shopAddress?.trim() || "",
       ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
     });
     const { user: authUser, token: authToken } = res.data.data;
-
-    if (authUser.role === "admin") {
-      throw new Error("Please use the admin panel to sign in.");
-    }
-
-    persistCustomerAuth(authUser, authToken);
-    closeAuthModal();
+    persistAuthSession(authUser, authToken);
     return res.data;
   };
 
-  const loginWithOtp = async ({ phone, otp, name, shopName, shopAddress, gstNumber }) => {
+  const loginWithPassword = async ({ phone, password }) => {
+    const res = await loginWithPhone({ phone, password });
+    const { user: authUser, token: authToken } = res.data.data;
+    persistAuthSession(authUser, authToken);
+    return res.data;
+  };
+
+  const resetPasswordWithOtp = async ({ phone, otp, newPassword }) => {
+    const res = await resetPasswordWithPhoneOtp({ phone, otp, newPassword });
+    const { user: authUser, token: authToken } = res.data.data;
+    persistAuthSession(authUser, authToken);
+    return res.data;
+  };
+
+  const loginWithOtp = async ({
+    phone,
+    otp,
+    name,
+    shopName,
+    shopAddress,
+    gstNumber,
+    password,
+  }) => {
     const res = await verifyOtpLogin({ phone, otp });
     const payload = res.data.data;
 
     if (payload?.needsSignup) {
-      if (name?.trim() && shopName?.trim() && shopAddress?.trim()) {
+      if (name?.trim() && shopName?.trim() && shopAddress?.trim() && password) {
         return completeOtpSignupProfile({
           phone,
           name,
           shopName,
           shopAddress,
           gstNumber,
+          password,
         });
       }
 
@@ -118,13 +162,7 @@ export function AuthProvider({ children }) {
     }
 
     const { user: authUser, token: authToken } = payload;
-
-    if (authUser.role === "admin") {
-      throw new Error("Please use the admin panel to sign in.");
-    }
-
-    persistCustomerAuth(authUser, authToken);
-    closeAuthModal();
+    persistAuthSession(authUser, authToken);
     return res.data;
   };
 
@@ -147,6 +185,8 @@ export function AuthProvider({ children }) {
         loading,
         sendOtp,
         loginWithOtp,
+        loginWithPassword,
+        resetPasswordWithOtp,
         completeOtpSignupProfile,
         logout,
         updateProfile,
