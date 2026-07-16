@@ -491,7 +491,7 @@ function AdminOrderDetailSection() {
       />
 
       {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-3">
         <button
           type="button"
           onClick={() => navigate("/orders")}
@@ -499,42 +499,43 @@ function AdminOrderDetailSection() {
         >
           ← Orders
         </button>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto hide-scrollbar">
           <Link
             to={`/orders/${order._id}/invoice`}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50"
+            className="inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 transition hover:bg-neutral-50 sm:px-4 sm:text-sm"
           >
-            Bill Invoice
+            <span className="sm:hidden">Invoice</span>
+            <span className="hidden sm:inline">Bill Invoice</span>
           </Link>
           <button
             type="button"
             onClick={handleShareInvoice}
             disabled={sharingInvoice}
-            className={`${btnSecondary} inline-flex items-center gap-2`}
+            className="inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border border-border-light px-3 py-2 text-xs font-medium text-text-primary transition hover:border-primary hover:text-primary disabled:opacity-50 sm:px-4 sm:text-sm"
           >
-            {sharingInvoice ? "Preparing PDF..." : "Share Invoice"}
+            {sharingInvoice ? "Preparing..." : "Share Invoice"}
           </button>
           <button
             type="button"
             onClick={handleOpenWhatsApp}
             aria-label="Open WhatsApp"
             title="WhatsApp"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-300 bg-white text-green-600 transition hover:bg-neutral-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-300 bg-white text-green-600 transition hover:bg-neutral-50 sm:h-10 sm:w-10"
           >
             <IconWhatsApp className="h-5 w-5" />
           </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={updating}
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-500 disabled:opacity-50 sm:gap-2 sm:px-4 sm:text-sm"
+          >
+            <IconTrash className="h-4 w-4" />
+            Delete Order
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={updating}
-          className={`${btnDanger} inline-flex items-center gap-2`}
-        >
-          <IconTrash className="h-4 w-4" />
-          Delete Order
-        </button>
       </div>
 
       {/* Order ID + status dropdowns */}
