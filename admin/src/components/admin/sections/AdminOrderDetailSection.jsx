@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getOrderById,
   getEligibleAdminOrderCoupons,
+  getStoreSettings,
   updateAdminOrder,
   deleteAdminOrder,
   updateAdminGiftHamper,
@@ -11,11 +12,13 @@ import {
 } from "../../../api/api";
 import AdminOrderShipmentPanel from "../AdminOrderShipmentPanel";
 import { getOrderNumber } from "../../../utils/orderNumber";
+import { getInvoiceFilename } from "@shared/invoice/invoiceHelpers.js";
+import { shareInvoicePdf } from "@shared/invoice/downloadInvoiceFromElement.js";
 import AdminAlert from "../AdminAlert";
 import AdminOrderItemsEditor from "../AdminOrderItemsEditor";
 import AdminAddressForm from "../AdminAddressForm";
 import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
-import { IconTrash } from "../AdminIcons";
+import { IconTrash, IconWhatsApp } from "../AdminIcons";
 import {
   adminFilterInputClass,
   btnDanger,
@@ -36,6 +39,15 @@ import {
   getOrderCouponBillingSummary,
   getPaymentStatus,
 } from "./adminOrderUtils";
+
+function normalizeIndianWhatsAppPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  if (digits.length > 10) return digits;
+  return "";
+}
 
 function OrderProgressStepper({ order }) {
   const activeIndex = ORDER_STATUS_STEP_INDEX[order.status] ?? 0;
@@ -123,6 +135,7 @@ function AdminOrderDetailSection() {
   const [selectedCouponCode, setSelectedCouponCode] = useState("");
   const [couponEligibilityReason, setCouponEligibilityReason] = useState("");
   const [loadingCoupons, setLoadingCoupons] = useState(false);
+  const [sharingInvoice, setSharingInvoice] = useState(false);
 
   const loadEligibleCoupons = async (orderId) => {
     setLoadingCoupons(true);
@@ -424,9 +437,47 @@ function AdminOrderDetailSection() {
   const addressLine = formatAddressLine(addr);
   const advanceBilling = getOrderAdvanceBillingSummary(order);
   const couponBilling = getOrderCouponBillingSummary(order);
+  const customerPhoneRaw = addr?.number || order.user?.phone || "";
+  const customerWaPhone = normalizeIndianWhatsAppPhone(customerPhoneRaw);
   const selectedCoupon = eligibleCoupons.find(
     (coupon) => coupon.code === selectedCouponCode
   );
+
+  const handleShareInvoice = async () => {
+    if (!order || sharingInvoice) return;
+
+    setSharingInvoice(true);
+    setError("");
+    setSuccess("");
+    try {
+      const settingsRes = await getStoreSettings().catch(() => null);
+      const storeSettings = settingsRes?.data?.data || null;
+      const filename = getInvoiceFilename(order);
+      const result = await shareInvoicePdf(
+        { order, customer: order.user, storeSettings },
+        filename
+      );
+
+      if (result.method === "download") {
+        setSuccess("Invoice PDF downloaded");
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to share invoice PDF");
+    } finally {
+      setSharingInvoice(false);
+    }
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (!customerWaPhone) {
+      setError("Customer phone number not available for WhatsApp.");
+      return;
+    }
+    setError("");
+    const text = `Hi, speaking from Bulk Mobile Mart.`;
+    const url = `https://wa.me/${customerWaPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <div className="min-w-0 space-y-4">
@@ -448,14 +499,33 @@ function AdminOrderDetailSection() {
         >
           ← Orders
         </button>
-        <Link
-          to={`/orders/${order._id}/invoice`}
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50"
-        >
-          Bill Invoice
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={`/orders/${order._id}/invoice`}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50"
+          >
+            Bill Invoice
+          </Link>
+          <button
+            type="button"
+            onClick={handleShareInvoice}
+            disabled={sharingInvoice}
+            className={`${btnSecondary} inline-flex items-center gap-2`}
+          >
+            {sharingInvoice ? "Preparing PDF..." : "Share Invoice"}
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenWhatsApp}
+            aria-label="Open WhatsApp"
+            title="WhatsApp"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-300 bg-white text-green-600 transition hover:bg-neutral-50"
+          >
+            <IconWhatsApp className="h-5 w-5" />
+          </button>
+        </div>
         <button
           type="button"
           onClick={handleDelete}
