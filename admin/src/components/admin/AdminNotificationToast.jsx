@@ -8,7 +8,7 @@ const TYPE_STYLES = {
   payment: "border-violet-200 bg-violet-50 text-violet-900",
 };
 
-function AdminNotificationToast({ alert, onDismiss }) {
+function AdminNotificationToast({ alert, onDismiss, onOpen }) {
   const styleClass = TYPE_STYLES[alert.type] || "border-neutral-200 bg-white text-neutral-900";
 
   return (
@@ -19,12 +19,12 @@ function AdminNotificationToast({ alert, onDismiss }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{alert.title}</p>
+          {alert.title ? <p className="text-sm font-semibold">{alert.title}</p> : null}
           <p className="mt-0.5 text-sm opacity-90">{alert.message}</p>
           {alert.link ? (
             <Link
               to={alert.link}
-              onClick={onDismiss}
+              onClick={onOpen || onDismiss}
               className="mt-2 inline-block text-sm font-semibold underline underline-offset-2"
             >
               View details
@@ -46,13 +46,18 @@ function AdminNotificationToast({ alert, onDismiss }) {
   );
 }
 
-function AdminNotificationToasts({ toasts, onDismiss }) {
+function AdminNotificationToasts({ toasts, onDismiss, onOpen }) {
   if (!toasts.length) return null;
 
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3 sm:w-auto">
       {toasts.map((toast) => (
-        <AdminNotificationToast key={toast.id} alert={toast} onDismiss={() => onDismiss(toast.id)} />
+        <AdminNotificationToast
+          key={toast.id}
+          alert={toast}
+          onDismiss={() => onDismiss(toast.id)}
+          onOpen={onOpen ? () => onOpen(toast.id) : undefined}
+        />
       ))}
     </div>
   );
@@ -66,7 +71,9 @@ export function AdminNotificationAlertList({ alerts, onDismiss, emptyMessage = "
   return (
     <div className="max-h-80 overflow-y-auto">
       {alerts.map((alert) => {
-        const styleClass = TYPE_STYLES[alert.type] || "border-neutral-100 bg-neutral-50 text-neutral-900";
+        const styleClass = alert.title
+          ? TYPE_STYLES[alert.type] || "border-neutral-100 bg-neutral-50 text-neutral-900"
+          : "border-neutral-100 bg-white text-black";
 
         return (
           <div
@@ -75,18 +82,35 @@ export function AdminNotificationAlertList({ alerts, onDismiss, emptyMessage = "
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{alert.title}</p>
-                <p className="mt-0.5 text-sm opacity-90">{alert.message}</p>
-                <p className="mt-1 text-xs opacity-70">{formatNotificationTime(alert.createdAt)}</p>
-                {alert.link ? (
-                  <Link
-                    to={alert.link}
-                    onClick={() => onDismiss?.(alert.id)}
-                    className="mt-2 inline-block text-sm font-semibold underline underline-offset-2"
-                  >
-                    Open
-                  </Link>
-                ) : null}
+                {alert.title ? <p className="text-sm font-semibold">{alert.title}</p> : null}
+                {alert.title ? (
+                  <>
+                    <p className="mt-0.5 text-sm opacity-90">{alert.message}</p>
+                    <p className="mt-1 text-xs opacity-70">{formatNotificationTime(alert.createdAt)}</p>
+                    {alert.link ? (
+                      <Link
+                        to={alert.link}
+                        onClick={() => onDismiss?.(alert.id)}
+                        className="mt-2 inline-block text-sm font-semibold underline underline-offset-2"
+                      >
+                        Open
+                      </Link>
+                    ) : null}
+                  </>
+                ) : alert.link ? (
+                  <>
+                    <p className="truncate text-sm font-medium text-black">{alert.message}</p>
+                    <Link
+                      to={alert.link}
+                      onClick={() => onDismiss?.(alert.id)}
+                      className="mt-1 inline-block text-sm font-semibold text-black underline underline-offset-2"
+                    >
+                      Open
+                    </Link>
+                  </>
+                ) : (
+                  <p className="truncate text-sm font-medium text-black">{alert.message}</p>
+                )}
               </div>
               {onDismiss ? (
                 <button

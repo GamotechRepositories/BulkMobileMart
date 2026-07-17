@@ -25,15 +25,17 @@ function mapBanners(list) {
     .map((banner) => ({
       id: banner._id,
       imageUrl: banner.imageUrl,
-      title: banner.title || FALLBACK_BANNER.title,
-      titleHighlight: banner.titleHighlight || FALLBACK_BANNER.titleHighlight,
-      subtitle: banner.subtitle || FALLBACK_BANNER.subtitle,
+      title: banner.title || "",
+      titleHighlight: banner.titleHighlight || "",
+      subtitle: banner.subtitle || "",
       linkUrl: banner.linkUrl || "",
       alt: banner.alt || "Mobile accessories wholesale",
     }));
 }
 
 function OfferBannerSlide({ banner }) {
+  const hasText = Boolean(banner.title || banner.titleHighlight || banner.subtitle);
+
   const content = (
     <>
       <img
@@ -43,16 +45,24 @@ function OfferBannerSlide({ banner }) {
         loading="lazy"
         draggable={false}
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/10" />
-      <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-10 lg:px-12">
-        <p className="max-w-md text-lg font-bold leading-snug text-white sm:text-xl md:text-2xl lg:text-3xl">
-          {banner.title}{" "}
-          <span className="text-primary">{banner.titleHighlight}</span>
-        </p>
-        <p className="mt-2 max-w-sm text-xs leading-relaxed text-white/90 sm:text-sm md:text-base">
-          {banner.subtitle}
-        </p>
-      </div>
+      {hasText ? (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/10" />
+          <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-10 lg:px-12">
+            {banner.title || banner.titleHighlight ? (
+              <p className="max-w-md text-lg font-bold leading-snug text-white sm:text-xl md:text-2xl lg:text-3xl">
+                {banner.title}{" "}
+                <span className="text-primary">{banner.titleHighlight}</span>
+              </p>
+            ) : null}
+            {banner.subtitle ? (
+              <p className="mt-2 max-w-sm text-xs leading-relaxed text-white/90 sm:text-sm md:text-base">
+                {banner.subtitle}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </>
   );
 

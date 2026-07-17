@@ -277,6 +277,9 @@ function buildDayOrderStats(orders) {
   return {
     orders: orders.length,
     attempted: orders.filter((order) => order.status === "attempted").length,
+    confirmed: orders.filter(
+      (order) => order.status === "confirm" || LEGACY_CONFIRM_STATUSES.includes(order.status)
+    ).length,
     pending: orders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
     shipping: orders.filter(
       (order) => order.status === "shipping" || order.status === "shipped"

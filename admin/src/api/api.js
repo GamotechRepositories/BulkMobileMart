@@ -142,6 +142,14 @@ export const getAdminSupportUnreadCount = (params) =>
   api.get("/api/support/admin/unread-count", { params });
 export const getAdminInboxSummary = (params) =>
   api.get("/api/admin/notifications/inbox-summary", { params });
+export const getAdminInboxAlerts = () =>
+  api.get("/api/admin/notifications/inbox");
+export const createAdminInboxAlert = (data) =>
+  api.post("/api/admin/notifications/inbox", data);
+export const markAdminInboxAlertRead = (id) =>
+  api.put(`/api/admin/notifications/inbox/${id}/read`);
+export const markAllAdminInboxAlertsRead = () =>
+  api.put("/api/admin/notifications/inbox/read-all");
 export const getPromotionalAudienceStats = () =>
   api.get("/api/admin/notifications/promotional/audience");
 export const getPromotionalNotificationHistory = (params) =>

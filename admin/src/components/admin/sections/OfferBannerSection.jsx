@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addOfferBanner,
   deleteOfferBanner,
@@ -8,9 +8,17 @@ import {
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import ImagePicker from "../ImagePicker";
-import { IconTrash } from "../AdminIcons";
+import { IconEdit, IconTrash } from "../AdminIcons";
 import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
-import { btnPrimary, cardClass, iconBtnDangerClass, inputClass, labelClass } from "../adminStyles";
+import {
+  btnPrimary,
+  btnSecondary,
+  cardClass,
+  iconBtnClass,
+  iconBtnDangerClass,
+  inputClass,
+  labelClass,
+} from "../adminStyles";
 
 const DEVICE_LABELS = {
   desktop: "Desktop",
@@ -32,7 +40,7 @@ function getBannerDevice(banner) {
   return banner.device === "mobile" ? "mobile" : "desktop";
 }
 
-function OfferBannerCard({ banner, onDelete, onDeviceChange }) {
+function OfferBannerCard({ banner, onDelete, onDeviceChange, onEdit }) {
   return (
     <div className="w-56 overflow-hidden rounded-xl border border-border-light bg-white shadow-sm sm:w-64">
       <img
@@ -59,6 +67,15 @@ function OfferBannerCard({ banner, onDelete, onDeviceChange }) {
           </select>
           <button
             type="button"
+            onClick={() => onEdit(banner)}
+            className={`${iconBtnClass} h-5 w-5 shrink-0`}
+            title="Edit offer banner"
+            aria-label="Edit offer banner"
+          >
+            <IconEdit className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
             onClick={() => onDelete(banner._id)}
             className={`${iconBtnDangerClass} h-5 w-5 shrink-0`}
             title="Delete offer banner"
@@ -72,10 +89,31 @@ function OfferBannerCard({ banner, onDelete, onDeviceChange }) {
   );
 }
 
-function AddOfferBannerForm({ deviceType, onAdded }) {
+function AddOfferBannerForm({ deviceType, editingBanner, onCancelEdit, onAdded }) {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef(null);
+
+  const isEditing = Boolean(editingBanner);
+
+  useEffect(() => {
+    if (editingBanner) {
+      setForm({
+        imageUrl: editingBanner.imageUrl || "",
+        title: editingBanner.title || "",
+        titleHighlight: editingBanner.titleHighlight || "",
+        subtitle: editingBanner.subtitle || "",
+        linkUrl: editingBanner.linkUrl || "",
+        alt: editingBanner.alt || "",
+        order: editingBanner.order ?? 0,
+      });
+      setError("");
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      setForm(DEFAULT_FORM);
+    }
+  }, [editingBanner]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,32 +127,47 @@ function AddOfferBannerForm({ deviceType, onAdded }) {
     }
 
     try {
-      const { data } = await addOfferBanner({
-        ...form,
-        imageUrl: form.imageUrl.trim(),
-        bannerFor: deviceType,
-        device: deviceType,
-      });
+      if (isEditing) {
+        await updateOfferBanner(editingBanner._id, {
+          ...form,
+          imageUrl: form.imageUrl.trim(),
+        });
+        setForm(DEFAULT_FORM);
+        onAdded(`${DEVICE_LABELS[deviceType]} offer banner updated successfully`);
+      } else {
+        const { data } = await addOfferBanner({
+          ...form,
+          imageUrl: form.imageUrl.trim(),
+          bannerFor: deviceType,
+          device: deviceType,
+        });
 
-      const savedDevice = getBannerDevice(data.data);
-      if (savedDevice !== deviceType) {
-        throw new Error(
-          `Banner was saved as ${DEVICE_LABELS[savedDevice]} instead of ${DEVICE_LABELS[deviceType]}.`
-        );
+        const savedDevice = getBannerDevice(data.data);
+        if (savedDevice !== deviceType) {
+          throw new Error(
+            `Banner was saved as ${DEVICE_LABELS[savedDevice]} instead of ${DEVICE_LABELS[deviceType]}.`
+          );
+        }
+
+        setForm(DEFAULT_FORM);
+        onAdded(`${DEVICE_LABELS[deviceType]} offer banner added successfully`);
       }
-
-      setForm(DEFAULT_FORM);
-      onAdded(`${DEVICE_LABELS[deviceType]} offer banner added successfully`);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to add offer banner");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          `Failed to ${isEditing ? "update" : "add"} offer banner`
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`${cardClass} space-y-4`}>
-      <h3 className="font-semibold">Add {DEVICE_LABELS[deviceType]} Offer Banner</h3>
+    <form ref={formRef} onSubmit={handleSubmit} className={`${cardClass} space-y-4`}>
+      <h3 className="font-semibold">
+        {isEditing ? "Edit" : "Add"} {DEVICE_LABELS[deviceType]} Offer Banner
+      </h3>
       <p className="text-xs text-text-secondary">
         Shown below &quot;Why Choose BulkMobileMart?&quot; on the home page.
       </p>
@@ -180,9 +233,22 @@ function AddOfferBannerForm({ deviceType, onAdded }) {
           />
         </div>
       </div>
-      <button type="submit" disabled={submitting} className={btnPrimary}>
-        {submitting ? "Adding..." : `Add ${DEVICE_LABELS[deviceType]} Offer Banner`}
-      </button>
+      <div className="flex items-center gap-2">
+        <button type="submit" disabled={submitting} className={btnPrimary}>
+          {submitting
+            ? isEditing
+              ? "Saving..."
+              : "Adding..."
+            : isEditing
+              ? "Save Changes"
+              : `Add ${DEVICE_LABELS[deviceType]} Offer Banner`}
+        </button>
+        {isEditing ? (
+          <button type="button" onClick={onCancelEdit} className={btnSecondary}>
+            Cancel
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }
@@ -193,6 +259,7 @@ function OfferBannerSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingBanner, setEditingBanner] = useState(null);
   const [desktopPage, setDesktopPage] = useState(1);
   const [mobilePage, setMobilePage] = useState(1);
   const [desktopPagination, setDesktopPagination] = useState({
@@ -285,6 +352,7 @@ function OfferBannerSection() {
               banner={banner}
               onDelete={handleDelete}
               onDeviceChange={handleDeviceChange}
+              onEdit={setEditingBanner}
             />
           ))}
         </div>
@@ -314,14 +382,24 @@ function OfferBannerSection() {
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
         <AddOfferBannerForm
           deviceType="desktop"
+          editingBanner={
+            editingBanner && getBannerDevice(editingBanner) === "desktop" ? editingBanner : null
+          }
+          onCancelEdit={() => setEditingBanner(null)}
           onAdded={(message) => {
+            setEditingBanner(null);
             setSuccess(message);
             fetchBanners();
           }}
         />
         <AddOfferBannerForm
           deviceType="mobile"
+          editingBanner={
+            editingBanner && getBannerDevice(editingBanner) === "mobile" ? editingBanner : null
+          }
+          onCancelEdit={() => setEditingBanner(null)}
           onAdded={(message) => {
+            setEditingBanner(null);
             setSuccess(message);
             fetchBanners();
           }}

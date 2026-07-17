@@ -39,18 +39,49 @@ export const getAdminInboxSummary = async (req, res) => {
     const attemptedDate = parseSinceDate(attemptedSince);
     const paymentDate = parseSinceDate(paymentSince);
 
-    const [supportCount, placedCount, attemptedCount, paymentCount] = await Promise.all([
-      SupportMessage.countDocuments(buildSinceFilter(supportDate)),
-      Order.countDocuments({
-        status: { $ne: "attempted" },
-        ...buildSinceFilter(placedDate),
-      }),
-      Order.countDocuments({
-        status: "attempted",
-        ...buildSinceFilter(attemptedDate),
-      }),
-      Payment.countDocuments({ status: "pending", ...buildSinceFilter(paymentDate) }),
-    ]);
+    const mapRecentOrder = (order) => ({
+      id: order._id,
+      orderNumber: order.orderNumber || "",
+      customerName:
+        order.user?.name || order.deliveryAddress?.fullName || "A customer",
+      status: order.status,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    });
+
+    const attemptedSinceFilter = attemptedDate
+      ? { updatedAt: { $gt: attemptedDate } }
+      : {};
+
+    const [supportCount, placedCount, attemptedCount, paymentCount, recentPlaced, recentAttempted] =
+      await Promise.all([
+        SupportMessage.countDocuments(buildSinceFilter(supportDate)),
+        Order.countDocuments({
+          status: { $ne: "attempted" },
+          ...buildSinceFilter(placedDate),
+        }),
+        Order.countDocuments({
+          status: "attempted",
+          ...attemptedSinceFilter,
+        }),
+        Payment.countDocuments({ status: "pending", ...buildSinceFilter(paymentDate) }),
+        Order.find({
+          status: { $ne: "attempted" },
+          ...buildSinceFilter(placedDate),
+        })
+          .sort({ createdAt: -1 })
+          .limit(5)
+          .populate("user", "name")
+          .select("orderNumber status createdAt updatedAt deliveryAddress.fullName user"),
+        Order.find({
+          status: "attempted",
+          ...attemptedSinceFilter,
+        })
+          .sort({ updatedAt: -1 })
+          .limit(10)
+          .populate("user", "name")
+          .select("orderNumber status createdAt updatedAt deliveryAddress.fullName user"),
+      ]);
 
     return res.json({
       success: true,
@@ -60,6 +91,8 @@ export const getAdminInboxSummary = async (req, res) => {
           placedCount,
           attemptedCount,
           count: placedCount + attemptedCount,
+          recentPlaced: recentPlaced.map(mapRecentOrder),
+          recentAttempted: recentAttempted.map(mapRecentOrder),
         },
         payments: { count: paymentCount },
       },
@@ -68,6 +101,134 @@ export const getAdminInboxSummary = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to load admin inbox summary",
+    });
+  }
+};
+
+function mapAdminInboxAlert(notification) {
+  return {
+    id: notification._id,
+    type: notification.type,
+    title: notification.data?.showTitle === false ? "" : notification.title,
+    message: notification.body,
+    link: notification.data?.link || "",
+    isRead: notification.isRead,
+    createdAt: notification.createdAt,
+  };
+}
+
+export const getAdminInboxAlerts = async (req, res) => {
+  try {
+    const alerts = await Notification.find({
+      user: req.user._id,
+      isRead: false,
+      "data.channel": "admin_inbox",
+    })
+      .sort({ createdAt: -1 })
+      .limit(30);
+
+    return res.json({
+      success: true,
+      data: alerts.map(mapAdminInboxAlert),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load admin notifications",
+    });
+  }
+};
+
+export const createAdminInboxAlert = async (req, res) => {
+  try {
+    const { type, title, message, link = "", order = null, eventKey = "" } = req.body;
+
+    if (!type || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Notification type and message are required",
+      });
+    }
+
+    const notificationData = {
+      user: req.user._id,
+      title: title || message,
+      body: message,
+      type,
+      order: order || null,
+      isRead: false,
+      data: {
+        channel: "admin_inbox",
+        eventKey: eventKey || undefined,
+        link,
+        showTitle: Boolean(title),
+      },
+    };
+
+    const notification = eventKey
+      ? await Notification.findOneAndUpdate(
+          {
+            user: req.user._id,
+            "data.channel": "admin_inbox",
+            "data.eventKey": String(eventKey),
+          },
+          { $setOnInsert: notificationData },
+          { new: true, upsert: true, runValidators: true }
+        )
+      : await Notification.create(notificationData);
+
+    return res.status(201).json({
+      success: true,
+      data: mapAdminInboxAlert(notification),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to save admin notification",
+    });
+  }
+};
+
+export const markAdminInboxAlertRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user._id,
+        "data.channel": "admin_inbox",
+      },
+      { $set: { isRead: true } },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: "Notification not found" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update admin notification",
+    });
+  }
+};
+
+export const markAllAdminInboxAlertsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      {
+        user: req.user._id,
+        isRead: false,
+        "data.channel": "admin_inbox",
+      },
+      { $set: { isRead: true } }
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to clear admin notifications",
     });
   }
 };

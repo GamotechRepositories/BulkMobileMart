@@ -367,6 +367,7 @@ function AdminLayout() {
     hasUnreadPayments,
     toasts,
     dismissToast,
+    dismissAlert,
     markSupportAsSeen,
     markOrdersAsSeen,
     markPaymentsAsSeen,
@@ -477,7 +478,7 @@ function AdminLayout() {
         </main>
       </div>
 
-      <AdminNotificationToasts toasts={toasts} onDismiss={dismissToast} />
+      <AdminNotificationToasts toasts={toasts} onDismiss={dismissToast} onOpen={dismissAlert} />
     </div>
   );
 }
