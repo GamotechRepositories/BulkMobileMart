@@ -69,11 +69,13 @@ export async function buildOrderSearchFilter(search) {
     conditions.push({ orderNumber: textPattern });
     conditions.push({ "items.name": textPattern });
     conditions.push({ "deliveryAddress.fullName": textPattern });
+    conditions.push({ "deliveryAddress.number": textPattern });
   }
 
   if (digits) {
     conditions.push({ orderNumber: digits });
     conditions.push({ orderNumber: new RegExp(escapeRegex(digits)) });
+    conditions.push({ "deliveryAddress.number": new RegExp(escapeRegex(digits)) });
 
     if (digits.length <= 6) {
       conditions.push({ orderNumber: new RegExp(`${escapeRegex(digits)}$`) });
@@ -85,7 +87,14 @@ export async function buildOrderSearchFilter(search) {
   }
 
   const namePattern = new RegExp(escapeRegex(text || digits), "i");
-  const matchingUsers = await User.find({ name: namePattern }).select("_id").lean();
+  const userQuery = [{ name: namePattern }];
+  if (digits) {
+    userQuery.push({ phone: new RegExp(escapeRegex(digits)) });
+  } else if (text) {
+    userQuery.push({ phone: textPattern });
+  }
+
+  const matchingUsers = await User.find({ $or: userQuery }).select("_id").lean();
   if (matchingUsers.length) {
     conditions.push({ user: { $in: matchingUsers.map((user) => user._id) } });
   }

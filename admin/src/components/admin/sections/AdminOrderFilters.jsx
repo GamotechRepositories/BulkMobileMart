@@ -13,7 +13,7 @@ function AdminOrderFilters({
   paymentStatus,
   searchQuery = "",
   onSearchChange,
-  searchPlaceholder = "Search by order ID, product, or customer...",
+  searchPlaceholder = "Search by order ID, product, customer, or phone...",
   onStartDateChange,
   onEndDateChange,
   onOrderStatusChange,

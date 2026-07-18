@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import Order from "../models/order/Order.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
 import {
@@ -893,7 +894,12 @@ export const getUsers = async (req, res) => {
 
     if (search) {
       const pattern = { $regex: escapeRegex(search), $options: "i" };
-      filter.$or = [{ name: pattern }, { phone: pattern }];
+      filter.$or = [
+        { name: pattern },
+        { phone: pattern },
+        { email: pattern },
+        { shopName: pattern },
+      ];
     } else {
       if (name) {
         filter.name = { $regex: escapeRegex(name), $options: "i" };
@@ -912,6 +918,51 @@ export const getUsers = async (req, res) => {
     res.status(200).json(buildPaginatedResponse(users, total, page, limit));
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getUserOrderStats = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("_id name role");
+    if (!user || user.role === "admin") {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const [stats] = await Order.aggregate([
+      {
+        $match: {
+          user: user._id,
+          status: { $ne: "attempted" },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+        },
+      },
+    ]);
+
+    const totalOrders = stats?.totalOrders || 0;
+    const totalRevenue = Number(stats?.totalRevenue) || 0;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        userId: user._id,
+        customerName: user.name,
+        totalOrders,
+        totalRevenue,
+        averageOrderValue,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load customer history",
+    });
   }
 };
 
