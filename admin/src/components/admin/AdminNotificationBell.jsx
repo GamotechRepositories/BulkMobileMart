@@ -66,7 +66,7 @@ function AdminNotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="fixed right-4 top-[3.75rem] z-50 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl sm:absolute sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))]">
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-neutral-900">Notifications</p>
