@@ -75,7 +75,15 @@ function OverviewSection() {
         );
         setTopCategories(stats.topCategories || []);
         setTopCategoriesTotal(Number(stats.topCategoriesTotal) || 0);
-        setMonthOrders(stats.monthOrders || { count: 0, ...EMPTY_DAY_STATS });
+        setMonthOrders({
+          count: Number(stats.monthOrders?.count ?? stats.monthOrders?.orders) || 0,
+          orders: Number(stats.monthOrders?.orders ?? stats.monthOrders?.count) || 0,
+          attempted: Number(stats.monthOrders?.attempted) || 0,
+          confirmed: Number(stats.monthOrders?.confirmed) || 0,
+          shipping: Number(stats.monthOrders?.shipping) || 0,
+          delivered: Number(stats.monthOrders?.delivered) || 0,
+          cancelled: Number(stats.monthOrders?.cancelled) || 0,
+        });
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
       } finally {

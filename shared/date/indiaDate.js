@@ -85,3 +85,38 @@ export function buildCreatedInIndiaDateRangeExpr(startDateString, endDateString)
   if (clauses.length === 1) return clauses[0];
   return { $and: clauses };
 }
+
+export function getIndiaMonthDateRange(year, month) {
+  const monthStr = String(month).padStart(2, "0");
+  const startDate = `${year}-${monthStr}-01`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${monthStr}-${String(daysInMonth).padStart(2, "0")}`;
+  return { startDate, endDate };
+}
+
+export function getIndiaCurrentMonthDateRange() {
+  const today = formatIndiaDateString();
+  const parsed = parseIndiaDateOnly(today);
+  if (!parsed) return { startDate: today, endDate: today };
+
+  const month = String(parsed.month).padStart(2, "0");
+  return {
+    startDate: `${parsed.year}-${month}-01`,
+    endDate: today,
+  };
+}
+
+export function getIndiaPreviousMonthDateRange() {
+  const today = formatIndiaDateString();
+  const parsed = parseIndiaDateOnly(today);
+  if (!parsed) return { startDate: today, endDate: today };
+
+  let year = parsed.year;
+  let month = parsed.month - 1;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+
+  return getIndiaMonthDateRange(year, month);
+}

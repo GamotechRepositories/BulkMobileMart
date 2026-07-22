@@ -45,6 +45,8 @@ import {
   shiftIndiaDateString,
   buildCreatedOnIndiaDateExpr,
   buildCreatedInIndiaDateRangeExpr,
+  getIndiaCurrentMonthDateRange,
+  getIndiaPreviousMonthDateRange,
 } from "../../shared/date/indiaDate.js";
 import { resolveCouponForCheckout } from "./couponController.js";
 
@@ -278,7 +280,10 @@ function buildDayOrderStats(orders) {
     orders: orders.length,
     attempted: orders.filter((order) => order.status === "attempted").length,
     confirmed: orders.filter(
-      (order) => order.status === "confirm" || LEGACY_CONFIRM_STATUSES.includes(order.status)
+      (order) =>
+        order.status === "confirm" ||
+        order.status === "processing" ||
+        LEGACY_CONFIRM_STATUSES.includes(order.status)
     ).length,
     pending: orders.filter((order) => ACTIVE_PENDING_STATUSES.includes(order.status)).length,
     shipping: orders.filter(
@@ -694,16 +699,12 @@ export const getDashboardStats = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
     const year = Number.parseInt(req.query.year, 10) || currentYear;
-    const now = new Date();
 
-    const { end: endOfToday, dateString: todayDateString } = getIndiaTodayRange();
-    const { start: startOfYesterday, end: endOfYesterday, dateString: yesterdayDateString } =
-      getIndiaYesterdayRange();
+    const { dateString: todayDateString } = getIndiaTodayRange();
+    const { dateString: yesterdayDateString } = getIndiaYesterdayRange();
     const start7DaysDateString = shiftIndiaDateString(todayDateString, -6);
-
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const currentMonthRange = getIndiaCurrentMonthDateRange();
+    const lastMonthRange = getIndiaPreviousMonthDateRange();
 
     const [
       todayOrders,
@@ -766,12 +767,15 @@ export const getDashboardStats = async (req, res) => {
         { $match: { status: { $in: REVENUE_STATUSES } } },
         { $group: { _id: null, total: { $sum: "$total" } } },
       ]),
-      Order.find({ createdAt: { $gte: currentMonthStart, $lte: endOfToday } }).select(
-        "status total"
-      ),
-      Order.find({ createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } }).select(
-        "status total"
-      ),
+      Order.find({
+        $expr: buildCreatedInIndiaDateRangeExpr(
+          currentMonthRange.startDate,
+          currentMonthRange.endDate
+        ),
+      }).select("status total"),
+      Order.find({
+        $expr: buildCreatedInIndiaDateRangeExpr(lastMonthRange.startDate, lastMonthRange.endDate),
+      }).select("status total"),
       Product.countDocuments({ isActive: true, inStock: true, stock: { $gt: 0 } }),
       Product.countDocuments({
         $or: [{ inStock: false }, { stock: { $lte: 0 } }],
