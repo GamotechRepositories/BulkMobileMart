@@ -24,7 +24,6 @@ function OverviewSection() {
   const [year, setYear] = useState(currentYear);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [today, setToday] = useState(EMPTY_DAY_STATS);
   const [recentOrders, setRecentOrders] = useState([]);
   const [monthlySales, setMonthlySales] = useState([]);
   const [years, setYears] = useState([currentYear]);
@@ -38,7 +37,7 @@ function OverviewSection() {
   });
   const [topCategories, setTopCategories] = useState([]);
   const [topCategoriesTotal, setTopCategoriesTotal] = useState(0);
-  const [monthOrders, setMonthOrders] = useState({ count: 0 });
+  const [monthOrders, setMonthOrders] = useState({ count: 0, ...EMPTY_DAY_STATS });
   const [todayDate, setTodayDate] = useState(() => getTodayDateString());
 
   useEffect(() => {
@@ -61,7 +60,6 @@ function OverviewSection() {
         const { data } = await getDashboardStats({ year });
         const stats = data.data || {};
 
-        setToday(stats.today || EMPTY_DAY_STATS);
         setRecentOrders(stats.recentOrders || []);
         setMonthlySales(stats.monthlySales || []);
         setYears(stats.years?.length ? stats.years : [currentYear]);
@@ -77,7 +75,7 @@ function OverviewSection() {
         );
         setTopCategories(stats.topCategories || []);
         setTopCategoriesTotal(Number(stats.topCategoriesTotal) || 0);
-        setMonthOrders(stats.monthOrders || { count: 0 });
+        setMonthOrders(stats.monthOrders || { count: 0, ...EMPTY_DAY_STATS });
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
       } finally {
@@ -108,42 +106,42 @@ function OverviewSection() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <TodayStatCard
-          label="Today's Orders"
-          value={today.orders}
+          label={`${currentMonthName} Orders`}
+          value={monthOrders.count ?? monthOrders.orders}
           loading={loading}
           iconBg="bg-orange-50 text-primary"
-          to={todayOrdersLink}
+          to={monthOrdersLink}
         >
           <IconOrder className="h-5 w-5" />
         </TodayStatCard>
         <TodayStatCard
-          label="Today's Attempted"
-          value={today.attempted}
+          label={`${currentMonthName} Attempted`}
+          value={monthOrders.attempted}
           loading={loading}
           iconBg="bg-purple-50 text-purple-600"
-          to={`${todayOrdersLink}&status=attempted`}
+          to={`${monthOrdersLink}&status=attempted`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.25 10.5V6a3.75 3.75 0 117.5 0v4.5" />
           </svg>
         </TodayStatCard>
         <TodayStatCard
-          label="Today's Confirmed"
-          value={today.confirmed}
+          label={`${currentMonthName} Confirmed`}
+          value={monthOrders.confirmed}
           loading={loading}
           iconBg="bg-emerald-50 text-emerald-600"
-          to={`${todayOrdersLink}&status=confirm`}
+          to={`${monthOrdersLink}&status=confirm`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75l2.25 2.25L15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </TodayStatCard>
         <TodayStatCard
-          label="Today's Shipping"
-          value={today.shipping}
+          label={`${currentMonthName} Shipping`}
+          value={monthOrders.shipping}
           loading={loading}
           iconBg="bg-blue-50 text-blue-600"
-          to={`${todayOrdersLink}&status=shipping`}
+          to={`${monthOrdersLink}&status=shipping`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path
@@ -154,22 +152,22 @@ function OverviewSection() {
           </svg>
         </TodayStatCard>
         <TodayStatCard
-          label="Today's Delivered"
-          value={today.delivered}
+          label={`${currentMonthName} Delivered`}
+          value={monthOrders.delivered}
           loading={loading}
           iconBg="bg-green-50 text-green-600"
-          to={`${todayOrdersLink}&status=delivered`}
+          to={`${monthOrdersLink}&status=delivered`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </TodayStatCard>
         <TodayStatCard
-          label="Today's Cancelled"
-          value={today.cancelled}
+          label={`${currentMonthName} Cancelled`}
+          value={monthOrders.cancelled}
           loading={loading}
           iconBg="bg-red-50 text-red-500"
-          to={`${todayOrdersLink}&status=cancelled`}
+          to={`${monthOrdersLink}&status=cancelled`}
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -177,7 +175,7 @@ function OverviewSection() {
         </TodayStatCard>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:items-stretch">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 xl:items-stretch">
         <TotalMiniCard
           label="Total Products"
           value={totals.products}
@@ -203,15 +201,6 @@ function OverviewSection() {
           monthlyTrend={revenue.monthlyTrend}
           loading={loading}
           to="/revenue"
-        />
-        <TotalMiniCard
-          className="col-span-2 xl:col-span-1"
-          label={`${currentMonthName} Orders`}
-          value={monthOrders.count}
-          loading={loading}
-          to={monthOrdersLink}
-          icon={IconOrder}
-          iconBg="bg-orange-50 text-primary"
         />
       </div>
 

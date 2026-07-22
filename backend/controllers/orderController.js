@@ -896,6 +896,7 @@ export const getDashboardStats = async (req, res) => {
         },
         monthOrders: {
           count: currentMonthStats.totalOrders,
+          ...buildDayOrderStats(currentMonthOrders),
         },
         storeOverview: {
           activeProducts,
