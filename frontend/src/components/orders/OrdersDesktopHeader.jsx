@@ -3,6 +3,7 @@ const ORDER_FILTERS = [
   { id: "active", label: "In progress" },
   { id: "delivered", label: "Delivered" },
   { id: "cancelled", label: "Cancelled" },
+  { id: "return", label: "Return" },
 ];
 
 function OrdersDesktopHeader({

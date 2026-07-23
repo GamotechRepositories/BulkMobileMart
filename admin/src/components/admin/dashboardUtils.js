@@ -64,6 +64,7 @@ export function buildTodayStats(orders) {
     ).length,
     delivered: todayOrders.filter((order) => order.status === "delivered").length,
     cancelled: todayOrders.filter((order) => order.status === "cancelled").length,
+    return: todayOrders.filter((order) => order.status === "return").length,
   };
 }
 

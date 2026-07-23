@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatAddressLine, getAddressFullName } from "../../../utils/addressDisplay";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -10,6 +11,7 @@ import {
   updateAdminGiftHamper,
   uploadImageFile,
 } from "../../../api/api";
+import { adminQueryKeys } from "../../../hooks/queries/queryKeys";
 import AdminOrderShipmentPanel from "../AdminOrderShipmentPanel";
 import { getOrderNumber } from "../../../utils/orderNumber";
 import { getInvoiceFilename } from "@shared/invoice/invoiceHelpers.js";
@@ -52,32 +54,40 @@ function normalizeIndianWhatsAppPhone(raw) {
 function OrderProgressStepper({ order }) {
   const activeIndex = ORDER_STATUS_STEP_INDEX[order.status] ?? 0;
   const isCancelled = order.status === "cancelled";
+  const isReturn = order.status === "return";
+  const isTerminal = isCancelled || isReturn;
 
   return (
     <div className="w-full overflow-x-hidden py-2">
       <div className="flex w-full items-start">
         {ORDER_PROGRESS_STEPS.map((label, index) => {
-          const isComplete = !isCancelled && index <= activeIndex;
-          const isCancelledStep = isCancelled && index === 4;
+          const isComplete = !isTerminal && index <= activeIndex;
+          const isTerminalStep =
+            (isCancelled && index === 4) || (isReturn && index === 5);
+          const isActiveStep = isComplete || isTerminalStep;
 
           return (
             <div key={label} className="flex min-w-0 flex-1 flex-col items-center">
               <div className="flex w-full items-center">
                 <div
                   className={`h-0.5 flex-1 ${
-                    index === 0 ? "invisible" : !isCancelled && index <= activeIndex
-                      ? "bg-green-600"
-                      : "bg-neutral-200"
+                    index === 0
+                      ? "invisible"
+                      : !isTerminal && index <= activeIndex
+                        ? "bg-green-600"
+                        : "bg-neutral-200"
                   }`}
                 />
                 <div
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold sm:h-10 sm:w-10 ${
-                    isComplete || isCancelledStep
-                      ? "border-green-600 bg-green-600 text-white"
+                    isActiveStep
+                      ? isReturn && isTerminalStep
+                        ? "border-amber-600 bg-amber-600 text-white"
+                        : "border-green-600 bg-green-600 text-white"
                       : "border-neutral-200 bg-white text-neutral-400"
                   }`}
                 >
-                  {isComplete || isCancelledStep ? (
+                  {isActiveStep ? (
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -89,7 +99,7 @@ function OrderProgressStepper({ order }) {
                   className={`h-0.5 flex-1 ${
                     index === ORDER_PROGRESS_STEPS.length - 1
                       ? "invisible"
-                      : !isCancelled && index < activeIndex
+                      : !isTerminal && index < activeIndex
                         ? "bg-green-600"
                         : "bg-neutral-200"
                   }`}
@@ -97,7 +107,7 @@ function OrderProgressStepper({ order }) {
               </div>
               <p
                 className={`mt-2 text-center text-[10px] font-semibold sm:text-xs ${
-                  isComplete || isCancelledStep ? "text-neutral-900" : "text-neutral-400"
+                  isActiveStep ? "text-neutral-900" : "text-neutral-400"
                 }`}
               >
                 {label}
@@ -118,6 +128,7 @@ function OrderProgressStepper({ order }) {
 function AdminOrderDetailSection() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -194,6 +205,15 @@ function AdminOrderDetailSection() {
     setManualTrackingEvidenceName(String(manual.evidenceName || ""));
   }, [order?._id, order?.shipment?.manualTracking]);
 
+  const invalidateOrdersList = () => {
+    queryClient.invalidateQueries({ queryKey: adminQueryKeys.orders.all });
+  };
+
+  const applyUpdatedOrder = (updatedOrder) => {
+    setOrder(updatedOrder);
+    invalidateOrdersList();
+  };
+
   const handleStatusChange = async (field, value) => {
     if (!order || updating) return;
     setUpdating(true);
@@ -206,7 +226,7 @@ function AdminOrderDetailSection() {
       }
 
       const { data } = await updateAdminOrder(order._id, payload);
-      setOrder(data.data);
+      applyUpdatedOrder(data.data);
       setSuccess("Order updated");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update order");
@@ -216,7 +236,7 @@ function AdminOrderDetailSection() {
   };
 
   const handleItemsUpdated = (updatedOrder) => {
-    setOrder(updatedOrder);
+    applyUpdatedOrder(updatedOrder);
     setSuccess("Order items updated");
     loadEligibleCoupons(updatedOrder._id);
   };
@@ -231,7 +251,7 @@ function AdminOrderDetailSection() {
       const { data } = await updateAdminOrder(order._id, {
         couponCode: selectedCouponCode,
       });
-      setOrder(data.data);
+      applyUpdatedOrder(data.data);
       setEligibleCoupons([]);
       setSelectedCouponCode("");
       setCouponEligibilityReason("A coupon is already applied to this order");
@@ -271,7 +291,7 @@ function AdminOrderDetailSection() {
     setSuccess("");
     try {
       const { data } = await updateAdminOrder(order._id, { deliveryCharges: nextCharge });
-      setOrder(data.data);
+      applyUpdatedOrder(data.data);
       setEditingDeliveryCharge(false);
       setDeliveryChargeInput("");
       setSuccess("Delivery charge updated");
@@ -305,6 +325,7 @@ function AdminOrderDetailSection() {
       setOrder(data.data);
       setEditingAddress(false);
       setSuccess("Order delivery address updated");
+      invalidateOrdersList();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update delivery address");
     } finally {
@@ -354,7 +375,7 @@ function AdminOrderDetailSection() {
           evidenceName: manualTrackingEvidenceName,
         },
       });
-      setOrder(data.data);
+      applyUpdatedOrder(data.data);
       setSuccess("Manual tracking update saved");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save manual tracking update");
@@ -372,6 +393,7 @@ function AdminOrderDetailSection() {
     setSuccess("");
     try {
       await deleteAdminOrder(order._id);
+      invalidateOrdersList();
       navigate("/orders", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete order");
@@ -394,7 +416,7 @@ function AdminOrderDetailSection() {
     setSuccess("");
     try {
       const { data } = await updateAdminGiftHamper(order._id, { status, adminNote });
-      setOrder(data.data);
+      applyUpdatedOrder(data.data);
       setSuccess(status === "approved" ? "Gift hamper approved" : "Gift hamper rejected");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update gift hamper");
@@ -626,14 +648,14 @@ function AdminOrderDetailSection() {
               <button
                 type="button"
                 onClick={() => setEditingAddress(true)}
-                disabled={updating || ["delivered", "cancelled"].includes(order.status)}
+                disabled={updating || ["delivered", "cancelled", "return"].includes(order.status)}
                 className="mt-2 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
               >
                 Edit address
               </button>
-              {["delivered", "cancelled"].includes(order.status) ? (
+              {["delivered", "cancelled", "return"].includes(order.status) ? (
                 <p className="mt-1 text-xs text-neutral-500">
-                  Address can not be edited for delivered/cancelled orders.
+                  Address can not be edited for delivered/cancelled/return orders.
                 </p>
               ) : null}
             </>
@@ -684,7 +706,7 @@ function AdminOrderDetailSection() {
 
       <AdminOrderShipmentPanel
         order={order}
-        onOrderUpdated={setOrder}
+        onOrderUpdated={applyUpdatedOrder}
         onError={setError}
         onSuccess={setSuccess}
       />

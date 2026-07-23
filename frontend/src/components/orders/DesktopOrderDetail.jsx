@@ -33,9 +33,12 @@ function StatusBadge({ status }) {
   );
 }
 
-function MiniTracker({ activeIndex, isCancelled }) {
+function MiniTracker({ activeIndex, isCancelled, isReturn }) {
   if (isCancelled) {
     return <p className="text-sm font-semibold text-red-600">This order was cancelled</p>;
+  }
+  if (isReturn) {
+    return <p className="text-sm font-semibold text-amber-600">This order was returned</p>;
   }
 
   return (
@@ -118,6 +121,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
   const deliveryFree = order.deliveryCharges === 0;
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
+  const isReturn = order.status === "return";
   const statusColor = getOrderStatusColor(order.status);
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const shipment = order.shipment || {};
@@ -209,7 +213,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 {getOrderStatusHeadline(order.status)}
               </p>
               <div className="mt-5">
-                <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} />
+                <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} isReturn={isReturn} />
               </div>
             </section>
 

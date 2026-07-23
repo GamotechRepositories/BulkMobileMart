@@ -52,7 +52,14 @@ import { resolveCouponForCheckout } from "./couponController.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const REVENUE_STATUSES = ["confirm", "processing", "shipping", "delivered"];
-const RECENT_ORDERS_STATUSES = ["confirm", "processing", "shipping", "delivered", "cancelled"];
+const RECENT_ORDERS_STATUSES = [
+  "confirm",
+  "processing",
+  "shipping",
+  "delivered",
+  "cancelled",
+  "return",
+];
 const LEGACY_CONFIRM_STATUSES = ["pending", "confirmed"];
 const AUTO_TRACK_SYNC_MS = 20 * 60 * 1000;
 const ORDER_ADDRESS_REQUIRED_FIELDS = [
@@ -170,6 +177,7 @@ function buildOrderStatusCounts(statusAgg = []) {
   const attempted = byStatus.attempted || 0;
   const delivered = byStatus.delivered || 0;
   const cancelled = byStatus.cancelled || 0;
+  const returned = byStatus.return || 0;
   const pending = confirm + processing + shipping;
 
   return {
@@ -181,6 +189,7 @@ function buildOrderStatusCounts(statusAgg = []) {
     shipping,
     delivered,
     cancelled,
+    return: returned,
   };
 }
 
@@ -291,6 +300,7 @@ function buildDayOrderStats(orders) {
     ).length,
     delivered: orders.filter((order) => order.status === "delivered").length,
     cancelled: orders.filter((order) => order.status === "cancelled").length,
+    return: orders.filter((order) => order.status === "return").length,
   };
 }
 
@@ -1105,7 +1115,15 @@ export const updateOrder = async (req, res) => {
     } = req.body;
     const updates = {};
 
-    const allowedStatuses = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
+    const allowedStatuses = [
+      "attempted",
+      "confirm",
+      "processing",
+      "shipping",
+      "delivered",
+      "cancelled",
+      "return",
+    ];
     const allowedPaymentStatuses = [
       PAYMENT_STATUS.UNPAID,
       PAYMENT_STATUS.PAID_10,
@@ -1178,11 +1196,12 @@ export const updateOrder = async (req, res) => {
     }
 
     if (items !== undefined) {
-      const lockedStatuses = ["shipping", "delivered", "cancelled"];
+      const lockedStatuses = ["shipping", "delivered", "cancelled", "return"];
       if (lockedStatuses.includes(existingOrder.status)) {
         return res.status(400).json({
           success: false,
-          message: "Order items cannot be changed after the order is shipped, delivered, or cancelled",
+          message:
+            "Order items cannot be changed after the order is shipped, delivered, cancelled, or returned",
         });
       }
 
@@ -1251,10 +1270,10 @@ export const updateOrder = async (req, res) => {
         });
       }
 
-      if (["delivered", "cancelled"].includes(existingOrder.status)) {
+      if (["delivered", "cancelled", "return"].includes(existingOrder.status)) {
         return res.status(400).json({
           success: false,
-          message: "Delivery address cannot be changed after order is delivered or cancelled",
+          message: "Delivery address cannot be changed after order is delivered, cancelled, or returned",
         });
       }
 

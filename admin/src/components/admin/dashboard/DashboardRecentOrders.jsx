@@ -8,6 +8,7 @@ const STATUS_STYLES = {
   attempted: "bg-purple-100 text-purple-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-800",
+  return: "bg-amber-100 text-amber-800",
   confirm: "bg-amber-100 text-amber-800",
   processing: "bg-amber-100 text-amber-800",
   shipping: "bg-blue-100 text-blue-800",

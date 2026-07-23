@@ -27,10 +27,15 @@ function StatusBadge({ status }) {
   );
 }
 
-function MiniTracker({ activeIndex, isCancelled }) {
+function MiniTracker({ activeIndex, isCancelled, isReturn }) {
   if (isCancelled) {
     return (
       <p className="text-sm font-semibold text-red-600">This order was cancelled</p>
+    );
+  }
+  if (isReturn) {
+    return (
+      <p className="text-sm font-semibold text-amber-600">This order was returned</p>
     );
   }
 
@@ -98,6 +103,7 @@ function DesktopOrderCard({ order }) {
   const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
+  const isReturn = order.status === "return";
   const statusColor = getOrderStatusColor(order.status);
 
   const previewItems = useMemo(() => items.slice(0, 4), [items]);
@@ -198,7 +204,7 @@ function DesktopOrderCard({ order }) {
           <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-text-muted">
             Order progress
           </p>
-          <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} />
+          <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} isReturn={isReturn} />
         </div>
       </div>
 

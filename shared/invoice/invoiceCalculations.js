@@ -174,6 +174,7 @@ export const STATUS_LABELS = {
   shipping: "Shipping",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  return: "Return",
   attempted: "Attempted",
   pending: "Confirmed",
   confirmed: "Confirmed",

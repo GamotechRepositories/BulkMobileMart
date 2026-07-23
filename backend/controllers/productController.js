@@ -431,7 +431,7 @@ async function getPurchaseCountsByProductIds(productIds = []) {
   const counts = await Order.aggregate([
     {
       $match: {
-        status: { $nin: ["attempted", "cancelled"] },
+        status: { $nin: ["attempted", "cancelled", "return"] },
         "items.product": { $in: productIds },
       },
     },

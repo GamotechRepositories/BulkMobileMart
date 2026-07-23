@@ -1,7 +1,15 @@
 import { getOrderNumber } from "../../../utils/orderNumber";
 import { getAddressFullName } from "../../../utils/addressDisplay";
 
-export const ORDER_STATUSES = ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"];
+export const ORDER_STATUSES = [
+  "attempted",
+  "confirm",
+  "processing",
+  "shipping",
+  "delivered",
+  "cancelled",
+  "return",
+];
 
 export const ORDER_STATUS_OPTIONS = [
   { value: "all", label: "All Status" },
@@ -11,6 +19,7 @@ export const ORDER_STATUS_OPTIONS = [
   { value: "shipping", label: "Shipping" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "return", label: "Return" },
 ];
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -36,6 +45,7 @@ export const ADMIN_DETAIL_ORDER_STATUS_OPTIONS = [
   { value: "shipping", label: "shipping" },
   { value: "delivered", label: "delivered" },
   { value: "cancelled", label: "cancelled" },
+  { value: "return", label: "return" },
 ];
 
 export const ADMIN_DETAIL_PAYMENT_STATUS_OPTIONS = [
@@ -45,7 +55,14 @@ export const ADMIN_DETAIL_PAYMENT_STATUS_OPTIONS = [
   { value: "refundable", label: "refundable" },
 ];
 
-export const ORDER_PROGRESS_STEPS = ["Confirm", "Processing", "Shipping", "Delivered", "Cancelled"];
+export const ORDER_PROGRESS_STEPS = [
+  "Confirm",
+  "Processing",
+  "Shipping",
+  "Delivered",
+  "Cancelled",
+  "Return",
+];
 
 export const ORDER_STATUS_STEP_INDEX = {
   attempted: -1,
@@ -54,6 +71,7 @@ export const ORDER_STATUS_STEP_INDEX = {
   shipping: 2,
   delivered: 3,
   cancelled: 4,
+  return: 5,
   // legacy values from older orders
   pending: 0,
   confirmed: 0,
@@ -78,6 +96,7 @@ export const STATUS_LABELS = {
   shipping: "Shipping",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  return: "Return",
   pending: "Confirm",
   confirmed: "Confirm",
   shipped: "Shipping",
@@ -87,7 +106,7 @@ export function getOrderStatusLabel(status) {
   return STATUS_LABELS[status] || status;
 }
 
-const ORDER_ITEM_LOCKED_STATUSES = new Set(["shipping", "delivered", "cancelled"]);
+const ORDER_ITEM_LOCKED_STATUSES = new Set(["shipping", "delivered", "cancelled", "return"]);
 
 export function canEditOrderItems(status) {
   return !ORDER_ITEM_LOCKED_STATUSES.has(status);

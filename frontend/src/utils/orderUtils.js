@@ -7,6 +7,7 @@ export const ORDER_STATUS_LABELS = {
   shipping: "Shipping",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  return: "Return",
   pending: "Confirm",
   confirmed: "Confirm",
   shipped: "Shipping",
@@ -19,6 +20,7 @@ export const ORDER_STATUS_STEP_INDEX = {
   shipping: 2,
   delivered: 3,
   cancelled: 4,
+  return: 5,
   pending: 0,
   confirmed: 0,
   shipped: 2,
@@ -69,6 +71,8 @@ export function getOrderStatusColor(status) {
       return "#16a34a";
     case "cancelled":
       return "#dc2626";
+    case "return":
+      return "#d97706";
     default:
       return "#2563eb";
   }
@@ -132,6 +136,8 @@ export function getOrderStatusHeadline(status) {
       return "Being prepared for dispatch";
     case "cancelled":
       return "Order was cancelled";
+    case "return":
+      return "Order returned";
     default:
       return "Order confirmed";
   }
@@ -144,11 +150,17 @@ export function isPlacedOrder(order) {
 export function matchesOrderFilter(order, filter) {
   switch (filter) {
     case "active":
-      return order.status !== "delivered" && order.status !== "cancelled";
+      return (
+        order.status !== "delivered" &&
+        order.status !== "cancelled" &&
+        order.status !== "return"
+      );
     case "delivered":
       return order.status === "delivered";
     case "cancelled":
       return order.status === "cancelled";
+    case "return":
+      return order.status === "return";
     default:
       return true;
   }
@@ -172,7 +184,7 @@ export function buildOrdersSummary(orders) {
       summary.spent += Number(order.total) || 0;
       if (order.status === "delivered") {
         summary.delivered += 1;
-      } else if (order.status !== "cancelled") {
+      } else if (order.status !== "cancelled" && order.status !== "return") {
         summary.active += 1;
       }
       return summary;
@@ -233,6 +245,8 @@ export function getBlinkitStatusLabel(status) {
       return "Order being prepared";
     case "cancelled":
       return "Order cancelled";
+    case "return":
+      return "Order returned";
     default:
       return "Order confirmed";
   }
@@ -249,6 +263,8 @@ export function getBlinkitShipmentStatusLabel(status) {
       return "Preparing";
     case "cancelled":
       return "Cancelled";
+    case "return":
+      return "Return";
     default:
       return "Confirmed";
   }

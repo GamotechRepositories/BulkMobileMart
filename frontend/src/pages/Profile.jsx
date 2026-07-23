@@ -36,7 +36,7 @@ function profileInitials(name) {
 
 function extractRecentOrderItems(orders, maxItems = 12) {
   const eligible = orders
-    .filter((order) => order.status !== "cancelled" && order.status !== "attempted")
+    .filter((order) => order.status !== "cancelled" && order.status !== "attempted" && order.status !== "return")
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const seen = new Set();

@@ -44,6 +44,13 @@ function StatusIcon({ status, className = "h-[18px] w-[18px]" }) {
       </svg>
     );
   }
+  if (status === "return") {
+    return (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+      </svg>
+    );
+  }
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
@@ -172,6 +179,7 @@ function FlipkartOrderCard({ order }) {
   const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
+  const isReturn = order.status === "return";
   const city = order.deliveryAddress?.city?.trim() || "";
   const placedLabel = getRelativePlacedLabel(order.createdAt);
   const paymentColor = getOrderPaymentColor(order);
@@ -228,10 +236,13 @@ function FlipkartOrderCard({ order }) {
           </div>
         </div>
 
-        {!isCancelled ? (
+        {!isCancelled && !isReturn ? (
           <div className="px-3.5 pt-2.5">
             <MiniOrderTracker activeIndex={activeIndex} />
           </div>
+        ) : null}
+        {isReturn ? (
+          <p className="px-3.5 pt-2.5 text-sm font-semibold text-amber-600">This order was returned</p>
         ) : null}
 
         {primaryItem ? (

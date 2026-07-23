@@ -95,7 +95,7 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled"],
+      enum: ["attempted", "confirm", "processing", "shipping", "delivered", "cancelled", "return"],
       default: "confirm",
     },
     paymentStatus: {
@@ -202,7 +202,7 @@ orderSchema.pre("save", async function preSaveOrder() {
 
   if (
     this.isModified("status") &&
-    this.status === "cancelled" &&
+    (this.status === "cancelled" || this.status === "return") &&
     this.paymentMethod === "online" &&
     this.paymentStatus === "paid"
   ) {

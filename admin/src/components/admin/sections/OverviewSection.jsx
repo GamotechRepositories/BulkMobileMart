@@ -17,6 +17,7 @@ const EMPTY_DAY_STATS = {
   shipping: 0,
   delivered: 0,
   cancelled: 0,
+  return: 0,
 };
 
 function OverviewSection() {
@@ -83,6 +84,7 @@ function OverviewSection() {
           shipping: Number(stats.monthOrders?.shipping) || 0,
           delivered: Number(stats.monthOrders?.delivered) || 0,
           cancelled: Number(stats.monthOrders?.cancelled) || 0,
+          return: Number(stats.monthOrders?.return) || 0,
         });
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load dashboard data");
@@ -112,7 +114,7 @@ function OverviewSection() {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-7">
         <TodayStatCard
           label={`${currentMonthName} Orders`}
           value={monthOrders.count ?? monthOrders.orders}
@@ -179,6 +181,21 @@ function OverviewSection() {
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </TodayStatCard>
+        <TodayStatCard
+          label={`${currentMonthName} Return`}
+          value={monthOrders.return}
+          loading={loading}
+          iconBg="bg-amber-50 text-amber-600"
+          to={`${monthOrdersLink}&status=return`}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+            />
           </svg>
         </TodayStatCard>
       </div>
