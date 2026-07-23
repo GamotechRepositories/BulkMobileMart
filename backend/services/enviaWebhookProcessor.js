@@ -1,5 +1,9 @@
 import Order from "../models/order/Order.js";
-import { mergeOrderShipment } from "../utils/shipmentHelpers.js";
+import {
+  isOutForDeliveryTracking,
+  mapShipmentTrackingToOrderStatus,
+  mergeOrderShipment,
+} from "../utils/shipmentHelpers.js";
 import { notifyOrderStatusChange } from "./orderNotificationDispatcher.js";
 import { sendShipmentStatusUpdate } from "./notificationService.js";
 
@@ -11,7 +15,7 @@ function normalizeEvents(rawEvents) {
   if (!Array.isArray(rawEvents)) return [];
   return rawEvents.map((event) => ({
     status: text(event.status || event.event || event.description),
-    date: text(event.date || event.datetime || event.createdAt),
+    date: text(event.date || event.datetime || event.timestamp || event.createdAt),
     location: text(event.location || event.city || ""),
     description: text(event.description || event.details || ""),
   }));
@@ -38,7 +42,9 @@ export function extractEnviaWebhookPayload(body = {}) {
       body.reference ||
       body.order_number ||
       body.orderNumber
-  ).replace(/\D/g, "").slice(-6);
+  )
+    .replace(/\D/g, "")
+    .slice(-6);
 
   const status = text(
     nested.status || nested.currentStatus || body.status || body.currentStatus
@@ -68,29 +74,6 @@ export function extractEnviaWebhookPayload(body = {}) {
     events,
     eventType: text(body.type || body.event),
   };
-}
-
-function mapTrackingToOrderStatus(statusText, currentStatus) {
-  const normalized = text(statusText).toLowerCase();
-  if (!normalized) return currentStatus;
-
-  if (normalized.includes("delivered")) return "delivered";
-  if (
-    normalized.includes("out for delivery") ||
-    normalized.includes("out_for_delivery")
-  ) {
-    return currentStatus === "delivered" ? "delivered" : "shipping";
-  }
-  if (
-    normalized.includes("transit") ||
-    normalized.includes("shipped") ||
-    normalized.includes("picked") ||
-    normalized.includes("dispatch")
-  ) {
-    return ["confirm", "processing"].includes(currentStatus) ? "shipping" : currentStatus;
-  }
-
-  return currentStatus;
 }
 
 async function findOrderForWebhook({ trackingNumber, orderReference }) {
@@ -127,6 +110,7 @@ export async function processEnviaWebhookEvent(body = {}) {
 
   const previousStatus = order.status;
   const previousShipmentStatus = text(order.shipment?.status);
+  const previousShipmentMessage = text(order.shipment?.statusMessage);
 
   order.shipment = mergeOrderShipment(order, {
     provider: "envia",
@@ -139,7 +123,13 @@ export async function processEnviaWebhookEvent(body = {}) {
     events: payload.events.length ? payload.events : order.shipment?.events || [],
   });
 
-  const nextStatus = mapTrackingToOrderStatus(payload.status, order.status);
+  const nextStatus = mapShipmentTrackingToOrderStatus({
+    status: order.shipment.status,
+    statusMessage: order.shipment.statusMessage,
+    events: order.shipment.events,
+    currentStatus: order.status,
+  });
+
   if (nextStatus !== order.status) {
     order.status = nextStatus;
   }
@@ -147,23 +137,26 @@ export async function processEnviaWebhookEvent(body = {}) {
   await order.save();
 
   if (order.status !== previousStatus) {
-    const notificationStage =
-      text(payload.status).toLowerCase().includes("out for delivery") ||
-      text(payload.status).toLowerCase().includes("out_for_delivery")
-        ? "out_for_delivery"
-        : undefined;
+    const notificationStage = isOutForDeliveryTracking({
+      status: payload.status,
+      statusMessage: payload.statusMessage,
+      events: payload.events,
+    })
+      ? "out_for_delivery"
+      : undefined;
 
     void notifyOrderStatusChange(order, previousStatus, { notificationStage });
   } else if (
-    payload.status &&
-    payload.status !== previousShipmentStatus &&
-    order.user
+    (payload.status && payload.status !== previousShipmentStatus) ||
+    (payload.statusMessage && payload.statusMessage !== previousShipmentMessage)
   ) {
-    void sendShipmentStatusUpdate(order, {
-      status: payload.status,
-      statusDescription: payload.statusMessage,
-      trackUrl: payload.trackUrl,
-    });
+    if (order.user) {
+      void sendShipmentStatusUpdate(order, {
+        status: payload.status || order.shipment.status,
+        statusDescription: payload.statusMessage || order.shipment.statusMessage,
+        trackUrl: payload.trackUrl || order.shipment.trackUrl,
+      });
+    }
   }
 
   return {
@@ -171,5 +164,6 @@ export async function processEnviaWebhookEvent(body = {}) {
     orderId: order._id,
     orderNumber: order.orderNumber,
     status: order.status,
+    shipmentStatus: order.shipment?.status,
   };
 }

@@ -681,15 +681,25 @@ function pickTrackingData(responseData = {}, fallbackTracking = "") {
   const trackingEvents = Array.isArray(row.events || row.history)
     ? (row.events || row.history).map((event) => ({
         status: safeTrim(event.status || event.event || event.description),
-        date: safeTrim(event.date || event.datetime || event.createdAt),
+        date: safeTrim(
+          event.date || event.datetime || event.timestamp || event.createdAt
+        ),
         location: safeTrim(event.location || event.city || ""),
         description: safeTrim(event.description || event.details || ""),
       }))
     : [];
 
+  const latestEvent = trackingEvents[0] || trackingEvents[trackingEvents.length - 1] || null;
+
   return {
-    status: safeTrim(row.status || row.currentStatus || ""),
-    statusMessage: safeTrim(row.message || row.lastEvent || ""),
+    status: safeTrim(row.status || row.currentStatus || latestEvent?.status || ""),
+    statusMessage: safeTrim(
+      row.message ||
+        row.lastEvent ||
+        latestEvent?.description ||
+        latestEvent?.status ||
+        ""
+    ),
     trackUrl: safeTrim(row.trackUrl || ""),
     trackingNumber: safeTrim(row.trackingNumber || fallbackTracking),
     syncedAt: new Date(),

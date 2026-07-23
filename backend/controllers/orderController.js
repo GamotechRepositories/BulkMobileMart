@@ -15,7 +15,7 @@ import {
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
-import { getClearedShipment, mergeOrderShipment } from "../utils/shipmentHelpers.js";
+import { getClearedShipment, mergeOrderShipment, mapShipmentTrackingToOrderStatus } from "../utils/shipmentHelpers.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   calculateAdvanceAmount,
@@ -242,9 +242,60 @@ function applyShipmentOnOrder(order, shipment, metadata = {}) {
   });
 }
 
+async function applyTrackingToOrder(order, tracking = {}, { notify = false } = {}) {
+  const previousStatus = order.status;
+
+  order.shipment = mergeOrderShipment(order, {
+    provider: "envia",
+    status: tracking.status || order.shipment?.status || "",
+    statusMessage: tracking.statusMessage || order.shipment?.statusMessage || "",
+    trackingNumber: tracking.trackingNumber || order.shipment?.trackingNumber || "",
+    trackUrl: tracking.trackUrl || order.shipment?.trackUrl || "",
+    syncedAt: tracking.syncedAt || new Date(),
+    events: Array.isArray(tracking.events) && tracking.events.length
+      ? tracking.events
+      : order.shipment?.events || [],
+  });
+
+  const nextStatus = mapShipmentTrackingToOrderStatus({
+    status: order.shipment.status,
+    statusMessage: order.shipment.statusMessage,
+    events: order.shipment.events,
+    currentStatus: order.status,
+  });
+
+  if (nextStatus !== order.status) {
+    order.status = nextStatus;
+  }
+
+  await order.save();
+
+  if (notify && order.status !== previousStatus) {
+    void notifyOrderStatusChange(order, previousStatus);
+  }
+
+  return order;
+}
+
 async function autoSyncShipmentForOrder(order) {
   if (!order?.shipment?.trackingNumber) {
     return order;
+  }
+
+  // If shipment text already implies a newer order status (e.g. webhook updated
+  // shipment only, or weak older mapping), catch up without waiting for Envia.
+  const mappedFromStored = mapShipmentTrackingToOrderStatus({
+    status: order.shipment.status,
+    statusMessage: order.shipment.statusMessage,
+    events: order.shipment.events,
+    currentStatus: order.status,
+  });
+
+  if (mappedFromStored !== order.status) {
+    const previousStatus = order.status;
+    order.status = mappedFromStored;
+    await order.save();
+    void notifyOrderStatusChange(order, previousStatus);
   }
 
   const lastSync = order.shipment?.syncedAt ? new Date(order.shipment.syncedAt).getTime() : 0;
@@ -255,27 +306,7 @@ async function autoSyncShipmentForOrder(order) {
 
   try {
     const tracking = await trackEnviaShipment(order.shipment.trackingNumber);
-    order.shipment = mergeOrderShipment(order, {
-      provider: "envia",
-      status: tracking.status || order.shipment.status || "",
-      statusMessage: tracking.statusMessage || "",
-      trackUrl: tracking.trackUrl || order.shipment.trackUrl || "",
-      syncedAt: tracking.syncedAt || new Date(),
-      events: tracking.events || [],
-    });
-
-    const normalized = String(tracking.status || "").toLowerCase();
-    if (normalized.includes("delivered")) {
-      order.status = "delivered";
-    } else if (
-      (normalized.includes("transit") || normalized.includes("shipped")) &&
-      ["confirm", "processing"].includes(order.status)
-    ) {
-      order.status = "shipping";
-    }
-
-    await order.save();
-    return order;
+    return applyTrackingToOrder(order, tracking, { notify: true });
   } catch (error) {
     console.warn(
       `Auto tracking sync skipped for order ${order._id}: ${error.message}`
@@ -1504,7 +1535,16 @@ export const linkOrderShipmentTracking = async (req, res) => {
       // Tracking lookup is optional; webhooks will update status later.
     }
 
-    if (["confirm", "processing"].includes(order.status)) {
+    const nextStatus = mapShipmentTrackingToOrderStatus({
+      status: order.shipment.status,
+      statusMessage: order.shipment.statusMessage,
+      events: order.shipment.events,
+      currentStatus: order.status,
+    });
+
+    if (nextStatus !== order.status) {
+      order.status = nextStatus;
+    } else if (["confirm", "processing"].includes(order.status)) {
       order.status = "shipping";
     }
 
@@ -1547,28 +1587,7 @@ export const syncOrderShipmentTracking = async (req, res) => {
     }
 
     const tracking = await trackEnviaShipment(trackingNumber);
-    order.shipment = mergeOrderShipment(order, {
-      provider: "envia",
-      status: tracking.status || order.shipment?.status || "",
-      statusMessage: tracking.statusMessage || "",
-      trackingNumber: tracking.trackingNumber || trackingNumber,
-      trackUrl: tracking.trackUrl || order.shipment?.trackUrl || "",
-      syncedAt: tracking.syncedAt,
-      events: tracking.events || [],
-    });
-
-    if (tracking.status) {
-      const normalized = tracking.status.toLowerCase();
-      if (normalized.includes("delivered")) {
-        order.status = "delivered";
-      } else if (normalized.includes("transit") || normalized.includes("shipped")) {
-        if (order.status === "confirm" || order.status === "processing") {
-          order.status = "shipping";
-        }
-      }
-    }
-
-    await order.save();
+    await applyTrackingToOrder(order, tracking, { notify: true });
     const populated = await populateOrderItems(
       Order.findById(order._id).populate("user", "name email phone")
     );
