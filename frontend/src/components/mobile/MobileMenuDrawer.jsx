@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { getProducts } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
+import { useBrandsQuery } from "../../hooks/queries/useBrandsQuery";
 
 const PAGE_LINKS = [
   { to: "/wishlist", label: "Wishlist" },
@@ -23,10 +23,9 @@ function categoryUrl(name, params = {}) {
   return qs ? `/product?${qs}` : "/product";
 }
 
-function MobileDrawerFilters({ categories, open }) {
+function MobileDrawerFilters({ categories }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState([]);
-  const [loadingBrands, setLoadingBrands] = useState(false);
+  const { data: brandDocs = [], isLoading: loadingBrands } = useBrandsQuery();
 
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const subcategory = searchParams.get("subcategory")?.trim() || "";
@@ -41,34 +40,7 @@ function MobileDrawerFilters({ categories, open }) {
   const pills = ["All", ...subcategories];
 
   const preservedFilters = { brand: selectedBrand, minPrice, maxPrice };
-
-  useEffect(() => {
-    if (!open) return;
-
-    let active = true;
-    setLoadingBrands(true);
-
-    (async () => {
-      try {
-        const params = {};
-        if (categoryName) params.categoryName = categoryName;
-        const { data } = await getProducts(params);
-        if (active) setProducts(data.data || []);
-      } catch {
-        if (active) setProducts([]);
-      } finally {
-        if (active) setLoadingBrands(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [open, categoryName]);
-
-  const brands = [...new Set(products.map((p) => p.brandName).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const brands = brandDocs.map((brand) => brand.brandName).filter(Boolean);
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -263,7 +235,7 @@ function MobileMenuDrawer({ open, onClose, categories }) {
 
         <nav className="hide-scrollbar flex-1 overflow-y-auto px-3 py-3">
           {isProductPage ? (
-            <MobileDrawerFilters categories={categories} open={open} />
+            <MobileDrawerFilters categories={categories} />
           ) : null}
 
           <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">

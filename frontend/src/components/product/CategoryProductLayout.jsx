@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
+import ProductFiltersBar from "./ProductFiltersBar";
 
 function buildCategoryUrl(categoryName, params = {}) {
   const search = new URLSearchParams();
@@ -23,10 +24,6 @@ function useCategoryFilters(products, categoryName) {
   const minPrice = searchParams.get("minPrice")?.trim() || "";
   const maxPrice = searchParams.get("maxPrice")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "default";
-
-  const availableBrands = [...new Set(products.map((p) => p.brandName).filter(Boolean))].sort(
-    (a, b) => a.localeCompare(b)
-  );
 
   const filteredProducts = products.filter((product) => {
     if (subcategory) {
@@ -88,7 +85,6 @@ function useCategoryFilters(products, categoryName) {
     minPrice,
     maxPrice,
     sortBy,
-    availableBrands,
     sortedProducts,
     updateParam,
     clearFilters,
@@ -103,10 +99,6 @@ function useAllProductsFilters(products) {
   const minPrice = searchParams.get("minPrice")?.trim() || "";
   const maxPrice = searchParams.get("maxPrice")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "default";
-
-  const availableBrands = [...new Set(products.map((p) => p.brandName).filter(Boolean))].sort(
-    (a, b) => a.localeCompare(b)
-  );
 
   const filteredProducts = products.filter((product) => {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
@@ -152,7 +144,6 @@ function useAllProductsFilters(products) {
     minPrice,
     maxPrice,
     sortBy,
-    availableBrands,
     sortedProducts,
     updateParam,
     clearFilters,
@@ -160,94 +151,18 @@ function useAllProductsFilters(products) {
   };
 }
 
-function CompactProductFilters({
-  brands,
-  selectedBrand,
-  onBrandChange,
-  minPrice,
-  maxPrice,
-  onMinPriceChange,
-  onMaxPriceChange,
-}) {
+function CategoryFilterToolbar(props) {
   return (
-    <div className="ml-1 flex shrink-0 items-center gap-1 sm:ml-2">
-      <select
-        value={selectedBrand}
-        onChange={(e) => onBrandChange(e.target.value)}
-        className="h-6 max-w-[96px] rounded border border-border-light bg-white px-1.5 text-[10px] lowercase text-text-primary sm:max-w-[110px] sm:text-[11px]"
-      >
-        <option value="">brand name</option>
-        {brands.map((brand) => (
-          <option key={brand} value={brand}>
-            {brand}
-          </option>
-        ))}
-      </select>
-      <input
-        type="number"
-        min={0}
-        placeholder="min"
-        value={minPrice}
-        onChange={(e) => onMinPriceChange(e.target.value)}
-        className="h-6 w-[52px] rounded border border-border-light bg-white px-1.5 text-[10px] lowercase placeholder:text-text-muted sm:w-[56px] sm:text-[11px]"
-      />
-      <input
-        type="number"
-        min={0}
-        placeholder="max"
-        value={maxPrice}
-        onChange={(e) => onMaxPriceChange(e.target.value)}
-        className="h-6 w-[52px] rounded border border-border-light bg-white px-1.5 text-[10px] lowercase placeholder:text-text-muted sm:w-[56px] sm:text-[11px]"
-      />
+    <div className="shrink-0 border-b border-border-light">
+      <ProductFiltersBar {...props} className="justify-start sm:justify-end" />
     </div>
   );
 }
 
-function CategoryFilterToolbar({
-  brands,
-  selectedBrand,
-  onBrandChange,
-  minPrice,
-  maxPrice,
-  onMinPriceChange,
-  onMaxPriceChange,
-}) {
+function AllProductsFilterToolbar(props) {
   return (
-    <div className="hidden shrink-0 flex-row items-center justify-end gap-2 bg-white px-3 py-2 sm:px-4 lg:flex">
-      <CompactProductFilters
-        brands={brands}
-        selectedBrand={selectedBrand}
-        onBrandChange={onBrandChange}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        onMinPriceChange={onMinPriceChange}
-        onMaxPriceChange={onMaxPriceChange}
-      />
-    </div>
-  );
-}
-
-function AllProductsFilterToolbar({
-  brands,
-  selectedBrand,
-  onBrandChange,
-  minPrice,
-  maxPrice,
-  onMinPriceChange,
-  onMaxPriceChange,
-}) {
-  return (
-    <div className="hidden shrink-0 flex-row items-center gap-2 bg-white px-3 py-2 sm:px-4 lg:flex">
-      <div className="min-w-0 flex-1" />
-      <CompactProductFilters
-        brands={brands}
-        selectedBrand={selectedBrand}
-        onBrandChange={onBrandChange}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        onMinPriceChange={onMinPriceChange}
-        onMaxPriceChange={onMaxPriceChange}
-      />
+    <div className="shrink-0 border-b border-border-light">
+      <ProductFiltersBar {...props} className="justify-start sm:justify-end" />
     </div>
   );
 }
@@ -439,7 +354,7 @@ function CategoryProductMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-0 pt-2 lg:px-3 lg:pt-3">
+      <div className="shrink-0 px-0 pt-1 lg:px-3 lg:pt-2">
         <CategoryHeaderSection
           category={activeCategoryDoc}
           categoryName={categoryName}
@@ -448,15 +363,16 @@ function CategoryProductMain({
         />
       </div>
       <CategoryFilterToolbar
-        brands={filters.availableBrands}
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}
         minPrice={filters.minPrice}
         maxPrice={filters.maxPrice}
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+        onClear={filters.clearFilters}
+        hasActiveFilters={filters.hasActiveFilters}
       />
-<div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-2 lg:px-3 lg:py-3">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -491,15 +407,16 @@ function AllProductsMain({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <AllProductsFilterToolbar
-        brands={filters.availableBrands}
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}
         minPrice={filters.minPrice}
         maxPrice={filters.maxPrice}
         onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
         onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+        onClear={filters.clearFilters}
+        hasActiveFilters={filters.hasActiveFilters}
       />
-<div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
+      <div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}

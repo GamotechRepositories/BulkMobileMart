@@ -17,8 +17,8 @@ function CategoryHeaderImage({ image, name }) {
 
   if (!image || failed) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-mobile-surface sm:h-16 sm:w-16">
-        <span className="text-lg font-bold uppercase text-text-muted">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-mobile-surface sm:h-11 sm:w-11">
+        <span className="text-sm font-bold uppercase text-text-muted">
           {name?.charAt(0) || "?"}
         </span>
       </div>
@@ -29,7 +29,7 @@ function CategoryHeaderImage({ image, name }) {
     <img
       src={image}
       alt={name}
-      className="h-14 w-14 shrink-0 rounded-lg object-contain sm:h-16 sm:w-16"
+      className="h-9 w-9 shrink-0 rounded-md object-contain sm:h-11 sm:w-11"
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -145,30 +145,35 @@ function CategoryHeaderSection({ category, categoryName, subcategories = [], act
       : `Browse our wholesale ${categoryName} collection.`;
 
   return (
-    <section className="rounded-lg border border-border-light bg-white p-3 shadow-sm">
-      <div className="flex items-center gap-3">
+    <section className="rounded-lg border border-border-light bg-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5">
+      <div className="flex items-center gap-2 sm:gap-2.5">
         <CategoryHeaderImage image={category?.categoryImage} name={categoryName} />
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-text-primary sm:text-lg">{categoryName}</h1>
-          <p className="mt-0.5 text-xs text-text-secondary">{subtitle}</p>
+          <h1 className="text-sm font-bold leading-tight text-text-primary sm:text-base">
+            {categoryName}
+          </h1>
+          <p className="mt-0.5 truncate text-[10px] leading-tight text-text-secondary sm:text-xs">
+            {subtitle}
+          </p>
         </div>
       </div>
 
       {subcategories.length > 0 ? (
-        <>
-          <hr className="my-2.5 border-border-light" />
-          <div className="sticky top-[7.25rem] z-20 -mx-3 bg-white px-3 py-1 lg:static lg:mx-0 lg:bg-transparent lg:px-0 lg:py-0">
-            <p className="mb-1.5 text-xs font-bold text-text-primary sm:text-sm">
-              Filter by Subcategory:
+        <div className="mt-1.5 sticky top-[7.25rem] z-20 -mx-2.5 bg-white px-2.5 pt-1.5 sm:-mx-3 sm:px-3 lg:static lg:mx-0 lg:bg-transparent lg:px-0">
+          <div className="mb-1 flex items-center gap-2">
+            <p className="shrink-0 text-[10px] font-semibold text-text-primary sm:text-xs">
+              Subcategory:
             </p>
-            <SubcategoryPillScroller
-              categoryName={categoryName}
-              subcategories={subcategories}
-              activeSubcategory={activeSubcategory}
-              preservedFilters={preservedFilters}
-            />
+            <div className="min-w-0 flex-1">
+              <SubcategoryPillScroller
+                categoryName={categoryName}
+                subcategories={subcategories}
+                activeSubcategory={activeSubcategory}
+                preservedFilters={preservedFilters}
+              />
+            </div>
           </div>
-        </>
+        </div>
       ) : null}
     </section>
   );
