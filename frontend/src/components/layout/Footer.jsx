@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { LOGO_URL } from "./Header";
 import { CONTACT_EMAIL, CONTACT_ADDRESS, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
+import ShareWebsiteButton from "./ShareWebsiteButton";
 
 const essentialLinks = [
   { to: "/", label: "Home" },
@@ -72,6 +73,7 @@ function Footer() {
             Your trusted partner for wholesale smartphones, tablets, and accessories.
             Serving retailers and distributors across India.
           </p>
+          <ShareWebsiteButton className="mt-4" />
         </div>
 
         <div>

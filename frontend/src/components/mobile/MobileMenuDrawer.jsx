@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { useAuth } from "../../context/AuthContext";
 import { useBrandsQuery } from "../../hooks/queries/useBrandsQuery";
 import { PRODUCT_SORT_OPTIONS } from "../product/ProductFiltersBar";
+import ShareWebsiteButton from "../layout/ShareWebsiteButton";
 
 const PAGE_LINKS = [
   { to: "/wishlist", label: "Wishlist" },
@@ -278,6 +279,10 @@ function MobileMenuDrawer({ open, onClose, categories }) {
             ))}
           </ul>
         </nav>
+
+        <div className="border-t border-border-light p-3">
+          <ShareWebsiteButton className="w-full justify-center" />
+        </div>
 
         {user ? (
           <div className="border-t border-border-light p-3">
