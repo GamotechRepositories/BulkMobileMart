@@ -10,7 +10,7 @@ import CategoryProductLayout, {
   MobileCategoryProductLayout,
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
-import ProductFiltersBar from "../components/product/ProductFiltersBar";
+import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/ProductFiltersBar";
 
 function FilterIcon() {
   return (
@@ -39,6 +39,7 @@ function MobileProductToolbar({
   onToggleFilter,
   showActions = true,
   filterActive = false,
+  sortActive = false,
 }) {
   const navigate = useNavigate();
 
@@ -81,7 +82,11 @@ function MobileProductToolbar({
           <button
             type="button"
             onClick={onToggleSort}
-            className="flex shrink-0 items-center justify-center gap-1 rounded-lg border border-border-light px-3 py-1.5 text-xs font-semibold text-text-primary"
+            className={`flex shrink-0 items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+              sortActive
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border-light text-text-primary"
+            }`}
           >
             <SortIcon />
             Sort
@@ -96,8 +101,7 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedBrand =
     searchParams.get(brandParamKey)?.trim() || searchParams.get("brand")?.trim() || "";
-  const minPrice = searchParams.get("minPrice")?.trim() || "";
-  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
+  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -119,13 +123,12 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   };
 
   const hasActiveFilters = Boolean(
-    (brandParamKey === "brand" && selectedBrand) || minPrice || maxPrice
+    (brandParamKey === "brand" && selectedBrand) || (sortBy && sortBy !== "price-asc")
   );
 
   return {
     selectedBrand,
-    minPrice,
-    maxPrice,
+    sortBy,
     updateParam,
     clearFilters,
     hasActiveFilters,
@@ -140,10 +143,6 @@ function FilteredProductsView({
   pageTitle,
   emptyMessage,
   backTo = "/",
-  sortBy,
-  showSort,
-  onToggleSort,
-  onSortChange,
   onGetCartQuantity,
   onIncrease,
   onDecrease,
@@ -155,6 +154,7 @@ function FilteredProductsView({
   showBrandFilter = true,
 }) {
   const [showFilter, setShowFilter] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const filters = useListingFilters({ brandParamKey });
 
   const filteredProducts = useMemo(() => {
@@ -166,30 +166,34 @@ function FilteredProductsView({
       ) {
         return false;
       }
-      const price = product.discountedPrice ?? product.price ?? 0;
-      if (filters.minPrice && price < Number(filters.minPrice)) return false;
-      if (filters.maxPrice && price > Number(filters.maxPrice)) return false;
       return true;
     });
-  }, [products, filters.selectedBrand, filters.minPrice, filters.maxPrice, brandParamKey]);
+  }, [products, filters.selectedBrand, brandParamKey]);
 
   const sortedProducts = useMemo(() => {
     const list = [...filteredProducts];
+    const sortBy = filters.sortBy;
     if (sortBy === "price-asc") {
       list.sort((a, b) => (a.discountedPrice ?? a.price) - (b.discountedPrice ?? b.price));
     } else if (sortBy === "price-desc") {
       list.sort((a, b) => (b.discountedPrice ?? b.price) - (a.discountedPrice ?? a.price));
-    } else if (sortBy === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "newest") {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (sortBy === "oldest") {
+      list.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     }
     return list;
-  }, [filteredProducts, sortBy]);
+  }, [filteredProducts, filters.sortBy]);
 
   const filterActive = Boolean(
-    filters.minPrice ||
-      filters.maxPrice ||
-      (showBrandFilter && brandParamKey === "brand" && filters.selectedBrand)
+    showBrandFilter && brandParamKey === "brand" && filters.selectedBrand
   );
+  const sortActive = Boolean(filters.sortBy && filters.sortBy !== "price-asc");
+
+  const handleSortChange = (id) => {
+    filters.updateParam("sort", id);
+    setShowSort(false);
+  };
 
   return (
     <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-108px)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
@@ -197,43 +201,38 @@ function FilteredProductsView({
         <MobileProductToolbar
           title={pageTitle}
           backTo={backTo}
-          onToggleSort={onToggleSort}
-          onToggleFilter={() => setShowFilter((prev) => !prev)}
+          onToggleSort={() => {
+            setShowSort((prev) => !prev);
+            setShowFilter(false);
+          }}
+          onToggleFilter={() => {
+            setShowFilter((prev) => !prev);
+            setShowSort(false);
+          }}
           filterActive={filterActive || showFilter}
+          sortActive={sortActive || showSort}
         />
         {showFilter && (
           <div className="border-b border-border-light">
             <ProductFiltersBar
               showBrand={showBrandFilter}
+              showSort={false}
               selectedBrand={filters.selectedBrand}
               onBrandChange={(value) => filters.updateParam(brandParamKey, value)}
-              minPrice={filters.minPrice}
-              maxPrice={filters.maxPrice}
-              onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
-              onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
               onClear={() => filters.clearFilters(preserveKeys)}
-              hasActiveFilters={Boolean(
-                filters.minPrice ||
-                  filters.maxPrice ||
-                  (showBrandFilter && brandParamKey === "brand" && filters.selectedBrand)
-              )}
+              hasActiveFilters={filterActive}
             />
           </div>
         )}
         {showSort && (
           <div className="border-b border-border-light bg-white px-4 py-1.5">
-            {[
-              { id: "default", label: "Default" },
-              { id: "price-asc", label: "Price: Low to High" },
-              { id: "price-desc", label: "Price: High to Low" },
-              { id: "name", label: "Name A-Z" },
-            ].map((option) => (
+            {PRODUCT_SORT_OPTIONS.map((option) => (
               <button
                 key={option.id}
                 type="button"
-                onClick={() => onSortChange(option.id)}
+                onClick={() => handleSortChange(option.id)}
                 className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm ${
-                  sortBy === option.id
+                  filters.sortBy === option.id
                     ? "bg-primary/10 font-semibold text-primary"
                     : "text-text-primary"
                 }`}
@@ -271,16 +270,10 @@ function FilteredProductsView({
                 showBrand={showBrandFilter}
                 selectedBrand={filters.selectedBrand}
                 onBrandChange={(value) => filters.updateParam(brandParamKey, value)}
-                minPrice={filters.minPrice}
-                maxPrice={filters.maxPrice}
-                onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
-                onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+                sortBy={filters.sortBy}
+                onSortChange={(value) => filters.updateParam("sort", value)}
                 onClear={() => filters.clearFilters(preserveKeys)}
-                hasActiveFilters={Boolean(
-                  filters.minPrice ||
-                    filters.maxPrice ||
-                    (showBrandFilter && brandParamKey === "brand" && filters.selectedBrand)
-                )}
+                hasActiveFilters={filters.hasActiveFilters}
                 className="px-0"
               />
             </div>
@@ -327,9 +320,6 @@ function Product() {
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
 
-  const [sortBy, setSortBy] = useState("default");
-  const [showSort, setShowSort] = useState(false);
-
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
 
@@ -363,13 +353,6 @@ function Product() {
         pageTitle={brandName}
         emptyMessage={`No products found for brand "${brandName}".`}
         backTo="/"
-        sortBy={sortBy}
-        showSort={showSort}
-        onToggleSort={() => setShowSort((prev) => !prev)}
-        onSortChange={(id) => {
-          setSortBy(id);
-          setShowSort(false);
-        }}
         onGetCartQuantity={getCartQuantity}
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}
@@ -388,13 +371,6 @@ function Product() {
         categories={categories}
         loading={loading}
         searchQuery={searchQuery}
-        sortBy={sortBy}
-        showSort={showSort}
-        onToggleSort={() => setShowSort((prev) => !prev)}
-        onSortChange={(id) => {
-          setSortBy(id);
-          setShowSort(false);
-        }}
         onGetCartQuantity={getCartQuantity}
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}

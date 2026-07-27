@@ -10,8 +10,6 @@ function buildCategoryUrl(categoryName, params = {}) {
   search.set("categoryName", categoryName);
   if (params.subcategory) search.set("subcategory", params.subcategory);
   if (params.brand) search.set("brand", params.brand);
-  if (params.minPrice) search.set("minPrice", params.minPrice);
-  if (params.maxPrice) search.set("maxPrice", params.maxPrice);
   if (params.sort) search.set("sort", params.sort);
   return `/product?${search.toString()}`;
 }
@@ -21,9 +19,7 @@ function useCategoryFilters(products, categoryName) {
 
   const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const minPrice = searchParams.get("minPrice")?.trim() || "";
-  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "default";
+  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
 
   const filteredProducts = products.filter((product) => {
     if (subcategory) {
@@ -41,9 +37,6 @@ function useCategoryFilters(products, categoryName) {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;
     }
-    const price = product.discountedPrice ?? product.price ?? 0;
-    if (minPrice && price < Number(minPrice)) return false;
-    if (maxPrice && price > Number(maxPrice)) return false;
     return true;
   });
 
@@ -54,11 +47,11 @@ function useCategoryFilters(products, categoryName) {
     if (sortBy === "price-desc") {
       return (b.discountedPrice ?? b.price) - (a.discountedPrice ?? a.price);
     }
-    if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
+    if (sortBy === "newest") {
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
-    if (sortBy === "brand") {
-      return (a.brandName || "").localeCompare(b.brandName || "");
+    if (sortBy === "oldest") {
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
     }
     return 0;
   });
@@ -77,13 +70,11 @@ function useCategoryFilters(products, categoryName) {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || minPrice || maxPrice || sortBy !== "default");
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
 
   return {
     subcategory,
     selectedBrand,
-    minPrice,
-    maxPrice,
     sortBy,
     sortedProducts,
     updateParam,
@@ -96,17 +87,12 @@ function useAllProductsFilters(products) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const minPrice = searchParams.get("minPrice")?.trim() || "";
-  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "default";
+  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
 
   const filteredProducts = products.filter((product) => {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;
     }
-    const price = product.discountedPrice ?? product.price ?? 0;
-    if (minPrice && price < Number(minPrice)) return false;
-    if (maxPrice && price > Number(maxPrice)) return false;
     return true;
   });
 
@@ -117,11 +103,11 @@ function useAllProductsFilters(products) {
     if (sortBy === "price-desc") {
       return (b.discountedPrice ?? b.price) - (a.discountedPrice ?? a.price);
     }
-    if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
+    if (sortBy === "newest") {
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
-    if (sortBy === "brand") {
-      return (a.brandName || "").localeCompare(b.brandName || "");
+    if (sortBy === "oldest") {
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
     }
     return 0;
   });
@@ -137,12 +123,10 @@ function useAllProductsFilters(products) {
     setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || minPrice || maxPrice || sortBy !== "default");
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
 
   return {
     selectedBrand,
-    minPrice,
-    maxPrice,
     sortBy,
     sortedProducts,
     updateParam,
@@ -365,10 +349,8 @@ function CategoryProductMain({
       <CategoryFilterToolbar
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}
-        minPrice={filters.minPrice}
-        maxPrice={filters.maxPrice}
-        onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
-        onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+        sortBy={filters.sortBy}
+        onSortChange={(value) => filters.updateParam("sort", value)}
         onClear={filters.clearFilters}
         hasActiveFilters={filters.hasActiveFilters}
       />
@@ -409,10 +391,8 @@ function AllProductsMain({
       <AllProductsFilterToolbar
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}
-        minPrice={filters.minPrice}
-        maxPrice={filters.maxPrice}
-        onMinPriceChange={(value) => filters.updateParam("minPrice", value)}
-        onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+        sortBy={filters.sortBy}
+        onSortChange={(value) => filters.updateParam("sort", value)}
         onClear={filters.clearFilters}
         hasActiveFilters={filters.hasActiveFilters}
       />

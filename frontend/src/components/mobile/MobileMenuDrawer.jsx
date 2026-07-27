@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useBrandsQuery } from "../../hooks/queries/useBrandsQuery";
+import { PRODUCT_SORT_OPTIONS } from "../product/ProductFiltersBar";
 
 const PAGE_LINKS = [
   { to: "/wishlist", label: "Wishlist" },
@@ -17,8 +18,7 @@ function categoryUrl(name, params = {}) {
   if (name) search.set("categoryName", name);
   if (params.subcategory) search.set("subcategory", params.subcategory);
   if (params.brand) search.set("brand", params.brand);
-  if (params.minPrice) search.set("minPrice", params.minPrice);
-  if (params.maxPrice) search.set("maxPrice", params.maxPrice);
+  if (params.sort) search.set("sort", params.sort);
   const qs = search.toString();
   return qs ? `/product?${qs}` : "/product";
 }
@@ -30,8 +30,7 @@ function MobileDrawerFilters({ categories }) {
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const minPrice = searchParams.get("minPrice")?.trim() || "";
-  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
+  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
 
   const activeCategory = categories.find(
     (cat) => cat.categoryName.toLowerCase() === categoryName.toLowerCase()
@@ -39,7 +38,7 @@ function MobileDrawerFilters({ categories }) {
   const subcategories = activeCategory?.subcategories || [];
   const pills = ["All", ...subcategories];
 
-  const preservedFilters = { brand: selectedBrand, minPrice, maxPrice };
+  const preservedFilters = { brand: selectedBrand, sort: sortBy };
   const brands = brandDocs.map((brand) => brand.brandName).filter(Boolean);
 
   const updateParam = (key, value) => {
@@ -56,7 +55,7 @@ function MobileDrawerFilters({ categories }) {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || minPrice || maxPrice);
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
 
   return (
     <div className="mb-4 border-b border-border-light pb-4">
@@ -111,29 +110,19 @@ function MobileDrawerFilters({ categories }) {
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1 block text-[10px] lowercase text-text-secondary">min</label>
-            <input
-              type="number"
-              min={0}
-              placeholder="min"
-              value={minPrice}
-              onChange={(e) => updateParam("minPrice", e.target.value)}
-              className="w-full rounded-lg border border-border-light bg-white px-3 py-2 text-sm lowercase placeholder:text-text-muted"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] lowercase text-text-secondary">max</label>
-            <input
-              type="number"
-              min={0}
-              placeholder="max"
-              value={maxPrice}
-              onChange={(e) => updateParam("maxPrice", e.target.value)}
-              className="w-full rounded-lg border border-border-light bg-white px-3 py-2 text-sm lowercase placeholder:text-text-muted"
-            />
-          </div>
+        <div>
+          <label className="mb-1 block text-[10px] lowercase text-text-secondary">sort</label>
+          <select
+            value={sortBy}
+            onChange={(e) => updateParam("sort", e.target.value)}
+            className="w-full rounded-lg border border-border-light bg-white px-3 py-2 text-sm text-text-primary"
+          >
+            {PRODUCT_SORT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {hasActiveFilters ? (

@@ -6,8 +6,6 @@ function buildCategoryUrl(categoryName, params = {}) {
   search.set("categoryName", categoryName);
   if (params.subcategory) search.set("subcategory", params.subcategory);
   if (params.brand) search.set("brand", params.brand);
-  if (params.minPrice) search.set("minPrice", params.minPrice);
-  if (params.maxPrice) search.set("maxPrice", params.maxPrice);
   if (params.sort) search.set("sort", params.sort);
   return `/product?${search.toString()}`;
 }
@@ -135,8 +133,7 @@ function CategoryHeaderSection({ category, categoryName, subcategories = [], act
   const [searchParams] = useSearchParams();
   const preservedFilters = {
     brand: searchParams.get("brand")?.trim() || "",
-    minPrice: searchParams.get("minPrice")?.trim() || "",
-    maxPrice: searchParams.get("maxPrice")?.trim() || "",
+    sort: searchParams.get("sort")?.trim() || "",
   };
 
   const subtitle =

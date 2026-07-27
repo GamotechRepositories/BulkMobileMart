@@ -1,13 +1,19 @@
 import { useBrandsQuery } from "../../hooks/queries/useBrandsQuery";
 
+export const PRODUCT_SORT_OPTIONS = [
+  { id: "price-asc", label: "Price: Low to High" },
+  { id: "price-desc", label: "Price: High to Low" },
+  { id: "newest", label: "Newest" },
+  { id: "oldest", label: "Oldest" },
+];
+
 export function ProductFiltersBar({
   selectedBrand = "",
   onBrandChange,
-  minPrice = "",
-  maxPrice = "",
-  onMinPriceChange,
-  onMaxPriceChange,
+  sortBy = "",
+  onSortChange,
   showBrand = true,
+  showSort = true,
   onClear,
   hasActiveFilters = false,
   className = "",
@@ -23,7 +29,7 @@ export function ProductFiltersBar({
           onChange={(e) => onBrandChange?.(e.target.value)}
           disabled={brandsLoading}
           aria-label="Brand name"
-          className="h-8 min-w-0 flex-1 rounded-md border border-border-light bg-white px-1.5 text-[11px] text-text-primary sm:h-8 sm:max-w-[160px] sm:flex-none sm:px-2 sm:text-xs"
+          className="h-8 min-w-0 flex-1 rounded-md border border-border-light bg-white px-1.5 text-[11px] text-text-primary sm:h-8 sm:max-w-[140px] sm:flex-none sm:px-2 sm:text-xs"
         >
           <option value="">all brands</option>
           {brandNames.map((brand) => (
@@ -34,25 +40,20 @@ export function ProductFiltersBar({
         </select>
       ) : null}
 
-      <input
-        type="number"
-        min={0}
-        placeholder="min"
-        value={minPrice}
-        onChange={(e) => onMinPriceChange?.(e.target.value)}
-        aria-label="Min price"
-        className="h-8 w-[64px] shrink-0 rounded-md border border-border-light bg-white px-1.5 text-[11px] placeholder:text-text-muted sm:w-[80px] sm:text-xs"
-      />
-
-      <input
-        type="number"
-        min={0}
-        placeholder="max"
-        value={maxPrice}
-        onChange={(e) => onMaxPriceChange?.(e.target.value)}
-        aria-label="Max price"
-        className="h-8 w-[64px] shrink-0 rounded-md border border-border-light bg-white px-1.5 text-[11px] placeholder:text-text-muted sm:w-[80px] sm:text-xs"
-      />
+      {showSort ? (
+        <select
+          value={sortBy || "price-asc"}
+          onChange={(e) => onSortChange?.(e.target.value)}
+          aria-label="Sort products"
+          className="h-8 min-w-0 flex-1 rounded-md border border-border-light bg-white px-1.5 text-[11px] text-text-primary sm:h-8 sm:max-w-[160px] sm:flex-none sm:px-2 sm:text-xs"
+        >
+          {PRODUCT_SORT_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
 
       {hasActiveFilters && onClear ? (
         <button
