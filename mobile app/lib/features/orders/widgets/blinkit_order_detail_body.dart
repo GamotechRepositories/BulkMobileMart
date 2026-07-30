@@ -681,25 +681,6 @@ class _GiftHamperSection extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x1A2E7D32),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'Approved',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF2E7D32),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

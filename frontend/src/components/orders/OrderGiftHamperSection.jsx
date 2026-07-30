@@ -58,9 +58,6 @@ function OrderGiftHamperSection({ giftHamper, className = "" }) {
               or more
             </p>
           ) : null}
-          <span className="mt-3 inline-flex items-center rounded-full bg-[#2E7D32]/10 px-2.5 py-1 text-[11px] font-bold text-[#2E7D32]">
-            Approved
-          </span>
         </div>
       </div>
     </section>
