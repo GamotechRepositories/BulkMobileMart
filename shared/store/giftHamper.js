@@ -58,7 +58,7 @@ export function getCustomerVisibleGiftHamper(giftHamper) {
   }
 
   const status = giftHamper.status || "pending";
-  if (status === "rejected") {
+  if (status !== "approved") {
     return null;
   }
 

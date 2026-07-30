@@ -15,29 +15,13 @@ function GiftHamperImage({ src, alt, className = "h-20 w-20" }) {
 }
 
 function OrderGiftHamperSection({ giftHamper, className = "" }) {
-  if (!giftHamper?.gift?.name) {
+  if (!giftHamper?.gift?.name || giftHamper.status !== "approved") {
     return null;
   }
-
-  const isApproved = giftHamper.status === "approved";
-  const isPending = giftHamper.status === "pending";
-
-  if (!isApproved && !isPending) {
-    return null;
-  }
-
-  const title = isApproved ? "Gift Hamper" : "Gift Hamper Pending";
-  const subtitle = isApproved
-    ? "This complimentary gift is included with your order."
-    : "Your gift hamper is being confirmed. We will update this order once it is approved.";
 
   return (
     <section
-      className={`overflow-hidden rounded-xl border shadow-sm ${
-        isApproved
-          ? "border-[#F5D0A8] bg-gradient-to-br from-[#FFF8F0] to-white"
-          : "border-amber-200 bg-amber-50/60"
-      } ${className}`}
+      className={`overflow-hidden rounded-xl border border-[#F5D0A8] bg-gradient-to-br from-[#FFF8F0] to-white shadow-sm ${className}`}
     >
       <div className="border-b border-black/5 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-2">
@@ -45,8 +29,10 @@ function OrderGiftHamperSection({ giftHamper, className = "" }) {
             🎁
           </span>
           <div>
-            <h3 className="text-sm font-extrabold text-text-primary sm:text-base">{title}</h3>
-            <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">{subtitle}</p>
+            <h3 className="text-sm font-extrabold text-text-primary sm:text-base">Gift Hamper</h3>
+            <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
+              This complimentary gift is included with your order.
+            </p>
           </div>
         </div>
       </div>
@@ -72,15 +58,9 @@ function OrderGiftHamperSection({ giftHamper, className = "" }) {
               or more
             </p>
           ) : null}
-          {isApproved ? (
-            <span className="mt-3 inline-flex items-center rounded-full bg-[#2E7D32]/10 px-2.5 py-1 text-[11px] font-bold text-[#2E7D32]">
-              Approved
-            </span>
-          ) : (
-            <span className="mt-3 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800">
-              Pending approval
-            </span>
-          )}
+          <span className="mt-3 inline-flex items-center rounded-full bg-[#2E7D32]/10 px-2.5 py-1 text-[11px] font-bold text-[#2E7D32]">
+            Approved
+          </span>
         </div>
       </div>
     </section>

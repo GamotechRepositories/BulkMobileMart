@@ -159,8 +159,8 @@ class OrderGiftHamper {
   bool get isApproved => status == 'approved';
   bool get isPending => status == 'pending';
 
-  /// Mirrors web `OrderGiftHamperSection` visibility rules.
-  bool get isVisible => giftName.trim().isNotEmpty && (isApproved || isPending);
+  /// Customer sees gift hamper only after admin approval.
+  bool get isVisible => giftName.trim().isNotEmpty && isApproved;
 
   factory OrderGiftHamper.fromJson(Map<String, dynamic> json) {
     final gift = json['gift'];

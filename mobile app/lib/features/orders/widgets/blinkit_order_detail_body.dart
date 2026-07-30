@@ -578,20 +578,12 @@ class _GiftHamperSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final approved = giftHamper.isApproved;
-    final title = approved ? 'Gift Hamper' : 'Gift Hamper Pending';
-    final subtitle = approved
-        ? 'This complimentary gift is included with your order.'
-        : 'Your gift hamper is being confirmed. We will update this order once it is approved.';
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: approved ? const Color(0xFFFFF8F0) : const Color(0xFFFFFBEB),
+        color: const Color(0xFFFFF8F0),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: approved ? const Color(0xFFF5D0A8) : const Color(0xFFFDE68A),
-        ),
+        border: Border.all(color: const Color(0xFFF5D0A8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -605,19 +597,19 @@ class _GiftHamperSection extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children: const [
                       Text(
-                        title,
-                        style: const TextStyle(
+                        'Gift Hamper',
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
-                        subtitle,
-                        style: const TextStyle(
+                        'This complimentary gift is included with your order.',
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
@@ -696,19 +688,15 @@ class _GiftHamperSection extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: approved
-                              ? const Color(0x1A2E7D32)
-                              : const Color(0xFFFEF3C7),
+                          color: const Color(0x1A2E7D32),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          approved ? 'Approved' : 'Pending approval',
+                        child: const Text(
+                          'Approved',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: approved
-                                ? const Color(0xFF2E7D32)
-                                : const Color(0xFF92400E),
+                            color: Color(0xFF2E7D32),
                           ),
                         ),
                       ),
