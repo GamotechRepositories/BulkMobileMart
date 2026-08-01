@@ -61,7 +61,7 @@ function TopNav() {
             type="button"
             onClick={downloadAndroidApp}
             className="group flex h-10 items-center overflow-hidden rounded-lg px-2.5 text-text-primary transition hover:text-primary"
-            aria-label="Download App"
+            aria-label="Get app on Google Play"
           >
             <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path
@@ -72,7 +72,7 @@ function TopNav() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m0 0l-2-2m2 2l2-2" />
             </svg>
             <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-[120px] group-hover:opacity-100">
-              Download App
+              Get on Play
             </span>
           </button>
 

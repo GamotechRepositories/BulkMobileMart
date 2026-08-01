@@ -101,7 +101,7 @@ function AppDownloadPrompt() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-text-primary">Get the BulkMobileMart app</p>
             <p className="mt-0.5 text-xs text-text-secondary">
-              Faster ordering and order tracking on Android.
+              Faster ordering and order tracking on Google Play.
             </p>
           </div>
 
@@ -110,7 +110,7 @@ function AppDownloadPrompt() {
             onClick={handleDownload}
             className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:brightness-110"
           >
-            Download
+            Play Store
           </button>
 
           <button
@@ -155,7 +155,7 @@ function AppDownloadPrompt() {
             onClick={handleDownload}
             className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white"
           >
-            Download
+            Play Store
           </button>
         </div>
       </div>

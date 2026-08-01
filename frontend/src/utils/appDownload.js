@@ -1,9 +1,12 @@
 const PROMPT_DISMISSED_KEY = "bmm_app_download_prompt_dismissed";
 
+export const PLAY_STORE_APP_URL =
+  "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app";
+
 export function getAndroidAppDownloadUrl() {
   const configured = String(import.meta.env.VITE_ANDROID_APP_DOWNLOAD_URL || "").trim();
   if (configured) return configured;
-  return "/app/bulkmobilemart.apk";
+  return PLAY_STORE_APP_URL;
 }
 
 export function shouldOfferAppDownload() {
@@ -25,6 +28,13 @@ export function dismissAppDownloadPrompt() {
 
 export function downloadAndroidApp() {
   const url = getAndroidAppDownloadUrl();
+  const isExternal = /^https?:\/\//i.test(url);
+
+  if (isExternal) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
   const link = document.createElement("a");
   link.href = url;
   link.download = "BulkMobileMart.apk";
