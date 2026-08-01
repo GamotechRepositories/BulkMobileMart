@@ -71,9 +71,9 @@
 		<key>NSCameraUsageDescription</key>
 		<string>Used to capture payment proof and support attachments.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Used to upload payment proof and support attachments.</string>
+		<string>Used only if needed to save product images. Selecting photos for upload uses the system photo picker and does not require full library access.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>Used to save product images to your photo gallery.</string>
+		<string>Used to save product images to your photo library.</string>
 		<key>FlutterDeepLinkingEnabled</key>
 		<false/>
 		<key>CFBundleURLTypes</key>

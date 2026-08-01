@@ -459,13 +459,17 @@ class ApiService {
     );
   }
 
-  Future<void> sendOtp(String phone) async {
-    final response = await sendOtpLogin({'phone': phone.trim()});
+  Future<void> sendOtp(String phone, {String purpose = 'login'}) async {
+    final response = await sendOtpLogin({
+      'phone': phone.trim(),
+      'purpose': purpose,
+    });
     if (response.data is Map<String, dynamic>) {
       final success = response.data['success'];
       if (success == false) {
         throw ApiException(
           ApiResponseParser.getMessage(response.data) ?? 'Failed to send OTP',
+          statusCode: response.statusCode,
         );
       }
     }

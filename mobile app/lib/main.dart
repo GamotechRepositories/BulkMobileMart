@@ -6,9 +6,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app.dart';
 import 'config/env.dart';
+import 'core/bootstrap/photo_picker_bootstrap.dart';
 import 'core/providers/app_providers.dart';
 import 'core/storage/auth_storage.dart';
 import 'services/notification_service.dart';
+import 'widgets/app_back_binding.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -18,10 +20,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Register before runApp so we receive Android back before the app exits.
+  AppBackBinding.instance.install();
 
   // Keep decoded images bounded on low-RAM devices (3–6 GB class hardware).
   PaintingBinding.instance.imageCache.maximumSize = 60;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 32 << 20;
+
+  // Gallery picks use the system Photo Picker — no READ_MEDIA_* permissions.
+  configureAndroidPhotoPicker();
 
   await Env.load();
 

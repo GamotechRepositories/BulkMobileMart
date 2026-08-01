@@ -9,6 +9,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/address_utils.dart';
+import '../../core/utils/website_share.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../models/address.dart';
@@ -233,6 +234,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               ListTile(
+                leading: const Icon(Icons.share_outlined, color: AppColors.primary),
+                title: const Text('Share Website'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(context);
+                  try {
+                    await shareWebsite();
+                  } catch (_) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Could not share website. Try again.')),
+                    );
+                  }
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.support_agent_outlined, color: AppColors.primary),
                 title: const Text('Help & Support'),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -346,7 +363,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _QuickLinksBar(
             onAddresses: _scrollToAddresses,
             onOrders: () => context.go(RoutePaths.orders),
-            onWishlist: () => context.go(RoutePaths.wishlist),
+            onWishlist: () => context.push(RoutePaths.wishlist),
             onSettings: _openAccountSettings,
           ),
           if (_recentItemsLoading || _recentItems.isNotEmpty) ...[

@@ -24,4 +24,8 @@ class AppConstants {
 
   /// @deprecated Use [Env.storeUrl] for share links.
   static const String webShareBaseUrl = 'https://www.bulkmobilemart.in';
+
+  /// OG / website share image (matches frontend `SITE_SHARE_IMAGE_URL`).
+  static const String websiteShareImageUrl =
+      'https://cdn.bulkmobilemart.in/brands/1785153280283-3b480e9c1de0abfb.jpg';
 }

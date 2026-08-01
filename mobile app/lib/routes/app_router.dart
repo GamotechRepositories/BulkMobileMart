@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,33 +19,16 @@ import '../features/static/info_page_screen.dart';
 import '../features/static/static_content.dart';
 import '../features/static/static_screens.dart';
 import '../features/support/support_screen.dart';
+import '../widgets/app_back_binding.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/layout/tab_swipe_shell.dart';
 import 'route_paths.dart';
+import 'shell_navigator_keys.dart';
 
-/// Root navigator for full-screen routes and global overlays (auth sheet, etc.).
-final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
-final _shellNavigatorHomeKey = GlobalKey<NavigatorState>(debugLabel: 'home');
-final _shellNavigatorProductKey = GlobalKey<NavigatorState>(debugLabel: 'product');
-final _shellNavigatorOrdersKey = GlobalKey<NavigatorState>(debugLabel: 'orders');
-final _shellNavigatorCartKey = GlobalKey<NavigatorState>(debugLabel: 'cart');
-final _shellNavigatorProfileKey = GlobalKey<NavigatorState>(debugLabel: 'profile');
-
-final shellBranchNavigatorKeys = <GlobalKey<NavigatorState>>[
-  _shellNavigatorHomeKey,
-  _shellNavigatorProductKey,
-  _shellNavigatorOrdersKey,
-  _shellNavigatorCartKey,
-  _shellNavigatorProfileKey,
-];
-
-final shellBranchNavigatorObservers = List.generate(
-  5,
-  (_) => ShellBranchNavigatorObserver(),
-);
+export 'shell_navigator_keys.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.home,
     routes: [
@@ -64,7 +46,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             observers: [shellBranchNavigatorObservers[0]],
-            navigatorKey: _shellNavigatorHomeKey,
+            navigatorKey: shellBranchNavigatorKeys[0],
             routes: [
               GoRoute(
                 path: RoutePaths.home,
@@ -74,7 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             observers: [shellBranchNavigatorObservers[1]],
-            navigatorKey: _shellNavigatorProductKey,
+            navigatorKey: shellBranchNavigatorKeys[1],
             routes: [
               GoRoute(
                 path: RoutePaths.categories,
@@ -99,7 +81,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             observers: [shellBranchNavigatorObservers[2]],
-            navigatorKey: _shellNavigatorOrdersKey,
+            navigatorKey: shellBranchNavigatorKeys[2],
             routes: [
               GoRoute(
                 path: RoutePaths.orders,
@@ -109,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             observers: [shellBranchNavigatorObservers[3]],
-            navigatorKey: _shellNavigatorCartKey,
+            navigatorKey: shellBranchNavigatorKeys[3],
             routes: [
               GoRoute(
                 path: RoutePaths.cart,
@@ -119,7 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             observers: [shellBranchNavigatorObservers[4]],
-            navigatorKey: _shellNavigatorProfileKey,
+            navigatorKey: shellBranchNavigatorKeys[4],
             routes: [
               GoRoute(
                 path: RoutePaths.profile,
@@ -222,4 +204,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  AppBackBinding.instance.bindRouter(router);
+  ref.onDispose(() => AppBackBinding.instance.unbindRouter(router));
+  return router;
 });

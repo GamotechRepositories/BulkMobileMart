@@ -965,6 +965,8 @@ String getBlinkitShipmentStatusLabel(
       return 'Preparing';
     case 'cancelled':
       return 'Cancelled';
+    case 'return':
+      return 'Return';
     default:
       return 'Confirmed';
   }

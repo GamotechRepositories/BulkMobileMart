@@ -14,8 +14,6 @@ import 'auth_state.dart';
 
 enum _AuthStep { details, verify }
 
-enum _AuthLoginMethod { otp, password }
-
 class AuthSheet extends ConsumerStatefulWidget {
   const AuthSheet({super.key, required this.mode});
 
@@ -31,19 +29,13 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
   final _shopNameController = TextEditingController();
   final _shopAddressController = TextEditingController();
   final _gstController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   _AuthStep _step = _AuthStep.details;
-  _AuthLoginMethod _loginMethod = _AuthLoginMethod.otp;
-  bool _passwordResetMode = false;
   String _otp = '';
   int _resendCooldown = 0;
   Timer? _cooldownTimer;
   bool _submitting = false;
   String? _error;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
 
   bool get _isSignup => widget.mode == AuthModalMode.signup;
 
@@ -54,8 +46,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     _nameController.addListener(_clearError);
     _shopNameController.addListener(_clearError);
     _shopAddressController.addListener(_clearError);
-    _passwordController.addListener(_clearError);
-    _confirmPasswordController.addListener(_clearError);
   }
 
   @override
@@ -74,8 +64,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     _shopNameController.dispose();
     _shopAddressController.dispose();
     _gstController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -87,31 +75,13 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     _cooldownTimer?.cancel();
     setState(() {
       _step = _AuthStep.details;
-      _loginMethod = _AuthLoginMethod.otp;
-      _passwordResetMode = false;
       _otp = '';
       _resendCooldown = 0;
       _error = null;
-      _obscurePassword = true;
-      _obscureConfirmPassword = true;
       _shopNameController.clear();
       _shopAddressController.clear();
       _gstController.clear();
-      _passwordController.clear();
-      _confirmPasswordController.clear();
     });
-  }
-
-  String? _validatePasswordFields({required bool requireConfirm}) {
-    final password = _passwordController.text;
-    if (!Validators.isValidPassword(password)) {
-      return 'Password must be at least 6 characters';
-    }
-    if (requireConfirm &&
-        password != _confirmPasswordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
   }
 
   void _startCooldown() {
@@ -148,14 +118,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     if (_isSignup && gst.isNotEmpty && !Validators.isValidGst(gst)) {
       return 'Please enter a valid GST number';
     }
-    if (_isSignup) {
-      return _validatePasswordFields(requireConfirm: true);
-    }
-    if (!_isSignup &&
-        _loginMethod == _AuthLoginMethod.password &&
-        !_passwordResetMode) {
-      return _validatePasswordFields(requireConfirm: false);
-    }
     return null;
   }
 
@@ -167,94 +129,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     };
   }
 
-  Future<void> _loginWithPassword() async {
-    final validationError = _validateDetailsStep();
-    if (validationError != null) {
-      setState(() => _error = validationError);
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-
-    try {
-      final user = await ref.read(authControllerProvider.notifier).loginWithPassword(
-            phone: _phoneController.text.trim(),
-            password: _passwordController.text,
-          );
-      if (!mounted) return;
-      _handleAuthSuccess(user, isSignup: false);
-    } catch (error) {
-      if (!mounted) return;
-      final message = authErrorMessage(error);
-      setState(() {
-        _submitting = false;
-        _error = message;
-      });
-    }
-  }
-
-  bool get _isNoPasswordSetError =>
-      (_error ?? '').toLowerCase().contains('no password set');
-
-  Future<void> _startPasswordReset() async {
-    if (!Validators.isValidPhone(_phoneController.text)) {
-      setState(() => _error = 'Enter a valid 10-digit mobile number first');
-      return;
-    }
-
-    setState(() {
-      _passwordResetMode = true;
-      _loginMethod = _AuthLoginMethod.password;
-      _passwordController.clear();
-      _confirmPasswordController.clear();
-      _error = null;
-    });
-    await _sendOtp();
-  }
-
-  Future<void> _submitPasswordReset() async {
-    if (!RegExp(r'^\d{6}$').hasMatch(_otp.trim())) {
-      setState(() => _error = 'Please enter the 6-digit OTP sent to your phone');
-      return;
-    }
-
-    final passwordError = _validatePasswordFields(requireConfirm: true);
-    if (passwordError != null) {
-      setState(() => _error = passwordError);
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-
-    try {
-      final user =
-          await ref.read(authControllerProvider.notifier).resetPasswordWithOtp(
-                phone: _phoneController.text.trim(),
-                otp: _otp.trim(),
-                newPassword: _passwordController.text,
-              );
-      if (!mounted) return;
-      _handleAuthSuccess(user, isSignup: false);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _submitting = false;
-        _error = authErrorMessage(error);
-      });
-    }
-  }
-
   Future<void> _submitDetailsStep() async {
-    if (!_isSignup && _loginMethod == _AuthLoginMethod.password) {
-      await _loginWithPassword();
-      return;
-    }
     await _sendOtp();
   }
 
@@ -273,7 +148,10 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     try {
       await ref
           .read(authControllerProvider.notifier)
-          .sendOtp(_phoneController.text.trim());
+          .sendOtp(
+            _phoneController.text.trim(),
+            purpose: _isSignup ? 'signup' : 'login',
+          );
       if (!mounted) return;
       setState(() {
         _step = _AuthStep.verify;
@@ -309,11 +187,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
   }
 
   Future<void> _verifyOtp() async {
-    if (_passwordResetMode) {
-      await _submitPasswordReset();
-      return;
-    }
-
     if (!RegExp(r'^\d{6}$').hasMatch(_otp.trim())) {
       setState(() => _error = 'Please enter the 6-digit OTP sent to your phone');
       return;
@@ -343,7 +216,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
             name: _nameController.text.trim(),
             shopName: profile['shopName']!,
             shopAddress: profile['shopAddress']!,
-            password: _passwordController.text,
             gstNumber: profile['gstNumber'],
           );
           if (!mounted) return;
@@ -442,28 +314,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
-                _buildPasswordField(
-                  controller: _passwordController,
-                  label: 'Password',
-                  hint: 'Create a password (min 6 characters)',
-                  obscure: _obscurePassword,
-                  onToggleObscure: () => setState(
-                    () => _obscurePassword = !_obscurePassword,
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                _buildPasswordField(
-                  controller: _confirmPasswordController,
-                  label: 'Confirm Password',
-                  hint: 'Re-enter your password',
-                  obscure: _obscureConfirmPassword,
-                  onToggleObscure: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
                 TextField(
                   controller: _shopNameController,
                   decoration: const InputDecoration(
@@ -504,8 +354,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   onSubmitted: (_) => _submitDetailsStep(),
                 ),
               ] else ...[
-                _buildLoginMethodToggle(),
-                const SizedBox(height: 14),
                 TextField(
                   controller: _phoneController,
                   decoration: const InputDecoration(
@@ -517,55 +365,18 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: _loginMethod == _AuthLoginMethod.password
-                      ? TextInputAction.next
-                      : TextInputAction.done,
-                  onSubmitted: (_) {
-                    if (_loginMethod == _AuthLoginMethod.password) return;
-                    _submitDetailsStep();
-                  },
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submitDetailsStep(),
                 ),
-                if (_loginMethod == _AuthLoginMethod.password) ...[
-                  const SizedBox(height: 12),
-                  _buildPasswordField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    hint: 'Enter your password',
-                    obscure: _obscurePassword,
-                    onToggleObscure: () => setState(
-                      () => _obscurePassword = !_obscurePassword,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submitDetailsStep(),
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _submitting ? null : _startPasswordReset,
-                      child: const Text('Set / Forgot password?'),
-                    ),
-                  ),
-                ],
               ],
             ] else ...[
               Text(
-                _passwordResetMode ? 'Set your password' : 'Enter OTP',
+                'Enter OTP',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              if (_passwordResetMode) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Verify OTP and create a password for this account',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                ),
-              ],
               const SizedBox(height: 12),
               OtpInput(
                 value: _otp,
@@ -575,31 +386,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                 }),
                 enabled: !_submitting,
               ),
-              if (_passwordResetMode) ...[
-                const SizedBox(height: 12),
-                _buildPasswordField(
-                  controller: _passwordController,
-                  label: 'New Password',
-                  hint: 'Create a password (min 6 characters)',
-                  obscure: _obscurePassword,
-                  onToggleObscure: () => setState(
-                    () => _obscurePassword = !_obscurePassword,
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                _buildPasswordField(
-                  controller: _confirmPasswordController,
-                  label: 'Confirm Password',
-                  hint: 'Re-enter your password',
-                  obscure: _obscureConfirmPassword,
-                  onToggleObscure: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _verifyOtp(),
-                ),
-              ],
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -611,11 +397,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                               _step = _AuthStep.details;
                               _otp = '';
                               _error = null;
-                              if (_passwordResetMode) {
-                                _passwordResetMode = false;
-                                _passwordController.clear();
-                                _confirmPasswordController.clear();
-                              }
                             }),
                     child: const Text('Change number'),
                   ),
@@ -640,30 +421,9 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.red.shade200),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      _error!,
-                      style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                    ),
-                    if (_isNoPasswordSetError &&
-                        !_passwordResetMode &&
-                        _step == _AuthStep.details &&
-                        !_isSignup &&
-                        _loginMethod == _AuthLoginMethod.password) ...[
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _submitting ? null : _startPasswordReset,
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text('Set password with OTP'),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 13),
                 ),
               ),
             ],
@@ -681,12 +441,10 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                 _submitting
                     ? 'Please wait...'
                     : _step == _AuthStep.details
-                        ? _detailsStepButtonLabel
-                        : _passwordResetMode
-                            ? 'Set Password & Sign In'
-                            : (_isSignup
-                                ? 'Verify & Sign Up'
-                                : 'Verify & Sign In'),
+                        ? 'Send OTP'
+                        : (_isSignup
+                            ? 'Verify & Sign Up'
+                            : 'Verify & Sign In'),
               ),
             ),
             const SizedBox(height: 16),
@@ -725,16 +483,14 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _passwordResetMode ? 'Set Password' : 'Verify OTP',
+            'Verify OTP',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            _passwordResetMode
-                ? 'Enter OTP sent to +91 $phone and choose a new password'
-                : 'Enter the 6-digit code sent to +91 $phone',
+            'Enter the 6-digit code sent to +91 $phone',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -755,7 +511,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Set a password, verify your phone with OTP, and add shop details',
+            'Fill your details and verify your phone with OTP',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -775,137 +531,12 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
         ),
         const SizedBox(height: 4),
         Text(
-          _loginMethod == _AuthLoginMethod.password
-              ? 'Sign in with your mobile number and password'
-              : 'Sign in with OTP sent to your mobile number',
+          'Sign in with OTP sent to your mobile number',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,
               ),
         ),
       ],
-    );
-  }
-
-  String get _detailsStepButtonLabel {
-    if (_isSignup) return 'Send OTP';
-    if (_loginMethod == _AuthLoginMethod.password) return 'Sign In';
-    return 'Send OTP';
-  }
-
-  Widget _buildLoginMethodToggle() {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.mobileSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _LoginMethodChip(
-              label: 'OTP',
-              icon: Icons.sms_outlined,
-              selected: _loginMethod == _AuthLoginMethod.otp,
-              onTap: _submitting
-                  ? null
-                  : () => setState(() {
-                        _loginMethod = _AuthLoginMethod.otp;
-                        _passwordController.clear();
-                        _error = null;
-                      }),
-            ),
-          ),
-          Expanded(
-            child: _LoginMethodChip(
-              label: 'Password',
-              icon: Icons.lock_outline,
-              selected: _loginMethod == _AuthLoginMethod.password,
-              onTap: _submitting
-                  ? null
-                  : () => setState(() {
-                        _loginMethod = _AuthLoginMethod.password;
-                        _error = null;
-                      }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required bool obscure,
-    required VoidCallback onToggleObscure,
-    TextInputAction textInputAction = TextInputAction.done,
-    ValueChanged<String>? onSubmitted,
-  }) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: const Icon(Icons.lock_outline),
-        suffixIcon: IconButton(
-          onPressed: onToggleObscure,
-          icon: Icon(
-            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-          ),
-        ),
-      ),
-      obscureText: obscure,
-      textInputAction: textInputAction,
-      onSubmitted: onSubmitted,
-    );
-  }
-}
-
-class _LoginMethodChip extends StatelessWidget {
-  const _LoginMethodChip({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primary : Colors.transparent,
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? Colors.white : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

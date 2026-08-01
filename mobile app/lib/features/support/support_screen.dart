@@ -74,10 +74,17 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
     XFile? picked;
     try {
+      // Gallery uses Android Photo Picker / iOS PHPicker (no broad media permission).
+      // Camera still requires the platform CAMERA / NSCamera permission.
       picked = await _picker.pickImage(source: source, imageQuality: 92);
     } on PlatformException {
       if (!mounted) return;
-      setState(() => _error = 'Unable to open camera/gallery. Please allow permission.');
+      final needsCamera = source == ImageSource.camera;
+      setState(() {
+        _error = needsCamera
+            ? 'Unable to open camera. Please allow camera permission.'
+            : 'Unable to open photo picker. Please try again.';
+      });
       return;
     } catch (_) {
       if (!mounted) return;

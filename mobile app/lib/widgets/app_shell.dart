@@ -9,6 +9,7 @@ import '../../core/bootstrap/app_bootstrap.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
 import 'layout/mobile_header.dart';
@@ -101,42 +102,49 @@ class _AppShellState extends ConsumerState<AppShell> {
       }),
     );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-      child: Scaffold(
-        extendBody: true,
-        backgroundColor: const Color(0xFFF4F5F7),
-        body: OfflineBannerHost(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  MobileHeader(
-                    key: ValueKey(widget.navigationShell.currentIndex),
-                    isHomeTab: widget.navigationShell.currentIndex == 0,
-                  ),
-                  Expanded(child: widget.navigationShell),
-                ],
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: FlipkartBottomNav(
-                  currentIndex: widget.navigationShell.currentIndex,
-                  items: _tabs,
-                  cartBadgeCount: cartCount,
-                  accountInitial: accountInitial,
-                  onTap: _onTap,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        AppBackBinding.instance.handleBack();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: Scaffold(
+          extendBody: true,
+          backgroundColor: const Color(0xFFF4F5F7),
+          body: OfflineBannerHost(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    MobileHeader(
+                      key: ValueKey(widget.navigationShell.currentIndex),
+                      isHomeTab: widget.navigationShell.currentIndex == 0,
+                    ),
+                    Expanded(child: widget.navigationShell),
+                  ],
                 ),
-              ),
-              const _ShellSideEffects(),
-              const WishlistToast(),
-            ],
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: FlipkartBottomNav(
+                    currentIndex: widget.navigationShell.currentIndex,
+                    items: _tabs,
+                    cartBadgeCount: cartCount,
+                    accountInitial: accountInitial,
+                    onTap: _onTap,
+                  ),
+                ),
+                const _ShellSideEffects(),
+                const WishlistToast(),
+              ],
+            ),
           ),
         ),
       ),

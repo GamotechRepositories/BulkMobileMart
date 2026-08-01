@@ -80,8 +80,11 @@ Release builds enable R8 minification with ProGuard rules for Razorpay (`android
 
 ## Permissions (Android)
 
-- `INTERNET` — API calls
-- `CAMERA` / `READ_MEDIA_IMAGES` — UPI payment proof upload via `image_picker`
+- `INTERNET` / `ACCESS_NETWORK_STATE` — API calls
+- `POST_NOTIFICATIONS` — order / promo push (Android 13+)
+- `CAMERA` — optional camera capture for UPI payment proof / support attachments
+- `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion=29`) — save product image on legacy Android only
+- Gallery picks use the **Android Photo Picker** via `image_picker` — **no** `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO`
 - Cleartext HTTP enabled for local/LAN backend testing
 
 ## Payments

@@ -197,12 +197,41 @@ async function loginWithPhoneCredentials(_req, res, phone, password) {
 export const sendOtpLogin = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
+    const purpose = String(req.body.purpose || req.body.mode || "login")
+      .trim()
+      .toLowerCase();
 
     if (!phone) {
       return res.status(400).json({
         success: false,
         message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
       });
+    }
+
+    const user = await User.findOne({ phone });
+
+    if (purpose === "signup") {
+      if (user && user.role !== "admin") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "An account with this phone number already exists. Please sign in instead.",
+        });
+      }
+    } else {
+      // Login (and any other purpose): only send OTP for existing customers.
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "No account found with this number. Please sign up first.",
+        });
+      }
+      if (user.role === "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Please use the admin panel to sign in.",
+        });
+      }
     }
 
     const result = await dispatchLoginOtp(phone);
@@ -340,26 +369,8 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
-    const password = String(req.body.password || "").trim();
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
-      });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters",
-      });
-    }
-
     const existingPhoneUser = await User.findOne({ phone });
     if (existingPhoneUser) {
-      if (password) {
-        existingPhoneUser.password = password;
-        await existingPhoneUser.save();
-      }
       const token = signToken(existingPhoneUser._id);
       return res.status(200).json({
         success: true,
@@ -373,7 +384,6 @@ export const completeOtpSignup = async (req, res) => {
     const user = await User.create({
       name: name.trim(),
       phone,
-      password,
       role: "user",
       ...optionalSignupFields,
     });

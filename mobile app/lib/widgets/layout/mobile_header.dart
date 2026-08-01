@@ -147,7 +147,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                             onClear: NavIconLocator.clearWishlist,
                             child: _HeaderIconButton(
                               icon: Icons.favorite_border_rounded,
-                              onPressed: () => context.go(RoutePaths.wishlist),
+                              onPressed: () => context.push(RoutePaths.wishlist),
                               light: true,
                               badgeCount: wishlistCount,
                             ),
@@ -287,6 +287,22 @@ class _MobileMenuDrawer extends ConsumerWidget {
     );
     final width = MediaQuery.sizeOf(context).width * 0.82;
 
+    // Full-screen routes on the root navigator — push so system back can pop.
+    const rootOverlayPaths = <String>{
+      RoutePaths.wishlist,
+      RoutePaths.support,
+      RoutePaths.about,
+      RoutePaths.contact,
+      RoutePaths.blog,
+      RoutePaths.privacyPolicy,
+      RoutePaths.terms,
+      RoutePaths.shippingDetails,
+      RoutePaths.justArrived,
+      RoutePaths.hotSelling,
+      RoutePaths.checkout,
+      RoutePaths.coupons,
+    };
+
     void navigate(String path, {bool requiresAuth = false}) {
       if (requiresAuth && !isLoggedIn) {
         onClose();
@@ -294,7 +310,11 @@ class _MobileMenuDrawer extends ConsumerWidget {
         return;
       }
       onClose();
-      context.go(path);
+      if (rootOverlayPaths.contains(path)) {
+        context.push(path);
+      } else {
+        context.go(path);
+      }
     }
 
     return Material(

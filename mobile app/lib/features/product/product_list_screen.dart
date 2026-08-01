@@ -22,6 +22,7 @@ import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/deal_product_card.dart';
 import '../../widgets/product/mobile_product_card.dart';
 import '../../widgets/product/product_filter_sheet.dart';
+import '../../widgets/product/product_filters_bar.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({
@@ -48,7 +49,6 @@ class ProductListScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
-  bool _showSort = false;
   late ProductSortOption _sort;
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
@@ -57,7 +57,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   void initState() {
     super.initState();
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
-    _sort = ProductSortOption.fromId(widget.sortId) ?? ProductSortOption.defaultOrder;
+    _sort =
+        ProductSortOption.fromId(widget.sortId) ?? ProductSortOption.listingDefault;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
@@ -75,7 +76,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   void didUpdateWidget(ProductListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sortId != widget.sortId) {
-      _sort = ProductSortOption.fromId(widget.sortId) ?? ProductSortOption.defaultOrder;
+      _sort = ProductSortOption.fromId(widget.sortId) ??
+          ProductSortOption.listingDefault;
     }
   }
 
@@ -84,11 +86,6 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         search: widget.searchQuery,
         brandName: widget.brand,
       );
-
-  bool get _isBrandOnly =>
-      (widget.brand?.isNotEmpty ?? false) &&
-      (widget.categoryName == null || widget.categoryName!.isEmpty) &&
-      (widget.searchQuery == null || widget.searchQuery!.isEmpty);
 
   String get _title {
     if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
@@ -104,10 +101,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   }
 
   void _updateSort(ProductSortOption option) {
-    setState(() {
-      _sort = option;
-      _showSort = false;
-    });
+    setState(() => _sort = option);
     final path = ProductSearch.buildPath(
       query: widget.searchQuery ?? '',
       categoryName: widget.categoryName ?? '',
@@ -116,6 +110,25 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       minPrice: widget.minPrice ?? '',
       maxPrice: widget.maxPrice ?? '',
       sort: option.id,
+    );
+    context.go(path);
+  }
+
+  void _updateBrand(String brand) {
+    _applyFilters(
+      brand: brand.trim().isEmpty ? null : brand.trim(),
+      minPrice: widget.minPrice,
+      maxPrice: widget.maxPrice,
+    );
+  }
+
+  void _clearListingFilters() {
+    setState(() => _sort = ProductSortOption.listingDefault);
+    final path = ProductSearch.buildPath(
+      query: widget.searchQuery ?? '',
+      categoryName: widget.categoryName ?? '',
+      subcategory: widget.subcategory ?? '',
+      sort: ProductSortOption.listingDefault.id,
     );
     context.go(path);
   }
@@ -174,11 +187,37 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
   bool get _hasActiveFilters =>
       (widget.brand?.isNotEmpty ?? false) ||
       (widget.minPrice?.isNotEmpty ?? false) ||
-      (widget.maxPrice?.isNotEmpty ?? false);
+      (widget.maxPrice?.isNotEmpty ?? false) ||
+      (_sort != ProductSortOption.listingDefault &&
+          _sort.id != ProductSortOption.listingDefault.id);
 
   Future<void> _refreshProducts() async {
     ref.invalidate(productListProvider(_query));
     await ref.read(productListProvider(_query).future);
+  }
+
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(RoutePaths.home);
+  }
+
+  bool get _showBack {
+    if (widget.searchQuery != null && widget.searchQuery!.isNotEmpty) {
+      return true;
+    }
+    if (widget.categoryName != null && widget.categoryName!.isNotEmpty) {
+      return true;
+    }
+    if (widget.brand != null && widget.brand!.isNotEmpty) {
+      return true;
+    }
+    if (widget.subcategory != null && widget.subcategory!.isNotEmpty) {
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -190,12 +229,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
       children: [
         _ProductToolbar(
           title: _title,
-          onBack: widget.searchQuery != null && widget.searchQuery!.isNotEmpty
-              ? () => context.go(RoutePaths.product)
-              : _isBrandOnly
-                  ? () => context.go(RoutePaths.home)
-                  : null,
-          onSort: () => setState(() => _showSort = !_showSort),
+          onBack: _showBack ? _goBack : null,
           onFilter: productsAsync.hasValue
               ? () => _openFilters(productsAsync.requireValue)
               : null,
@@ -206,8 +240,27 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
             activeCategory: widget.categoryName!,
             subcategory: widget.subcategory,
           ),
-        if (_showSort)
-          _SortPanel(selected: _sort, onSelect: _updateSort),
+        productsAsync.when(
+          loading: () => ProductFiltersBar(
+            brands: const [],
+            selectedBrand: widget.brand ?? '',
+            sortBy: _sort,
+            onBrandChange: _updateBrand,
+            onSortChange: _updateSort,
+            hasActiveFilters: _hasActiveFilters,
+            onClear: _clearListingFilters,
+          ),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (products) => ProductFiltersBar(
+            brands: extractBrands(products),
+            selectedBrand: widget.brand ?? '',
+            sortBy: _sort,
+            onBrandChange: _updateBrand,
+            onSortChange: _updateSort,
+            hasActiveFilters: _hasActiveFilters,
+            onClear: _clearListingFilters,
+          ),
+        ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshProducts,
@@ -472,14 +525,12 @@ class _ProductToolbar extends StatelessWidget {
   const _ProductToolbar({
     required this.title,
     this.onBack,
-    required this.onSort,
     this.onFilter,
     this.filtersActive = false,
   });
 
   final String title;
   final VoidCallback? onBack;
-  final VoidCallback onSort;
   final VoidCallback? onFilter;
   final bool filtersActive;
 
@@ -504,13 +555,8 @@ class _ProductToolbar extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (onFilter != null) ...[
-                  OutlinedButton.icon(
+          if (onFilter != null)
+            OutlinedButton.icon(
               onPressed: onFilter,
               icon: Icon(
                 Icons.filter_list,
@@ -534,26 +580,6 @@ class _ProductToolbar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-          ],
-          OutlinedButton.icon(
-            onPressed: onSort,
-            icon: const Icon(Icons.sort, size: 16),
-            label: const Text('Sort'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              foregroundColor: AppColors.textPrimary,
-              textStyle: const TextStyle(
-                inherit: false,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-              side: const BorderSide(color: AppColors.borderLight),
-            ),
-          ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -655,31 +681,6 @@ class _CategoryPills extends StatelessWidget {
           color: active ? AppColors.primary : AppColors.borderLight,
         ),
         onPressed: onTap,
-      ),
-    );
-  }
-}
-
-class _SortPanel extends StatelessWidget {
-  const _SortPanel({required this.selected, required this.onSelect});
-
-  final ProductSortOption selected;
-  final ValueChanged<ProductSortOption> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: ProductSortOption.values.map((option) {
-          return ListTile(
-            dense: true,
-            title: Text(option.label),
-            trailing:
-                selected == option ? const Icon(Icons.check, color: AppColors.primary) : null,
-            onTap: () => onSelect(option),
-          );
-        }).toList(),
       ),
     );
   }

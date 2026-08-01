@@ -132,8 +132,7 @@ function CreateOrderSection() {
       setError("");
       setSuccess("");
       if (!payload.password) {
-        setError("Password is required for new users");
-        return;
+        delete payload.password;
       }
       const { data } = await createUser(payload);
       setSelectedUser(data.data);

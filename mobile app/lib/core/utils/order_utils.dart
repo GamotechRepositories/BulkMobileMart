@@ -10,6 +10,7 @@ const orderStatusLabels = <String, String>{
   'shipping': 'Shipping',
   'delivered': 'Delivered',
   'cancelled': 'Cancelled',
+  'return': 'Return',
   'pending': 'Confirm',
   'confirmed': 'Confirm',
   'shipped': 'Shipping',
@@ -23,7 +24,14 @@ const paymentStatusLabels = <String, String>{
   'pending_verification': 'Payment verification pending',
 };
 
-const orderSteps = ['Confirm', 'Processing', 'Shipping', 'Delivered', 'Cancelled'];
+const orderSteps = [
+  'Confirm',
+  'Processing',
+  'Shipping',
+  'Delivered',
+  'Cancelled',
+  'Return',
+];
 
 const orderStatusStepIndex = <String, int>{
   'attempted': -1,
@@ -32,6 +40,7 @@ const orderStatusStepIndex = <String, int>{
   'shipping': 2,
   'delivered': 3,
   'cancelled': 4,
+  'return': 5,
   'pending': 0,
   'confirmed': 0,
   'shipped': 2,
@@ -68,6 +77,8 @@ Color getOrderStatusColor(String status) {
       return Colors.green;
     case 'cancelled':
       return Colors.red;
+    case 'return':
+      return Colors.amber.shade700;
     default:
       return Colors.blue;
   }
@@ -111,6 +122,8 @@ String getBlinkitStatusLabel(String status) {
       return 'Order being prepared';
     case 'cancelled':
       return 'Order cancelled';
+    case 'return':
+      return 'Order returned';
     default:
       return 'Order confirmed';
   }

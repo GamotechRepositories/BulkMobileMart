@@ -159,10 +159,17 @@ class _PaymentModalState extends State<PaymentModal> {
 
     XFile? picked;
     try {
+      // Gallery uses Android Photo Picker / iOS PHPicker (no broad media permission).
+      // Camera still requires the platform CAMERA / NSCamera permission.
       picked = await _picker.pickImage(source: source, imageQuality: 92);
     } on PlatformException {
       if (!mounted) return;
-      setState(() => _uploadError = 'Allow camera/gallery permission to upload.');
+      final needsCamera = source == ImageSource.camera;
+      setState(() {
+        _uploadError = needsCamera
+            ? 'Allow camera permission to take a payment screenshot.'
+            : 'Could not open photo picker. Try again.';
+      });
       return;
     } catch (_) {
       if (!mounted) return;

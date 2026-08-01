@@ -28,6 +28,7 @@ class Product {
     this.minOrderQuantity,
     this.stepByQuantity,
     this.purchaseCount = 0,
+    this.createdAt,
   });
 
   final String id;
@@ -55,6 +56,7 @@ class Product {
   final int? minOrderQuantity;
   final int? stepByQuantity;
   final int purchaseCount;
+  final DateTime? createdAt;
 
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
@@ -108,6 +110,9 @@ class Product {
         legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
       ),
       purchaseCount: _toInt(json['purchaseCount']),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
     );
   }
 }

@@ -358,7 +358,7 @@ class CategoryGridTile extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
@@ -372,6 +372,24 @@ class CategoryGridTile extends StatelessWidget {
                   ),
                 ),
               ),
+              if (!isMore && category != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+                  child: Text(
+                    '${category!.productCount} products',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textMuted,
+                      height: 1.1,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 6),
               if (showSubcategoryHint &&
                   category != null &&
                   category!.subcategories.isNotEmpty)

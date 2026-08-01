@@ -186,9 +186,11 @@ String productSku(Product product) {
 }
 
 enum ProductSortOption {
-  defaultOrder('default', 'Default'),
   priceAsc('price-asc', 'Price: Low to High'),
   priceDesc('price-desc', 'Price: High to Low'),
+  newest('newest', 'Newest'),
+  oldest('oldest', 'Oldest'),
+  defaultOrder('default', 'Default'),
   name('name', 'Name A-Z'),
   brand('brand', 'Brand');
 
@@ -197,13 +199,24 @@ enum ProductSortOption {
   final String id;
   final String label;
 
+  /// Website product listing defaults to price-asc when no sort is set.
+  static const ProductSortOption listingDefault = priceAsc;
+
   static ProductSortOption? fromId(String? id) {
-    if (id == null || id.isEmpty) return defaultOrder;
+    if (id == null || id.isEmpty) return listingDefault;
     for (final option in ProductSortOption.values) {
       if (option.id == id) return option;
     }
-    return defaultOrder;
+    return listingDefault;
   }
+
+  /// Compact filter-bar options that match the website ProductFiltersBar.
+  static const List<ProductSortOption> listingOptions = [
+    priceAsc,
+    priceDesc,
+    newest,
+    oldest,
+  ];
 }
 
 List<Product> filterAndSortProducts({
@@ -212,7 +225,7 @@ List<Product> filterAndSortProducts({
   String? brand,
   String? minPrice,
   String? maxPrice,
-  ProductSortOption sort = ProductSortOption.defaultOrder,
+  ProductSortOption sort = ProductSortOption.listingDefault,
 }) {
   var list = products.where((product) {
     if (subcategory != null &&
@@ -239,6 +252,10 @@ List<Product> filterAndSortProducts({
       list.sort((a, b) => a.discountedPrice.compareTo(b.discountedPrice));
     case ProductSortOption.priceDesc:
       list.sort((a, b) => b.discountedPrice.compareTo(a.discountedPrice));
+    case ProductSortOption.newest:
+      list.sort((a, b) => _compareCreatedAt(b, a));
+    case ProductSortOption.oldest:
+      list.sort((a, b) => _compareCreatedAt(a, b));
     case ProductSortOption.name:
       list.sort((a, b) => a.name.compareTo(b.name));
     case ProductSortOption.brand:
@@ -247,6 +264,17 @@ List<Product> filterAndSortProducts({
       break;
   }
   return list;
+}
+
+int _compareCreatedAt(Product a, Product b) {
+  final aDate = a.createdAt;
+  final bDate = b.createdAt;
+  if (aDate == null && bDate == null) return a.id.compareTo(b.id);
+  if (aDate == null) return 1;
+  if (bDate == null) return -1;
+  final byDate = aDate.compareTo(bDate);
+  if (byDate != 0) return byDate;
+  return a.id.compareTo(b.id);
 }
 
 List<String> extractBrands(List<Product> products) {

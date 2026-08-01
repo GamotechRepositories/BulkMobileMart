@@ -21,7 +21,13 @@ class ProductSearch {
     if (brand.trim().isNotEmpty) params['brandName'] = brand.trim();
     if (minPrice.trim().isNotEmpty) params['minPrice'] = minPrice.trim();
     if (maxPrice.trim().isNotEmpty) params['maxPrice'] = maxPrice.trim();
-    if (sort.trim().isNotEmpty && sort != 'default') params['sort'] = sort.trim();
+    // Match website default: price-asc is implied when sort is absent.
+    final sortValue = sort.trim();
+    if (sortValue.isNotEmpty &&
+        sortValue != 'default' &&
+        sortValue != 'price-asc') {
+      params['sort'] = sortValue;
+    }
 
     if (params.isEmpty) return '/product';
 

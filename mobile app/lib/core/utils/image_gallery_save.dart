@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:gal/gal.dart';
 
 import 'network_image_bytes.dart';
@@ -9,6 +12,11 @@ class GallerySaveResult {
   final String? message;
 }
 
+/// Saves a product image using MediaStore / Photos add APIs.
+///
+/// Android 10+ (API 29+): no READ_MEDIA / storage read permission is requested.
+/// Older Android may need WRITE_EXTERNAL_STORAGE (maxSdkVersion 29 in the manifest).
+/// iOS uses NSPhotoLibraryAddUsageDescription only (add access), not full library read.
 Future<GallerySaveResult> saveProductImageToGallery({
   required String imageUrl,
   required String productId,
@@ -22,17 +30,26 @@ Future<GallerySaveResult> saveProductImageToGallery({
   }
 
   try {
-    if (!await Gal.hasAccess()) {
+    // Skip runtime permission prompts on modern Android — `gal` already treats
+    // API > 29 as granted. Only request when the platform actually needs it
+    // (legacy Android write, or iOS add-to-library).
+    final needsAccessPrompt = !kIsWeb &&
+        (Platform.isIOS ||
+            Platform.isMacOS ||
+            (Platform.isAndroid &&
+                !await Gal.hasAccess()));
+
+    if (needsAccessPrompt) {
       final granted = await Gal.requestAccess();
       if (!granted) {
         return const GallerySaveResult(
           success: false,
-          message: 'Allow photo permission to save image.',
+          message: 'Allow photo library access to save this image.',
         );
       }
     }
 
-    var bytes = await downloadNetworkImageBytes(url);
+    final bytes = await downloadNetworkImageBytes(url);
     if (bytes == null || bytes.isEmpty) {
       return const GallerySaveResult(
         success: false,

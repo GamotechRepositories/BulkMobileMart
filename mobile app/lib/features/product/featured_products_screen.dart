@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/home/home_providers.dart';
@@ -11,41 +12,6 @@ import '../../models/product.dart';
 import '../../widgets/common/api_error_view.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/deal_product_card.dart';
-
-enum ProductSortOption {
-  defaultOrder('default', 'Default'),
-  priceAsc('price-asc', 'Price: Low to High'),
-  priceDesc('price-desc', 'Price: High to Low'),
-  name('name', 'Name A-Z');
-
-  const ProductSortOption(this.id, this.label);
-
-  final String id;
-  final String label;
-
-  static ProductSortOption? fromId(String? id) {
-    if (id == null || id.isEmpty) return null;
-    for (final option in ProductSortOption.values) {
-      if (option.id == id) return option;
-    }
-    return null;
-  }
-}
-
-List<Product> sortProducts(List<Product> products, ProductSortOption sort) {
-  final list = [...products];
-  switch (sort) {
-    case ProductSortOption.priceAsc:
-      list.sort((a, b) => a.discountedPrice.compareTo(b.discountedPrice));
-    case ProductSortOption.priceDesc:
-      list.sort((a, b) => b.discountedPrice.compareTo(a.discountedPrice));
-    case ProductSortOption.name:
-      list.sort((a, b) => a.name.compareTo(b.name));
-    case ProductSortOption.defaultOrder:
-      break;
-  }
-  return list;
-}
 
 class FeaturedProductsScreen extends ConsumerStatefulWidget {
   const FeaturedProductsScreen({
@@ -66,7 +32,7 @@ class FeaturedProductsScreen extends ConsumerStatefulWidget {
 
 class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen> {
   bool _showSort = false;
-  ProductSortOption _sort = ProductSortOption.defaultOrder;
+  ProductSortOption _sort = ProductSortOption.listingDefault;
 
   Future<void> _handleAdd(Product product, BuildContext context) async {
     final defaults = resolveCartDefaults(product);
@@ -173,7 +139,7 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
             ColoredBox(
               color: Colors.white,
               child: Column(
-                children: ProductSortOption.values.map((option) {
+                children: ProductSortOption.listingOptions.map((option) {
                   final selected = _sort == option;
                   return ListTile(
                     dense: true,
@@ -205,7 +171,10 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
                   onRetry: () => ref.invalidate(featuredProductsProvider(widget.filter)),
                 ),
                 data: (products) {
-                  final sorted = sortProducts(products, _sort);
+                  final sorted = filterAndSortProducts(
+                    products: products,
+                    sort: _sort,
+                  );
                   if (sorted.isEmpty) {
                     return ListView(
                       physics: const AlwaysScrollableScrollPhysics(),

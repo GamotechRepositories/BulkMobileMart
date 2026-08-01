@@ -5,6 +5,7 @@ import 'config/theme.dart';
 import 'features/auth/auth_host.dart';
 import 'features/notifications/notification_bootstrap.dart';
 import 'routes/app_router.dart';
+import 'widgets/app_back_binding.dart';
 import 'widgets/cart/cart_feedback_overlay.dart';
 import 'widgets/common/opening_splash_overlay.dart';
 import 'widgets/deep_link_listener.dart';
@@ -23,6 +24,12 @@ class BulkMobileMartApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           routerConfig: router,
+          // Predictive back: always claim Flutter handles back so Android
+          // does not finish the Activity on shell tab roots.
+          onNavigationNotification: (notification) {
+            AppBackBinding.instance.claimFrameworkHandlesBack();
+            return true;
+          },
           builder: (context, child) {
             return OpeningSplashHost(
               child: AuthHost(

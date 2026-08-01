@@ -64,25 +64,11 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(authModal: mode);
   }
 
-  Future<void> sendOtp(String phone) async {
-    await ref.read(apiServiceProvider).sendOtp(phone.trim());
-  }
-
-  Future<User> loginWithPassword({
-    required String phone,
-    required String password,
-  }) async {
-    final session = await ref.read(apiServiceProvider).loginWithPhone(
-          phone: phone.trim(),
-          password: password,
+  Future<void> sendOtp(String phone, {String purpose = 'login'}) async {
+    await ref.read(apiServiceProvider).sendOtp(
+          phone.trim(),
+          purpose: purpose,
         );
-
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
-
-    await _persistSession(session);
-    return session.user;
   }
 
   Future<OtpVerifyResult> verifyOtp({
@@ -141,7 +127,6 @@ class AuthController extends Notifier<AuthState> {
     required String name,
     required String shopName,
     required String shopAddress,
-    required String password,
     String? gstNumber,
   }) async {
     final payload = <String, dynamic>{
@@ -149,7 +134,6 @@ class AuthController extends Notifier<AuthState> {
       'name': name.trim(),
       'shopName': shopName.trim(),
       'shopAddress': shopAddress.trim(),
-      'password': password,
     };
     final trimmedGst = gstNumber?.trim().toUpperCase();
     if (trimmedGst != null && trimmedGst.isNotEmpty) {
@@ -158,25 +142,6 @@ class AuthController extends Notifier<AuthState> {
 
     final session =
         await ref.read(apiServiceProvider).completeOtpSignupProfile(payload);
-
-    if (session.user.isAdmin) {
-      throw ApiException('Please use the admin panel to sign in.');
-    }
-
-    await _persistSession(session);
-    return session.user;
-  }
-
-  Future<User> resetPasswordWithOtp({
-    required String phone,
-    required String otp,
-    required String newPassword,
-  }) async {
-    final session = await ref.read(apiServiceProvider).resetPasswordWithOtp(
-          phone: phone.trim(),
-          otp: otp.trim(),
-          newPassword: newPassword,
-        );
 
     if (session.user.isAdmin) {
       throw ApiException('Please use the admin panel to sign in.');

@@ -1,8 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api, {
   completeOtpSignup,
-  loginWithPhone,
-  resetPasswordWithPhoneOtp,
   sendOtpLogin,
   updateMe,
   verifyOtpLogin,
@@ -88,8 +86,8 @@ export function AuthProvider({ children }) {
     initAuth();
   }, []);
 
-  const sendOtp = async (phone) => {
-    const res = await sendOtpLogin({ phone });
+  const sendOtp = async (phone, { purpose = "login" } = {}) => {
+    const res = await sendOtpLogin({ phone, purpose });
     return res.data;
   };
 
@@ -105,30 +103,14 @@ export function AuthProvider({ children }) {
     shopName,
     shopAddress,
     gstNumber,
-    password,
   }) => {
     const res = await completeOtpSignup({
       phone,
       name,
-      password,
       shopName: shopName?.trim() || "",
       shopAddress: shopAddress?.trim() || "",
       ...(gstNumber?.trim() ? { gstNumber: gstNumber.trim() } : {}),
     });
-    const { user: authUser, token: authToken } = res.data.data;
-    persistAuthSession(authUser, authToken);
-    return res.data;
-  };
-
-  const loginWithPassword = async ({ phone, password }) => {
-    const res = await loginWithPhone({ phone, password });
-    const { user: authUser, token: authToken } = res.data.data;
-    persistAuthSession(authUser, authToken);
-    return res.data;
-  };
-
-  const resetPasswordWithOtp = async ({ phone, otp, newPassword }) => {
-    const res = await resetPasswordWithPhoneOtp({ phone, otp, newPassword });
     const { user: authUser, token: authToken } = res.data.data;
     persistAuthSession(authUser, authToken);
     return res.data;
@@ -141,20 +123,18 @@ export function AuthProvider({ children }) {
     shopName,
     shopAddress,
     gstNumber,
-    password,
   }) => {
     const res = await verifyOtpLogin({ phone, otp });
     const payload = res.data.data;
 
     if (payload?.needsSignup) {
-      if (name?.trim() && shopName?.trim() && shopAddress?.trim() && password) {
+      if (name?.trim() && shopName?.trim() && shopAddress?.trim()) {
         return completeOtpSignupProfile({
           phone,
           name,
           shopName,
           shopAddress,
           gstNumber,
-          password,
         });
       }
 
@@ -185,8 +165,6 @@ export function AuthProvider({ children }) {
         loading,
         sendOtp,
         loginWithOtp,
-        loginWithPassword,
-        resetPasswordWithOtp,
         completeOtpSignupProfile,
         logout,
         updateProfile,
