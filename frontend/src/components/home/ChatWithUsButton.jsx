@@ -37,7 +37,7 @@ function DownloadAppIcon({ className = "h-4 w-4" }) {
   );
 }
 
-function ChatWithUsButton({ placement = "fixed" }) {
+function ChatWithUsButton() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const playStoreUrl = getAndroidAppDownloadUrl();
@@ -45,39 +45,41 @@ function ChatWithUsButton({ placement = "fixed" }) {
   useEffect(() => {
     if (!open) return undefined;
 
-    const handlePointerDown = (event) => {
-      if (!rootRef.current?.contains(event.target)) {
-        setOpen(false);
-      }
-    };
+    let handlePointerDown;
+    let handleKeyDown;
 
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setOpen(false);
-    };
+    const timer = window.setTimeout(() => {
+      handlePointerDown = (event) => {
+        if (!rootRef.current?.contains(event.target)) {
+          setOpen(false);
+        }
+      };
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
+      handleKeyDown = (event) => {
+        if (event.key === "Escape") setOpen(false);
+      };
+
+      document.addEventListener("mousedown", handlePointerDown);
+      document.addEventListener("touchstart", handlePointerDown);
+      document.addEventListener("keydown", handleKeyDown);
+    }, 50);
+
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+      window.clearTimeout(timer);
+      if (handlePointerDown) {
+        document.removeEventListener("mousedown", handlePointerDown);
+        document.removeEventListener("touchstart", handlePointerDown);
+      }
+      if (handleKeyDown) {
+        document.removeEventListener("keydown", handleKeyDown);
+      }
     };
   }, [open]);
 
-  const isInline = placement === "inline";
-
   return (
-    <div
-      ref={rootRef}
-      className={
-        isInline
-          ? "relative flex flex-col items-end gap-2"
-          : "pointer-events-none fixed bottom-24 right-4 z-[140] flex flex-col items-end gap-2 lg:bottom-8 lg:right-6"
-      }
-    >
+    <div ref={rootRef} className="relative flex flex-col items-end">
       {open ? (
-        <div className="pointer-events-auto flex w-fit items-center gap-1.5 rounded-full border border-border-light bg-white p-1 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+        <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-10 flex w-fit items-center gap-1.5 rounded-full border border-border-light bg-white p-1 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
           <a
             href={CONTACT_WHATSAPP_URL}
             target="_blank"
@@ -114,25 +116,28 @@ function ChatWithUsButton({ placement = "fixed" }) {
 
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         aria-expanded={open}
-        aria-label={open ? "Close chat options" : "Chat with us"}
-        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-2 text-xs font-bold text-white shadow-[0_8px_20px_rgba(37,211,102,0.4)] transition hover:brightness-105 active:scale-[0.98]"
+        aria-label={open ? "Close options" : "More options"}
+        title={open ? "Close" : "More options"}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-[0_8px_20px_rgba(249,115,22,0.4)] transition hover:brightness-105 active:scale-[0.98]"
       >
         {open ? (
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
+          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="12" cy="19" r="1.8" />
           </svg>
         )}
-        {open ? "Close" : "Chat with us"}
       </button>
     </div>
   );

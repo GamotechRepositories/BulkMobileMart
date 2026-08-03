@@ -521,8 +521,8 @@ export const getProducts = async (req, res) => {
       if (Number.isFinite(maxPrice)) filter.discountedPrice.$lte = maxPrice;
     }
 
-    let sort = sortOptions;
-    const sortParam = String(req.query.sort || "").trim();
+    let sort = { createdAt: -1, name: 1 };
+    const sortParam = String(req.query.sort || "newest").trim();
     if (sortParam === "price-asc") sort = { discountedPrice: 1, name: 1 };
     else if (sortParam === "price-desc") sort = { discountedPrice: -1, name: 1 };
     else if (sortParam === "newest") sort = { createdAt: -1, name: 1 };

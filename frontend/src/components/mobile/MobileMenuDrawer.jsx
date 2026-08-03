@@ -31,7 +31,7 @@ function MobileDrawerFilters({ categories }) {
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
+  const sortBy = searchParams.get("sort")?.trim() || "newest";
 
   const activeCategory = categories.find(
     (cat) => cat.categoryName.toLowerCase() === categoryName.toLowerCase()
@@ -56,7 +56,7 @@ function MobileDrawerFilters({ categories }) {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "newest"));
 
   return (
     <div className="mb-4 border-b border-border-light pb-4">

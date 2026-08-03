@@ -11,7 +11,7 @@ export function useProductListParams(searchParams) {
     const subcategory = searchParams.get("subcategory")?.trim() || "";
     const minPrice = searchParams.get("minPrice")?.trim() || "";
     const maxPrice = searchParams.get("maxPrice")?.trim() || "";
-    const sort = searchParams.get("sort")?.trim() || "";
+    const sort = searchParams.get("sort")?.trim() || "newest";
 
     if (categoryName) params.categoryName = categoryName;
     if (searchQuery) params.q = searchQuery;

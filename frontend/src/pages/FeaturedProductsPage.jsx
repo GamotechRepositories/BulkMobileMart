@@ -51,7 +51,8 @@ function MobilePageToolbar({ title, backTo, onToggleSort }) {
 }
 
 const SORT_OPTIONS = [
-  { id: "default", label: "Default" },
+  { id: "newest", label: "Newest" },
+  { id: "oldest", label: "Oldest" },
   { id: "price-asc", label: "Price: Low to High" },
   { id: "price-desc", label: "Price: High to Low" },
   { id: "name", label: "Name A-Z" },
@@ -66,7 +67,7 @@ function FeaturedProductsPage({
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState("default");
+  const [sortBy, setSortBy] = useState("newest");
   const [showSort, setShowSort] = useState(false);
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
@@ -104,6 +105,10 @@ function FeaturedProductsPage({
       list.sort((a, b) => (a.discountedPrice ?? a.price) - (b.discountedPrice ?? b.price));
     } else if (sortBy === "price-desc") {
       list.sort((a, b) => (b.discountedPrice ?? b.price) - (a.discountedPrice ?? a.price));
+    } else if (sortBy === "newest") {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (sortBy === "oldest") {
+      list.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     } else if (sortBy === "name") {
       list.sort((a, b) => a.name.localeCompare(b.name));
     }

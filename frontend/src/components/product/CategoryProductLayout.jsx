@@ -19,7 +19,7 @@ function useCategoryFilters(products, categoryName) {
 
   const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
+  const sortBy = searchParams.get("sort")?.trim() || "newest";
 
   const filteredProducts = products.filter((product) => {
     if (subcategory) {
@@ -70,7 +70,7 @@ function useCategoryFilters(products, categoryName) {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "newest"));
 
   return {
     subcategory,
@@ -87,7 +87,7 @@ function useAllProductsFilters(products) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedBrand = searchParams.get("brand")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
+  const sortBy = searchParams.get("sort")?.trim() || "newest";
 
   const filteredProducts = products.filter((product) => {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
@@ -123,7 +123,7 @@ function useAllProductsFilters(products) {
     setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "price-asc"));
+  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "newest"));
 
   return {
     selectedBrand,

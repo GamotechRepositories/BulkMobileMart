@@ -101,7 +101,7 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedBrand =
     searchParams.get(brandParamKey)?.trim() || searchParams.get("brand")?.trim() || "";
-  const sortBy = searchParams.get("sort")?.trim() || "price-asc";
+  const sortBy = searchParams.get("sort")?.trim() || "newest";
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -123,7 +123,7 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   };
 
   const hasActiveFilters = Boolean(
-    (brandParamKey === "brand" && selectedBrand) || (sortBy && sortBy !== "price-asc")
+    (brandParamKey === "brand" && selectedBrand) || (sortBy && sortBy !== "newest")
   );
 
   return {
@@ -188,7 +188,7 @@ function FilteredProductsView({
   const filterActive = Boolean(
     showBrandFilter && brandParamKey === "brand" && filters.selectedBrand
   );
-  const sortActive = Boolean(filters.sortBy && filters.sortBy !== "price-asc");
+  const sortActive = Boolean(filters.sortBy && filters.sortBy !== "newest");
 
   const handleSortChange = (id) => {
     filters.updateParam("sort", id);

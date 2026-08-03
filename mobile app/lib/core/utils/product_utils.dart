@@ -186,10 +186,10 @@ String productSku(Product product) {
 }
 
 enum ProductSortOption {
-  priceAsc('price-asc', 'Price: Low to High'),
-  priceDesc('price-desc', 'Price: High to Low'),
   newest('newest', 'Newest'),
   oldest('oldest', 'Oldest'),
+  priceAsc('price-asc', 'Price: Low to High'),
+  priceDesc('price-desc', 'Price: High to Low'),
   defaultOrder('default', 'Default'),
   name('name', 'Name A-Z'),
   brand('brand', 'Brand');
@@ -199,8 +199,8 @@ enum ProductSortOption {
   final String id;
   final String label;
 
-  /// Website product listing defaults to price-asc when no sort is set.
-  static const ProductSortOption listingDefault = priceAsc;
+  /// Website product listing defaults to newest when no sort is set.
+  static const ProductSortOption listingDefault = newest;
 
   static ProductSortOption? fromId(String? id) {
     if (id == null || id.isEmpty) return listingDefault;
@@ -212,10 +212,10 @@ enum ProductSortOption {
 
   /// Compact filter-bar options that match the website ProductFiltersBar.
   static const List<ProductSortOption> listingOptions = [
-    priceAsc,
-    priceDesc,
     newest,
     oldest,
+    priceAsc,
+    priceDesc,
   ];
 }
 
