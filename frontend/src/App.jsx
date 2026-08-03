@@ -26,8 +26,8 @@ import Blog from "./pages/Blog";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import ShippingDetails from "./pages/ShippingDetails";
-import AppDownloadPrompt from "./components/mobile/AppDownloadPrompt";
 import OpeningSplash from "./components/layout/OpeningSplash";
+import FloatingCornerActions from "./components/layout/FloatingCornerActions";
 
 function AuthModalHost() {
   const { authModal, closeAuthModal, setAuthModal } = useAuth();
@@ -226,7 +226,7 @@ function App() {
             }
           />
         </Routes>
-        <AppDownloadPrompt />
+        <FloatingCornerActions />
         <AuthModalHost />
         </WishlistProvider>
         </CartProvider>

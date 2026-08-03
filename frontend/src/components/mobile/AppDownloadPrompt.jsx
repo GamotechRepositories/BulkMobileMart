@@ -22,6 +22,7 @@ function AppDownloadPrompt() {
 
     const timer = window.setTimeout(() => {
       setOpen(true);
+      window.dispatchEvent(new CustomEvent("bmm-app-download-prompt", { detail: { open: true } }));
     }, 900);
 
     return () => window.clearTimeout(timer);
@@ -33,6 +34,7 @@ function AppDownloadPrompt() {
     setDragX(0);
     setIsDragging(false);
     dragAxisRef.current = null;
+    window.dispatchEvent(new CustomEvent("bmm-app-download-prompt", { detail: { open: false } }));
   };
 
   const handleDownload = () => {
