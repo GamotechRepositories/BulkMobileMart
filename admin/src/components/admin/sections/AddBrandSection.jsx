@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   brandImage: "",
   order: 0,
   isActive: true,
+  priceRequiresLogin: false,
 };
 
 function AddBrandSection() {
@@ -38,6 +39,7 @@ function AddBrandSection() {
         brandImage: editBrand.brandImage,
         order: editBrand.order ?? 0,
         isActive: editBrand.isActive,
+        priceRequiresLogin: Boolean(editBrand.priceRequiresLogin),
       });
     }
   }, [editBrand]);
@@ -52,6 +54,7 @@ function AddBrandSection() {
         brandImage: form.brandImage,
         order: Number(form.order) || 0,
         isActive: form.isActive,
+        priceRequiresLogin: form.priceRequiresLogin,
       };
 
       if (editingId) {
@@ -138,6 +141,23 @@ function AddBrandSection() {
             className="h-4 w-4 accent-primary"
           />
           Active (visible on home page)
+        </label>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.priceRequiresLogin}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, priceRequiresLogin: e.target.checked }))
+            }
+            className="mt-0.5 h-4 w-4 accent-primary"
+          />
+          <span>
+            <span className="font-medium text-neutral-900">Price login only</span>
+            <span className="mt-0.5 block text-xs text-neutral-500">
+              Hide this brand&apos;s product prices until the customer logs in
+            </span>
+          </span>
         </label>
 
         <button type="submit" className={btnPrimary}>

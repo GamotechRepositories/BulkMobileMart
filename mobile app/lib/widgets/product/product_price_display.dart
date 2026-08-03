@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../features/auth/auth_controller.dart';
+import '../../features/home/home_providers.dart';
+import '../../models/brand.dart';
 import '../../models/product.dart';
 
 enum ProductPriceSize { sm, md, lg }
 
-class ProductPriceDisplay extends StatelessWidget {
+bool brandRequiresLoginForPrice(List<Brand> brands, String brandName) {
+  final name = brandName.trim().toLowerCase();
+  if (name.isEmpty) return false;
+  return brands.any(
+    (brand) =>
+        brand.priceRequiresLogin &&
+        brand.brandName.trim().toLowerCase() == name,
+  );
+}
+
+class ProductPriceDisplay extends ConsumerWidget {
   const ProductPriceDisplay({
     super.key,
     required this.product,
@@ -22,7 +36,43 @@ class ProductPriceDisplay extends StatelessWidget {
   final ProductPriceSize size;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
+    final brands = ref.watch(brandsProvider).valueOrNull ?? const <Brand>[];
+    final canViewPrice =
+        isLoggedIn || !brandRequiresLoginForPrice(brands, product.brandName);
+
+    if (!canViewPrice) {
+      final style = switch (size) {
+        ProductPriceSize.sm => const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+            height: 1.1,
+          ),
+        ProductPriceSize.md => const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+            height: 1.1,
+          ),
+        ProductPriceSize.lg => const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+            height: 1.1,
+          ),
+      };
+
+      return GestureDetector(
+        onTap: () => ref.read(authControllerProvider.notifier).openAuthModal('login'),
+        child: Text(
+          'Login to see price',
+          style: style,
+        ),
+      );
+    }
+
     final info = getProductListPriceInfo(product, variantName, quantity);
     if (info.salePrice <= 0) {
       return const SizedBox.shrink();

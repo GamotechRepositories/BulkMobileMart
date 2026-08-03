@@ -21,6 +21,11 @@ const brandSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** When true, product prices for this brand are hidden until the customer logs in */
+    priceRequiresLogin: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

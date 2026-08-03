@@ -42,7 +42,7 @@ export const getBrandById = async (req, res) => {
 
 export const addBrand = async (req, res) => {
   try {
-    const { brandName, brandImage, order, isActive } = req.body;
+    const { brandName, brandImage, order, isActive, priceRequiresLogin } = req.body;
 
     if (!brandName?.trim()) {
       return res
@@ -60,6 +60,7 @@ export const addBrand = async (req, res) => {
       brandImage: brandImage.trim(),
       order: order ?? 0,
       isActive: isActive ?? true,
+      priceRequiresLogin: Boolean(priceRequiresLogin),
     });
 
     res.status(201).json({ success: true, data: brand });
@@ -75,13 +76,16 @@ export const addBrand = async (req, res) => {
 
 export const updateBrand = async (req, res) => {
   try {
-    const { brandName, brandImage, order, isActive } = req.body;
+    const { brandName, brandImage, order, isActive, priceRequiresLogin } = req.body;
     const updates = {};
 
     if (brandName !== undefined) updates.brandName = brandName.trim();
     if (brandImage !== undefined) updates.brandImage = brandImage.trim();
     if (order !== undefined) updates.order = order;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (priceRequiresLogin !== undefined) {
+      updates.priceRequiresLogin = Boolean(priceRequiresLogin);
+    }
 
     const brand = await Brand.findByIdAndUpdate(req.params.id, updates, {
       new: true,

@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
 import ProductPriceDisplay from "../components/product/ProductPriceDisplay";
+import { useCanViewProductPrice } from "../hooks/useCanViewProductPrice";
 import {
   getAvailableColors,
   getBulkTierRows,
@@ -464,6 +465,7 @@ function ProductDetail() {
   const [selectedVariant, setSelectedVariant] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [downloadingImage, setDownloadingImage] = useState(false);
+  const canViewPrice = useCanViewProductPrice(product);
 
   useEffect(() => {
     if (!id) return;
@@ -882,7 +884,7 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            {isBulkPricing(product, activeVariantName) ? (
+            {canViewPrice && isBulkPricing(product, activeVariantName) ? (
               <p className="mt-1 text-sm text-text-secondary">
                 Current selection: {formatPrice(currentUnitPrice)} / piece
               </p>
@@ -918,7 +920,7 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            {bulkTiers.length > 0 ? (
+            {canViewPrice && bulkTiers.length > 0 ? (
               <div className="mt-3 lg:mt-4">
                 <h2 className="mb-2 text-base font-bold">Bulk Price (Per Piece)</h2>
                 <div className="space-y-2 rounded-lg border border-border-light p-3">

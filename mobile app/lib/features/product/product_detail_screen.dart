@@ -19,6 +19,7 @@ import '../../features/home/home_providers.dart';
 import '../../features/product/product_providers.dart';
 import 'widgets/similar_products_section.dart';
 import '../../models/product.dart';
+import '../../models/brand.dart';
 import '../../models/product_pricing_models.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
@@ -224,6 +225,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         getUnitPriceForQuantity(product, _quantity, activeVariantName);
     final bulkTiers = getBulkTierRows(product, activeVariantName);
     final showBulkSection = isBulkPricing(product, activeVariantName);
+    final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
+    final brands = ref.watch(brandsProvider).valueOrNull ?? const <Brand>[];
+    final canViewPrice =
+        isLoggedIn || !brandRequiresLoginForPrice(brands, product.brandName);
     final images = product.productImages
         .where((image) => image.trim().isNotEmpty)
         .toList();
@@ -354,7 +359,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       .toList(),
                 ),
               ],
-              if (showBulkSection)
+              if (canViewPrice && showBulkSection)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
@@ -437,7 +442,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   );
                 },
               ),
-              if (bulkTiers.isNotEmpty) ...[
+              if (canViewPrice && bulkTiers.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),

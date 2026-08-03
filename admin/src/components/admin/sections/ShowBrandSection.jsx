@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { deleteBrand } from "../../../api/api";
+import { deleteBrand, updateBrand } from "../../../api/api";
 import { useAdminBrandsQuery } from "../../../hooks/queries/useAdminBrandsQuery";
 import { adminQueryKeys } from "../../../hooks/queries/queryKeys";
 import AdminAlert from "../AdminAlert";
@@ -53,8 +53,33 @@ function ShowBrandSection() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }) => updateBrand(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.brands.all });
+    },
+  });
+
   const handleEdit = (brand) => {
     navigate("/brands/add", { state: { editBrand: brand } });
+  };
+
+  const handleTogglePriceLogin = async (brand) => {
+    try {
+      setError("");
+      setSuccess("");
+      await updateMutation.mutateAsync({
+        id: brand._id,
+        payload: { priceRequiresLogin: !brand.priceRequiresLogin },
+      });
+      setSuccess(
+        brand.priceRequiresLogin
+          ? `Prices for ${brand.brandName} are now visible without login`
+          : `Prices for ${brand.brandName} now require login`
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update brand");
+    }
   };
 
   const handleDelete = async (id) => {
@@ -103,16 +128,18 @@ function ShowBrandSection() {
         <div className={adminTableWrapperClass}>
           <table className={adminCompactTableClass}>
             <colgroup>
-              <col className="w-[15%]" />
-              <col className="w-[35%]" />
+              <col className="w-[12%]" />
+              <col className="w-[28%]" />
+              <col className="w-[16%]" />
+              <col className="w-[24%]" />
               <col className="w-[20%]" />
-              <col className="w-[30%]" />
             </colgroup>
             <thead>
               <tr className={adminTableHeaderClass}>
                 <th className={adminCompactThClass}>Image</th>
                 <th className={adminCompactThClass}>Brand Name</th>
                 <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Price visibility</th>
                 <th className={adminCompactThClass}>Actions</th>
               </tr>
             </thead>
@@ -144,6 +171,21 @@ function ShowBrandSection() {
                     >
                       {brand.isActive ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className={adminCompactTdClass}>
+                    <label className="inline-flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(brand.priceRequiresLogin)}
+                        disabled={updateMutation.isPending}
+                        onChange={() => handleTogglePriceLogin(brand)}
+                        className="h-4 w-4 accent-primary"
+                        aria-label={`Require login to see ${brand.brandName} prices`}
+                      />
+                      <span className="text-[11px] font-medium text-neutral-700">
+                        {brand.priceRequiresLogin ? "Login only" : "Public"}
+                      </span>
+                    </label>
                   </td>
                   <td className={adminCompactTdClass}>
                     <div className="flex flex-nowrap items-center gap-1">
