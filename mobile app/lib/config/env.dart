@@ -37,6 +37,10 @@ class Env {
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 
+  /// Google Play listing — mirrors frontend `PLAY_STORE_APP_URL`.
+  static const playStoreAppUrl =
+      'https://play.google.com/store/apps/details?id=com.bulkmobilemart.app';
+
   /// Warnings for misconfigured `.env` (logged at startup in debug).
   static List<String> validate() {
     final issues = <String>[];

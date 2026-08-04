@@ -5,6 +5,7 @@ import '../../config/theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../features/auth/auth_state.dart';
 import '../../features/home/home_providers.dart';
 import '../../models/brand.dart';
 import '../../models/product.dart';
@@ -38,7 +39,7 @@ class ProductPriceDisplay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
-    final brands = ref.watch(brandsProvider).valueOrNull ?? const <Brand>[];
+    final brands = ref.watch(brandsProvider).value ?? const <Brand>[];
     final canViewPrice =
         isLoggedIn || !brandRequiresLoginForPrice(brands, product.brandName);
 
@@ -65,7 +66,9 @@ class ProductPriceDisplay extends ConsumerWidget {
       };
 
       return GestureDetector(
-        onTap: () => ref.read(authControllerProvider.notifier).openAuthModal('login'),
+        onTap: () => ref
+            .read(authControllerProvider.notifier)
+            .openAuthModal(AuthModalMode.login),
         child: Text(
           'Login to see price',
           style: style,

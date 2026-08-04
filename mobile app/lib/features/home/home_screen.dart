@@ -37,6 +37,7 @@ import 'widgets/home_wholesale_banner.dart';
 import 'widgets/top_brands_section.dart';
 
 import 'widgets/why_choose_us_section.dart';
+import 'widgets/home_corner_actions.dart';
 
 
 
@@ -158,7 +159,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final bottomContentSpacer = ShellBottomInsets.of(context);
 
-    return VerticalScrollPauseScope(
+    return Stack(
+      children: [
+        VerticalScrollPauseScope(
       isScrolling: _verticalScrolling,
       child: ColoredBox(
 
@@ -365,6 +368,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
 
     ),
+    ),
+        Positioned(
+          right: 16,
+          bottom: bottomContentSpacer + 8,
+          child: const HomeCornerActions(),
+        ),
+      ],
     );
 
   }

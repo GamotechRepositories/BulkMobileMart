@@ -226,7 +226,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final bulkTiers = getBulkTierRows(product, activeVariantName);
     final showBulkSection = isBulkPricing(product, activeVariantName);
     final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
-    final brands = ref.watch(brandsProvider).valueOrNull ?? const <Brand>[];
+    final brands = ref.watch(brandsProvider).value ?? const <Brand>[];
     final canViewPrice =
         isLoggedIn || !brandRequiresLoginForPrice(brands, product.brandName);
     final images = product.productImages

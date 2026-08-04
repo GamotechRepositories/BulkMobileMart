@@ -370,6 +370,43 @@ class ApiService {
     return parseOnBackground(parseProductsResponse, response.data);
   }
 
+  Future<ProductsPageResult> fetchProductsPage(
+    Map<String, dynamic> params,
+  ) async {
+    final response = await getProducts(params);
+    final items =
+        await parseOnBackground(parseProductsResponse, response.data);
+    final raw = response.data;
+
+    var page = int.tryParse(params['page']?.toString() ?? '') ?? 1;
+    var limit = int.tryParse(params['limit']?.toString() ?? '') ?? 50;
+    var total = items.length;
+    var totalPages = 1;
+
+    if (raw is Map<String, dynamic>) {
+      final pagination = raw['pagination'];
+      if (pagination is Map) {
+        page = int.tryParse(pagination['page']?.toString() ?? '') ?? page;
+        limit = int.tryParse(pagination['limit']?.toString() ?? '') ?? limit;
+        total = int.tryParse(pagination['total']?.toString() ?? '') ?? total;
+        totalPages = int.tryParse(
+              pagination['totalPages']?.toString() ??
+                  pagination['pages']?.toString() ??
+                  '',
+            ) ??
+            1;
+      }
+    }
+
+    return ProductsPageResult(
+      items: items,
+      page: page,
+      limit: limit,
+      total: total,
+      totalPages: totalPages < 1 ? 1 : totalPages,
+    );
+  }
+
   Future<Product> fetchProductById(String id) async {
     final response = await getProductById(id);
     return parseOnBackground(parseProductResponse, response.data);

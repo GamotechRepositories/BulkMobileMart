@@ -249,17 +249,39 @@ List<Product> filterAndSortProducts({
   list = [...list];
   switch (sort) {
     case ProductSortOption.priceAsc:
-      list.sort((a, b) => a.discountedPrice.compareTo(b.discountedPrice));
+      list.sort((a, b) {
+        final byPrice = a.discountedPrice.compareTo(b.discountedPrice);
+        if (byPrice != 0) return byPrice;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     case ProductSortOption.priceDesc:
-      list.sort((a, b) => b.discountedPrice.compareTo(a.discountedPrice));
+      list.sort((a, b) {
+        final byPrice = b.discountedPrice.compareTo(a.discountedPrice);
+        if (byPrice != 0) return byPrice;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     case ProductSortOption.newest:
-      list.sort((a, b) => _compareCreatedAt(b, a));
+      // Match website + API: createdAt desc, then name asc.
+      list.sort((a, b) {
+        final byDate = _compareCreatedAt(b, a);
+        if (byDate != 0) return byDate;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     case ProductSortOption.oldest:
-      list.sort((a, b) => _compareCreatedAt(a, b));
+      list.sort((a, b) {
+        final byDate = _compareCreatedAt(a, b);
+        if (byDate != 0) return byDate;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     case ProductSortOption.name:
-      list.sort((a, b) => a.name.compareTo(b.name));
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     case ProductSortOption.brand:
-      list.sort((a, b) => a.brandName.compareTo(b.brandName));
+      list.sort((a, b) {
+        final byBrand =
+            a.brandName.toLowerCase().compareTo(b.brandName.toLowerCase());
+        if (byBrand != 0) return byBrand;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
     case ProductSortOption.defaultOrder:
       break;
   }
@@ -269,12 +291,10 @@ List<Product> filterAndSortProducts({
 int _compareCreatedAt(Product a, Product b) {
   final aDate = a.createdAt;
   final bDate = b.createdAt;
-  if (aDate == null && bDate == null) return a.id.compareTo(b.id);
+  if (aDate == null && bDate == null) return 0;
   if (aDate == null) return 1;
   if (bDate == null) return -1;
-  final byDate = aDate.compareTo(bDate);
-  if (byDate != 0) return byDate;
-  return a.id.compareTo(b.id);
+  return aDate.compareTo(bDate);
 }
 
 List<String> extractBrands(List<Product> products) {

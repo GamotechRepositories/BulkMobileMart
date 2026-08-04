@@ -85,6 +85,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
         categoryName: widget.categoryName,
         search: widget.searchQuery,
         brandName: widget.brand,
+        subcategory: widget.subcategory,
+        minPrice: widget.minPrice,
+        maxPrice: widget.maxPrice,
+        sortId: _sort.id,
       );
 
   String get _title {

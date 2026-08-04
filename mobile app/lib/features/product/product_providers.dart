@@ -1,29 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../core/utils/product_utils.dart';
 import '../../models/product.dart';
+
+const _productsPageSize = 50;
 
 final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
-  final params = <String, dynamic>{'limit': 50};
-  if (query.categoryName != null && query.categoryName!.isNotEmpty) {
-    params['categoryName'] = query.categoryName;
-  }
-  if (query.search != null && query.search!.isNotEmpty) {
-    params['q'] = query.search;
-  }
-  if (query.brandName != null && query.brandName!.isNotEmpty) {
-    params['brandName'] = query.brandName;
-  }
-  if (query.justArrived) {
-    params['justArrived'] = true;
-  }
-  if (query.hotSelling) {
-    params['hotSelling'] = true;
-  }
+  final api = ref.read(apiServiceProvider);
+  final params = query.toApiParams();
+  final all = <Product>[];
+  var page = 1;
+  var totalPages = 1;
 
-  final products = await ref.read(apiServiceProvider).fetchProducts(params);
-  return products.where((product) => product.isActive).toList();
+  do {
+    final result = await api.fetchProductsPage({
+      ...params,
+      'page': page,
+      'limit': _productsPageSize,
+    });
+    all.addAll(result.items);
+    totalPages = result.totalPages < 1 ? 1 : result.totalPages;
+    page++;
+  } while (page <= totalPages);
+
+  return all.where((product) => product.isActive).toList();
 });
 
 final productDetailProvider =
@@ -42,6 +44,10 @@ class ProductQuery {
     this.categoryName,
     this.search,
     this.brandName,
+    this.subcategory,
+    this.minPrice,
+    this.maxPrice,
+    this.sortId,
     this.justArrived = false,
     this.hotSelling = false,
   });
@@ -49,8 +55,37 @@ class ProductQuery {
   final String? categoryName;
   final String? search;
   final String? brandName;
+  final String? subcategory;
+  final String? minPrice;
+  final String? maxPrice;
+  final String? sortId;
   final bool justArrived;
   final bool hotSelling;
+
+  /// Same query shape as website `useProductListParams`.
+  Map<String, dynamic> toApiParams() {
+    final params = <String, dynamic>{};
+    final category = categoryName?.trim() ?? '';
+    final q = search?.trim() ?? '';
+    final brand = brandName?.trim() ?? '';
+    final sub = subcategory?.trim() ?? '';
+    final min = minPrice?.trim() ?? '';
+    final max = maxPrice?.trim() ?? '';
+    final sort = (sortId?.trim().isNotEmpty == true)
+        ? sortId!.trim()
+        : ProductSortOption.listingDefault.id;
+
+    if (category.isNotEmpty) params['categoryName'] = category;
+    if (q.isNotEmpty) params['q'] = q;
+    if (brand.isNotEmpty) params['brandName'] = brand;
+    if (sub.isNotEmpty) params['subcategory'] = sub;
+    if (min.isNotEmpty) params['minPrice'] = min;
+    if (max.isNotEmpty) params['maxPrice'] = max;
+    if (sort.isNotEmpty && sort != 'default') params['sort'] = sort;
+    if (justArrived) params['justArrived'] = true;
+    if (hotSelling) params['hotSelling'] = true;
+    return params;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -58,6 +93,10 @@ class ProductQuery {
         other.categoryName == categoryName &&
         other.search == search &&
         other.brandName == brandName &&
+        other.subcategory == subcategory &&
+        other.minPrice == minPrice &&
+        other.maxPrice == maxPrice &&
+        other.sortId == sortId &&
         other.justArrived == justArrived &&
         other.hotSelling == hotSelling;
   }
@@ -67,6 +106,10 @@ class ProductQuery {
         categoryName,
         search,
         brandName,
+        subcategory,
+        minPrice,
+        maxPrice,
+        sortId,
         justArrived,
         hotSelling,
       );

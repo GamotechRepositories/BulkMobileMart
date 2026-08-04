@@ -134,3 +134,19 @@ int _toInt(dynamic value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
+
+class ProductsPageResult {
+  const ProductsPageResult({
+    required this.items,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+  });
+
+  final List<Product> items;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+}

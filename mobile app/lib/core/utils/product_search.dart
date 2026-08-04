@@ -21,11 +21,11 @@ class ProductSearch {
     if (brand.trim().isNotEmpty) params['brandName'] = brand.trim();
     if (minPrice.trim().isNotEmpty) params['minPrice'] = minPrice.trim();
     if (maxPrice.trim().isNotEmpty) params['maxPrice'] = maxPrice.trim();
-    // Match website default: newest is implied when sort is absent.
-    final sortValue = sort.trim();
-    if (sortValue.isNotEmpty &&
-        sortValue != 'default' &&
-        sortValue != 'newest') {
+    // Match website useProductListParams: always send sort except "default".
+    final sortValue = sort.trim().isEmpty
+        ? 'newest'
+        : sort.trim();
+    if (sortValue != 'default') {
       params['sort'] = sortValue;
     }
 
