@@ -1,6 +1,7 @@
 const ORDER_FILTERS = [
   { id: "all", label: "All orders" },
   { id: "active", label: "In progress" },
+  { id: "attempted", label: "Attempted" },
   { id: "delivered", label: "Delivered" },
   { id: "cancelled", label: "Cancelled" },
   { id: "return", label: "Return" },

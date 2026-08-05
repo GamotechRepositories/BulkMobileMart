@@ -62,6 +62,101 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _applyingCoupon = false;
   String _couponError = '';
 
+  String _formatPaymentErrorMessage(
+    String message, {
+    int? code,
+    String? gatewayReason,
+    bool verificationFailed = false,
+  }) {
+    final raw = message.trim();
+    final lower = raw.toLowerCase();
+    final reason = (gatewayReason ?? '').trim();
+    final hasReason = reason.isNotEmpty;
+    final isCancelled = code == Razorpay.PAYMENT_CANCELLED ||
+        lower.contains('cancel');
+    final isNetwork = code == Razorpay.NETWORK_ERROR ||
+        lower.contains('network') ||
+        lower.contains('internet') ||
+        lower.contains('timeout');
+    final isConfig = code == Razorpay.INVALID_OPTIONS ||
+        lower.contains('not configured') ||
+        lower.contains('invalid payment response');
+
+    if (verificationFailed) {
+      return 'Payment was received, but order confirmation failed.\n'
+          'Please wait 2-3 minutes and check My Orders once.\n'
+          'If the order is still missing, contact support with your payment reference.';
+    }
+    if (hasReason) {
+      if (lower.contains('insufficient') || reason.toLowerCase().contains('insufficient')) {
+        return 'Payment failed: insufficient balance.\nReason: $reason';
+      }
+      if (lower.contains('declin') || reason.toLowerCase().contains('declin')) {
+        return 'Payment was declined by bank/wallet.\nReason: $reason';
+      }
+      if (lower.contains('vpa') ||
+          lower.contains('upi') ||
+          reason.toLowerCase().contains('vpa') ||
+          reason.toLowerCase().contains('upi')) {
+        return 'UPI payment failed.\nReason: $reason';
+      }
+      if (lower.contains('expired') || reason.toLowerCase().contains('expired')) {
+        return 'Payment session expired.\nReason: $reason';
+      }
+    }
+    if (isCancelled) {
+      return 'Payment cancelled by user.\n'
+          'No amount will be charged for this order attempt.';
+    }
+    if (isNetwork) {
+      return 'Payment failed due to network issue.\n'
+          'Please check internet and try again.';
+    }
+    if (isConfig) {
+      return 'Payment setup issue detected.\n'
+          'Please try again after some time or contact support.';
+    }
+    if (hasReason) {
+      return 'Payment failed.\nReason: $reason';
+    }
+    return raw;
+  }
+
+  String? _extractGatewayReason(PaymentFailureResponse response) {
+    final body = response.error;
+    if (body == null) return null;
+    for (final key in const [
+      'description',
+      'reason',
+      'message',
+      'error_description',
+      'source',
+      'step',
+    ]) {
+      final value = body[key]?.toString().trim();
+      if (value != null &&
+          value.isNotEmpty &&
+          value.toLowerCase() != 'null' &&
+          value.toLowerCase() != 'undefined') {
+        return value;
+      }
+    }
+
+    final nested = body['error'];
+    if (nested is Map) {
+      for (final key in const ['description', 'reason', 'message']) {
+        final value = nested[key]?.toString().trim();
+        if (value != null &&
+            value.isNotEmpty &&
+            value.toLowerCase() != 'null' &&
+            value.toLowerCase() != 'undefined') {
+          return value;
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -334,10 +429,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       };
       _razorpay.open(options);
     } catch (e) {
-      final message = apiErrorMessage(
+      final rawMessage = apiErrorMessage(
         e,
         fallback: 'Failed to start payment. Please try again.',
       );
+      final message = _formatPaymentErrorMessage(rawMessage);
       setState(() {
         _placingOrder = false;
         _orderError = message;
@@ -374,10 +470,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             : null,
       );
     } catch (e) {
+      final rawMessage = apiErrorMessage(
+        e,
+        fallback: 'Payment verified but order failed. Contact support.',
+      );
       setState(() {
-        _orderError = apiErrorMessage(
-          e,
-          fallback: 'Payment verified but order failed. Contact support.',
+        _orderError = _formatPaymentErrorMessage(
+          rawMessage,
+          verificationFailed: true,
         );
         _placingOrder = false;
       });
@@ -385,7 +485,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _handleRazorpayError(PaymentFailureResponse response) {
-    final message = razorpayErrorMessage(response);
+    final gatewayReason = _extractGatewayReason(response);
+    final message = _formatPaymentErrorMessage(
+      razorpayErrorMessage(response),
+      code: response.code,
+      gatewayReason: gatewayReason,
+    );
     setState(() {
       _placingOrder = false;
       _orderError = message;
@@ -766,9 +871,42 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     if (_orderError.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        _orderError,
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFECACA)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(
+                                Icons.error_outline_rounded,
+                                size: 18,
+                                color: Color(0xFFB91C1C),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _orderError,
+                                style: const TextStyle(
+                                  color: Color(0xFF991B1B),
+                                  fontSize: 13,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ],

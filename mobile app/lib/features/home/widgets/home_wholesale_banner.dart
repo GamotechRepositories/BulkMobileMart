@@ -108,6 +108,7 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
               SizedBox(
                 height: 168,
                 child: Stack(
+                  clipBehavior: Clip.hardEdge,
                   children: [
                     PageView.builder(
                       controller: _pageController,
@@ -183,9 +184,14 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
   }
 
   Widget _buildBanner(BuildContext context, OfferBanner banner) {
+    final hasText = banner.title.trim().isNotEmpty ||
+        banner.titleHighlight.trim().isNotEmpty ||
+        banner.subtitle.trim().isNotEmpty;
+
     final content = ClipRRect(
       borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
       child: Stack(
+        fit: StackFit.expand,
         children: [
           SizedBox(
             height: 168,
@@ -197,57 +203,65 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
               cacheHeight: 336,
             ),
           ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.82),
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.black.withValues(alpha: 0.1),
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+          if (hasText) ...[
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.2),
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        height: 1.25,
-                      ),
-                      children: [
-                        TextSpan(text: '${banner.title} '),
-                        TextSpan(
-                          text: banner.titleHighlight,
-                          style: const TextStyle(color: AppColors.primary),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (banner.title.trim().isNotEmpty ||
+                        banner.titleHighlight.trim().isNotEmpty)
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            height: 1.25,
+                          ),
+                          children: [
+                            if (banner.title.trim().isNotEmpty)
+                              TextSpan(text: '${banner.title} '),
+                            if (banner.titleHighlight.trim().isNotEmpty)
+                              TextSpan(
+                                text: banner.titleHighlight,
+                                style: const TextStyle(color: AppColors.primary),
+                              ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    banner.subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+                      ),
+                    if (banner.subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        banner.subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -276,6 +290,9 @@ class _SliderArrowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.black.withValues(alpha: 0.38),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

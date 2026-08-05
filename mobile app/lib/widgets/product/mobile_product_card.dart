@@ -47,14 +47,17 @@ class MobileProductCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: product.primaryImage != null
-                      ? AppNetworkImage(
-                          imageUrl: product.primaryImage!,
-                          fit: BoxFit.contain,
-                          width: 84,
-                          height: 104,
-                          cacheWidth: 168,
-                          cacheHeight: 208,
-                          errorIcon: Icons.image_outlined,
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: AppNetworkImage(
+                            imageUrl: product.primaryImage!,
+                            fit: BoxFit.cover,
+                            width: 84,
+                            height: 104,
+                            cacheWidth: 168,
+                            cacheHeight: 208,
+                            errorIcon: Icons.image_outlined,
+                          ),
                         )
                       : const Icon(Icons.image_outlined, color: AppColors.textMuted),
                 ),

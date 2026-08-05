@@ -5,6 +5,8 @@ import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/product_pricing.dart';
+import '../../core/utils/product_utils.dart';
+import '../../models/brand.dart';
 import '../../models/cart_item.dart';
 import '../../models/category.dart';
 import '../../models/product.dart';
@@ -14,11 +16,14 @@ import '../../widgets/category/category_horizontal_strip.dart';
 import '../../widgets/common/app_loading.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/product/deal_product_card.dart';
+import '../../widgets/product/product_filters_bar.dart';
 import '../auth/auth_controller.dart';
 import '../cart/cart_controller.dart';
 import '../home/home_providers.dart';
 import '../product/product_providers.dart';
 
+/// Categories tab — matches website mobile `MobileCategoryProductLayout` /
+/// `AllProductsLayout`.
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
 
@@ -29,6 +34,8 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String? _selectedCategoryName;
   String? _selectedSubcategory;
+  String _selectedBrand = '';
+  ProductSortOption _sort = ProductSortOption.listingDefault;
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
 
@@ -58,15 +65,14 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     return null;
   }
 
-  List<Product> _filterBySubcategory(
-    List<Product> products,
-    String? subcategory,
-  ) {
-    if (subcategory == null || subcategory.isEmpty) return products;
-    final lower = subcategory.toLowerCase();
-    return products
-        .where((p) => p.subcategory.toLowerCase() == lower)
-        .toList();
+  bool get _hasActiveFilters =>
+      _selectedBrand.isNotEmpty || _sort != ProductSortOption.listingDefault;
+
+  void _clearFilters() {
+    setState(() {
+      _selectedBrand = '';
+      _sort = ProductSortOption.listingDefault;
+    });
   }
 
   Future<void> _handleAdd(Product product, BuildContext context) async {
@@ -147,18 +153,32 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         );
   }
 
+  List<String> _brandNames(List<Brand> brands) {
+    final names = brands
+        .map((b) => b.brandName.trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+    names.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return names;
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final brandsAsync = ref.watch(brandsProvider);
     final productQuery = ProductQuery(
       categoryName: _selectedCategoryName?.isNotEmpty == true
           ? _selectedCategoryName
           : null,
+      brandName: _selectedBrand.isNotEmpty ? _selectedBrand : null,
+      subcategory: _selectedSubcategory,
+      sortId: _sort.id,
     );
     final productsAsync = ref.watch(productListProvider(productQuery));
+    final brandNames = _brandNames(brandsAsync.value ?? const <Brand>[]);
 
     return ColoredBox(
-      color: AppColors.mobileSurface,
+      color: Colors.white,
       child: categoriesAsync.when(
         loading: () => const AppLoading(message: 'Loading categories...'),
         error: (error, _) {
@@ -166,9 +186,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           return _CategoriesProductLayout(
             scrollController: _scrollController,
             categories: fallback,
+            brandNames: brandNames,
             productsAsync: productsAsync,
             selectedCategoryName: _selectedCategoryName,
             selectedSubcategory: _selectedSubcategory,
+            selectedBrand: _selectedBrand,
+            sortBy: _sort,
+            hasActiveFilters: _hasActiveFilters,
             activeCategory: _findCategory(fallback, _selectedCategoryName),
             onCategorySelected: (name) {
               setState(() {
@@ -179,14 +203,17 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             onSubcategorySelected: (sub) {
               setState(() => _selectedSubcategory = sub);
             },
+            onBrandChange: (brand) => setState(() => _selectedBrand = brand),
+            onSortChange: (sort) => setState(() => _sort = sort),
+            onClearFilters: _clearFilters,
             onAdd: _handleAdd,
             onIncrease: _handleIncrease,
             onDecrease: _handleDecrease,
             onRefresh: () async {
               ref.invalidate(categoriesProvider);
+              ref.invalidate(brandsProvider);
               ref.invalidate(productListProvider(productQuery));
             },
-            filterBySubcategory: _filterBySubcategory,
           );
         },
         data: (categories) {
@@ -194,9 +221,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           return _CategoriesProductLayout(
             scrollController: _scrollController,
             categories: displayCategories,
+            brandNames: brandNames,
             productsAsync: productsAsync,
             selectedCategoryName: _selectedCategoryName,
             selectedSubcategory: _selectedSubcategory,
+            selectedBrand: _selectedBrand,
+            sortBy: _sort,
+            hasActiveFilters: _hasActiveFilters,
             activeCategory:
                 _findCategory(displayCategories, _selectedCategoryName),
             onCategorySelected: (name) {
@@ -208,14 +239,17 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             onSubcategorySelected: (sub) {
               setState(() => _selectedSubcategory = sub);
             },
+            onBrandChange: (brand) => setState(() => _selectedBrand = brand),
+            onSortChange: (sort) => setState(() => _sort = sort),
+            onClearFilters: _clearFilters,
             onAdd: _handleAdd,
             onIncrease: _handleIncrease,
             onDecrease: _handleDecrease,
             onRefresh: () async {
               ref.invalidate(categoriesProvider);
+              ref.invalidate(brandsProvider);
               ref.invalidate(productListProvider(productQuery));
             },
-            filterBySubcategory: _filterBySubcategory,
           );
         },
       ),
@@ -227,37 +261,49 @@ class _CategoriesProductLayout extends StatelessWidget {
   const _CategoriesProductLayout({
     required this.scrollController,
     required this.categories,
+    required this.brandNames,
     required this.productsAsync,
     required this.selectedCategoryName,
     required this.selectedSubcategory,
+    required this.selectedBrand,
+    required this.sortBy,
+    required this.hasActiveFilters,
     required this.activeCategory,
     required this.onCategorySelected,
     required this.onSubcategorySelected,
+    required this.onBrandChange,
+    required this.onSortChange,
+    required this.onClearFilters,
     required this.onAdd,
     required this.onIncrease,
     required this.onDecrease,
     required this.onRefresh,
-    required this.filterBySubcategory,
   });
 
   final ScrollController scrollController;
   final List<Category> categories;
+  final List<String> brandNames;
   final AsyncValue<List<Product>> productsAsync;
   final String? selectedCategoryName;
   final String? selectedSubcategory;
+  final String selectedBrand;
+  final ProductSortOption sortBy;
+  final bool hasActiveFilters;
   final Category? activeCategory;
   final ValueChanged<String?> onCategorySelected;
   final ValueChanged<String?> onSubcategorySelected;
+  final ValueChanged<String> onBrandChange;
+  final ValueChanged<ProductSortOption> onSortChange;
+  final VoidCallback onClearFilters;
   final Future<void> Function(Product, BuildContext) onAdd;
   final Future<void> Function(Product) onIncrease;
   final Future<void> Function(Product) onDecrease;
   final Future<void> Function() onRefresh;
-  final List<Product> Function(List<Product>, String?) filterBySubcategory;
 
   @override
   Widget build(BuildContext context) {
-    final hasCategory = selectedCategoryName != null &&
-        selectedCategoryName!.isNotEmpty;
+    final hasCategory =
+        selectedCategoryName != null && selectedCategoryName!.isNotEmpty;
     final subcategories = activeCategory?.subcategories ?? const <String>[];
 
     return RefreshIndicator(
@@ -286,6 +332,24 @@ class _CategoriesProductLayout extends StatelessWidget {
                 onSubcategorySelected: onSubcategorySelected,
               ),
             ),
+          SliverToBoxAdapter(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.borderLight),
+                ),
+              ),
+              child: ProductFiltersBar(
+                brands: brandNames,
+                selectedBrand: selectedBrand,
+                sortBy: sortBy,
+                onBrandChange: onBrandChange,
+                onSortChange: onSortChange,
+                hasActiveFilters: hasActiveFilters,
+                onClear: onClearFilters,
+              ),
+            ),
+          ),
           productsAsync.when(
             loading: () => const SliverFillRemaining(
               hasScrollBody: false,
@@ -312,8 +376,12 @@ class _CategoriesProductLayout extends StatelessWidget {
               ),
             ),
             data: (products) {
-              final filtered =
-                  filterBySubcategory(products, selectedSubcategory);
+              final filtered = filterAndSortProducts(
+                products: products,
+                subcategory: selectedSubcategory,
+                brand: selectedBrand,
+                sort: sortBy,
+              );
 
               if (filtered.isEmpty) {
                 return SliverFillRemaining(
@@ -330,13 +398,14 @@ class _CategoriesProductLayout extends StatelessWidget {
               }
 
               return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio:
+                        DealProductCardDimensions.gridChildAspectRatio,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -370,8 +439,8 @@ class _StickyCategoryStripDelegate extends SliverPersistentHeaderDelegate {
     required this.onSelect,
   });
 
-  /// Matches [CategoryHorizontalStrip] padding (10+10) + list height (84).
-  static const double stripHeight = 104;
+  /// Matches [CategoryHorizontalStrip] padding (10+10) + list height (88).
+  static const double stripHeight = 108;
 
   final List<Category> categories;
   final String? selectedCategoryName;

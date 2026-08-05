@@ -13,6 +13,7 @@ import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../widgets/common/image_source_sheet.dart';
+import '../../widgets/common/whatsapp_icon.dart';
 import 'support_constants.dart';
 import '../../routes/route_paths.dart';
 
@@ -130,8 +131,39 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
   }
 
   Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final message = _messageController.text.trim();
+
+    if (name.isEmpty) {
+      setState(() => _error = 'Name is required');
+      return;
+    }
+    if (phone.isEmpty) {
+      setState(() => _error = 'Phone is required');
+      return;
+    }
+    if (email.isNotEmpty &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      setState(() => _error = 'Please enter a valid email');
+      return;
+    }
     if (_issueType == null || _issueType!.isEmpty) {
       setState(() => _error = 'Please select an issue type');
+      return;
+    }
+    if (message.isEmpty) {
+      setState(() => _error = 'Message is required');
+      return;
+    }
+    if (_uploadingAttachment) {
+      setState(() => _error = 'Please wait for the attachment to finish uploading');
+      return;
+    }
+    if (_attachmentLocalPath != null &&
+        (_attachmentUrl == null || _attachmentUrl!.isEmpty)) {
+      setState(() => _error = 'Attachment upload failed. Remove it or try again');
       return;
     }
 
@@ -142,13 +174,20 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     });
 
     try {
-      final message = await ref.read(apiServiceProvider).submitSupportTicket({
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
+      // Backend requires a valid email; OTP users often have none — send a
+      // phone-derived placeholder (same rule as backend supportController).
+      final phoneDigits = phone.replaceAll(RegExp(r'\D'), '');
+      final resolvedEmail = email.isNotEmpty
+          ? email
+          : '${phoneDigits.length >= 10 ? phoneDigits.substring(phoneDigits.length - 10) : phoneDigits}@phone.bulkmobilemart.in';
+
+      final result = await ref.read(apiServiceProvider).submitSupportTicket({
+        'name': name,
+        'email': resolvedEmail,
+        'phone': phone,
         'orderId': _orderIdController.text.trim(),
         'issueType': _issueType,
-        'message': _messageController.text.trim(),
+        'message': message,
         'attachment': _attachmentUrl ?? '',
         'attachmentName': _attachmentName ?? '',
       });
@@ -156,7 +195,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
       if (!mounted) return;
       setState(() {
         _submitting = false;
-        _success = message;
+        _success = result;
         _messageController.clear();
         _orderIdController.clear();
         _issueType = null;
@@ -165,11 +204,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         _attachmentName = null;
       });
       _prefillUser();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _submitting = false;
-        _error = 'Failed to submit support request';
+        _error = apiErrorMessage(
+          e,
+          fallback: 'Failed to submit support request',
+        );
       });
     }
   }
@@ -204,9 +246,24 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _contactCard(Icons.phone, 'Phone', supportContactPhone, supportContactPhoneHref)),
+              Expanded(
+                child: _contactCard(
+                  icon: const Icon(Icons.phone, color: AppColors.primary, size: 20),
+                  title: 'Phone',
+                  value: supportContactPhone,
+                  href: supportContactPhoneHref,
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: _contactCard(Icons.chat, 'WhatsApp', supportContactPhone, supportWhatsAppHref)),
+              Expanded(
+                child: _contactCard(
+                  icon: const WhatsAppIcon(size: 20),
+                  title: 'WhatsApp',
+                  value: supportContactPhone,
+                  href: supportWhatsAppHref,
+                  valueColor: const Color(0xFF25D366),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -214,10 +271,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             children: [
               Expanded(
                 child: _contactCard(
-                  Icons.email_outlined,
-                  'Email',
-                  supportContactEmail,
-                  'mailto:$supportContactEmail',
+                  icon: const Icon(Icons.email_outlined, color: AppColors.primary, size: 20),
+                  title: 'Email',
+                  value: supportContactEmail,
+                  href: 'mailto:$supportContactEmail',
                 ),
               ),
               const SizedBox(width: 10),
@@ -289,7 +346,10 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email *'),
+                  decoration: const InputDecoration(
+                    labelText: 'Email (optional)',
+                    hintText: 'Optional if you signed in with phone',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -304,17 +364,18 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
+                  key: ValueKey(_issueType ?? 'issue-none'),
                   initialValue: _issueType,
                   decoration: const InputDecoration(labelText: 'Issue Type *'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Select issue type')),
-                    ...supportIssueOptions.map(
-                      (option) => DropdownMenuItem(
-                        value: option.value,
-                        child: Text(option.label),
-                      ),
-                    ),
-                  ],
+                  hint: const Text('Select issue type'),
+                  items: supportIssueOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option.value,
+                          child: Text(option.label),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) => setState(() => _issueType = value),
                 ),
                 const SizedBox(height: 10),
@@ -421,7 +482,13 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     );
   }
 
-  Widget _contactCard(IconData icon, String title, String value, String href) {
+  Widget _contactCard({
+    required Widget icon,
+    required String title,
+    required String value,
+    required String href,
+    Color valueColor = AppColors.primary,
+  }) {
     return InkWell(
       onTap: () => _launch(href),
       borderRadius: BorderRadius.circular(10),
@@ -435,11 +502,11 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: AppColors.primary, size: 20),
+            icon,
             const SizedBox(height: 8),
             Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(height: 4),
-            Text(value, style: const TextStyle(fontSize: 11, color: AppColors.primary)),
+            Text(value, style: TextStyle(fontSize: 11, color: valueColor)),
           ],
         ),
       ),

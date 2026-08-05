@@ -153,8 +153,11 @@ export function matchesOrderFilter(order, filter) {
       return (
         order.status !== "delivered" &&
         order.status !== "cancelled" &&
-        order.status !== "return"
+        order.status !== "return" &&
+        order.status !== "attempted"
       );
+    case "attempted":
+      return order.status === "attempted";
     case "delivered":
       return order.status === "delivered";
     case "cancelled":
@@ -236,6 +239,8 @@ export function formatOrderDateTime(dateStr) {
 
 export function getBlinkitStatusLabel(status) {
   switch (status) {
+    case "attempted":
+      return "Checkout not completed";
     case "delivered":
       return "Order delivered";
     case "shipping":
@@ -254,6 +259,8 @@ export function getBlinkitStatusLabel(status) {
 
 export function getBlinkitShipmentStatusLabel(status) {
   switch (status) {
+    case "attempted":
+      return "Checkout not completed";
     case "delivered":
       return "Delivered";
     case "shipping":

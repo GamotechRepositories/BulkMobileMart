@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,12 +18,19 @@ class HeroBannerCarousel extends ConsumerStatefulWidget {
 }
 
 class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
-  static const _bannerHeight = 228.0;
-  final _pageController = PageController(viewportFraction: 0.92);
+  static const _autoPlayMs = 5000;
+  static const _swipeThreshold = 48.0;
+
+  int _current = 0;
+  int _slideCount = 0;
+  double? _bannerAspectRatio;
+  String? _resolvedForUrl;
+  Timer? _autoPlayTimer;
+  double _dragDx = 0;
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _autoPlayTimer?.cancel();
     super.dispose();
   }
 
@@ -30,6 +39,47 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
         .where((banner) => banner.isActive && banner.imageUrl.trim().isNotEmpty)
         .toList()
       ..sort((a, b) => a.order.compareTo(b.order));
+  }
+
+  void _resolveAspectRatio(String imageUrl) {
+    final url = imageUrl.trim();
+    if (url.isEmpty || _resolvedForUrl == url) return;
+    _resolvedForUrl = url;
+
+    final stream = NetworkImage(url).resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        stream.removeListener(listener);
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        if (!mounted || w <= 0 || h <= 0) return;
+        setState(() => _bannerAspectRatio = w / h);
+      },
+      onError: (_, _) {
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+  }
+
+  void _scheduleAutoPlay(int count) {
+    _autoPlayTimer?.cancel();
+    _slideCount = count;
+    if (count <= 1) return;
+    _autoPlayTimer = Timer.periodic(
+      const Duration(milliseconds: _autoPlayMs),
+      (_) {
+        if (!mounted || _slideCount <= 1) return;
+        setState(() => _current = (_current + 1) % _slideCount);
+      },
+    );
+  }
+
+  void _goTo(int index, int count) {
+    if (count <= 0) return;
+    setState(() => _current = (index + count) % count);
+    _scheduleAutoPlay(count);
   }
 
   @override
@@ -45,105 +95,88 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
       data: (banners) {
         final slides = _visibleBanners(banners);
         if (slides.isEmpty) return const SizedBox.shrink();
-        return _buildCarousel(slides);
+
+        final current = _current.clamp(0, slides.length - 1);
+        if (current != _current) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _current = current);
+          });
+        }
+
+        if (_slideCount != slides.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _resolveAspectRatio(slides.first.imageUrl);
+            _scheduleAutoPlay(slides.length);
+          });
+        }
+        return _buildCarousel(slides, current);
       },
     );
   }
 
-  Widget _buildCarousel(List<HeroBanner> slides) {
+  Widget _buildCarousel(List<HeroBanner> slides, int current) {
+    final aspect = (_bannerAspectRatio ?? 2.0).clamp(1.2, 3.2);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       child: Column(
         children: [
-          SizedBox(
-            height: _bannerHeight,
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: slides.length,
-              allowImplicitScrolling: false,
-              itemBuilder: (context, index) {
-                final banner = slides[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _BannerSlide(banner: banner),
-                );
-              },
+          AspectRatio(
+            aspectRatio: aspect,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
+              clipBehavior: Clip.antiAlias,
+              child: ColoredBox(
+                color: Colors.white,
+                child: GestureDetector(
+                  onHorizontalDragStart: (_) => _autoPlayTimer?.cancel(),
+                  onHorizontalDragUpdate: (details) {
+                    _dragDx += details.delta.dx;
+                  },
+                  onHorizontalDragEnd: (_) {
+                    final count = slides.length;
+                    if (_dragDx.abs() >= _swipeThreshold && count > 1) {
+                      if (_dragDx < 0) {
+                        _goTo(current + 1, count);
+                      } else {
+                        _goTo(current - 1, count);
+                      }
+                    } else {
+                      _scheduleAutoPlay(count);
+                    }
+                    _dragDx = 0;
+                  },
+                  // Hard cut: only the active banner — never peeks the next slide.
+                  child: _BannerSlide(banner: slides[current]),
+                ),
+              ),
             ),
           ),
           if (slides.length > 1) ...[
             const SizedBox(height: 12),
-            _BannerPageDots(
-              controller: _pageController,
-              itemCount: slides.length,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(slides.length, (index) {
+                final active = index == current;
+                return GestureDetector(
+                  onTap: () => _goTo(index, slides.length),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: active ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: active ? AppColors.primary : AppColors.borderLight,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                );
+              }),
             ),
           ],
         ],
       ),
-    );
-  }
-}
-
-class _BannerPageDots extends StatefulWidget {
-  const _BannerPageDots({
-    required this.controller,
-    required this.itemCount,
-  });
-
-  final PageController controller;
-  final int itemCount;
-
-  @override
-  State<_BannerPageDots> createState() => _BannerPageDotsState();
-}
-
-class _BannerPageDotsState extends State<_BannerPageDots> {
-  int _current = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _current = widget.controller.initialPage;
-    widget.controller.addListener(_onPageChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant _BannerPageDots oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onPageChanged);
-      widget.controller.addListener(_onPageChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onPageChanged);
-    super.dispose();
-  }
-
-  void _onPageChanged() {
-    final page = widget.controller.page?.round() ?? 0;
-    if (page == _current) return;
-    setState(() => _current = page);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(widget.itemCount, (index) {
-        final active = index == _current;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          width: active ? 18 : 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: active ? AppColors.primary : AppColors.borderLight,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        );
-      }),
     );
   }
 }
@@ -155,21 +188,14 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
-      child: SizedBox(
-        height: _HeroBannerCarouselState._bannerHeight,
-        width: double.infinity,
-        child: AppNetworkImage(
-          imageUrl: banner.imageUrl,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          width: double.infinity,
-          height: _HeroBannerCarouselState._bannerHeight,
-          cacheWidth: 400,
-          cacheHeight: _HeroBannerCarouselState._bannerHeight.toInt(),
-        ),
-      ),
+    return AppNetworkImage(
+      imageUrl: banner.imageUrl,
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      width: double.infinity,
+      height: double.infinity,
+      cacheWidth: 1080,
+      cacheHeight: 600,
     );
   }
 }

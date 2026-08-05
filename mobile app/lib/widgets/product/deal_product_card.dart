@@ -215,21 +215,17 @@ class DealProductCard extends ConsumerWidget {
               ? () => context.push('/product/${product.id}')
               : null,
           child: ColoredBox(
-            // Match website: product images sit on a plain white background.
             color: Colors.white,
             child: product.primaryImage != null
-                ? Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: AppNetworkImage(
+                ? AppNetworkImage(
                       imageUrl: product.primaryImage!,
                       width: double.infinity,
                       height: double.infinity,
-                      fit: BoxFit.contain,
-                      cacheWidth: 152,
-                      cacheHeight: 152,
+                      fit: BoxFit.cover,
+                      cacheWidth: 360,
+                      cacheHeight: 480,
                       errorIcon: Icons.image_outlined,
-                    ),
-                  )
+                    )
                 : const Center(
                     child: Icon(
                       Icons.image_outlined,

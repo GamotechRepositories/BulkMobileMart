@@ -5,7 +5,7 @@ import { getMyOrders } from "../api/api";
 import BlinkitOrderCard from "../components/orders/BlinkitOrderCard";
 import DesktopOrderCard from "../components/orders/DesktopOrderCard";
 import { OrdersDesktopHeader } from "../components/orders/OrdersDesktopHeader";
-import { filterOrders, isPlacedOrder } from "../utils/orderUtils";
+import { filterOrders } from "../utils/orderUtils";
 
 function StateCard({ children, className = "" }) {
   return (
@@ -62,7 +62,7 @@ function Orders() {
     setError("");
     try {
       const { data } = await getMyOrders();
-      setOrders((data?.data || []).filter(isPlacedOrder));
+      setOrders(data?.data || []);
     } catch {
       setOrders([]);
       setError("Failed to load orders. Please try again.");

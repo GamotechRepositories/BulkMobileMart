@@ -5,11 +5,24 @@ import '../../core/utils/product_utils.dart';
 import '../../models/product.dart';
 
 const _productsPageSize = 50;
+const _filteredProductsFastLimit = 120;
 
 final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
   final api = ref.read(apiServiceProvider);
   final params = query.toApiParams();
+
+  // Category/search/brand listings should feel instant on mobile.
+  // For these filtered views, fetch one larger page instead of walking all pages.
+  if (_isFilteredListing(query)) {
+    final firstPage = await api.fetchProductsPage({
+      ...params,
+      'page': 1,
+      'limit': _filteredProductsFastLimit,
+    });
+    return firstPage.items.where((product) => product.isActive).toList();
+  }
+
   final all = <Product>[];
   var page = 1;
   var totalPages = 1;
@@ -27,6 +40,18 @@ final productListProvider =
 
   return all.where((product) => product.isActive).toList();
 });
+
+bool _isFilteredListing(ProductQuery query) {
+  bool hasValue(String? value) => value != null && value.trim().isNotEmpty;
+  return hasValue(query.categoryName) ||
+      hasValue(query.search) ||
+      hasValue(query.brandName) ||
+      hasValue(query.subcategory) ||
+      hasValue(query.minPrice) ||
+      hasValue(query.maxPrice) ||
+      query.justArrived ||
+      query.hotSelling;
+}
 
 final productDetailProvider =
     FutureProvider.family<Product, String>((ref, id) async {

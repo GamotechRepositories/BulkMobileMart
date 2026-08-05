@@ -2,10 +2,9 @@ class OfferBanner {
   const OfferBanner({
     required this.id,
     required this.imageUrl,
-    this.title = 'Bulk Mobile Accessories at',
-    this.titleHighlight = 'Wholesale Prices',
-    this.subtitle =
-        'MOQ 10 pieces · Pan-India delivery · Best deals for retailers & distributors',
+    this.title = '',
+    this.titleHighlight = '',
+    this.subtitle = '',
     this.linkUrl = '',
     this.alt = 'BulkMobileMart offer banner',
     this.order = 0,
@@ -28,10 +27,9 @@ class OfferBanner {
     return OfferBanner(
       id: json['_id']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString() ?? '',
-      title: json['title']?.toString() ?? 'Bulk Mobile Accessories at',
-      titleHighlight: json['titleHighlight']?.toString() ?? 'Wholesale Prices',
-      subtitle: json['subtitle']?.toString() ??
-          'MOQ 10 pieces · Pan-India delivery · Best deals for retailers & distributors',
+      title: json['title']?.toString() ?? '',
+      titleHighlight: json['titleHighlight']?.toString() ?? '',
+      subtitle: json['subtitle']?.toString() ?? '',
       linkUrl: json['linkUrl']?.toString() ?? '',
       alt: json['alt']?.toString() ?? 'BulkMobileMart offer banner',
       order: json['order'] is num ? (json['order'] as num).toInt() : 0,

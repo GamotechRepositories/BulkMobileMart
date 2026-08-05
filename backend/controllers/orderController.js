@@ -639,7 +639,7 @@ export const placeOrder = async (req, res) => {
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await populateOrderItems(
-      Order.find({ user: req.user._id, status: { $ne: "attempted" } }).sort({
+      Order.find({ user: req.user._id }).sort({
         createdAt: -1,
       })
     );

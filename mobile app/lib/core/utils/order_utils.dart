@@ -113,6 +113,8 @@ String formatPlacedAtLabel(DateTime? date) {
 
 String getBlinkitStatusLabel(String status) {
   switch (status) {
+    case 'attempted':
+      return 'Checkout not completed';
     case 'delivered':
       return 'Order delivered';
     case 'shipping':

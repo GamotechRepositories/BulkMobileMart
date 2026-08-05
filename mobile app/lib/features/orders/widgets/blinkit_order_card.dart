@@ -76,9 +76,11 @@ class BlinkitOrderCard extends ConsumerWidget {
           const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
           _OrderFooter(
             isDelivered: isDelivered,
+            isAttempted: order.status == 'attempted',
             hasRating: deliveryRating != null,
             onRate: () => _showRatingSheet(context, ref, order.id),
             onOrderAgain: () => _handleOrderAgain(context, order, productId),
+            onViewDetails: () => context.push('/orders/${order.id}'),
           ),
         ],
       ),
@@ -345,18 +347,26 @@ class _DeliveryRatingRow extends StatelessWidget {
 class _OrderFooter extends StatelessWidget {
   const _OrderFooter({
     required this.isDelivered,
+    required this.isAttempted,
     required this.hasRating,
     required this.onRate,
     required this.onOrderAgain,
+    required this.onViewDetails,
   });
 
   final bool isDelivered;
+  final bool isAttempted;
   final bool hasRating;
   final VoidCallback onRate;
   final VoidCallback onOrderAgain;
+  final VoidCallback onViewDetails;
 
   @override
   Widget build(BuildContext context) {
+    if (isAttempted) {
+      return _FooterAction(label: 'View details', onTap: onViewDetails);
+    }
+
     if (isDelivered && !hasRating) {
       return Row(
         children: [

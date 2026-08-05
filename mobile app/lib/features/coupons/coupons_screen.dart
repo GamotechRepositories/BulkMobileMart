@@ -438,24 +438,31 @@ class _CouponCard extends StatelessWidget {
               _detailRow('Valid till', coupon.validityLabel),
             if (coupon.minOrderAmount > 0)
               _detailRow('Minimum order', formatInr(coupon.minOrderAmount)),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: blocked || applying ? null : onAction,
-                child: applying
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(unlocked ? 'Apply at checkout' : 'View cart'),
-              ),
-            ),
           ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: blocked || applying ? null : onAction,
+              style: unlocked
+                  ? null
+                  : FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.textPrimary,
+                      side: const BorderSide(color: AppColors.borderLight),
+                    ),
+              child: applying
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(unlocked ? 'Apply coupon' : 'View cart'),
+            ),
+          ),
         ],
       ),
     );

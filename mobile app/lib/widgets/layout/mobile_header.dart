@@ -95,7 +95,13 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
     final roundedHomeBottom = widget.isHomeTab && !_searchOpen;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppTheme.storefrontHeaderOverlay,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -107,16 +113,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                   )
                 : BorderRadius.zero,
             child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.headerPrimary,
-                    AppColors.headerPrimaryLight,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
+              decoration: const BoxDecoration(color: Colors.white),
               child: Padding(
                 padding: EdgeInsets.only(top: topInset),
                 child: Padding(
@@ -128,7 +125,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                           _HeaderIconButton(
                             icon: Icons.menu_rounded,
                             onPressed: _openMenu,
-                            light: true,
+                            light: false,
                           ),
                           const Expanded(
                             child: Center(
@@ -138,7 +135,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                           _HeaderIconButton(
                             icon: Icons.search_rounded,
                             onPressed: _toggleSearch,
-                            light: true,
+                            light: false,
                             active: _searchOpen,
                           ),
                           const SizedBox(width: 4),
@@ -148,7 +145,7 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
                             child: _HeaderIconButton(
                               icon: Icons.favorite_border_rounded,
                               onPressed: () => context.push(RoutePaths.wishlist),
-                              light: true,
+                              light: false,
                               badgeCount: wishlistCount,
                             ),
                           ),
@@ -176,7 +173,6 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
 
 class _HeaderIconButton extends StatelessWidget {
   const _HeaderIconButton({
-    super.key,
     this.icon,
     this.child,
     required this.onPressed,

@@ -30,8 +30,8 @@ class SimilarProductsSection extends ConsumerWidget {
     return productsAsync.when(
       loading: () => _SimilarProductsShell(
         categoryName: categoryName,
-        child: _SimilarProductsGrid(
-          itemCount: 12,
+        child: _SimilarProductsRow(
+          itemCount: 8,
           itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
         ),
       ),
@@ -41,7 +41,7 @@ class SimilarProductsSection extends ConsumerWidget {
 
         return _SimilarProductsShell(
           categoryName: categoryName,
-          child: _SimilarProductsGrid(
+          child: _SimilarProductsRow(
             itemCount: products.length,
             itemBuilder: (context, index) =>
                 _SimilarDealCard(product: products[index]),
@@ -52,8 +52,8 @@ class SimilarProductsSection extends ConsumerWidget {
   }
 }
 
-class _SimilarProductsGrid extends StatelessWidget {
-  const _SimilarProductsGrid({
+class _SimilarProductsRow extends StatelessWidget {
+  const _SimilarProductsRow({
     required this.itemCount,
     required this.itemBuilder,
   });
@@ -63,20 +63,21 @@ class _SimilarProductsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final crossAxisCount = width >= 1024 ? 6 : width >= 640 ? 3 : 2;
+    const cardWidth = 182.0;
+    final cardHeight =
+        cardWidth / DealProductCardDimensions.gridChildAspectRatio;
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return SizedBox(
+      height: cardHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
       itemCount: itemCount,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => SizedBox(
+          width: cardWidth,
+          child: itemBuilder(context, index),
+        ),
       ),
-      itemBuilder: itemBuilder,
     );
   }
 }

@@ -25,11 +25,17 @@ export const submitSupportMessage = async (req, res) => {
     if (!name) {
       return res.status(400).json({ success: false, message: "Name is required" });
     }
-    if (!email || !EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ success: false, message: "Valid email is required" });
-    }
     if (!phone) {
       return res.status(400).json({ success: false, message: "Phone is required" });
+    }
+    // OTP / phone-only accounts often have no email — accept a phone-derived placeholder.
+    if (!email || !EMAIL_REGEX.test(email)) {
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length >= 10) {
+        email = `${digits.slice(-10)}@phone.bulkmobilemart.in`;
+      } else {
+        return res.status(400).json({ success: false, message: "Valid email is required" });
+      }
     }
     if (!issueType || !SUPPORT_ISSUE_TYPES.includes(issueType)) {
       return res.status(400).json({ success: false, message: "Valid issue type is required" });

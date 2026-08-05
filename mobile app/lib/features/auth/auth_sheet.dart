@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_auth/smart_auth.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/validators.dart';
@@ -32,6 +34,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
 
   _AuthStep _step = _AuthStep.details;
   String _otp = '';
+  int _otpListenGeneration = 0;
   int _resendCooldown = 0;
   Timer? _cooldownTimer;
   bool _submitting = false;
@@ -46,6 +49,73 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     _nameController.addListener(_clearError);
     _shopNameController.addListener(_clearError);
     _shopAddressController.addListener(_clearError);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestPhoneNumberHint();
+    });
+  }
+
+  /// Normalizes SIM / autofill numbers like +91XXXXXXXXXX to 10 digits.
+  String? _normalizeIndianMobile(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    var digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 10) {
+      digits = digits.substring(digits.length - 10);
+    }
+    if (!Validators.isValidPhone(digits)) return null;
+    return digits;
+  }
+
+  Future<void> _requestPhoneNumberHint({bool force = false}) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (!mounted || _step != _AuthStep.details) return;
+    if (!force && _phoneController.text.trim().isNotEmpty) return;
+
+    try {
+      final result = await SmartAuth.instance.requestPhoneNumberHint();
+      if (!mounted || !result.hasData) return;
+      final normalized = _normalizeIndianMobile(result.requireData);
+      if (normalized == null) return;
+      setState(() {
+        _phoneController.text = normalized;
+        _phoneController.selection = TextSelection.collapsed(
+          offset: normalized.length,
+        );
+        _error = null;
+      });
+    } catch (_) {
+      // User can still type the number manually.
+    }
+  }
+
+  Widget _buildPhoneField({
+    required TextInputAction textInputAction,
+    VoidCallback? onSubmitted,
+  }) {
+    return TextField(
+      controller: _phoneController,
+      decoration: InputDecoration(
+        labelText: 'Mobile Number',
+        hintText: 'Enter your phone number',
+        prefixIcon: IconButton(
+          tooltip: 'Detect number',
+          onPressed: _submitting
+              ? null
+              : () => _requestPhoneNumberHint(force: true),
+          icon: const Icon(Icons.content_copy_outlined),
+        ),
+        prefixText: '+91 ',
+        counterText: '',
+      ),
+      keyboardType: TextInputType.phone,
+      autofillHints: const [
+        AutofillHints.telephoneNumberNational,
+        AutofillHints.telephoneNumber,
+      ],
+      maxLength: 10,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted == null ? null : (_) => onSubmitted(),
+    );
   }
 
   @override
@@ -76,6 +146,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     setState(() {
       _step = _AuthStep.details;
       _otp = '';
+      _otpListenGeneration = 0;
       _resendCooldown = 0;
       _error = null;
       _shopNameController.clear();
@@ -156,6 +227,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
       setState(() {
         _step = _AuthStep.verify;
         _otp = '';
+        _otpListenGeneration += 1;
         _submitting = false;
       });
       _startCooldown();
@@ -300,19 +372,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    prefixText: '+91 ',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.next,
-                ),
+                _buildPhoneField(textInputAction: TextInputAction.next),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _shopNameController,
@@ -354,19 +414,9 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   onSubmitted: (_) => _submitDetailsStep(),
                 ),
               ] else ...[
-                TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    prefixText: '+91 ',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                _buildPhoneField(
                   textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submitDetailsStep(),
+                  onSubmitted: _submitDetailsStep,
                 ),
               ],
             ] else ...[
@@ -379,6 +429,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
               ),
               const SizedBox(height: 12),
               OtpInput(
+                key: ValueKey(_otpListenGeneration),
                 value: _otp,
                 onChanged: (value) => setState(() {
                   _otp = value;

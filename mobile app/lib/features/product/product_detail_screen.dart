@@ -543,7 +543,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ? product.categories.first
                     : product.subcategory,
               ),
-              const SizedBox(height: 100),
+              const SizedBox(height: 16),
             ],
           ),
         ),

@@ -956,6 +956,8 @@ String getBlinkitShipmentStatusLabel(
   }
 
   switch (status) {
+    case 'attempted':
+      return 'Checkout not completed';
     case 'delivered':
       return 'Delivered';
     case 'shipping':

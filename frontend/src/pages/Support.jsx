@@ -233,8 +233,15 @@ function Support() {
 
     try {
       setSubmitting(true);
+      const phoneDigits = String(form.phone || "").replace(/\D/g, "");
+      const email =
+        form.email?.trim() ||
+        (phoneDigits.length >= 10
+          ? `${phoneDigits.slice(-10)}@phone.bulkmobilemart.in`
+          : "");
       const { data } = await submitSupportMessage({
         ...form,
+        email,
         attachment: attachment?.url || "",
         attachmentName: attachment?.name || "",
       });
@@ -412,14 +419,14 @@ function Support() {
                   </div>
                   <div>
                     <label htmlFor="email" className={labelClass}>
-                      Email <span className="text-primary">*</span>
+                      Email{" "}
+                      <span className="font-normal text-text-secondary">(Optional)</span>
                     </label>
                     <input
                       id="email"
                       type="email"
                       name="email"
-                      required
-                      placeholder="Enter your email"
+                      placeholder="Optional if you signed in with phone"
                       value={form.email}
                       onChange={handleChange}
                       className={inputClass}

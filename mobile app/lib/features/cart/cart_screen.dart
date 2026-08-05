@@ -198,6 +198,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 12),
                   _OrderSummary(
                     summary: summary,
+                    minimumOrderValue: storeSettings?.minimumOrderValue ?? 3000,
                     onCheckout: () => context.push(RoutePaths.checkout),
                   ),
                 ],
@@ -473,14 +474,19 @@ class _CouponsBanner extends StatelessWidget {
 class _OrderSummary extends StatelessWidget {
   const _OrderSummary({
     required this.summary,
+    required this.minimumOrderValue,
     required this.onCheckout,
   });
 
   final CartSummary summary;
+  final double minimumOrderValue;
   final VoidCallback onCheckout;
 
   @override
   Widget build(BuildContext context) {
+    final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
+    final orderShortfall = minimumOrderShortfall(summary.subtotal, minimumOrderValue);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -535,9 +541,30 @@ class _OrderSummary extends StatelessWidget {
           formatInr(summary.total),
           bold: true,
         ),
+        if (!minimumOrderMet) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Add ${formatInr(orderShortfall)} more to place order (Min: ${formatInr(minimumOrderValue)})',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: onCheckout,
+          onPressed: minimumOrderMet
+              ? onCheckout
+              : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Minimum order is ${formatInr(minimumOrderValue)}. Add ${formatInr(orderShortfall)} more.',
+                      ),
+                    ),
+                  );
+                },
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -197,9 +197,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     colors: [
 
-                      AppColors.headerSearchBg,
+                      Colors.white,
 
-                      AppColors.headerFadeBg,
+                      Colors.white,
 
                       AppColors.pageBackground,
 
@@ -217,7 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     const Padding(
 
-                      padding: EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      padding: EdgeInsets.fromLTRB(0, 8, 0, 4),
 
                       child: RepaintBoundary(child: HeroBannerCarousel()),
 

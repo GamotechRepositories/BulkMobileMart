@@ -642,7 +642,14 @@ class ApiService {
 
   Future<String> submitSupportTicket(Map<String, dynamic> data) async {
     final response = await submitSupportMessage(data);
-    return ApiResponseParser.getMessage(response.data) ??
+    final raw = response.data;
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Failed to submit support request',
+        statusCode: response.statusCode,
+      );
+    }
+    return ApiResponseParser.getMessage(raw) ??
         'Your support request has been submitted.';
   }
 
