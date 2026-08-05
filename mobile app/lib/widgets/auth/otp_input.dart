@@ -144,6 +144,7 @@ class _OtpInputState extends State<OtpInput> {
   @override
   Widget build(BuildContext context) {
     return AutofillGroup(
+<<<<<<< Updated upstream
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -208,6 +209,46 @@ class _OtpInputState extends State<OtpInput> {
             }),
           ),
         ],
+=======
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(widget.length, (index) {
+          return Padding(
+            padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+            child: SizedBox(
+              width: 42,
+              height: 48,
+              child: TextField(
+                controller: _controllers[index],
+                focusNode: _focusNodes[index],
+                enabled: widget.enabled,
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                textInputAction: index == widget.length - 1
+                    ? TextInputAction.done
+                    : TextInputAction.next,
+                autofillHints:
+                    index == 0 ? const [AutofillHints.oneTimeCode] : null,
+                // Allow full SMS code into first cell for Android/iOS autofill
+                maxLength: index == 0 ? widget.length : 1,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  contentPadding: EdgeInsets.zero,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (value) => _handleChanged(index, value),
+              ),
+            ),
+          );
+        }),
+>>>>>>> Stashed changes
       ),
     );
   }

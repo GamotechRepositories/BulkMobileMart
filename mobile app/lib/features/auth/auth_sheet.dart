@@ -174,7 +174,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
 
   String? _validateDetailsStep() {
     if (_isSignup && !Validators.isValidName(_nameController.text)) {
-      return 'Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)';
+      return 'Name must be 1–3 words, letters only (e.g. Rahul, John Smith, or Mary Ann Jose)';
     }
     if (!Validators.isValidPhone(_phoneController.text)) {
       return 'Phone must be 10 digits starting with 6, 7, 8, or 9';
@@ -431,10 +431,15 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
               OtpInput(
                 key: ValueKey(_otpListenGeneration),
                 value: _otp,
-                onChanged: (value) => setState(() {
-                  _otp = value;
-                  _error = null;
-                }),
+                onChanged: (value) {
+                  setState(() {
+                    _otp = value;
+                    _error = null;
+                  });
+                  if (value.length == 6 && !_submitting) {
+                    _verifyOtp();
+                  }
+                },
                 enabled: !_submitting,
               ),
               const SizedBox(height: 12),

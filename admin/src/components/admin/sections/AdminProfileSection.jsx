@@ -327,10 +327,10 @@ function AdminProfileSection() {
                   setAccountForm((prev) => ({ ...prev, name: e.target.value }))
                 }
                 className={inputClass}
-                placeholder="e.g. Rahul or John Smith"
+                placeholder="e.g. Rahul, John Smith, or Mary Ann Jose"
                 autoComplete="name"
               />
-              <p className="mt-1 text-xs text-text-muted">1–2 words, letters only.</p>
+              <p className="mt-1 text-xs text-text-muted">1–3 words, letters only.</p>
             </div>
             <div>
               <label className={labelClass} htmlFor="admin-profile-email">

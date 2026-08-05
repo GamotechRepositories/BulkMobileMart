@@ -5,6 +5,7 @@ import TrendArrow from "./TrendArrow";
 import { formatCurrency, getDayChange, getTrendClass } from "./dashboardUtils";
 
 function RevenueCard({
+  label = "Total Revenue",
   totalRevenue,
   currentMonth,
   lastMonth,
@@ -12,6 +13,8 @@ function RevenueCard({
   loading,
   className = "",
   compact = false,
+  showTrend = true,
+  showSparkline = true,
   to,
 }) {
   const change = getDayChange(currentMonth, lastMonth);
@@ -43,14 +46,14 @@ function RevenueCard({
 
         <div className="min-w-0 flex-1 overflow-hidden">
           <p className="truncate text-[11px] font-medium leading-tight text-neutral-500 sm:text-xs">
-            Total Revenue
+            {label}
           </p>
           <p
             className={`mt-1 truncate whitespace-nowrap font-bold leading-none text-neutral-900 ${compactAmountClass}`}
           >
             {formattedRevenue}
           </p>
-          {!loading && (
+          {!loading && showTrend && (
             <p className={`mt-1 flex items-center gap-0.5 text-[10px] font-semibold leading-tight ${trendClass}`}>
               <TrendArrow direction={change.direction} />
               <span className="truncate">{trendLabel}</span>
@@ -76,8 +79,8 @@ function RevenueCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-medium leading-tight text-neutral-500">Total Revenue</p>
-          {!loading && (
+          <p className="text-[10px] font-medium leading-tight text-neutral-500">{label}</p>
+          {!loading && showTrend && (
             <p className={`mt-0.5 flex items-center gap-0.5 text-[9px] font-semibold leading-tight ${trendClass}`}>
               <TrendArrow direction={change.direction} />
               <span>{trendLabel}</span>
@@ -102,11 +105,11 @@ function RevenueCard({
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-neutral-500">Total Revenue</p>
+            <p className="text-sm font-medium text-neutral-500">{label}</p>
             <p className="mt-1 text-2xl font-bold text-neutral-900 sm:text-3xl">
               {loading ? "—" : formatCurrency(totalRevenue)}
             </p>
-            {!loading && (
+            {!loading && showTrend && (
               <p className={`mt-1 flex items-center gap-1 text-xs font-semibold sm:text-sm ${trendClass}`}>
                 <TrendArrow direction={change.direction} />
                 <span>{trendLabel}</span>
@@ -115,7 +118,7 @@ function RevenueCard({
           </div>
         </div>
 
-        {!loading && sparkValues.length > 0 && (
+        {!loading && showSparkline && sparkValues.length > 0 && (
           <Sparkline
             values={sparkValues}
             color="#22c55e"

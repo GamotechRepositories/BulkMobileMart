@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 const validateName = (value) => {
-  const words = value.trim().split(/\s+/);
-  if (words.length < 1 || words.length > 2) return false;
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 3) return false;
   return words.every((word) => /^[A-Za-z]{2,30}$/.test(word));
 };
 const PHONE_PATTERN = /^[6789]\d{9}$/;
@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
           return validateName(value);
         },
         message:
-          "Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)",
+          "Name must be 1–3 words, letters only (e.g. Rahul, John Smith, or Mary Ann Jose)",
       },
     },
     email: {

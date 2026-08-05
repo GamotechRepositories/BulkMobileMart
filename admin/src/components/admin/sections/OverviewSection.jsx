@@ -104,6 +104,10 @@ function OverviewSection() {
     const { startDate, endDate } = getCurrentMonthDateRange();
     return `/orders?startDate=${startDate}&endDate=${endDate}`;
   }, []);
+  const monthRevenueLink = useMemo(() => {
+    const { startDate, endDate } = getCurrentMonthDateRange();
+    return `/revenue?startDate=${startDate}&endDate=${endDate}`;
+  }, []);
   const currentMonthName = useMemo(() => getCurrentMonthName(), []);
 
   return (
@@ -200,7 +204,7 @@ function OverviewSection() {
         </TodayStatCard>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 xl:items-stretch">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:items-stretch">
         <TotalMiniCard
           label="Total Products"
           value={totals.products}
@@ -219,12 +223,24 @@ function OverviewSection() {
         />
         <RevenueCard
           compact
-          className="col-span-2 xl:col-span-1"
+          label={`${currentMonthName} Revenue`}
+          totalRevenue={revenue.currentMonth}
+          currentMonth={revenue.currentMonth}
+          lastMonth={revenue.lastMonth}
+          monthlyTrend={revenue.monthlyTrend}
+          loading={loading}
+          showSparkline={false}
+          to={monthRevenueLink}
+        />
+        <RevenueCard
+          compact
+          label="Total Revenue"
           totalRevenue={totals.totalRevenue}
           currentMonth={revenue.currentMonth}
           lastMonth={revenue.lastMonth}
           monthlyTrend={revenue.monthlyTrend}
           loading={loading}
+          showTrend={false}
           to="/revenue"
         />
       </div>

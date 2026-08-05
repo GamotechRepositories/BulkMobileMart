@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const validateName = (value) => {
-  const words = value.trim().split(/\s+/);
-  if (words.length < 1 || words.length > 2) return false;
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 3) return false;
   return words.every((word) => /^[A-Za-z]{2,30}$/.test(word));
 };
 const PHONE_PATTERN = /^[6789]\d{9}$/;
@@ -159,18 +159,58 @@ function OtpInput({ value, onChange, disabled, cellClass, gapClass }) {
     inputsRef.current[index]?.focus();
   };
 
-  const updateValue = (nextDigits) => {
-    onChange(nextDigits.join("").slice(0, OTP_LENGTH));
+  const applyCode = (raw) => {
+    const cleaned = String(raw || "").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    if (!cleaned) return;
+    const nextDigits = Array.from({ length: OTP_LENGTH }, (_, index) => cleaned[index] || "");
+    onChange(nextDigits.join(""));
+    focusInput(Math.min(cleaned.length, OTP_LENGTH - 1));
   };
 
-  const handleChange = (index, nextChar) => {
-    if (!/^\d?$/.test(nextChar)) return;
+  // Chrome Android WebOTP + iOS SMS autofill into the first box
+  useEffect(() => {
+    if (disabled) return undefined;
+
+    let cancelled = false;
+    const abortController =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+
+    if (typeof window !== "undefined" && "OTPCredential" in window && navigator.credentials?.get) {
+      navigator.credentials
+        .get({
+          otp: { transport: ["sms"] },
+          ...(abortController ? { signal: abortController.signal } : {}),
+        })
+        .then((credential) => {
+          if (cancelled || !credential?.code) return;
+          applyCode(credential.code);
+        })
+        .catch(() => {
+          /* user dismissed / unsupported / aborted */
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      abortController?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listen once per mount / disabled toggle
+  }, [disabled]);
+
+  const handleChange = (index, rawValue) => {
+    const cleaned = String(rawValue || "").replace(/\D/g, "");
+
+    // Autofill / paste often lands the full OTP in one field
+    if (cleaned.length > 1) {
+      applyCode(cleaned);
+      return;
+    }
 
     const nextDigits = [...digits];
-    nextDigits[index] = nextChar;
-    updateValue(nextDigits);
+    nextDigits[index] = cleaned;
+    onChange(nextDigits.join("").slice(0, OTP_LENGTH));
 
-    if (nextChar && index < OTP_LENGTH - 1) {
+    if (cleaned && index < OTP_LENGTH - 1) {
       focusInput(index + 1);
     }
   };
@@ -183,12 +223,7 @@ function OtpInput({ value, onChange, disabled, cellClass, gapClass }) {
 
   const handlePaste = (event) => {
     event.preventDefault();
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-    if (!pasted) return;
-
-    const nextDigits = Array.from({ length: OTP_LENGTH }, (_, index) => pasted[index] || "");
-    updateValue(nextDigits);
-    focusInput(Math.min(pasted.length, OTP_LENGTH - 1));
+    applyCode(event.clipboardData.getData("text"));
   };
 
   return (
@@ -201,11 +236,15 @@ function OtpInput({ value, onChange, disabled, cellClass, gapClass }) {
           }}
           type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
           autoComplete={index === 0 ? "one-time-code" : "off"}
-          maxLength={1}
+          name={index === 0 ? "one-time-code" : undefined}
+          enterKeyHint={index === OTP_LENGTH - 1 ? "done" : "next"}
+          // First cell accepts full SMS code so mobile autofill is not truncated
+          maxLength={index === 0 ? OTP_LENGTH : 1}
           value={digit}
           disabled={disabled}
-          onChange={(event) => handleChange(index, event.target.value.slice(-1))}
+          onChange={(event) => handleChange(index, event.target.value)}
           onKeyDown={(event) => handleKeyDown(index, event)}
           onPaste={handlePaste}
           className={`${cellClass} border border-gray-200 bg-white text-center font-semibold text-gray-900 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/10`}
@@ -287,6 +326,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const verifyInFlight = useRef(false);
+  const autoSubmittedOtp = useRef("");
 
   const isSignup = mode === "signup";
   const ui = getAuthUi(isSignup);
@@ -333,7 +373,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
 
   const validateDetailsStep = () => {
     if (isSignup && !validateName(name)) {
-      return "Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)";
+      return "Name must be 1–3 words, letters only (e.g. Rahul, John Smith, or Mary Ann Jose)";
     }
     if (!PHONE_PATTERN.test(phone.trim())) {
       return "Phone must be 10 digits starting with 6, 7, 8, or 9";
@@ -384,11 +424,12 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   };
 
   const handleVerifyOtp = async (event) => {
-    event.preventDefault();
+    event?.preventDefault?.();
 
     if (verifyInFlight.current) return;
 
-    if (!/^\d{6}$/.test(otp.trim())) {
+    const code = otp.trim();
+    if (!/^\d{6}$/.test(code)) {
       setError("Please enter the 6-digit OTP sent to your phone");
       return;
     }
@@ -400,7 +441,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
     try {
       const result = await loginWithOtp({
         phone: phone.trim(),
-        otp: otp.trim(),
+        otp: code,
         ...(isSignup
           ? {
               name: name.trim(),
@@ -424,6 +465,21 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
       setSubmitting(false);
     }
   };
+
+  // After SMS autofill fills all 6 digits, submit like other mobile sites
+  useEffect(() => {
+    if (step !== "verify") {
+      autoSubmittedOtp.current = "";
+      return;
+    }
+    const code = otp.trim();
+    if (!/^\d{6}$/.test(code)) return;
+    if (autoSubmittedOtp.current === code) return;
+    if (verifyInFlight.current || submitting) return;
+    autoSubmittedOtp.current = code;
+    void handleVerifyOtp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp, step]);
 
   const handleDetailsSubmit = async (event) => {
     event.preventDefault();

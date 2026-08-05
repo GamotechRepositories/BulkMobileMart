@@ -16,6 +16,8 @@ void main() {
     test('accepts valid customer name', () {
       expect(Validators.isValidName('Rahul'), isTrue);
       expect(Validators.isValidName('John Smith'), isTrue);
+      expect(Validators.isValidName('Mary Ann Jose'), isTrue);
+      expect(Validators.isValidName('One Two Three Four'), isFalse);
     });
 
     test('accepts valid Indian phone number', () {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getAdminOrders } from "../../../api/api";
 import { useAdminOrdersQuery } from "../../../hooks/queries/useAdminOrdersQuery";
 import { useAuth } from "../../../context/AuthContext";
@@ -39,13 +39,21 @@ function buildRevenueExportFilename(startDate, endDate) {
 
 function RevenueSection() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { adminUser } = useAuth();
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState(() => searchParams.get("startDate") || "");
+  const [endDate, setEndDate] = useState(() => searchParams.get("endDate") || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    const nextStart = searchParams.get("startDate") || "";
+    const nextEnd = searchParams.get("endDate") || "";
+    setStartDate(nextStart);
+    setEndDate(nextEnd);
+  }, [searchParams]);
 
   useEffect(() => {
     setPage(1);

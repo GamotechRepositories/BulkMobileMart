@@ -32,6 +32,12 @@ function DesktopSearchBar({ className = "" }) {
     navigate(buildProductSearchUrl(trimmed, category));
   };
 
+  const handleCategoryChange = (e) => {
+    const nextCategory = e.target.value;
+    setCategory(nextCategory);
+    navigate(buildProductSearchUrl(query.trim(), nextCategory));
+  };
+
   return (
     <form
       className={`flex h-11 items-stretch overflow-hidden rounded-md border border-border-light bg-[#f3f3f3] ${className}`}
@@ -40,7 +46,7 @@ function DesktopSearchBar({ className = "" }) {
       <div className="relative flex shrink-0 items-center border-r border-border-light bg-[#ebebeb]">
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={handleCategoryChange}
           className="h-full cursor-pointer appearance-none bg-transparent py-0 pl-4 pr-8 text-sm font-medium text-text-primary focus:outline-none"
           aria-label="All Categories"
         >

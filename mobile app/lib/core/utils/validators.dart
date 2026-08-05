@@ -6,8 +6,8 @@ class Validators {
   static final RegExp _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
   static bool isValidName(String value) {
-    final words = value.trim().split(RegExp(r'\s+'));
-    if (words.isEmpty || words.length > 2) return false;
+    final words = value.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty || words.length > 3) return false;
     return words.every((word) => RegExp(r'^[A-Za-z]{2,30}$').hasMatch(word));
   }
 
