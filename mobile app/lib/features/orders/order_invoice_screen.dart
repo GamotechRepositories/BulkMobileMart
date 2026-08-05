@@ -107,10 +107,15 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     for (final row in snapshot.totals.gstBreakdown) {
       buffer.writeln('${row.label}: ${formatInvoiceMoney(row.amount)}');
     }
+    buffer.writeln(
+      'Shipping: ${snapshot.totals.deliveryCharges == 0 ? 'Free' : formatInvoiceMoney(snapshot.totals.deliveryCharges)}',
+    );
+    if (snapshot.totals.couponDiscount > 0) {
+      buffer.writeln(
+        'Coupon Discount${snapshot.couponCode.isNotEmpty ? ' (${snapshot.couponCode})' : ''}: -${formatInvoiceMoney(snapshot.totals.couponDiscount)}',
+      );
+    }
     buffer
-      ..writeln(
-        'Shipping: ${snapshot.totals.deliveryCharges == 0 ? 'Free' : formatInvoiceMoney(snapshot.totals.deliveryCharges)}',
-      )
       ..writeln('Total: ${formatInvoiceMoney(snapshot.grandTotal)}')
       ..writeln()
       ..writeln('Amount in Words: ${amountInWords(snapshot.grandTotal)}')
@@ -158,10 +163,12 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final storeSettings = ref.watch(storeSettingsProvider).value;
+    final isAttempted = _order?.status == 'attempted';
+    final appBarTitle = isAttempted ? 'Attempted Order' : 'Tax Invoice';
 
     if (!auth.isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Tax Invoice')),
+        appBar: AppBar(title: Text(appBarTitle)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -185,7 +192,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     return Scaffold(
       backgroundColor: _pageBg,
       appBar: AppBar(
-        title: const Text('Tax Invoice'),
+        title: Text(appBarTitle),
         actions: [
           if (_order != null) ...[
             IconButton(
@@ -253,6 +260,8 @@ class _InvoiceSnapshot {
     required this.totals,
     required this.grandTotal,
     required this.advancePayment,
+    required this.isAttempted,
+    this.couponCode = '',
   });
 
   final InvoiceConfig config;
@@ -273,6 +282,11 @@ class _InvoiceSnapshot {
   final InvoiceTotals totals;
   final double grandTotal;
   final InvoiceAdvancePayment advancePayment;
+  final bool isAttempted;
+  final String couponCode;
+
+  String get documentTitle =>
+      isAttempted ? 'ATTEMPTED ORDER' : 'TAX INVOICE';
 
   factory _InvoiceSnapshot.from({
     required Order order,
@@ -281,11 +295,13 @@ class _InvoiceSnapshot {
   }) {
     final config = mergeInvoiceConfig(storeSettings);
     final orderNo = getOrderNumber(order);
+    final isAttempted = order.status == 'attempted';
     final addr = order.deliveryAddress;
     final lineItems = buildInvoiceLineItems(order.items);
     final totals = buildInvoiceTotals(
       lineItems: lineItems,
       deliveryCharges: order.deliveryCharges,
+      couponDiscount: order.couponDiscount,
       sellerState: config.stateName,
       customerState: addr.state,
     );
@@ -293,7 +309,7 @@ class _InvoiceSnapshot {
     return _InvoiceSnapshot(
       config: config,
       orderNo: orderNo,
-      invoiceNo: 'INV-$orderNo',
+      invoiceNo: isAttempted ? 'ATT-$orderNo' : 'INV-$orderNo',
       customerName: addr.fullName.trim().isNotEmpty
           ? addr.fullName.trim()
           : (user?.name.trim().isNotEmpty == true ? user!.name.trim() : '—'),
@@ -321,6 +337,8 @@ class _InvoiceSnapshot {
       totals: totals,
       grandTotal: order.total,
       advancePayment: getInvoiceAdvancePaymentDetails(order),
+      isAttempted: isAttempted,
+      couponCode: order.couponCode.trim(),
     );
   }
 }
@@ -333,7 +351,7 @@ class _TaxInvoiceDocument extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metaRows = [
-      ['Invoice No', snapshot.invoiceNo],
+      [snapshot.isAttempted ? 'Document No' : 'Invoice No', snapshot.invoiceNo],
       ['Order No', snapshot.orderNo],
       ['Order Status', snapshot.orderStatus],
       ['Payment Mode', snapshot.paymentMode],
@@ -381,12 +399,12 @@ class _TaxInvoiceDocument extends StatelessWidget {
               _Header(config: snapshot.config),
               const SizedBox(height: 8),
               const Divider(height: 1, color: _border),
-              const Padding(
-                padding: EdgeInsets.only(top: 6, bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 8),
                 child: Text(
-                  'TAX INVOICE',
+                  snapshot.documentTitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2.2,
@@ -394,6 +412,27 @@ class _TaxInvoiceDocument extends StatelessWidget {
                   ),
                 ),
               ),
+              if (snapshot.isAttempted) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7ED),
+                    border: Border.all(color: const Color(0xFFFDBA74)),
+                  ),
+                  child: const Text(
+                    'Status: Attempted — checkout was not completed. This is not a tax invoice.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF9A3412),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
               _Section(
                 title: 'Invoice Detail',
                 child: Column(
@@ -848,6 +887,14 @@ class _SummaryTable extends StatelessWidget {
             : formatInvoiceAmount(snapshot.totals.deliveryCharges),
         highlight: false,
       ),
+      if (snapshot.totals.couponDiscount > 0)
+        (
+          label: snapshot.couponCode.isNotEmpty
+              ? 'Coupon Discount (${snapshot.couponCode})'
+              : 'Coupon Discount',
+          value: '-${formatInvoiceAmount(snapshot.totals.couponDiscount)}',
+          highlight: false,
+        ),
       (
         label: 'Total Amount',
         value: formatInvoiceAmount(snapshot.grandTotal),

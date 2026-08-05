@@ -113,14 +113,18 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
   const totals = buildInvoiceTotals({
     lineItems,
     deliveryCharges: order?.deliveryCharges || 0,
+    couponDiscount: order?.couponDiscount || 0,
     sellerState: config.stateName,
     customerState: addr?.state || "",
   });
   const grandTotal = order?.total ?? totals.grandTotal;
   const advancePayment = getInvoiceAdvancePaymentDetails(order);
+  const isAttempted = order?.status === "attempted";
+  const documentTitle = isAttempted ? "ATTEMPTED ORDER" : "TAX INVOICE";
+  const documentNo = isAttempted ? `ATT-${orderNo}` : invoiceNo;
 
   const metaRows = [
-    ["Invoice No", invoiceNo],
+    [isAttempted ? "Document No" : "Invoice No", documentNo],
     ["Order No", orderNo],
     ["Order Status", STATUS_LABELS[order?.status] || order?.status || "-"],
     ["Payment Mode", getPaymentModeLabel(order?.paymentMethod)],
@@ -151,8 +155,23 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
           </Text>
         </View>
 
-        <Text style={styles.title}>TAX INVOICE</Text>
+        <Text style={styles.title}>{documentTitle}</Text>
 
+        {isAttempted ? (
+          <View
+            style={{
+              marginBottom: 6,
+              padding: 6,
+              backgroundColor: "#fff7ed",
+              borderWidth: 1,
+              borderColor: "#fdba74",
+            }}
+          >
+            <Text style={{ fontSize: 8, fontWeight: 700, color: "#9a3412", textAlign: "center" }}>
+              Status: Attempted — checkout was not completed. This is not a tax invoice.
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.block}>
           <Text style={styles.sectionBar}>Invoice Detail</Text>
           {metaRows.map(([label, value], idx) => (
@@ -220,6 +239,16 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
                 label="Shipping Charges"
                 value={totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges)}
               />
+              {totals.couponDiscount > 0 ? (
+                <SummaryRow
+                  label={
+                    order?.couponCode
+                      ? `Coupon Discount (${order.couponCode})`
+                      : "Coupon Discount"
+                  }
+                  value={`- ${formatMoney(totals.couponDiscount)}`}
+                />
+              ) : null}
               <SummaryRow label="Total Amount" value={formatMoney(grandTotal)} highlight />
               {advancePayment.isAdvancePaid ? (
                 <>

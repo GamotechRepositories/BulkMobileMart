@@ -34,7 +34,6 @@ Future<Uint8List> generateInvoicePdf(
 }) async {
   final config = mergeInvoiceConfig(storeSettings);
   final orderNo = getOrderNumber(order);
-  final invoiceNo = 'INV-$orderNo';
   final addr = order.deliveryAddress;
   final customerName = addr.fullName.trim().isNotEmpty
       ? addr.fullName.trim()
@@ -49,11 +48,15 @@ Future<Uint8List> generateInvoicePdf(
   final totals = buildInvoiceTotals(
     lineItems: lineItems,
     deliveryCharges: order.deliveryCharges,
+    couponDiscount: order.couponDiscount,
     sellerState: config.stateName,
     customerState: addr.state,
   );
   final grandTotal = order.total;
   final advancePayment = getInvoiceAdvancePaymentDetails(order);
+  final isAttempted = order.status == 'attempted';
+  final documentTitle = isAttempted ? 'ATTEMPTED ORDER' : 'TAX INVOICE';
+  final invoiceNo = isAttempted ? 'ATT-$orderNo' : 'INV-$orderNo';
   final logoBytes = await _loadInvoiceLogoBytes();
   pw.ImageProvider? logoImage;
   if (logoBytes != null) {
@@ -61,7 +64,7 @@ Future<Uint8List> generateInvoicePdf(
   }
 
   final metaRows = [
-    ['Invoice No', invoiceNo],
+    [isAttempted ? 'Document No' : 'Invoice No', invoiceNo],
     ['Order No', orderNo],
     ['Order Status', getInvoiceOrderStatusLabel(order.status)],
     ['Payment Mode', getInvoicePaymentModeLabel(order.paymentMethod)],
@@ -137,7 +140,7 @@ Future<Uint8List> generateInvoicePdf(
             border: pw.Border(top: pw.BorderSide(color: borderColor)),
           ),
           child: pw.Text(
-            'TAX INVOICE',
+            documentTitle,
             textAlign: pw.TextAlign.center,
             style: pw.TextStyle(
               fontSize: 11,
@@ -147,6 +150,26 @@ Future<Uint8List> generateInvoicePdf(
             ),
           ),
         ),
+        if (isAttempted) ...[
+          pw.SizedBox(height: 6),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFFFFF7ED),
+              border: pw.Border.all(color: PdfColor.fromInt(0xFFFDBA74)),
+            ),
+            child: pw.Text(
+              'Status: Attempted — checkout was not completed. This is not a tax invoice.',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromInt(0xFF9A3412),
+              ),
+            ),
+          ),
+        ],
         pw.SizedBox(height: 6),
         _pdfBlock(
           title: 'Invoice Detail',
@@ -342,6 +365,15 @@ Future<Uint8List> generateInvoicePdf(
                             borderColor: rowBorder,
                             textColor: textColor,
                           ),
+                          if (totals.couponDiscount > 0)
+                            _pdfSummaryRow(
+                              order.couponCode.trim().isNotEmpty
+                                  ? 'Coupon Discount (${order.couponCode.trim()})'
+                                  : 'Coupon Discount',
+                              '- ${formatInvoiceMoney(totals.couponDiscount)}',
+                              borderColor: rowBorder,
+                              textColor: textColor,
+                            ),
                           _pdfSummaryRow(
                             'Total Amount',
                             formatInvoiceMoney(grandTotal),

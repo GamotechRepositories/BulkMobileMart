@@ -104,46 +104,55 @@ export function buildInvoiceLineItems(items = [], gstRate = INVOICE_CONFIG.defau
 export function buildInvoiceTotals({
   lineItems = [],
   deliveryCharges = 0,
+  couponDiscount = 0,
   sellerState = INVOICE_CONFIG.stateName,
   customerState = "",
 }) {
-  const subTotal = roundMoney(lineItems.reduce((sum, item) => sum + item.taxableValue, 0));
-  const totalGst = roundMoney(lineItems.reduce((sum, item) => sum + item.gstAmount, 0));
+  // Line amounts are GST-inclusive. Shipping is shown inclusive too, so GST
+  // breakdown covers goods only (not shipping) — otherwise the summary rows
+  // do not add up to Total Amount.
+  const itemsInclusive = roundMoney(
+    lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+  );
+  const coupon = roundMoney(
+    Math.min(Math.max(0, Number(couponDiscount) || 0), itemsInclusive)
+  );
+  const goodsSplit = splitInclusiveGst(itemsInclusive);
   const deliverySplit = splitInclusiveGst(deliveryCharges);
   const intraState =
     normalizeStateName(sellerState) === normalizeStateName(customerState || sellerState);
 
-  const shippingTaxable = deliverySplit.taxableValue;
-  const shippingGst = deliverySplit.gstAmount;
-  const combinedGst = roundMoney(totalGst + shippingGst);
-
+  const goodsGst = goodsSplit.gstAmount;
   const gstBreakdown = [];
-  if (combinedGst > 0) {
+  if (goodsGst > 0) {
     if (intraState) {
       gstBreakdown.push({
         label: `SGST ${INVOICE_CONFIG.defaultGstRate / 2}%`,
-        amount: roundMoney(combinedGst / 2),
+        amount: roundMoney(goodsGst / 2),
       });
       gstBreakdown.push({
         label: `CGST ${INVOICE_CONFIG.defaultGstRate / 2}%`,
-        amount: roundMoney(combinedGst / 2),
+        amount: roundMoney(goodsGst / 2),
       });
     } else {
       gstBreakdown.push({
         label: `IGST ${INVOICE_CONFIG.defaultGstRate}%`,
-        amount: combinedGst,
+        amount: goodsGst,
       });
     }
   }
 
-  const grandTotal = roundMoney(subTotal + combinedGst + shippingTaxable);
+  const delivery = roundMoney(deliveryCharges);
+  // Matches backend: total = (subtotal - coupon) + deliveryCharges
+  const grandTotal = roundMoney(itemsInclusive - coupon + delivery);
 
   return {
-    subTotal,
-    totalGst,
-    shippingTaxable,
-    shippingGst,
-    deliveryCharges: roundMoney(deliveryCharges),
+    subTotal: goodsSplit.taxableValue,
+    totalGst: goodsGst,
+    shippingTaxable: deliverySplit.taxableValue,
+    shippingGst: deliverySplit.gstAmount,
+    deliveryCharges: delivery,
+    couponDiscount: coupon,
     gstBreakdown,
     grandTotal,
     intraState,

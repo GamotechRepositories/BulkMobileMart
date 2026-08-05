@@ -309,6 +309,7 @@ class InvoiceTotals {
     required this.shippingTaxable,
     required this.shippingGst,
     required this.deliveryCharges,
+    required this.couponDiscount,
     required this.gstBreakdown,
     required this.grandTotal,
     required this.intraState,
@@ -319,6 +320,7 @@ class InvoiceTotals {
   final double shippingTaxable;
   final double shippingGst;
   final double deliveryCharges;
+  final double couponDiscount;
   final List<InvoiceGstBreakdownRow> gstBreakdown;
   final double grandTotal;
   final bool intraState;
@@ -327,57 +329,66 @@ class InvoiceTotals {
 InvoiceTotals buildInvoiceTotals({
   required List<InvoiceLineItem> lineItems,
   required double deliveryCharges,
+  double couponDiscount = 0,
   String sellerState = 'Maharashtra',
   String customerState = '',
   double defaultGstRate = 18,
 }) {
-  final subTotal =
-      roundMoney(lineItems.fold<double>(0, (sum, item) => sum + item.taxableValue));
-  final totalGst =
-      roundMoney(lineItems.fold<double>(0, (sum, item) => sum + item.gstAmount));
+  // Line amounts are GST-inclusive. Shipping is shown inclusive too, so GST
+  // breakdown covers goods only (not shipping) — otherwise summary rows do
+  // not add up to Total Amount.
+  final itemsInclusive = roundMoney(
+    lineItems.fold<double>(0, (sum, item) => sum + item.amount),
+  );
+  final coupon = roundMoney(
+    couponDiscount.clamp(0, itemsInclusive).toDouble(),
+  );
+  final goodsSplit = splitInclusiveGst(itemsInclusive, defaultGstRate);
   final deliverySplit = splitInclusiveGst(deliveryCharges, defaultGstRate);
   final intraState = normalizeStateName(sellerState) ==
       normalizeStateName(
         customerState.trim().isEmpty ? sellerState : customerState,
       );
 
-  final shippingTaxable = deliverySplit.taxableValue;
-  final shippingGst = deliverySplit.gstAmount;
-  final combinedGst = roundMoney(totalGst + shippingGst);
-
+  final goodsGst = goodsSplit.gstAmount;
   final gstBreakdown = <InvoiceGstBreakdownRow>[];
-  if (combinedGst > 0) {
+  if (goodsGst > 0) {
     if (intraState) {
       gstBreakdown.add(
         InvoiceGstBreakdownRow(
           label: 'SGST ${defaultGstRate / 2}%',
-          amount: roundMoney(combinedGst / 2),
+          amount: roundMoney(goodsGst / 2),
         ),
       );
       gstBreakdown.add(
         InvoiceGstBreakdownRow(
           label: 'CGST ${defaultGstRate / 2}%',
-          amount: roundMoney(combinedGst / 2),
+          amount: roundMoney(goodsGst / 2),
         ),
       );
     } else {
       gstBreakdown.add(
         InvoiceGstBreakdownRow(
           label: 'IGST $defaultGstRate%',
-          amount: combinedGst,
+          amount: goodsGst,
         ),
       );
     }
   }
 
+  final delivery = roundMoney(deliveryCharges);
+  // Matches backend: total = (subtotal - coupon) + deliveryCharges
+  final grandTotal = roundMoney(itemsInclusive - coupon + delivery);
+
   return InvoiceTotals(
-    subTotal: subTotal,
-    totalGst: totalGst,
-    shippingTaxable: shippingTaxable,
-    shippingGst: shippingGst,
-    deliveryCharges: roundMoney(deliveryCharges),
+    subTotal: goodsSplit.taxableValue,
+    totalGst: goodsGst,
+    shippingTaxable: deliverySplit.taxableValue,
+    shippingGst: deliverySplit.gstAmount,
+    deliveryCharges: delivery,
+    couponDiscount: coupon,
     gstBreakdown: gstBreakdown,
-    grandTotal: roundMoney(subTotal + combinedGst + shippingTaxable),
+    grandTotal: grandTotal,
     intraState: intraState,
   );
 }

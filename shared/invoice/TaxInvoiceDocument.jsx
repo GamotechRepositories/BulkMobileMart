@@ -99,14 +99,18 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
   const totals = buildInvoiceTotals({
     lineItems,
     deliveryCharges: order?.deliveryCharges || 0,
+    couponDiscount: order?.couponDiscount || 0,
     sellerState: config.stateName,
     customerState: addr?.state || "",
   });
   const grandTotal = order?.total ?? totals.grandTotal;
   const advancePayment = getInvoiceAdvancePaymentDetails(order);
+  const isAttempted = order?.status === "attempted";
+  const documentTitle = isAttempted ? "ATTEMPTED ORDER" : "TAX INVOICE";
+  const documentNo = isAttempted ? `ATT-${orderNo}` : invoiceNo;
 
   const metaRows = [
-    ["Invoice No", invoiceNo],
+    [isAttempted ? "Document No" : "Invoice No", documentNo],
     ["Order No", orderNo],
     ["Order Status", STATUS_LABELS[order?.status] || order?.status || "—"],
     ["Payment Mode", getPaymentModeLabel(order?.paymentMethod)],
@@ -143,10 +147,26 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
         </div>
 
         <div className="invoice-title-block">
-          <h1 className="invoice-title">TAX INVOICE</h1>
+          <h1 className="invoice-title">{documentTitle}</h1>
           <div className="invoice-title-line" />
         </div>
 
+        {isAttempted ? (
+          <div
+            className="invoice-cell-wrap"
+            style={{
+              marginBottom: 6,
+              padding: "8px 10px",
+              background: "#fff7ed",
+              border: "1px solid #fdba74",
+              color: "#9a3412",
+              fontWeight: 600,
+              textAlign: "center",
+            }}
+          >
+            Status: Attempted — checkout was not completed. This is not a tax invoice.
+          </div>
+        ) : null}
         <div className="invoice-block">
           <SectionBar title="Invoice Detail" />
           <table className="invoice-info-table">
@@ -245,6 +265,16 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                         : formatInvoiceAmount(totals.deliveryCharges)
                     }
                   />
+                  {totals.couponDiscount > 0 ? (
+                    <SummaryRow
+                      label={
+                        order?.couponCode
+                          ? `Coupon Discount (${order.couponCode})`
+                          : "Coupon Discount"
+                      }
+                      value={`-${formatInvoiceAmount(totals.couponDiscount)}`}
+                    />
+                  ) : null}
                   <SummaryRow
                     label="Total Amount"
                     value={formatInvoiceAmount(grandTotal)}
