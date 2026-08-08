@@ -8,7 +8,7 @@ import { useAdminOrdersQuery } from "../../../hooks/queries/useAdminOrdersQuery"
 import { adminQueryKeys } from "../../../hooks/queries/queryKeys";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
-import { IconTrash } from "../AdminIcons";
+import { IconEdit, IconTrash } from "../AdminIcons";
 import {
   adminCompactTableClass,
   adminCompactTdClass,
@@ -295,11 +295,11 @@ function OrderSection() {
                         <button
                           type="button"
                           onClick={() => navigate(`/orders/${order._id}`)}
-                          className="inline-flex h-6 shrink-0 items-center justify-center rounded-md bg-primary px-2 text-[10px] font-medium text-white shadow-sm transition hover:bg-primary/90 sm:px-2.5"
-                          title="View order details"
-                          aria-label="View order details"
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-300 bg-white text-neutral-600 transition hover:border-primary hover:bg-orange-50 hover:text-primary"
+                          title="Edit order"
+                          aria-label="Edit order"
                         >
-                          Detail
+                          <IconEdit />
                         </button>
                         <button
                           type="button"
