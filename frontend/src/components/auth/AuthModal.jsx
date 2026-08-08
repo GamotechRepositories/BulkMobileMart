@@ -152,109 +152,104 @@ function IconField({ label, htmlFor, optional = false, icon, labelClassName, chi
 }
 
 function OtpInput({ value, onChange, disabled, cellClass, gapClass }) {
-  const inputRef = useRef(null);
+  const inputsRef = useRef([]);
   const digits = Array.from({ length: OTP_LENGTH }, (_, index) => value[index] || "");
+
+  const focusInput = (index) => {
+    inputsRef.current[index]?.focus();
+  };
 
   const applyCode = (raw) => {
     const cleaned = String(raw || "").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    if (!cleaned) return;
     onChange(cleaned);
+    focusInput(Math.min(Math.max(cleaned.length - 1, 0), OTP_LENGTH - 1));
   };
 
-  // Focus the real OTP field so iOS/Android show the SMS code suggestion
+  // Android Chrome WebOTP — fills all 6 boxes when SMS arrives. Aborts after 60s.
   useEffect(() => {
     if (disabled) return undefined;
-    const timer = window.setTimeout(() => {
-      inputRef.current?.focus({ preventScroll: true });
-    }, 50);
-    return () => window.clearTimeout(timer);
-  }, [disabled]);
+    if (typeof window === "undefined") return undefined;
+    if (!("OTPCredential" in window) || !navigator.credentials?.get) return undefined;
 
-  // Chrome Android WebOTP API (needs `@yourdomain #123456` in the SMS template)
-  useEffect(() => {
-    if (disabled) return undefined;
-    if (typeof window === "undefined" || !("OTPCredential" in window) || !navigator.credentials?.get) {
-      return undefined;
-    }
-
-    let cancelled = false;
-    const abortController =
-      typeof AbortController !== "undefined" ? new AbortController() : null;
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => abortController.abort(), 60_000);
 
     navigator.credentials
       .get({
         otp: { transport: ["sms"] },
-        ...(abortController ? { signal: abortController.signal } : {}),
+        signal: abortController.signal,
       })
       .then((credential) => {
-        if (cancelled || !credential?.code) return;
-        applyCode(credential.code);
+        if (credential?.code) applyCode(credential.code);
       })
       .catch(() => {
-        /* dismissed / unsupported / aborted */
+        /* timeout, user dismiss, or unsupported — keep manual entry */
       });
 
     return () => {
-      cancelled = true;
-      abortController?.abort();
+      window.clearTimeout(timeoutId);
+      abortController.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled]);
 
-  return (
-    <div
-      className={`relative mx-auto w-fit ${gapClass}`}
-      onClick={() => {
-        if (!disabled) inputRef.current?.focus();
-      }}
-    >
-      {/*
-        One real input for SMS autofill / paste / typing.
-        Split boxes are display-only — controlled per-cell inputs block mobile autofill.
-        Keep opacity > 0 so iOS still treats the field as eligible for OTP suggestions.
-      */}
-      <input
-        ref={inputRef}
-        id="auth-otp-autofill"
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        autoComplete="one-time-code"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        name="one-time-code"
-        enterKeyHint="done"
-        maxLength={OTP_LENGTH}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => applyCode(event.target.value)}
-        onInput={(event) => applyCode(event.currentTarget.value)}
-        onPaste={(event) => {
-          event.preventDefault();
-          applyCode(event.clipboardData.getData("text"));
-        }}
-        aria-label="One-time password"
-        className="absolute inset-0 z-10 h-full w-full cursor-text border-0 bg-transparent p-0 text-transparent caret-transparent outline-none"
-        style={{ opacity: 0.02, fontSize: "16px" }}
-      />
+  const handleChange = (index, rawValue) => {
+    const cleaned = String(rawValue || "").replace(/\D/g, "");
 
-      <div className={`pointer-events-none flex justify-center ${gapClass}`} aria-hidden>
-        {digits.map((digit, index) => {
-          const isActive = !disabled && value.length === index;
-          return (
-            <div
-              key={index}
-              className={`${cellClass} flex items-center justify-center border bg-white font-semibold text-gray-900 ${
-                isActive
-                  ? "border-primary/50 ring-1 ring-primary/20"
-                  : "border-gray-200"
-              }`}
-            >
-              {digit}
-            </div>
-          );
-        })}
-      </div>
+    // SMS autofill / paste of full OTP into one box
+    if (cleaned.length > 1) {
+      applyCode(cleaned);
+      return;
+    }
+
+    const nextDigits = [...digits];
+    nextDigits[index] = cleaned;
+    onChange(nextDigits.join("").slice(0, OTP_LENGTH));
+
+    if (cleaned && index < OTP_LENGTH - 1) {
+      focusInput(index + 1);
+    }
+  };
+
+  const handleKeyDown = (index, event) => {
+    if (event.key === "Backspace" && !digits[index] && index > 0) {
+      focusInput(index - 1);
+    }
+  };
+
+  const handlePaste = (event) => {
+    event.preventDefault();
+    applyCode(event.clipboardData.getData("text"));
+  };
+
+  return (
+    <div className={`flex justify-center ${gapClass}`}>
+      {digits.map((digit, index) => (
+        <input
+          key={index}
+          ref={(element) => {
+            inputsRef.current[index] = element;
+          }}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          name={index === 0 ? "one-time-code" : undefined}
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          enterKeyHint={index === OTP_LENGTH - 1 ? "done" : "next"}
+          // First box accepts full 6-digit autofill; others stay single-digit
+          maxLength={index === 0 ? OTP_LENGTH : 1}
+          value={digit}
+          disabled={disabled}
+          onChange={(event) => handleChange(index, event.target.value)}
+          onKeyDown={(event) => handleKeyDown(index, event)}
+          onPaste={handlePaste}
+          className={`${cellClass} border border-gray-200 bg-white text-center font-semibold text-gray-900 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/10`}
+        />
+      ))}
     </div>
   );
 }

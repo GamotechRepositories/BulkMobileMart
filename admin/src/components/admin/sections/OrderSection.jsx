@@ -215,14 +215,14 @@ function OrderSection() {
             <colgroup>
               <col className="w-[7%]" />
               <col className="w-[11%]" />
-              <col className="w-[14%]" />
+              <col className="w-[13%]" />
               <col className="w-[4%]" />
               <col className="w-[7%]" />
               <col className="w-[7%]" />
               <col className="w-[7%]" />
-              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[9%]" />
               <col className="w-[10%]" />
-              <col className="w-[6%]" />
             </colgroup>
             <thead>
               <tr className={adminTableHeaderClass}>
@@ -235,7 +235,7 @@ function OrderSection() {
                 <th className={adminCompactThClass}>Payment</th>
                 <th className={adminCompactThClass}>Transaction ID</th>
                 <th className={adminCompactThClass}>Date</th>
-                <th className={adminCompactThClass}>Delete</th>
+                <th className={adminCompactThClass}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -246,8 +246,7 @@ function OrderSection() {
                 return (
                   <tr
                     key={order._id}
-                    onClick={() => navigate(`/orders/${order._id}`)}
-                    className="cursor-pointer border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
+                    className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/50"
                   >
                     <td className={`${adminCompactTdClass} font-semibold text-neutral-900`}>
                       <span className="block truncate">{getOrderDisplayId(order)}</span>
@@ -291,16 +290,27 @@ function OrderSection() {
                     <td className={`${adminCompactTdClass} text-neutral-600`}>
                       <span className="block truncate">{formatDate(order.createdAt)}</span>
                     </td>
-                    <td className={adminCompactTdClass} onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(order._id, e)}
-                        className={iconBtnDangerClass}
-                        title="Delete order"
-                        aria-label="Delete order"
-                      >
-                        <IconTrash />
-                      </button>
+                    <td className={adminCompactTdClass}>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/orders/${order._id}`)}
+                          className="inline-flex h-6 shrink-0 items-center justify-center rounded-md bg-primary px-2 text-[10px] font-medium text-white shadow-sm transition hover:bg-primary/90 sm:px-2.5"
+                          title="View order details"
+                          aria-label="View order details"
+                        >
+                          Detail
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDelete(order._id, e)}
+                          className={iconBtnDangerClass}
+                          title="Delete order"
+                          aria-label="Delete order"
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
