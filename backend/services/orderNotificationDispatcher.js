@@ -9,6 +9,11 @@ import {
   sendPaymentSuccess,
   sendPaymentFailed,
 } from "./notificationService.js";
+import {
+  sendWhatsAppOrderConfirmedBundle,
+  sendWhatsAppOrderTracking,
+  sendWhatsAppOrderDelivered,
+} from "./whatsappService.js";
 
 function logDispatchFailure(context, error) {
   console.error(`OrderNotificationDispatcher [${context}]:`, error?.message || error);
@@ -32,6 +37,15 @@ function logDispatchResult(context, result) {
   );
 }
 
+function dispatchWhatsApp(context, promise) {
+  void Promise.resolve(promise).catch((error) => {
+    console.error(
+      `OrderNotificationDispatcher [${context} WhatsApp]:`,
+      error?.message || error
+    );
+  });
+}
+
 export async function notifyOrderCreated(order, { previousStatus = null } = {}) {
   if (!order?.user) {
     return null;
@@ -43,6 +57,15 @@ export async function notifyOrderCreated(order, { previousStatus = null } = {}) 
         ? await sendOrderConfirmed(order)
         : await sendOrderPlaced(order);
     logDispatchResult("notifyOrderCreated", result);
+
+    // WhatsApp confirmation+invoice when order is confirmed (incl. COD create as confirm)
+    if (previousStatus === "attempted" || order.status === "confirm") {
+      dispatchWhatsApp(
+        "notifyOrderCreated",
+        sendWhatsAppOrderConfirmedBundle(order)
+      );
+    }
+
     return result;
   } catch (error) {
     logDispatchFailure("notifyOrderCreated", error);
@@ -65,6 +88,10 @@ export async function notifyOrderStatusChange(order, previousStatus, options = {
         case "confirm":
           if (previousStatus !== "confirm") {
             result = await sendOrderConfirmed(order);
+            dispatchWhatsApp(
+              "notifyOrderStatusChange confirm",
+              sendWhatsAppOrderConfirmedBundle(order)
+            );
           }
           break;
         case "processing":
@@ -72,9 +99,17 @@ export async function notifyOrderStatusChange(order, previousStatus, options = {
           break;
         case "shipping":
           result = await sendOrderShipped(order);
+          dispatchWhatsApp(
+            "notifyOrderStatusChange shipping",
+            sendWhatsAppOrderTracking(order)
+          );
           break;
         case "delivered":
           result = await sendDelivered(order);
+          dispatchWhatsApp(
+            "notifyOrderStatusChange delivered",
+            sendWhatsAppOrderDelivered(order)
+          );
           break;
         default:
           break;
@@ -126,6 +161,10 @@ export async function notifyShipmentLabelCreated(order) {
   try {
     const result = await sendShipmentLabelCreated(order);
     logDispatchResult("notifyShipmentLabelCreated", result);
+    dispatchWhatsApp(
+      "notifyShipmentLabelCreated",
+      sendWhatsAppOrderTracking(order)
+    );
     return result;
   } catch (error) {
     logDispatchFailure("notifyShipmentLabelCreated", error);

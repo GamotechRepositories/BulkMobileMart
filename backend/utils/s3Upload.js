@@ -18,6 +18,7 @@ const MIME_TO_EXT = {
   "video/ogg": "ogv",
   "video/quicktime": "mov",
   "video/x-m4v": "m4v",
+  "application/pdf": "pdf",
 };
 
 function getS3Client() {

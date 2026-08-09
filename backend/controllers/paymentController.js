@@ -153,9 +153,15 @@ export const createRazorpayOrder = async (req, res) => {
       },
     });
   } catch (error) {
+    const message =
+      error?.error?.description ||
+      error?.error?.reason ||
+      error?.message ||
+      "Failed to create payment order";
+    console.error("createRazorpayOrder failed:", message, error?.error || error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to create payment order",
+      message,
     });
   }
 };

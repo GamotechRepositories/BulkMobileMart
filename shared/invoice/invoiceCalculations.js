@@ -108,52 +108,29 @@ export function buildInvoiceTotals({
   sellerState = INVOICE_CONFIG.stateName,
   customerState = "",
 }) {
-  // Line amounts are GST-inclusive. Shipping is shown inclusive too, so GST
-  // breakdown covers goods only (not shipping) — otherwise the summary rows
-  // do not add up to Total Amount.
+  // Prices are GST-inclusive. Show the full items total as Sub Total — do not
+  // back out GST or list SGST/CGST/IGST rows on the invoice summary.
   const itemsInclusive = roundMoney(
     lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
   );
   const coupon = roundMoney(
     Math.min(Math.max(0, Number(couponDiscount) || 0), itemsInclusive)
   );
-  const goodsSplit = splitInclusiveGst(itemsInclusive);
-  const deliverySplit = splitInclusiveGst(deliveryCharges);
   const intraState =
     normalizeStateName(sellerState) === normalizeStateName(customerState || sellerState);
-
-  const goodsGst = goodsSplit.gstAmount;
-  const gstBreakdown = [];
-  if (goodsGst > 0) {
-    if (intraState) {
-      gstBreakdown.push({
-        label: `SGST ${INVOICE_CONFIG.defaultGstRate / 2}%`,
-        amount: roundMoney(goodsGst / 2),
-      });
-      gstBreakdown.push({
-        label: `CGST ${INVOICE_CONFIG.defaultGstRate / 2}%`,
-        amount: roundMoney(goodsGst / 2),
-      });
-    } else {
-      gstBreakdown.push({
-        label: `IGST ${INVOICE_CONFIG.defaultGstRate}%`,
-        amount: goodsGst,
-      });
-    }
-  }
 
   const delivery = roundMoney(deliveryCharges);
   // Matches backend: total = (subtotal - coupon) + deliveryCharges
   const grandTotal = roundMoney(itemsInclusive - coupon + delivery);
 
   return {
-    subTotal: goodsSplit.taxableValue,
-    totalGst: goodsGst,
-    shippingTaxable: deliverySplit.taxableValue,
-    shippingGst: deliverySplit.gstAmount,
+    subTotal: itemsInclusive,
+    totalGst: 0,
+    shippingTaxable: delivery,
+    shippingGst: 0,
     deliveryCharges: delivery,
     couponDiscount: coupon,
-    gstBreakdown,
+    gstBreakdown: [],
     grandTotal,
     intraState,
   };
