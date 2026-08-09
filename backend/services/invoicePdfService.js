@@ -1,12 +1,8 @@
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
-import InvoicePdfDocumentModule from "../../shared/invoice/InvoicePdfDocument.jsx";
 import { getInvoiceFilename } from "../../shared/invoice/invoiceHelpers.js";
 import User from "../models/user.js";
 import { getStoreSettings } from "../utils/storeSettingsHelpers.js";
-
-const InvoicePdfDocument =
-  InvoicePdfDocumentModule?.default || InvoicePdfDocumentModule;
 
 async function resolveInvoiceCustomer(order) {
   const embedded = order?.user;
@@ -22,13 +18,16 @@ async function resolveInvoiceCustomer(order) {
 
 /**
  * Builds the same tax invoice PDF used on web/admin order invoice pages.
+ * Document lives under backend/ so react/@react-pdf resolve from backend/node_modules
+ * (shared/ cannot see those packages on server deploys that only install backend deps).
  */
 export async function generateOrderInvoicePdfBuffer(order) {
   if (!order) {
     throw new Error("Order is required to generate invoice PDF");
   }
 
-  const [customer, storeSettings] = await Promise.all([
+  const [{ default: InvoicePdfDocument }, customer, storeSettings] = await Promise.all([
+    import("./InvoicePdfDocument.jsx"),
     resolveInvoiceCustomer(order),
     getStoreSettings(),
   ]);
