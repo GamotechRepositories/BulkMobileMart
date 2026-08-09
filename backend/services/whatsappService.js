@@ -82,28 +82,29 @@ function documentHeader(link, filename = "") {
 
 async function resolveInvoiceDocumentUrl(order) {
   if (!isS3Configured()) {
-    console.warn(
-      "WhatsAppService: S3 not configured — cannot upload invoice PDF for document header"
+    throw new Error(
+      "S3 not configured — cannot upload invoice PDF for WhatsApp document header"
     );
-    return "";
   }
 
-  try {
-    const buffer = await generateOrderInvoicePdfBuffer(order);
-    const uploaded = await uploadBufferToS3({
-      buffer,
-      mimeType: "application/pdf",
-      folder: UPLOAD_FOLDERS.INVOICES,
-      originalName: getOrderInvoiceFilename(order),
-    });
-    return uploaded.url;
-  } catch (error) {
-    console.error(
-      "WhatsAppService: order invoice PDF upload failed —",
-      error?.message || error
-    );
-    return "";
+  const buffer = await generateOrderInvoicePdfBuffer(order);
+  if (!buffer?.length) {
+    throw new Error("Invoice PDF generation returned an empty buffer");
   }
+
+  const uploaded = await uploadBufferToS3({
+    buffer,
+    mimeType: "application/pdf",
+    folder: UPLOAD_FOLDERS.INVOICES,
+    originalName: getOrderInvoiceFilename(order),
+  });
+
+  if (!uploaded?.url) {
+    throw new Error("Invoice PDF uploaded but CDN URL was empty");
+  }
+
+  console.log(`WhatsAppService: invoice PDF uploaded — ${uploaded.url}`);
+  return uploaded.url;
 }
 
 async function parseVoxUpResponse(response) {
@@ -209,13 +210,6 @@ export async function sendWhatsAppOrderConfirmation(order) {
 export async function sendWhatsAppInvoice(order) {
   return safeSend("invoice_sent", async () => {
     const documentUrl = await resolveInvoiceDocumentUrl(order);
-    if (!documentUrl) {
-      return {
-        success: false,
-        skipped: true,
-        reason: "Invoice document URL unavailable",
-      };
-    }
 
     return sendWhatsAppCampaign("invoice_sent", {
       to: customerPhoneRaw(order),

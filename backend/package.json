@@ -7,12 +7,12 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon --import tsx index.js",
-    "dev": "nodemon --import tsx index.js",
-    "seed": "node --import tsx scripts/seed.js",
-    "seed-admin": "node --import tsx scripts/seedAdmin.js",
-    "create-admin": "node --import tsx scripts/createAdmin.js",
-    "fix-category-images": "node --import tsx scripts/fixCategoryImages.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed": "node scripts/seed.js",
+    "seed-admin": "node scripts/seedAdmin.js",
+    "create-admin": "node scripts/createAdmin.js",
+    "fix-category-images": "node scripts/fixCategoryImages.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

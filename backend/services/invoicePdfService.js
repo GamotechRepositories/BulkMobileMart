@@ -1,5 +1,6 @@
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
+import InvoicePdfDocument from "./InvoicePdfDocument.js";
 import { getInvoiceFilename } from "../../shared/invoice/invoiceHelpers.js";
 import User from "../models/user.js";
 import { getStoreSettings } from "../utils/storeSettingsHelpers.js";
@@ -18,18 +19,28 @@ async function resolveInvoiceCustomer(order) {
 
 /**
  * Builds the same tax invoice PDF used on web/admin order invoice pages.
- * Document lives under backend/ so react/@react-pdf resolve from backend/node_modules
- * (shared/ cannot see those packages on server deploys that only install backend deps).
+ * Plain .js (no JSX) so production `node index.js` works without tsx.
  */
 export async function generateOrderInvoicePdfBuffer(order) {
   if (!order) {
     throw new Error("Order is required to generate invoice PDF");
   }
 
-  const [{ default: InvoicePdfDocument }, customer, storeSettings] = await Promise.all([
-    import("./InvoicePdfDocument.jsx"),
-    resolveInvoiceCustomer(order),
-    getStoreSettings(),
+  const [customer, storeSettings] = await Promise.all([
+    resolveInvoiceCustomer(order).catch((error) => {
+      console.warn(
+        "invoicePdfService: customer lookup failed —",
+        error?.message || error
+      );
+      return order?.user && typeof order.user === "object" ? order.user : null;
+    }),
+    getStoreSettings().catch((error) => {
+      console.warn(
+        "invoicePdfService: store settings lookup failed —",
+        error?.message || error
+      );
+      return null;
+    }),
   ]);
 
   const document = React.createElement(InvoicePdfDocument, {
