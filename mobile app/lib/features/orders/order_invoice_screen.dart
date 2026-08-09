@@ -82,7 +82,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     );
 
     final buffer = StringBuffer()
-      ..writeln('BulkMobileMart TAX INVOICE')
+      ..writeln('BulkMobileMart INVOICE')
       ..writeln('Invoice No: ${snapshot.invoiceNo}')
       ..writeln('Order No: ${snapshot.orderNo}')
       ..writeln('Date: ${snapshot.orderDate}')
@@ -91,7 +91,6 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
       ..writeln()
       ..writeln('Bill To: ${snapshot.customerName}')
       ..writeln(snapshot.addressLine)
-      ..writeln('GST No: ${snapshot.customerGst}')
       ..writeln()
       ..writeln('Items:');
 
@@ -104,17 +103,14 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     buffer
       ..writeln()
       ..writeln('Sub Total: ${formatInvoiceMoney(snapshot.totals.subTotal)}');
-    for (final row in snapshot.totals.gstBreakdown) {
-      buffer.writeln('${row.label}: ${formatInvoiceMoney(row.amount)}');
+    if (snapshot.totals.couponDiscount > 0) {
+      buffer.writeln(
+        'Less: Coupon${snapshot.couponCode.isNotEmpty ? ' (${snapshot.couponCode})' : ''}: -${formatInvoiceMoney(snapshot.totals.couponDiscount)}',
+      );
     }
     buffer.writeln(
       'Shipping: ${snapshot.totals.deliveryCharges == 0 ? 'Free' : formatInvoiceMoney(snapshot.totals.deliveryCharges)}',
     );
-    if (snapshot.totals.couponDiscount > 0) {
-      buffer.writeln(
-        'Coupon Discount${snapshot.couponCode.isNotEmpty ? ' (${snapshot.couponCode})' : ''}: -${formatInvoiceMoney(snapshot.totals.couponDiscount)}',
-      );
-    }
     buffer
       ..writeln('Total: ${formatInvoiceMoney(snapshot.grandTotal)}')
       ..writeln()
@@ -164,7 +160,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     final auth = ref.watch(authControllerProvider);
     final storeSettings = ref.watch(storeSettingsProvider).value;
     final isAttempted = _order?.status == 'attempted';
-    final appBarTitle = isAttempted ? 'Attempted Order' : 'Tax Invoice';
+    final appBarTitle = isAttempted ? 'Attempted Order' : 'Invoice';
 
     if (!auth.isLoggedIn) {
       return Scaffold(
@@ -246,7 +242,6 @@ class _InvoiceSnapshot {
     required this.orderNo,
     required this.invoiceNo,
     required this.customerName,
-    required this.customerGst,
     required this.phone,
     required this.shopName,
     required this.addressLine,
@@ -268,7 +263,6 @@ class _InvoiceSnapshot {
   final String orderNo;
   final String invoiceNo;
   final String customerName;
-  final String customerGst;
   final String phone;
   final String shopName;
   final String addressLine;
@@ -286,7 +280,7 @@ class _InvoiceSnapshot {
   final String couponCode;
 
   String get documentTitle =>
-      isAttempted ? 'ATTEMPTED ORDER' : 'TAX INVOICE';
+      isAttempted ? 'ATTEMPTED ORDER' : 'INVOICE';
 
   factory _InvoiceSnapshot.from({
     required Order order,
@@ -313,9 +307,6 @@ class _InvoiceSnapshot {
       customerName: addr.fullName.trim().isNotEmpty
           ? addr.fullName.trim()
           : (user?.name.trim().isNotEmpty == true ? user!.name.trim() : '—'),
-      customerGst: (user?.gstNumber.trim().isNotEmpty == true)
-          ? user!.gstNumber.trim()
-          : 'URP',
       phone: addr.number.trim().isNotEmpty
           ? addr.number.trim()
           : (user?.phone.trim() ?? ''),
@@ -422,7 +413,7 @@ class _TaxInvoiceDocument extends StatelessWidget {
                     border: Border.all(color: const Color(0xFFFDBA74)),
                   ),
                   child: const Text(
-                    'Status: Attempted — checkout was not completed. This is not a tax invoice.',
+                    'Status: Attempted — checkout was not completed. This is not a final invoice.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
@@ -467,10 +458,6 @@ class _TaxInvoiceDocument extends StatelessWidget {
                       if (snapshot.phone.isNotEmpty)
                         Text(snapshot.phone, style: _bodyStyle),
                       Text(snapshot.addressLine, style: _bodyStyle),
-                      Text(
-                        'GST No: ${snapshot.customerGst}',
-                        style: _bodyStyle.copyWith(fontWeight: FontWeight.w600),
-                      ),
                     ],
                   ),
                 ),
@@ -538,25 +525,6 @@ class _TaxInvoiceDocument extends StatelessWidget {
                 decoration: BoxDecoration(border: Border.all(color: _border)),
                 child: Column(
                   children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: _border)),
-                      ),
-                      child: Text.rich(
-                        TextSpan(
-                          style: _bodyStyle,
-                          children: [
-                            const TextSpan(
-                              text: 'Amount in Words: ',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            TextSpan(text: amountInWords(snapshot.grandTotal)),
-                          ],
-                        ),
-                      ),
-                    ),
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final narrow = constraints.maxWidth < 520;
@@ -602,6 +570,25 @@ class _TaxInvoiceDocument extends StatelessWidget {
                           ),
                         );
                       },
+                    ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: _border)),
+                      ),
+                      child: Text.rich(
+                        TextSpan(
+                          style: _bodyStyle,
+                          children: [
+                            const TextSpan(
+                              text: 'Amount in Words: ',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            TextSpan(text: amountInWords(snapshot.grandTotal)),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -649,7 +636,6 @@ class _Header extends StatelessWidget {
           [
             'By: ${config.legalEntity}',
             'Email: ${config.email}',
-            if (config.gstNumber.isNotEmpty) 'GST No: ${config.gstNumber}',
             'State Code: ${config.stateCode}',
           ].join(' | '),
           textAlign: TextAlign.center,
@@ -874,10 +860,12 @@ class _SummaryTable extends StatelessWidget {
         value: formatInvoiceAmount(snapshot.totals.subTotal),
         highlight: false,
       ),
-      for (final row in snapshot.totals.gstBreakdown)
+      if (snapshot.totals.couponDiscount > 0)
         (
-          label: row.label,
-          value: formatInvoiceAmount(row.amount),
+          label: snapshot.couponCode.isNotEmpty
+              ? 'Less: Coupon (${snapshot.couponCode})'
+              : 'Less: Coupon',
+          value: '-${formatInvoiceAmount(snapshot.totals.couponDiscount)}',
           highlight: false,
         ),
       (
@@ -887,14 +875,6 @@ class _SummaryTable extends StatelessWidget {
             : formatInvoiceAmount(snapshot.totals.deliveryCharges),
         highlight: false,
       ),
-      if (snapshot.totals.couponDiscount > 0)
-        (
-          label: snapshot.couponCode.isNotEmpty
-              ? 'Coupon Discount (${snapshot.couponCode})'
-              : 'Coupon Discount',
-          value: '-${formatInvoiceAmount(snapshot.totals.couponDiscount)}',
-          highlight: false,
-        ),
       (
         label: 'Total Amount',
         value: formatInvoiceAmount(snapshot.grandTotal),

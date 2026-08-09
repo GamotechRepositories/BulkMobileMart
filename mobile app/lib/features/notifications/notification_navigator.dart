@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/app_notification.dart';
 import '../../models/push_notification_payload.dart';
+import '../../core/utils/external_link.dart';
+import '../../config/env.dart';
 import '../../routes/app_router.dart';
 import '../../routes/route_paths.dart';
 import 'notifications_controller.dart';
@@ -65,6 +67,16 @@ abstract final class NotificationNavigator {
         return;
       }
       _push(context, RoutePaths.justArrived);
+      return;
+    }
+
+    if (type == 'app_update' || linkTarget == 'play_store') {
+      final url = payload.data['url']?.toString().trim();
+      await openExternalUrl(
+        (url != null && url.isNotEmpty) ? url : Env.playStoreAppUrl,
+        context: context,
+        errorMessage: 'Could not open Play Store.',
+      );
       return;
     }
 

@@ -47,11 +47,13 @@ class OrdersController extends Notifier<OrdersState> {
       }
     });
 
-    Future.microtask(() {
-      if (ref.read(authControllerProvider).isLoggedIn && !state.hasLoaded) {
-        loadOrders();
-      }
-    });
+    // Same race as addresses: listen() only fires on auth *changes*.
+    // If already logged in when Orders is first opened, load now.
+    final loggedIn = ref.read(authControllerProvider).isLoggedIn;
+    if (loggedIn) {
+      Future.microtask(loadOrders);
+      return const OrdersState(loading: true);
+    }
 
     return const OrdersState();
   }
@@ -68,8 +70,8 @@ class OrdersController extends Notifier<OrdersState> {
       final orders = await ref.read(apiServiceProvider).fetchMyOrders();
       state = OrdersState(orders: orders, loading: false, hasLoaded: true);
     } catch (_) {
-      state = const OrdersState(
-        orders: [],
+      state = OrdersState(
+        orders: state.orders,
         loading: false,
         hasLoaded: true,
         error: 'Failed to load orders',

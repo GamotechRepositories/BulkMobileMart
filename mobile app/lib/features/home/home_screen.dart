@@ -14,8 +14,10 @@ import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
 
 import 'home_load_gate.dart';
+import '../product/product_providers.dart';
 
 import '../../widgets/layout/shell_bottom_insets.dart';
+import '../../widgets/common/skeleton_loaders.dart';
 import 'widgets/best_deals_section.dart';
 
 import 'widgets/category_nav_section.dart';
@@ -89,6 +91,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Future<void>.delayed(const Duration(milliseconds: 260), () {
           if (!mounted) return;
           ref.read(homeLoadGateProvider.notifier).enableBrands();
+          // Warm Categories tab — default All Products list (paginated controller).
+          ref.read(productListControllerProvider(const ProductQuery()));
         }),
       );
 
@@ -212,21 +216,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
 
                 child: Column(
-
                   children: [
-
-                    const Padding(
-
-                      padding: EdgeInsets.fromLTRB(0, 8, 0, 4),
-
-                      child: RepaintBoundary(child: HeroBannerCarousel()),
-
-                    ),
-
+                    const RepaintBoundary(child: HeroBannerCarousel()),
                   ],
-
                 ),
-
               ),
 
             ),
@@ -234,73 +227,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SliverToBoxAdapter(child: CategoryNavSection()),
 
             const SliverToBoxAdapter(
-
               child: GatedHomeSection(
-
                 minPhase: HomeLoadPhase.brands,
-
                 placeholderHeight: 140,
-
+                placeholder: SkeletonTopBrands(),
                 child: TopBrandsSection(),
-
               ),
-
             ),
-
             const SliverToBoxAdapter(
-
               child: GatedHomeSection(
-
                 minPhase: HomeLoadPhase.scrolled,
-
                 placeholderHeight: 280,
-
+                placeholder: SkeletonHomeProductRow(titleWidth: 220),
                 child: RepaintBoundary(child: BestDealsSection()),
-
               ),
-
             ),
-
             const SliverToBoxAdapter(
-
               child: GatedHomeSection(
-
                 minPhase: HomeLoadPhase.scrolled,
-
                 placeholderHeight: 280,
-
+                placeholder: SkeletonHomeProductRow(titleWidth: 120),
                 child: RepaintBoundary(child: JustArrivedSection()),
-
               ),
-
             ),
-
             const SliverToBoxAdapter(
-
               child: GatedHomeSection(
-
                 minPhase: HomeLoadPhase.scrolled,
-
                 placeholderHeight: 280,
-
+                placeholder: SkeletonHomeProductRow(titleWidth: 110),
                 child: RepaintBoundary(child: HotSellingSection()),
-
               ),
-
             ),
-
             const SliverToBoxAdapter(
-
               child: GatedHomeSection(
-
                 minPhase: HomeLoadPhase.scrolled,
-
                 placeholderHeight: 280,
-
+                placeholder: SkeletonHomeProductRow(titleWidth: 140),
                 child: RepaintBoundary(child: RecentlyViewedSection()),
-
               ),
-
             ),
 
             const SliverToBoxAdapter(

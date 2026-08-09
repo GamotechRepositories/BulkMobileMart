@@ -223,11 +223,6 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
         </div>
 
         <div className="invoice-block">
-          <div className="invoice-amount-words invoice-cell-wrap">
-            <span className="invoice-amount-words-label">Amount in Words:</span>{" "}
-            {amountInWords(grandTotal)}
-          </div>
-
           <div className="invoice-footer-layout">
             <div className="invoice-footer-notes invoice-cell-wrap">
               <p className="invoice-footer-notes-title">Bank Details:</p>
@@ -257,6 +252,16 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                   {totals.gstBreakdown.map((row) => (
                     <SummaryRow key={row.label} label={row.label} value={formatInvoiceAmount(row.amount)} />
                   ))}
+                  {totals.couponDiscount > 0 ? (
+                    <SummaryRow
+                      label={
+                        order?.couponCode
+                          ? `Less: Coupon (${order.couponCode})`
+                          : "Less: Coupon"
+                      }
+                      value={`-${formatInvoiceAmount(totals.couponDiscount)}`}
+                    />
+                  ) : null}
                   <SummaryRow
                     label="Shipping Charges"
                     value={
@@ -265,16 +270,6 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                         : formatInvoiceAmount(totals.deliveryCharges)
                     }
                   />
-                  {totals.couponDiscount > 0 ? (
-                    <SummaryRow
-                      label={
-                        order?.couponCode
-                          ? `Coupon Discount (${order.couponCode})`
-                          : "Coupon Discount"
-                      }
-                      value={`-${formatInvoiceAmount(totals.couponDiscount)}`}
-                    />
-                  ) : null}
                   <SummaryRow
                     label="Total Amount"
                     value={formatInvoiceAmount(grandTotal)}
@@ -296,6 +291,11 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="invoice-amount-words invoice-cell-wrap">
+            <span className="invoice-amount-words-label">Amount in Words:</span>{" "}
+            {amountInWords(grandTotal)}
           </div>
         </div>
 

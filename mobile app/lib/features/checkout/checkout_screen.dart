@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
-import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/network/api_response_parser.dart';
@@ -204,7 +203,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
         items = ref.read(cartControllerProvider).items;
       }
-      final subtotal = calculateCartSummary(items).subtotal;
+      final storeSettings = ref.read(storeSettingsProvider).value;
+      final subtotal =
+          calculateCartSummary(items, settings: storeSettings).subtotal;
       final coupon = await ref
           .read(apiServiceProvider)
           .validateCoupon(code: trimmed, subtotal: subtotal);
@@ -349,8 +350,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       return;
     }
 
-    final summary = calculateCartSummary(cartItems);
     final storeSettings = ref.read(storeSettingsProvider).value;
+    final summary = calculateCartSummary(cartItems, settings: storeSettings);
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     if (!meetsMinimumOrder(summary.subtotal, minimumOrderValue)) return;
 
@@ -555,12 +556,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     _syncSelectedAddress(addressList);
-    final baseSummary = calculateCartSummary(cartItems);
+    final storeSettings = ref.watch(storeSettingsProvider).value;
+    final baseSummary =
+        calculateCartSummary(cartItems, settings: storeSettings);
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
     final summary = applyCouponDiscount(baseSummary, couponDiscount);
-    final storeSettings = ref.watch(storeSettingsProvider).value;
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
     final orderShortfall =
@@ -780,7 +782,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           const SizedBox(height: 8),
                           _summaryRow(
                             'Shipping',
-                            summary.shippingFree ? 'FREE' : formatInr(summary.shipping),
+                            summary.shippingFree
+                                ? 'FREE'
+                                : formatInr(summary.shipping),
                           ),
                           if (couponDiscount > 0) ...[
                             const SizedBox(height: 8),
@@ -804,14 +808,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               ],
                             ),
                           ],
-                          const SizedBox(height: 8),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'GST included in prices',
-                              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                            ),
-                          ),
                           const Divider(height: 24),
                           _summaryRow(
                             'Pay now (Razorpay)',
@@ -857,13 +853,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                          if (!summary.shippingFree) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              'Free delivery on orders above ${formatInr(AppConstants.freeDeliveryThreshold)}',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ],
                         ],

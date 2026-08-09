@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_decorations.dart';
 import '../../../config/constants.dart';
 import '../../../config/theme.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/order_settings.dart';
+import '../../settings/store_settings_provider.dart';
 
-class HomeQuickChips extends StatelessWidget {
+class HomeQuickChips extends ConsumerWidget {
   const HomeQuickChips({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = mergeStoreSettings(ref.watch(storeSettingsProvider).value);
+    final minShipping = formatInr(settings.minimumShippingCharge);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: SingleChildScrollView(
@@ -23,16 +30,15 @@ class HomeQuickChips extends StatelessWidget {
             const SizedBox(width: 8),
             _Chip(
               icon: Icons.local_shipping_outlined,
-              label:
-                  'Free ship ₹${AppConstants.freeDeliveryThreshold.toInt()}+',
+              label: 'Ship from $minShipping',
             ),
             const SizedBox(width: 8),
-            _Chip(
+            const _Chip(
               icon: Icons.verified_outlined,
               label: '100% Genuine',
             ),
             const SizedBox(width: 8),
-            _Chip(
+            const _Chip(
               icon: Icons.storefront_outlined,
               label: 'Wholesale Rates',
             ),

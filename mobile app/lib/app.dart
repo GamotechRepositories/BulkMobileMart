@@ -6,6 +6,7 @@ import 'features/auth/auth_host.dart';
 import 'features/notifications/notification_bootstrap.dart';
 import 'routes/app_router.dart';
 import 'widgets/app_back_binding.dart';
+import 'widgets/app_update_gate.dart';
 import 'widgets/cart/cart_feedback_overlay.dart';
 import 'widgets/common/opening_splash_overlay.dart';
 import 'widgets/deep_link_listener.dart';
@@ -33,8 +34,10 @@ class BulkMobileMartApp extends ConsumerWidget {
           builder: (context, child) {
             return OpeningSplashHost(
               child: AuthHost(
-                child: CartFeedbackOverlay(
-                  child: child ?? const SizedBox.shrink(),
+                child: AppUpdateGate(
+                  child: CartFeedbackOverlay(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             );

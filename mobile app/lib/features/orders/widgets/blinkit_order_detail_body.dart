@@ -86,7 +86,7 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
             child: ListView(
               padding: const EdgeInsets.only(bottom: 16),
               children: [
-                if (order.shipment.hasTracking && order.shipment.trackUrl.trim().isNotEmpty) ...[
+                if (order.shipment.canOpenTracking) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: SizedBox(
@@ -97,8 +97,8 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                           context: context,
                           errorMessage: 'Could not open tracking link.',
                         ),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                        label: const Text('Open live tracking'),
+                        icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                        label: const Text('Track order'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.navSelected,
                           foregroundColor: Colors.white,

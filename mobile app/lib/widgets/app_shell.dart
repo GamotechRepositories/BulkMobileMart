@@ -9,6 +9,7 @@ import '../../core/bootstrap/app_bootstrap.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/orders/orders_controller.dart';
 import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
@@ -79,6 +80,12 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     final isCurrentTab = index == widget.navigationShell.currentIndex;
+
+    // Orders tab (index 2): always refresh when opened so list isn't empty
+    // until the user manually pulls to refresh.
+    if (index == 2 && auth.isLoggedIn) {
+      unawaited(ref.read(ordersControllerProvider.notifier).loadOrders());
+    }
 
     if (isCurrentTab) {
       await ref.read(tabScrollRegistryProvider).scrollToTop(index);

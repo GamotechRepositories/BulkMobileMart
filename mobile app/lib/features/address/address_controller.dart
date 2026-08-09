@@ -42,6 +42,15 @@ class AddressController extends Notifier<AddressState> {
         loadAddresses();
       }
     });
+
+    // Already logged in when Account opens (common after app start) —
+    // listen() only fires on *changes*, so load immediately here.
+    final loggedIn = ref.read(authControllerProvider).isLoggedIn;
+    if (loggedIn) {
+      Future.microtask(loadAddresses);
+      return const AddressState(loading: true);
+    }
+
     return const AddressState();
   }
 

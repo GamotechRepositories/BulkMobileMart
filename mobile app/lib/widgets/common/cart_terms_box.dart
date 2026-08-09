@@ -20,7 +20,6 @@ class CartTermsBox extends StatelessWidget {
         const SizedBox(height: 10),
         const _TermItem('Minimum order quantity is 10 units unless stated otherwise.'),
         const _TermItem('Orders are subject to stock availability and confirmation.'),
-        const _TermItem('Prices include GST where applicable; invoices are GST-compliant.'),
         const _TermItem('Delivery timelines vary by location and order size.'),
         const _TermItem(
           'Returns for defective goods must be reported within the specified timeframe.',

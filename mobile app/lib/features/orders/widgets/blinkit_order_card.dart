@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/theme.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/external_link.dart';
 import '../../../core/utils/order_utils.dart';
 import '../../../models/order.dart';
 import '../../../routes/app_router.dart';
@@ -50,7 +51,7 @@ class BlinkitOrderCard extends ConsumerWidget {
                       height: 1.3,
                     ),
                   ),
-                  if (order.shipment.hasTracking) ...[
+                  if (order.shipment.trackingNumber.trim().isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       'Tracking: ${order.shipment.trackingNumber}',
@@ -72,6 +73,31 @@ class BlinkitOrderCard extends ConsumerWidget {
               ),
             ),
           ),
+          if (order.shipment.canOpenTracking)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => openExternalUrl(
+                    order.shipment.trackUrl,
+                    context: context,
+                    errorMessage: 'Could not open tracking link.',
+                  ),
+                  icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                  label: const Text('Track order'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.navSelected,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 14),
           const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
           _OrderFooter(
@@ -180,6 +206,21 @@ class BlinkitOrderCard extends ConsumerWidget {
                   context.push('/orders/${order.id}');
                 },
               ),
+              if (order.shipment.canOpenTracking) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.local_shipping_outlined),
+                  title: const Text('Track order'),
+                  onTap: () {
+                    Navigator.pop(dialogContext);
+                    openExternalUrl(
+                      order.shipment.trackUrl,
+                      context: context,
+                      errorMessage: 'Could not open tracking link.',
+                    );
+                  },
+                ),
+              ],
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.description_outlined),

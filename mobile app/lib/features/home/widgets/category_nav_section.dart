@@ -37,7 +37,7 @@ List<List<T>> chunkItems<T>(List<T> items, int size) {
   return batches;
 }
 
-/// Home landing — two 2-row category sliders (A→Z and Z→A).
+/// Home landing — 2-row category slider (A→Z).
 class CategoryNavSection extends ConsumerWidget {
   const CategoryNavSection({super.key});
 
@@ -49,7 +49,7 @@ class CategoryNavSection extends ConsumerWidget {
       loading: () => const HomeSectionCard(
         margin: EdgeInsets.fromLTRB(0, 8, 0, 4),
         padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
-        child: SkeletonCategoryTwoRowSliders(),
+        child: Shimmer(child: SkeletonCategoryTwoRowSliders(count: 1)),
       ),
       error: (_, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -63,7 +63,6 @@ class CategoryNavSection extends ConsumerWidget {
         if (filtered.isEmpty) return const SizedBox.shrink();
 
         final categoriesAZ = sortCategories(filtered, ascending: true);
-        final categoriesZA = sortCategories(filtered, ascending: false);
 
         return HomeSectionCard(
           margin: const EdgeInsets.fromLTRB(0, 8, 0, 4),
@@ -77,8 +76,6 @@ class CategoryNavSection extends ConsumerWidget {
                 onViewAll: () => context.go(RoutePaths.categories),
               ),
               CategoryTwoRowSlider(categories: categoriesAZ, sectionKey: 'az'),
-              const SizedBox(height: 12),
-              CategoryTwoRowSlider(categories: categoriesZA, sectionKey: 'za'),
             ],
           ),
         );
@@ -176,17 +173,20 @@ class CategoryTwoRowSlider extends StatelessWidget {
 }
 
 class SkeletonCategoryTwoRowSliders extends StatelessWidget {
-  const SkeletonCategoryTwoRowSliders({super.key});
+  const SkeletonCategoryTwoRowSliders({super.key, this.count = 1});
+
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       children: [
-        SkeletonBox(width: 200, height: 24, borderRadius: 6),
-        SizedBox(height: 16),
-        SkeletonCategoryTwoRowPage(),
-        SizedBox(height: 12),
-        SkeletonCategoryTwoRowPage(),
+        const SkeletonBox(width: 200, height: 24, borderRadius: 6),
+        const SizedBox(height: 16),
+        for (var i = 0; i < count; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          const SkeletonCategoryTwoRowPage(),
+        ],
       ],
     );
   }

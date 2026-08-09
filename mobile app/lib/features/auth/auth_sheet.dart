@@ -30,7 +30,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
   final _phoneController = TextEditingController();
   final _shopNameController = TextEditingController();
   final _shopAddressController = TextEditingController();
-  final _gstController = TextEditingController();
 
   _AuthStep _step = _AuthStep.details;
   String _otp = '';
@@ -133,7 +132,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     _phoneController.dispose();
     _shopNameController.dispose();
     _shopAddressController.dispose();
-    _gstController.dispose();
     super.dispose();
   }
 
@@ -151,7 +149,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
       _error = null;
       _shopNameController.clear();
       _shopAddressController.clear();
-      _gstController.clear();
     });
   }
 
@@ -185,10 +182,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     if (_isSignup && !Validators.isValidShopAddress(_shopAddressController.text)) {
       return 'Please enter a complete shop address';
     }
-    final gst = _gstController.text.trim();
-    if (_isSignup && gst.isNotEmpty && !Validators.isValidGst(gst)) {
-      return 'Please enter a valid GST number';
-    }
     return null;
   }
 
@@ -196,7 +189,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     return {
       'shopName': _shopNameController.text.trim(),
       'shopAddress': _shopAddressController.text.trim(),
-      'gstNumber': _gstController.text.trim(),
     };
   }
 
@@ -278,7 +270,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
         name: _isSignup ? _nameController.text.trim() : null,
         shopName: _isSignup ? profile['shopName'] : null,
         shopAddress: _isSignup ? profile['shopAddress'] : null,
-        gstNumber: _isSignup ? profile['gstNumber'] : null,
       );
 
       if (result.needsSignup) {
@@ -288,7 +279,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
             name: _nameController.text.trim(),
             shopName: profile['shopName']!,
             shopAddress: profile['shopAddress']!,
-            gstNumber: profile['gstNumber'],
           );
           if (!mounted) return;
           _handleAuthSuccess(user, isSignup: true);
@@ -395,21 +385,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   minLines: 2,
                   maxLines: 3,
                   keyboardType: TextInputType.streetAddress,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _gstController,
-                  decoration: const InputDecoration(
-                    labelText: 'GST Number (Optional)',
-                    hintText: '22AAAAA0000A1Z5',
-                    prefixIcon: Icon(Icons.description_outlined),
-                  ),
-                  maxLength: 15,
-                  textCapitalization: TextCapitalization.characters,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-                  ],
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _submitDetailsStep(),
                 ),

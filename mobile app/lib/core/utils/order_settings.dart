@@ -2,6 +2,16 @@ import 'package:intl/intl.dart';
 
 import '../../models/store_settings.dart';
 
+const _defaultMinimumOrderValue = 3000.0;
+const _defaultMinimumShippingCharge = 280.0;
+
+const _defaultShippingSlabs = [
+  StoreShippingSlab(orderAmount: 3000, shippingCharge: 280),
+  StoreShippingSlab(orderAmount: 5000, shippingCharge: 350),
+  StoreShippingSlab(orderAmount: 8000, shippingCharge: 550),
+  StoreShippingSlab(orderAmount: 12000, shippingCharge: 800),
+];
+
 const _defaultCartNoticeEn = [
   'Please Verify Your Address Before Placing Your Order.',
   'Minimum order value ₹{{minOrder}}',
@@ -20,12 +30,28 @@ const _defaultCartNoticeHi = [
 
 final _amountFormatter = NumberFormat.decimalPattern('en_IN');
 
+List<StoreShippingSlab> normalizeShippingSlabs(List<StoreShippingSlab>? slabs) {
+  final normalized = (slabs ?? const <StoreShippingSlab>[])
+      .where(
+        (slab) =>
+            slab.orderAmount.isFinite &&
+            slab.shippingCharge.isFinite &&
+            slab.orderAmount >= 0 &&
+            slab.shippingCharge >= 0,
+      )
+      .toList()
+    ..sort((a, b) => a.orderAmount.compareTo(b.orderAmount));
+  return normalized;
+}
+
 StoreSettings mergeStoreSettings(StoreSettings? settings) {
   final source = settings;
+  final slabs = normalizeShippingSlabs(source?.shippingSlabs);
   return StoreSettings(
-    minimumOrderValue: source?.minimumOrderValue ?? 3000,
-    minimumShippingCharge: source?.minimumShippingCharge ?? 280,
-    shippingSlabs: source?.shippingSlabs ?? const [],
+    minimumOrderValue: source?.minimumOrderValue ?? _defaultMinimumOrderValue,
+    minimumShippingCharge:
+        source?.minimumShippingCharge ?? _defaultMinimumShippingCharge,
+    shippingSlabs: slabs.isNotEmpty ? slabs : _defaultShippingSlabs,
     merchantUpiId: source?.merchantUpiId ?? '',
     merchantUpiName: source?.merchantUpiName ?? 'BulkMobileMart',
     merchantUpiAccounts: source?.merchantUpiAccounts ?? const [],
@@ -35,7 +61,26 @@ StoreSettings mergeStoreSettings(StoreSettings? settings) {
     cartNoticeHi: source?.cartNoticeHi.isNotEmpty == true
         ? source!.cartNoticeHi
         : _defaultCartNoticeHi,
+    appUpdate: source?.appUpdate ?? const AppUpdateSettings(),
   );
+}
+
+/// Matches website/backend `calculateShippingCharge` (slab-based, not free).
+double calculateShippingCharge(num subtotal, StoreSettings? settings) {
+  final amount = subtotal.toDouble();
+  final merged = mergeStoreSettings(settings);
+  final minShipping = merged.minimumShippingCharge;
+  final slabs = merged.shippingSlabs;
+
+  if (slabs.isEmpty) return minShipping;
+
+  var charge = minShipping;
+  for (final slab in slabs) {
+    if (amount >= slab.orderAmount) {
+      charge = slab.shippingCharge;
+    }
+  }
+  return charge;
 }
 
 String _formatAmount(num amount) {

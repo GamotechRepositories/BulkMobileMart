@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/constants.dart';
 import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
@@ -144,8 +143,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       );
     }
 
-    final summary = calculateCartSummary(items);
     final storeSettings = ref.watch(storeSettingsProvider).value;
+    final summary = calculateCartSummary(items, settings: storeSettings);
 
     return ColoredBox(
       color: AppColors.pageBackground,
@@ -503,18 +502,6 @@ class _OrderSummary extends StatelessWidget {
           'Shipping',
           summary.shippingFree ? 'FREE' : formatInr(summary.shipping),
           valueColor: summary.shippingFree ? Colors.green.shade700 : null,
-        ),
-        if (!summary.shippingFree) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Free delivery on orders above ${formatInr(AppConstants.freeDeliveryThreshold)}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-        ],
-        const SizedBox(height: 6),
-        const Text(
-          'GST included in prices',
-          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
         ),
         if (summary.savings > 0) ...[
           const SizedBox(height: 10),

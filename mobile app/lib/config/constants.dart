@@ -9,8 +9,6 @@ class AppConstants {
       'https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png';
 
   static const int moq = 10;
-  static const double freeDeliveryThreshold = 999;
-  static const double shippingFee = 49;
   static const double codAdvancePercent = 0.1;
 
   static const int homeProductLimit = 12;

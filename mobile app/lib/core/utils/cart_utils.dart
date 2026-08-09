@@ -1,5 +1,6 @@
-import '../../config/constants.dart';
 import '../../models/cart_item.dart';
+import '../../models/store_settings.dart';
+import 'order_settings.dart';
 
 class CartSummary {
   const CartSummary({
@@ -27,11 +28,14 @@ double calculateCartSavings(List<CartItem> items) {
   });
 }
 
-CartSummary calculateCartSummary(List<CartItem> items) {
+CartSummary calculateCartSummary(
+  List<CartItem> items, {
+  StoreSettings? settings,
+}) {
   final itemCount = items.fold<int>(0, (sum, item) => sum + item.quantity);
   final subtotal = items.fold<double>(0, (sum, item) => sum + item.lineTotal);
-  final shippingFree = subtotal >= AppConstants.freeDeliveryThreshold;
-  final shipping = shippingFree ? 0.0 : AppConstants.shippingFee;
+  final shipping = calculateShippingCharge(subtotal, settings);
+  final shippingFree = shipping <= 0;
   return CartSummary(
     subtotal: subtotal,
     shipping: shipping,

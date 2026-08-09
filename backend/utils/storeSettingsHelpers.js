@@ -50,7 +50,34 @@ export const DEFAULT_STORE_SETTINGS = {
       height: 10,
     },
   },
+  appUpdate: {
+    latestVersion: "1.0.5",
+    minVersion: "1.0.5",
+    forceUpdate: true,
+    message:
+      "A new version of BulkMobileMart is available. Please update the app to continue.",
+    androidStoreUrl:
+      "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
+    iosStoreUrl: "",
+  },
 };
+
+export function normalizeAppUpdate(source = {}) {
+  const defaults = DEFAULT_STORE_SETTINGS.appUpdate;
+  return {
+    latestVersion:
+      String(source.latestVersion || "").trim() || defaults.latestVersion,
+    minVersion: String(source.minVersion || "").trim() || defaults.minVersion,
+    forceUpdate:
+      source.forceUpdate === undefined
+        ? defaults.forceUpdate
+        : Boolean(source.forceUpdate),
+    message: String(source.message || "").trim() || defaults.message,
+    androidStoreUrl:
+      String(source.androidStoreUrl || "").trim() || defaults.androidStoreUrl,
+    iosStoreUrl: String(source.iosStoreUrl || "").trim() || defaults.iosStoreUrl,
+  };
+}
 
 let cachedSettings = null;
 let cacheExpiresAt = 0;
@@ -200,6 +227,7 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
         ? source.cartNoticeHi
         : DEFAULT_STORE_SETTINGS.cartNoticeHi,
     envia,
+    appUpdate: normalizeAppUpdate(source.appUpdate),
   };
 }
 

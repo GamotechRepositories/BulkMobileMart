@@ -13,7 +13,7 @@ import '../../models/product.dart';
 import '../../widgets/category/category_grid_tile.dart';
 import '../../widgets/category/category_header_section.dart';
 import '../../widgets/category/category_horizontal_strip.dart';
-import '../../widgets/common/app_loading.dart';
+import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/product/deal_product_card.dart';
 import '../../widgets/product/product_filters_bar.dart';
@@ -39,10 +39,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
 
+  ProductQuery get _productQuery => ProductQuery(
+        categoryName: _selectedCategoryName?.isNotEmpty == true
+            ? _selectedCategoryName
+            : null,
+        brandName: _selectedBrand.isNotEmpty ? _selectedBrand : null,
+        subcategory: _selectedSubcategory,
+        sortId: _sort.id,
+      );
+
   @override
   void initState() {
     super.initState();
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
@@ -51,9 +61,17 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _tabScrollRegistry.unregister(ShellTabIndex.categories, _scrollController);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 480) return;
+    ref.read(productListControllerProvider(_productQuery).notifier).loadMore();
   }
 
   Category? _findCategory(List<Category> categories, String? name) {
@@ -166,91 +184,48 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final brandsAsync = ref.watch(brandsProvider);
-    final productQuery = ProductQuery(
-      categoryName: _selectedCategoryName?.isNotEmpty == true
-          ? _selectedCategoryName
-          : null,
-      brandName: _selectedBrand.isNotEmpty ? _selectedBrand : null,
-      subcategory: _selectedSubcategory,
-      sortId: _sort.id,
-    );
-    final productsAsync = ref.watch(productListProvider(productQuery));
+    final productQuery = _productQuery;
+    final listState = ref.watch(productListControllerProvider(productQuery));
     final brandNames = _brandNames(brandsAsync.value ?? const <Brand>[]);
+
+    final displayCategories = resolveDisplayCategories(
+      categoriesAsync.value ?? const <Category>[],
+    );
 
     return ColoredBox(
       color: Colors.white,
-      child: categoriesAsync.when(
-        loading: () => const AppLoading(message: 'Loading categories...'),
-        error: (error, _) {
-          final fallback = resolveDisplayCategories(const []);
-          return _CategoriesProductLayout(
-            scrollController: _scrollController,
-            categories: fallback,
-            brandNames: brandNames,
-            productsAsync: productsAsync,
-            selectedCategoryName: _selectedCategoryName,
-            selectedSubcategory: _selectedSubcategory,
-            selectedBrand: _selectedBrand,
-            sortBy: _sort,
-            hasActiveFilters: _hasActiveFilters,
-            activeCategory: _findCategory(fallback, _selectedCategoryName),
-            onCategorySelected: (name) {
-              setState(() {
-                _selectedCategoryName = name;
-                _selectedSubcategory = null;
-              });
-            },
-            onSubcategorySelected: (sub) {
-              setState(() => _selectedSubcategory = sub);
-            },
-            onBrandChange: (brand) => setState(() => _selectedBrand = brand),
-            onSortChange: (sort) => setState(() => _sort = sort),
-            onClearFilters: _clearFilters,
-            onAdd: _handleAdd,
-            onIncrease: _handleIncrease,
-            onDecrease: _handleDecrease,
-            onRefresh: () async {
-              ref.invalidate(categoriesProvider);
-              ref.invalidate(brandsProvider);
-              ref.invalidate(productListProvider(productQuery));
-            },
-          );
+      child: _CategoriesProductLayout(
+        scrollController: _scrollController,
+        categories: displayCategories,
+        brandNames: brandNames,
+        listState: listState,
+        selectedCategoryName: _selectedCategoryName,
+        selectedSubcategory: _selectedSubcategory,
+        selectedBrand: _selectedBrand,
+        sortBy: _sort,
+        hasActiveFilters: _hasActiveFilters,
+        activeCategory: _findCategory(displayCategories, _selectedCategoryName),
+        onCategorySelected: (name) {
+          setState(() {
+            _selectedCategoryName = name;
+            _selectedSubcategory = null;
+          });
         },
-        data: (categories) {
-          final displayCategories = resolveDisplayCategories(categories);
-          return _CategoriesProductLayout(
-            scrollController: _scrollController,
-            categories: displayCategories,
-            brandNames: brandNames,
-            productsAsync: productsAsync,
-            selectedCategoryName: _selectedCategoryName,
-            selectedSubcategory: _selectedSubcategory,
-            selectedBrand: _selectedBrand,
-            sortBy: _sort,
-            hasActiveFilters: _hasActiveFilters,
-            activeCategory:
-                _findCategory(displayCategories, _selectedCategoryName),
-            onCategorySelected: (name) {
-              setState(() {
-                _selectedCategoryName = name;
-                _selectedSubcategory = null;
-              });
-            },
-            onSubcategorySelected: (sub) {
-              setState(() => _selectedSubcategory = sub);
-            },
-            onBrandChange: (brand) => setState(() => _selectedBrand = brand),
-            onSortChange: (sort) => setState(() => _sort = sort),
-            onClearFilters: _clearFilters,
-            onAdd: _handleAdd,
-            onIncrease: _handleIncrease,
-            onDecrease: _handleDecrease,
-            onRefresh: () async {
-              ref.invalidate(categoriesProvider);
-              ref.invalidate(brandsProvider);
-              ref.invalidate(productListProvider(productQuery));
-            },
-          );
+        onSubcategorySelected: (sub) {
+          setState(() => _selectedSubcategory = sub);
+        },
+        onBrandChange: (brand) => setState(() => _selectedBrand = brand),
+        onSortChange: (sort) => setState(() => _sort = sort),
+        onClearFilters: _clearFilters,
+        onAdd: _handleAdd,
+        onIncrease: _handleIncrease,
+        onDecrease: _handleDecrease,
+        onRefresh: () async {
+          ref.invalidate(categoriesProvider);
+          ref.invalidate(brandsProvider);
+          await ref
+              .read(productListControllerProvider(productQuery).notifier)
+              .refresh();
         },
       ),
     );
@@ -262,7 +237,7 @@ class _CategoriesProductLayout extends StatelessWidget {
     required this.scrollController,
     required this.categories,
     required this.brandNames,
-    required this.productsAsync,
+    required this.listState,
     required this.selectedCategoryName,
     required this.selectedSubcategory,
     required this.selectedBrand,
@@ -283,7 +258,7 @@ class _CategoriesProductLayout extends StatelessWidget {
   final ScrollController scrollController;
   final List<Category> categories;
   final List<String> brandNames;
-  final AsyncValue<List<Product>> productsAsync;
+  final ProductListState listState;
   final String? selectedCategoryName;
   final String? selectedSubcategory;
   final String selectedBrand;
@@ -350,78 +325,8 @@ class _CategoriesProductLayout extends StatelessWidget {
               ),
             ),
           ),
-          productsAsync.when(
-            loading: () => const SliverFillRemaining(
-              hasScrollBody: false,
-              child: AppLoading(message: 'Loading products...'),
-            ),
-            error: (error, _) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      error.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: onRefresh,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            data: (products) {
-              final filtered = filterAndSortProducts(
-                products: products,
-                subcategory: selectedSubcategory,
-                brand: selectedBrand,
-                sort: sortBy,
-              );
-
-              if (filtered.isEmpty) {
-                return SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      hasCategory
-                          ? 'No products in this category.'
-                          : 'No products available yet.',
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                );
-              }
-
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio:
-                        DealProductCardDimensions.gridChildAspectRatio,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final product = filtered[index];
-                      return _CategoryDealCard(
-                        product: product,
-                        onAdd: (context) => onAdd(product, context),
-                        onIncrease: () => onIncrease(product),
-                        onDecrease: () => onDecrease(product),
-                      );
-                    },
-                    childCount: filtered.length,
-                  ),
-                ),
-              );
-            },
+          ..._buildProductSlivers(
+            hasCategory: hasCategory,
           ),
           SliverToBoxAdapter(
             child: SizedBox(height: ShellBottomInsets.of(context)),
@@ -429,6 +334,101 @@ class _CategoriesProductLayout extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildProductSlivers({required bool hasCategory}) {
+    if (listState.isLoading && listState.products.isEmpty) {
+      return const [SkeletonProductGridSliver()];
+    }
+
+    if (listState.error != null && listState.products.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  listState.error.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: onRefresh,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
+
+    final filtered = filterAndSortProducts(
+      products: listState.products,
+      subcategory: selectedSubcategory,
+      brand: selectedBrand,
+      sort: sortBy,
+    );
+
+    if (filtered.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              hasCategory
+                  ? 'No products in this category.'
+                  : 'No products available yet.',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final product = filtered[index];
+              return _CategoryDealCard(
+                product: product,
+                onAdd: (context) => onAdd(product, context),
+                onIncrease: () => onIncrease(product),
+                onDecrease: () => onDecrease(product),
+              );
+            },
+            childCount: filtered.length,
+          ),
+        ),
+      ),
+      if (listState.isLoadingMore || listState.hasMore)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: listState.isLoadingMore
+                  ? const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const SizedBox(height: 28),
+            ),
+          ),
+        ),
+    ];
   }
 }
 

@@ -22,7 +22,6 @@ import '../../widgets/category/category_header_section.dart';
 import '../../widgets/category/category_horizontal_strip.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/common/api_error_view.dart';
-import '../../widgets/common/app_loading.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/deal_product_card.dart';
 import '../../widgets/product/mobile_product_card.dart';
@@ -64,6 +63,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
     _sort =
         ProductSortOption.fromId(widget.sortId) ?? ProductSortOption.listingDefault;
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
@@ -72,9 +72,17 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _tabScrollRegistry.unregister(ShellTabIndex.categories, _scrollController);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels < position.maxScrollExtent - 480) return;
+    ref.read(productListControllerProvider(_query).notifier).loadMore();
   }
 
   @override
@@ -201,8 +209,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           _sort.id != ProductSortOption.listingDefault.id);
 
   Future<void> _refreshProducts() async {
-    ref.invalidate(productListProvider(_query));
-    await ref.read(productListProvider(_query).future);
+    await ref.read(productListControllerProvider(_query).notifier).refresh();
   }
 
   void _goBack() {
@@ -278,16 +285,16 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(productListProvider(_query));
+    final listState = ref.watch(productListControllerProvider(_query));
 
     if (_isCategoryBrowseLayout) {
-      return _buildCategoryBrowseLayout(productsAsync);
+      return _buildCategoryBrowseLayout(listState);
     }
 
-    return _buildSearchOrBrandLayout(productsAsync);
+    return _buildSearchOrBrandLayout(listState);
   }
 
-  Widget _buildCategoryBrowseLayout(AsyncValue<List<Product>> productsAsync) {
+  Widget _buildCategoryBrowseLayout(ProductListState listState) {
     final categories = resolveDisplayCategories(
       ref.watch(categoriesProvider).value ?? const <Category>[],
     );
@@ -345,73 +352,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                 ),
               ),
             ),
-            productsAsync.when(
-              loading: () => const SliverFillRemaining(
-                hasScrollBody: false,
-                child: AppLoading(message: 'Loading products...'),
-              ),
-              error: (_, _) => SliverFillRemaining(
-                hasScrollBody: false,
-                child: ApiErrorView(
-                  message: 'Could not load products',
-                  onRetry: _refreshProducts,
-                ),
-              ),
-              data: (products) {
-                final filtered = filterAndSortProducts(
-                  products: products,
-                  subcategory: widget.subcategory,
-                  brand: widget.brand,
-                  minPrice: widget.minPrice,
-                  maxPrice: widget.maxPrice,
-                  sort: _sort,
-                );
-
-                if (filtered.isEmpty) {
-                  return SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text(
-                        hasCategory
-                            ? 'No products in this category.'
-                            : 'No products available yet.',
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  );
-                }
-
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio:
-                          DealProductCardDimensions.gridChildAspectRatio,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final product = filtered[index];
-                        return DealProductCard(
-                          product: product,
-                          fillCell: true,
-                          cartQuantity: ref.watch(
-                            cartProductQuantityProvider(product.id),
-                          ),
-                          onAdd: (ctx) => _handleAdd(product, ctx),
-                          onIncrease: () => _increaseFromList(product),
-                          onDecrease: () => _decreaseFromList(product),
-                        );
-                      },
-                      childCount: filtered.length,
-                    ),
-                  ),
-                );
-              },
-            ),
+            ..._buildCategoryProductSlivers(listState, hasCategory),
             SliverToBoxAdapter(
               child: SizedBox(height: ShellBottomInsets.of(context)),
             ),
@@ -421,62 +362,142 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     );
   }
 
-  Widget _buildSearchOrBrandLayout(AsyncValue<List<Product>> productsAsync) {
+  List<Widget> _buildCategoryProductSlivers(
+    ProductListState listState,
+    bool hasCategory,
+  ) {
+    if (listState.isLoading && listState.products.isEmpty) {
+      return const [SkeletonProductGridSliver()];
+    }
+
+    if (listState.error != null && listState.products.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ApiErrorView(
+            message: 'Could not load products',
+            onRetry: _refreshProducts,
+          ),
+        ),
+      ];
+    }
+
+    final filtered = filterAndSortProducts(
+      products: listState.products,
+      subcategory: widget.subcategory,
+      brand: widget.brand,
+      minPrice: widget.minPrice,
+      maxPrice: widget.maxPrice,
+      sort: _sort,
+    );
+
+    if (filtered.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              hasCategory
+                  ? 'No products in this category.'
+                  : 'No products available yet.',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final product = filtered[index];
+              return DealProductCard(
+                product: product,
+                fillCell: true,
+                cartQuantity: ref.watch(
+                  cartProductQuantityProvider(product.id),
+                ),
+                onAdd: (ctx) => _handleAdd(product, ctx),
+                onIncrease: () => _increaseFromList(product),
+                onDecrease: () => _decreaseFromList(product),
+              );
+            },
+            childCount: filtered.length,
+          ),
+        ),
+      ),
+      if (listState.isLoadingMore || listState.hasMore)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: listState.isLoadingMore
+                  ? const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const SizedBox(height: 28),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildSearchOrBrandLayout(ProductListState listState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _ProductToolbar(
           title: _title,
           onBack: _showBack ? _goBack : null,
-          onFilter: productsAsync.hasValue
-              ? () => _openFilters(productsAsync.requireValue)
+          onFilter: listState.products.isNotEmpty
+              ? () => _openFilters(listState.products)
               : null,
           filtersActive: _hasActiveFilters,
         ),
-        productsAsync.when(
-          loading: () => ProductFiltersBar(
-            brands: const [],
-            selectedBrand: widget.brand ?? '',
-            sortBy: _sort,
-            onBrandChange: _updateBrand,
-            onSortChange: _updateSort,
-            hasActiveFilters: _hasActiveFilters,
-            onClear: _clearListingFilters,
-          ),
-          error: (_, _) => const SizedBox.shrink(),
-          data: (products) => ProductFiltersBar(
-            brands: extractBrands(products),
-            selectedBrand: widget.brand ?? '',
-            sortBy: _sort,
-            onBrandChange: _updateBrand,
-            onSortChange: _updateSort,
-            hasActiveFilters: _hasActiveFilters,
-            onClear: _clearListingFilters,
-          ),
+        ProductFiltersBar(
+          brands: extractBrands(listState.products),
+          selectedBrand: widget.brand ?? '',
+          sortBy: _sort,
+          onBrandChange: _updateBrand,
+          onSortChange: _updateSort,
+          hasActiveFilters: _hasActiveFilters,
+          onClear: _clearListingFilters,
         ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshProducts,
-            child: productsAsync.when(
-              loading: () =>
-                  const SkeletonProductGrid(useShellBottomInset: true),
-              error: (_, _) => ApiErrorView(
-                message: 'Could not load products',
-                onRetry: _refreshProducts,
-              ),
-              data: (products) => _ProductResultsView(
-                scrollController: _scrollController,
-                products: products,
-                searchQuery: widget.searchQuery,
-                categoryName: widget.categoryName,
-                subcategory: widget.subcategory,
-                brand: widget.brand,
-                minPrice: widget.minPrice,
-                maxPrice: widget.maxPrice,
-                sort: _sort,
-                onAdd: _handleAdd,
-              ),
-            ),
+            child: listState.isLoading && listState.products.isEmpty
+                ? const SkeletonProductGrid(useShellBottomInset: true)
+                : listState.error != null && listState.products.isEmpty
+                    ? ApiErrorView(
+                        message: 'Could not load products',
+                        onRetry: _refreshProducts,
+                      )
+                    : _ProductResultsView(
+                        scrollController: _scrollController,
+                        products: listState.products,
+                        searchQuery: widget.searchQuery,
+                        categoryName: widget.categoryName,
+                        subcategory: widget.subcategory,
+                        brand: widget.brand,
+                        minPrice: widget.minPrice,
+                        maxPrice: widget.maxPrice,
+                        sort: _sort,
+                        onAdd: _handleAdd,
+                        isLoadingMore: listState.isLoadingMore,
+                        hasMore: listState.hasMore,
+                      ),
           ),
         ),
       ],
@@ -559,6 +580,8 @@ class _ProductResultsView extends ConsumerStatefulWidget {
     required this.maxPrice,
     required this.sort,
     required this.onAdd,
+    this.isLoadingMore = false,
+    this.hasMore = false,
   });
 
   final ScrollController scrollController;
@@ -571,6 +594,8 @@ class _ProductResultsView extends ConsumerStatefulWidget {
   final String? maxPrice;
   final ProductSortOption sort;
   final Future<void> Function(Product, BuildContext) onAdd;
+  final bool isLoadingMore;
+  final bool hasMore;
 
   @override
   ConsumerState<_ProductResultsView> createState() => _ProductResultsViewState();
@@ -698,9 +723,24 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
         physics: AppScrollConfig.listPhysics,
         cacheExtent: AppScrollConfig.cacheExtent,
         padding: ShellBottomInsets.listPadding(context, top: 16),
-        itemCount: _filtered.length,
+        itemCount:
+            _filtered.length + ((widget.isLoadingMore || widget.hasMore) ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
+          if (index >= _filtered.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: widget.isLoadingMore
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : const SizedBox(height: 28),
+              ),
+            );
+          }
           final product = _filtered[index];
           return MobileProductCard(
             product: product,
@@ -719,7 +759,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
       cacheExtent: AppScrollConfig.cacheExtent,
       slivers: [
         SliverPadding(
-          padding: ShellBottomInsets.listPadding(context, top: 16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -733,7 +773,8 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
                 return DealProductCard(
                   product: product,
                   fillCell: true,
-                  cartQuantity: ref.watch(cartProductQuantityProvider(product.id)),
+                  cartQuantity:
+                      ref.watch(cartProductQuantityProvider(product.id)),
                   onAdd: (context) => widget.onAdd(product, context),
                   onIncrease: () => _handleIncrease(product),
                   onDecrease: () => _handleDecrease(product),
@@ -742,6 +783,24 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
               childCount: _filtered.length,
             ),
           ),
+        ),
+        if (widget.isLoadingMore || widget.hasMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: widget.isLoadingMore
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : const SizedBox(height: 28),
+              ),
+            ),
+          ),
+        SliverToBoxAdapter(
+          child: SizedBox(height: ShellBottomInsets.of(context)),
         ),
       ],
     );

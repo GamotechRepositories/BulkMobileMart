@@ -217,7 +217,6 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
         </View>
 
         <View style={styles.block}>
-          <Text style={styles.amountWords}>Amount in Words: {amountInWords(grandTotal)}</Text>
           <View style={styles.footerWrap}>
             <View style={styles.notes}>
               <Text style={styles.notesTitle}>Bank Details:</Text>
@@ -243,8 +242,8 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
                 <SummaryRow
                   label={
                     order?.couponCode
-                      ? `Coupon Discount (${order.couponCode})`
-                      : "Coupon Discount"
+                      ? `Less: Coupon (${order.couponCode})`
+                      : "Less: Coupon"
                   }
                   value={`- ${formatMoney(totals.couponDiscount)}`}
                 />
@@ -262,6 +261,7 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
               ) : null}
             </View>
           </View>
+          <Text style={styles.amountWords}>Amount in Words: {amountInWords(grandTotal)}</Text>
         </View>
       </Page>
     </Document>

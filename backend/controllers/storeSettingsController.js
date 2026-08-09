@@ -3,6 +3,7 @@ import { normalizeEnviaOriginFields } from "../../shared/shipping/enviaOriginAdd
 import {
   clearStoreSettingsCache,
   getStoreSettings,
+  normalizeAppUpdate,
   normalizeMerchantUpiAccounts,
   normalizeShippingSlabs,
   serializeStoreSettings,
@@ -160,6 +161,7 @@ export const updateStoreSettings = async (req, res) => {
       cartNoticeEn,
       cartNoticeHi,
       envia,
+      appUpdate,
     } = req.body;
 
     const payload = {};
@@ -253,14 +255,28 @@ export const updateStoreSettings = async (req, res) => {
       payload.envia = result.envia;
     }
 
+    if (appUpdate !== undefined) {
+      if (!appUpdate || typeof appUpdate !== "object") {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid app update settings",
+        });
+      }
+      payload.appUpdate = normalizeAppUpdate(appUpdate);
+    }
+
     if (!doc) {
       doc = await StoreSettings.create({ key: "store", ...payload });
     } else {
-      const { envia: enviaPayload, ...rest } = payload;
+      const { envia: enviaPayload, appUpdate: appUpdatePayload, ...rest } = payload;
       Object.assign(doc, rest);
       if (enviaPayload !== undefined) {
         doc.set("envia", enviaPayload);
         doc.markModified("envia");
+      }
+      if (appUpdatePayload !== undefined) {
+        doc.set("appUpdate", appUpdatePayload);
+        doc.markModified("appUpdate");
       }
       await doc.save();
     }

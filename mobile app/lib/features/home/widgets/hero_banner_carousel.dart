@@ -10,6 +10,8 @@ import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import '../home_providers.dart';
 
+/// Top home hero — same layout as [HomeWholesaleBanner] (cover, fixed height,
+/// PageView, arrows, dots).
 class HeroBannerCarousel extends ConsumerStatefulWidget {
   const HeroBannerCarousel({super.key});
 
@@ -19,18 +21,17 @@ class HeroBannerCarousel extends ConsumerStatefulWidget {
 
 class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
   static const _autoPlayMs = 5000;
-  static const _swipeThreshold = 48.0;
+  static const _bannerHeight = 168.0;
 
-  int _current = 0;
-  int _slideCount = 0;
-  double? _bannerAspectRatio;
-  String? _resolvedForUrl;
+  final PageController _pageController = PageController();
   Timer? _autoPlayTimer;
-  double _dragDx = 0;
+  int _currentPage = 0;
+  int _scheduledForCount = 0;
 
   @override
   void dispose() {
     _autoPlayTimer?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -41,45 +42,40 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
       ..sort((a, b) => a.order.compareTo(b.order));
   }
 
-  void _resolveAspectRatio(String imageUrl) {
-    final url = imageUrl.trim();
-    if (url.isEmpty || _resolvedForUrl == url) return;
-    _resolvedForUrl = url;
-
-    final stream = NetworkImage(url).resolve(const ImageConfiguration());
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (info, _) {
-        stream.removeListener(listener);
-        final w = info.image.width.toDouble();
-        final h = info.image.height.toDouble();
-        if (!mounted || w <= 0 || h <= 0) return;
-        setState(() => _bannerAspectRatio = w / h);
-      },
-      onError: (_, _) {
-        stream.removeListener(listener);
-      },
-    );
-    stream.addListener(listener);
-  }
-
-  void _scheduleAutoPlay(int count) {
+  void _scheduleAutoPlay(int itemCount) {
+    if (_scheduledForCount == itemCount && _autoPlayTimer != null) return;
     _autoPlayTimer?.cancel();
-    _slideCount = count;
-    if (count <= 1) return;
+    _scheduledForCount = itemCount;
+    if (itemCount <= 1) return;
+
     _autoPlayTimer = Timer.periodic(
       const Duration(milliseconds: _autoPlayMs),
       (_) {
-        if (!mounted || _slideCount <= 1) return;
-        setState(() => _current = (_current + 1) % _slideCount);
+        if (!_pageController.hasClients) return;
+        final current = _pageController.page?.round() ?? _currentPage;
+        final next = (current + 1) % itemCount;
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+        );
       },
     );
   }
 
-  void _goTo(int index, int count) {
-    if (count <= 0) return;
-    setState(() => _current = (index + count) % count);
-    _scheduleAutoPlay(count);
+  void _pauseAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = null;
+    _scheduledForCount = 0;
+  }
+
+  void _goToPage(int index, int itemCount) {
+    if (!_pageController.hasClients || itemCount <= 1) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -87,96 +83,110 @@ class _HeroBannerCarouselState extends ConsumerState<HeroBannerCarousel> {
     final bannersAsync = ref.watch(heroBannersProvider);
 
     return bannersAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.only(top: 4, bottom: 12),
-        child: SkeletonHeroBanner(),
-      ),
+      loading: () => const SkeletonHeroBanner(),
       error: (_, _) => const SizedBox.shrink(),
       data: (banners) {
         final slides = _visibleBanners(banners);
         if (slides.isEmpty) return const SizedBox.shrink();
 
-        final current = _current.clamp(0, slides.length - 1);
-        if (current != _current) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _current = current);
-          });
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _scheduleAutoPlay(slides.length);
+        });
 
-        if (_slideCount != slides.length) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _resolveAspectRatio(slides.first.imageUrl);
-            _scheduleAutoPlay(slides.length);
-          });
-        }
-        return _buildCarousel(slides, current);
-      },
-    );
-  }
-
-  Widget _buildCarousel(List<HeroBanner> slides, int current) {
-    final aspect = (_bannerAspectRatio ?? 2.0).clamp(1.2, 3.2);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-      child: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: aspect,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
-              clipBehavior: Clip.antiAlias,
-              child: ColoredBox(
-                color: Colors.white,
-                child: GestureDetector(
-                  onHorizontalDragStart: (_) => _autoPlayTimer?.cancel(),
-                  onHorizontalDragUpdate: (details) {
-                    _dragDx += details.delta.dx;
-                  },
-                  onHorizontalDragEnd: (_) {
-                    final count = slides.length;
-                    if (_dragDx.abs() >= _swipeThreshold && count > 1) {
-                      if (_dragDx < 0) {
-                        _goTo(current + 1, count);
-                      } else {
-                        _goTo(current - 1, count);
-                      }
-                    } else {
-                      _scheduleAutoPlay(count);
-                    }
-                    _dragDx = 0;
-                  },
-                  // Hard cut: only the active banner — never peeks the next slide.
-                  child: _BannerSlide(banner: slides[current]),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Column(
+            children: [
+              SizedBox(
+                height: _bannerHeight,
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    PageView.builder(
+                      controller: _pageController,
+                      itemCount: slides.length,
+                      onPageChanged: (index) {
+                        setState(() => _currentPage = index);
+                        _pauseAutoPlay();
+                        _scheduleAutoPlay(slides.length);
+                      },
+                      itemBuilder: (context, index) =>
+                          _BannerSlide(banner: slides[index]),
+                    ),
+                    if (slides.length > 1) ...[
+                      Positioned(
+                        left: 6,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _SliderArrowButton(
+                            icon: Icons.chevron_left_rounded,
+                            onPressed: () {
+                              _pauseAutoPlay();
+                              _goToPage(
+                                (_currentPage - 1 + slides.length) %
+                                    slides.length,
+                                slides.length,
+                              );
+                              _scheduleAutoPlay(slides.length);
+                            },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 6,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _SliderArrowButton(
+                            icon: Icons.chevron_right_rounded,
+                            onPressed: () {
+                              _pauseAutoPlay();
+                              _goToPage(
+                                (_currentPage + 1) % slides.length,
+                                slides.length,
+                              );
+                              _scheduleAutoPlay(slides.length);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
+              if (slides.length > 1) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(slides.length, (index) {
+                    final active = index == _currentPage;
+                    return GestureDetector(
+                      onTap: () {
+                        _pauseAutoPlay();
+                        _goToPage(index, slides.length);
+                        _scheduleAutoPlay(slides.length);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: active ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? AppColors.primary
+                              : AppColors.borderLight,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ],
           ),
-          if (slides.length > 1) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(slides.length, (index) {
-                final active = index == current;
-                return GestureDetector(
-                  onTap: () => _goTo(index, slides.length),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: active ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: active ? AppColors.primary : AppColors.borderLight,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -188,14 +198,47 @@ class _BannerSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppNetworkImage(
-      imageUrl: banner.imageUrl,
-      fit: BoxFit.contain,
-      alignment: Alignment.center,
-      width: double.infinity,
-      height: double.infinity,
-      cacheWidth: 1080,
-      cacheHeight: 600,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
+      child: AppNetworkImage(
+        imageUrl: banner.imageUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        width: double.infinity,
+        height: double.infinity,
+        cacheWidth: 720,
+        cacheHeight: 336,
+      ),
+    );
+  }
+}
+
+class _SliderArrowButton extends StatelessWidget {
+  const _SliderArrowButton({
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.38),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
     );
   }
 }

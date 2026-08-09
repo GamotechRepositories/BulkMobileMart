@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../config/theme.dart';
 import '../../../core/utils/product_pricing.dart';
 import '../../../features/auth/auth_controller.dart';
 import '../../../features/cart/cart_controller.dart';
 import '../../../models/cart_item.dart';
 import '../../../models/product.dart';
 import '../../../widgets/common/section_header.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import '../../../widgets/product/deal_product_card.dart';
 import 'home_section_card.dart';
 
@@ -125,17 +125,13 @@ class HomeProductRow extends ConsumerWidget {
           SizedBox(
             height: DealProductCardDimensions.height,
             child: loading
-                ? ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    cacheExtent: 240,
-                    itemCount: 6,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (_, _) => Container(
-                      width: DealProductCardDimensions.width,
-                      decoration: BoxDecoration(
-                        color: AppColors.mobileSurface,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                ? Shimmer(
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 4,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (_, _) => const SkeletonProductCard(),
                     ),
                   )
                 : ListView.separated(

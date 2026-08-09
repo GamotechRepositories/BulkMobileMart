@@ -29,10 +29,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   void initState() {
     super.initState();
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
+    // Load as soon as Account/Orders tab mounts (don't wait for refresh).
+    Future.microtask(_ensureOrdersLoaded);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.orders, _scrollController);
-      _loadOrders();
+      _ensureOrdersLoaded();
     });
   }
 
@@ -41,6 +43,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     _tabScrollRegistry.unregister(ShellTabIndex.orders, _scrollController);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _ensureOrdersLoaded() async {
+    if (!ref.read(authControllerProvider).isLoggedIn) return;
+    await ref.read(ordersControllerProvider.notifier).loadOrders();
   }
 
   Future<void> _loadOrders() async {
@@ -56,7 +63,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final error = ref.watch(ordersControllerProvider.select((s) => s.error));
 
     ref.listen(authControllerProvider.select((s) => s.isLoggedIn), (previous, next) {
-      if (next) _loadOrders();
+      if (next == true && previous != true) {
+        _ensureOrdersLoaded();
+      }
     });
 
     return ColoredBox(

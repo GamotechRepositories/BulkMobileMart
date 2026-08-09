@@ -46,17 +46,19 @@ class GatedHomeSection extends ConsumerWidget {
     required this.minPhase,
     required this.placeholderHeight,
     required this.child,
+    this.placeholder,
   });
 
   final HomeLoadPhase minPhase;
   final double placeholderHeight;
   final Widget child;
+  final Widget? placeholder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(homeLoadGateProvider);
     if (!homePhaseAtLeast(phase, minPhase)) {
-      return SizedBox(height: placeholderHeight);
+      return placeholder ?? SizedBox(height: placeholderHeight);
     }
     return child;
   }

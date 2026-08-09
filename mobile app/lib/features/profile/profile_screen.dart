@@ -48,7 +48,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void initState() {
     super.initState();
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
-    Future.microtask(_loadRecentItems);
+    Future.microtask(() {
+      _loadRecentItems();
+      if (ref.read(authControllerProvider).isLoggedIn) {
+        ref.read(addressControllerProvider.notifier).loadAddresses();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.account, _scrollController);

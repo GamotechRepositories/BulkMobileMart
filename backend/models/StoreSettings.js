@@ -135,6 +135,29 @@ const enviaConfigSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const appUpdateSchema = new mongoose.Schema(
+  {
+    latestVersion: { type: String, default: "1.0.5", trim: true, maxlength: 40 },
+    minVersion: { type: String, default: "1.0.5", trim: true, maxlength: 40 },
+    forceUpdate: { type: Boolean, default: true },
+    message: {
+      type: String,
+      default:
+        "A new version of BulkMobileMart is available. Please update the app to continue.",
+      trim: true,
+      maxlength: 500,
+    },
+    androidStoreUrl: {
+      type: String,
+      default: "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
+      trim: true,
+      maxlength: 500,
+    },
+    iosStoreUrl: { type: String, default: "", trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
 const storeSettingsSchema = new mongoose.Schema(
   {
     key: {
@@ -208,6 +231,10 @@ const storeSettingsSchema = new mongoose.Schema(
     },
     envia: {
       type: enviaConfigSchema,
+      default: () => ({}),
+    },
+    appUpdate: {
+      type: appUpdateSchema,
       default: () => ({}),
     },
   },

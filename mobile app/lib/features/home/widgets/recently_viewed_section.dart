@@ -14,7 +14,12 @@ class RecentlyViewedSection extends ConsumerWidget {
     final productsAsync = ref.watch(recentlyViewedProductsProvider);
 
     return productsAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => HomeProductRow(
+        title: 'Recently Viewed',
+        onViewAll: () => context.go(RoutePaths.product),
+        products: const [],
+        loading: true,
+      ),
       error: (_, _) => const SizedBox.shrink(),
       data: (products) => HomeProductRow(
         title: 'Recently Viewed',

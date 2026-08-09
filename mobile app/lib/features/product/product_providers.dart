@@ -4,53 +4,127 @@ import '../../core/providers/app_providers.dart';
 import '../../core/utils/product_utils.dart';
 import '../../models/product.dart';
 
-const _productsPageSize = 50;
-const _filteredProductsFastLimit = 120;
+/// First page + each scroll page. Keep first paint fast; load the rest on scroll.
+const listingPageSize = 48;
 
-final productListProvider =
-    FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
-  final api = ref.read(apiServiceProvider);
-  final params = query.toApiParams();
+class ProductListState {
+  const ProductListState({
+    this.products = const [],
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.page = 0,
+    this.error,
+  });
 
-  // Category/search/brand listings should feel instant on mobile.
-  // For these filtered views, fetch one larger page instead of walking all pages.
-  if (_isFilteredListing(query)) {
-    final firstPage = await api.fetchProductsPage({
-      ...params,
-      'page': 1,
-      'limit': _filteredProductsFastLimit,
-    });
-    return firstPage.items.where((product) => product.isActive).toList();
+  final List<Product> products;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int page;
+  final Object? error;
+
+  ProductListState copyWith({
+    List<Product>? products,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
+    Object? error,
+    bool clearError = false,
+  }) {
+    return ProductListState(
+      products: products ?? this.products,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+}
+
+final productListControllerProvider = NotifierProvider.family<
+    ProductListController, ProductListState, ProductQuery>(
+  ProductListController.new,
+);
+
+class ProductListController extends Notifier<ProductListState> {
+  ProductListController(this.query);
+
+  final ProductQuery query;
+
+  @override
+  ProductListState build() {
+    Future.microtask(_loadInitial);
+    return const ProductListState(isLoading: true);
   }
 
-  final all = <Product>[];
-  var page = 1;
-  var totalPages = 1;
+  Future<void> _loadInitial() async {
+    await _fetchPage(1, replace: true);
+  }
 
-  do {
-    final result = await api.fetchProductsPage({
-      ...params,
-      'page': page,
-      'limit': _productsPageSize,
-    });
-    all.addAll(result.items);
-    totalPages = result.totalPages < 1 ? 1 : result.totalPages;
-    page++;
-  } while (page <= totalPages);
+  Future<void> refresh() async {
+    state = state.copyWith(
+      isLoading: true,
+      isLoadingMore: false,
+      clearError: true,
+    );
+    await _fetchPage(1, replace: true);
+  }
 
-  return all.where((product) => product.isActive).toList();
-});
+  Future<void> loadMore() async {
+    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    await _fetchPage(state.page + 1, replace: false);
+  }
 
-bool _isFilteredListing(ProductQuery query) {
-  bool hasValue(String? value) => value != null && value.trim().isNotEmpty;
-  return hasValue(query.categoryName) ||
-      hasValue(query.search) ||
-      hasValue(query.brandName) ||
-      hasValue(query.subcategory) ||
-      hasValue(query.minPrice) ||
-      hasValue(query.maxPrice) ||
-      query.justArrived ||
-      query.hotSelling;
+  Future<void> _fetchPage(int page, {required bool replace}) async {
+    if (!replace) {
+      state = state.copyWith(isLoadingMore: true, clearError: true);
+    }
+
+    try {
+      final result = await ref.read(apiServiceProvider).fetchProductsPage({
+        ...query.toApiParams(),
+        'page': page,
+        'limit': listingPageSize,
+      });
+      final incoming =
+          result.items.where((product) => product.isActive).toList();
+
+      final merged = replace
+          ? incoming
+          : _mergeUnique(state.products, incoming);
+
+      final reachedEnd = incoming.isEmpty ||
+          page >= result.totalPages ||
+          incoming.length < listingPageSize;
+
+      state = ProductListState(
+        products: merged,
+        isLoading: false,
+        isLoadingMore: false,
+        hasMore: !reachedEnd,
+        page: page,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        isLoadingMore: false,
+        error: error,
+      );
+    }
+  }
+
+  List<Product> _mergeUnique(List<Product> existing, List<Product> next) {
+    if (next.isEmpty) return existing;
+    final seen = existing.map((p) => p.id).toSet();
+    final merged = [...existing];
+    for (final product in next) {
+      if (seen.add(product.id)) merged.add(product);
+    }
+    return merged;
+  }
 }
 
 final productDetailProvider =

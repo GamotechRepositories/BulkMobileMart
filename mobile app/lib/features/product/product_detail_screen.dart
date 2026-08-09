@@ -617,11 +617,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
             SizedBox(height: 8),
             Text(
-              'GST invoice provided with every order.',
-              style: TextStyle(color: AppColors.textPrimary, height: 1.5),
-            ),
-            SizedBox(height: 8),
-            Text(
               'Standard delivery: 3–7 business days across major cities.',
               style: TextStyle(color: AppColors.textPrimary, height: 1.5),
             ),

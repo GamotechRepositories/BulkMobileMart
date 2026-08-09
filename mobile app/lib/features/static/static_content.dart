@@ -61,7 +61,6 @@ const aboutPage = StaticPageContent(
       bullets: [
         'Latest smartphones — all major brands',
         'Mix-and-match bulk orders',
-        'GST-compliant invoices',
         'IMEI-verified genuine units',
         'Warehouse pickup & courier delivery',
         'Repeat-order loyalty pricing',
@@ -119,7 +118,7 @@ const termsPage = StaticPageContent(
     InfoSection(
       title: 'Payment & Invoicing',
       body:
-          'Payment terms will be communicated at the time of order confirmation. GST-compliant invoices are provided for all eligible business purchases.',
+          'Payment terms will be communicated at the time of order confirmation. Invoices are provided for all eligible business purchases.',
     ),
     InfoSection(
       title: 'Delivery',
@@ -156,7 +155,7 @@ const shippingDetailsPage = StaticPageContent(
     InfoSection(
       title: 'Delivery Charges',
       body:
-          'Standard delivery charges apply on orders below ₹999. Orders of ₹999 and above qualify for free delivery on eligible products. Final shipping cost is shown at checkout before you place your order.',
+          'Shipping charges are calculated from your order value using store shipping slabs (minimum charge applies). Final shipping cost is shown in cart and checkout before you place your order.',
     ),
     InfoSection(
       title: 'Estimated Delivery',
@@ -194,10 +193,10 @@ const blogPosts = <BlogPost>[
         'Learn how to verify IMEI, avoid grey-market stock, and negotiate better bulk pricing for your store.',
   ),
   BlogPost(
-    title: 'GST Invoices & Compliance for Mobile Distributors',
+    title: 'Invoice & Billing Tips for Mobile Distributors',
     date: 'May 2, 2026',
     excerpt:
-        'Why proper GST billing matters for B2B mobile trade and how BulkMobileMart keeps your records clean.',
+        'How clear billing and order records help B2B mobile trade stay organized with BulkMobileMart.',
   ),
   BlogPost(
     title: 'Top Selling Smartphone Brands for Q2 2026',

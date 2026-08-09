@@ -38,9 +38,6 @@ Future<Uint8List> generateInvoicePdf(
   final customerName = addr.fullName.trim().isNotEmpty
       ? addr.fullName.trim()
       : (user?.name.trim().isNotEmpty == true ? user!.name.trim() : '—');
-  final customerGst = (user?.gstNumber.trim().isNotEmpty == true)
-      ? user!.gstNumber.trim()
-      : 'URP';
   final phone = addr.number.trim().isNotEmpty
       ? addr.number.trim()
       : (user?.phone.trim() ?? '');
@@ -55,7 +52,7 @@ Future<Uint8List> generateInvoicePdf(
   final grandTotal = order.total;
   final advancePayment = getInvoiceAdvancePaymentDetails(order);
   final isAttempted = order.status == 'attempted';
-  final documentTitle = isAttempted ? 'ATTEMPTED ORDER' : 'TAX INVOICE';
+  final documentTitle = isAttempted ? 'ATTEMPTED ORDER' : 'INVOICE';
   final invoiceNo = isAttempted ? 'ATT-$orderNo' : 'INV-$orderNo';
   final logoBytes = await _loadInvoiceLogoBytes();
   pw.ImageProvider? logoImage;
@@ -124,7 +121,6 @@ Future<Uint8List> generateInvoicePdf(
               [
                 'By: ${config.legalEntity}',
                 'Email: ${config.email}',
-                if (config.gstNumber.isNotEmpty) 'GST No: ${config.gstNumber}',
                 'State Code: ${config.stateCode}',
               ].join(' | '),
               textAlign: pw.TextAlign.center,
@@ -160,7 +156,7 @@ Future<Uint8List> generateInvoicePdf(
               border: pw.Border.all(color: PdfColor.fromInt(0xFFFDBA74)),
             ),
             child: pw.Text(
-              'Status: Attempted — checkout was not completed. This is not a tax invoice.',
+              'Status: Attempted — checkout was not completed. This is not a final invoice.',
               textAlign: pw.TextAlign.center,
               style: pw.TextStyle(
                 fontSize: 8,
@@ -217,10 +213,6 @@ Future<Uint8List> generateInvoicePdf(
                     state: addr.state,
                     pincode: addr.pincode,
                   ),
-                  style: pw.TextStyle(fontSize: 9, color: textColor),
-                ),
-                pw.Text(
-                  'GST No: $customerGst',
                   style: pw.TextStyle(fontSize: 9, color: textColor),
                 ),
               ],
@@ -282,17 +274,6 @@ Future<Uint8List> generateInvoicePdf(
           ),
           child: pw.Column(
             children: [
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.all(6),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border(bottom: pw.BorderSide(color: borderColor)),
-                ),
-                child: pw.Text(
-                  'Amount in Words: ${amountInWords(grandTotal)}',
-                  style: pw.TextStyle(fontSize: 9, color: textColor),
-                ),
-              ),
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -350,10 +331,12 @@ Future<Uint8List> generateInvoicePdf(
                             borderColor: rowBorder,
                             textColor: textColor,
                           ),
-                          for (final row in totals.gstBreakdown)
+                          if (totals.couponDiscount > 0)
                             _pdfSummaryRow(
-                              row.label,
-                              formatInvoiceMoney(row.amount),
+                              order.couponCode.trim().isNotEmpty
+                                  ? 'Less: Coupon (${order.couponCode.trim()})'
+                                  : 'Less: Coupon',
+                              '- ${formatInvoiceMoney(totals.couponDiscount)}',
                               borderColor: rowBorder,
                               textColor: textColor,
                             ),
@@ -365,15 +348,6 @@ Future<Uint8List> generateInvoicePdf(
                             borderColor: rowBorder,
                             textColor: textColor,
                           ),
-                          if (totals.couponDiscount > 0)
-                            _pdfSummaryRow(
-                              order.couponCode.trim().isNotEmpty
-                                  ? 'Coupon Discount (${order.couponCode.trim()})'
-                                  : 'Coupon Discount',
-                              '- ${formatInvoiceMoney(totals.couponDiscount)}',
-                              borderColor: rowBorder,
-                              textColor: textColor,
-                            ),
                           _pdfSummaryRow(
                             'Total Amount',
                             formatInvoiceMoney(grandTotal),
@@ -404,6 +378,17 @@ Future<Uint8List> generateInvoicePdf(
                     ),
                   ),
                 ],
+              ),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.all(6),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(top: pw.BorderSide(color: borderColor)),
+                ),
+                child: pw.Text(
+                  'Amount in Words: ${amountInWords(grandTotal)}',
+                  style: pw.TextStyle(fontSize: 9, color: textColor),
+                ),
               ),
             ],
           ),

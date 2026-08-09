@@ -9,6 +9,7 @@ import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/auto_horizontal_scroll.dart';
 import '../../../widgets/common/section_header.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import '../home_providers.dart';
 import 'home_section_card.dart';
 
@@ -24,7 +25,7 @@ class TopBrandsSection extends ConsumerWidget {
     final brandsAsync = ref.watch(brandsProvider);
 
     return brandsAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => const SkeletonTopBrands(),
       error: (_, _) => const SizedBox.shrink(),
       data: (brands) {
         if (brands.isEmpty) return const SizedBox.shrink();

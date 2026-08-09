@@ -30,7 +30,10 @@ class OrderShipment {
   final String evidenceName;
   final OrderManualTracking manualTracking;
 
-  bool get hasTracking => trackingNumber.trim().isNotEmpty;
+  bool get hasTracking =>
+      trackingNumber.trim().isNotEmpty || trackUrl.trim().isNotEmpty;
+
+  bool get canOpenTracking => trackUrl.trim().isNotEmpty;
 
   bool get hasShipmentDetails =>
       manualTracking.hasDetails ||
