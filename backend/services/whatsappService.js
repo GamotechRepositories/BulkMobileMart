@@ -24,7 +24,28 @@ function invoiceNumber(order) {
 function formatAmount(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return "0";
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return amount.toLocaleString("en-IN");
+}
+
+function formatWhatsAppDate(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return formatWhatsAppDate(new Date());
+  }
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = date.toLocaleDateString("en-GB", { month: "short" });
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+function courierPartner(order) {
+  const carrier = String(order?.shipment?.carrier || "").trim();
+  if (!carrier) return "Pending";
+  return carrier
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
 }
 
 function customerName(order) {
@@ -186,7 +207,7 @@ async function safeSend(context, fn) {
 }
 
 /**
- * Confirmation template: {{1}} name, {{2}} orderId, {{3}} invoice, {{4}} amount
+ * Confirmation template: {{1}} name, {{2}} orderId, {{3}} date, {{4}} amount
  */
 export async function sendWhatsAppOrderConfirmation(order) {
   return safeSend("order_confirmation", () =>
@@ -196,7 +217,7 @@ export async function sendWhatsAppOrderConfirmation(order) {
         bodyComponent([
           customerName(order),
           orderRef(order),
-          invoiceNumber(order),
+          formatWhatsAppDate(order?.createdAt || order?.confirmedAt || new Date()),
           formatAmount(order?.total),
         ]),
       ],
@@ -205,7 +226,7 @@ export async function sendWhatsAppOrderConfirmation(order) {
 }
 
 /**
- * Invoice template: document header + {{1}} name, {{2}} orderId, {{3}} invoice, {{4}} amount
+ * Invoice template: document header + {{1}} name, {{2}} orderId, {{3}} invoice, {{4}} invoice date
  */
 export async function sendWhatsAppInvoice(order) {
   return safeSend("invoice_sent", async () => {
@@ -219,7 +240,7 @@ export async function sendWhatsAppInvoice(order) {
           customerName(order),
           orderRef(order),
           invoiceNumber(order),
-          formatAmount(order?.total),
+          formatWhatsAppDate(new Date()),
         ]),
       ],
     });
@@ -227,7 +248,8 @@ export async function sendWhatsAppInvoice(order) {
 }
 
 /**
- * Tracking template: {{1}} name, {{2}} orderId, {{3}} trackingId, {{4}} track link, {{5}} invoice
+ * Tracking template:
+ * {{1}} name, {{2}} orderId, {{3}} courier partner, {{4}} trackingId, {{5}} track link
  */
 export async function sendWhatsAppOrderTracking(order) {
   const trackingId = order?.shipment?.trackingNumber || "Pending";
@@ -242,9 +264,9 @@ export async function sendWhatsAppOrderTracking(order) {
         bodyComponent([
           customerName(order),
           orderRef(order),
+          courierPartner(order),
           trackingId,
           trackUrl,
-          invoiceNumber(order),
         ]),
       ],
     })
@@ -265,9 +287,15 @@ export async function sendWhatsAppOrderDelivered(order) {
   );
 }
 
-/** Fire confirmation + invoice together when an order is confirmed. */
+/** Confirmation only — invoice is sent when the order moves to shipping. */
 export async function sendWhatsAppOrderConfirmedBundle(order) {
   const confirmation = await sendWhatsAppOrderConfirmation(order);
+  return { confirmation };
+}
+
+/** Tracking + invoice PDF when the order is shipped. */
+export async function sendWhatsAppOrderShippedBundle(order) {
+  const tracking = await sendWhatsAppOrderTracking(order);
   const invoice = await sendWhatsAppInvoice(order);
-  return { confirmation, invoice };
+  return { tracking, invoice };
 }

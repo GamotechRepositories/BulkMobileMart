@@ -11,6 +11,7 @@ import {
 } from "./notificationService.js";
 import {
   sendWhatsAppOrderConfirmedBundle,
+  sendWhatsAppOrderShippedBundle,
   sendWhatsAppOrderTracking,
   sendWhatsAppOrderDelivered,
 } from "./whatsappService.js";
@@ -58,7 +59,7 @@ export async function notifyOrderCreated(order, { previousStatus = null } = {}) 
         : await sendOrderPlaced(order);
     logDispatchResult("notifyOrderCreated", result);
 
-    // WhatsApp confirmation+invoice when order is confirmed (incl. COD create as confirm)
+    // WhatsApp confirmation when order is confirmed (invoice waits until shipping)
     if (previousStatus === "attempted" || order.status === "confirm") {
       dispatchWhatsApp(
         "notifyOrderCreated",
@@ -101,7 +102,7 @@ export async function notifyOrderStatusChange(order, previousStatus, options = {
           result = await sendOrderShipped(order);
           dispatchWhatsApp(
             "notifyOrderStatusChange shipping",
-            sendWhatsAppOrderTracking(order)
+            sendWhatsAppOrderShippedBundle(order)
           );
           break;
         case "delivered":
