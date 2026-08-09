@@ -745,36 +745,33 @@ export async function finalizeOrder({
   codAdvancePaidAt = null,
   paidAt,
   message = "",
-  attemptedOrderId,
+  attemptedOrderId: _attemptedOrderId,
 }) {
-  const completed = await completeAttemptedOrder({
-    attemptedOrderId,
-    userId,
-    orderItems,
-    deliveryAddress,
-    subtotal,
-    couponCode,
-    couponDiscount,
-    deliveryCharges,
-    gstAmount,
-    total,
-    cart,
-    checkoutMode,
-    paymentMethod,
-    paymentStatus,
-    status,
-    razorpayOrderId,
-    razorpayPaymentId,
-    codAdvanceAmount,
-    codAdvanceRazorpayPaymentId,
-    razorpayPaidAmount,
-    codAdvancePaidAt,
-    paidAt,
-    message,
-  });
+  // Always create a fresh order on payment/place — never convert/update the
+  // attempted checkout draft. Attempted orders stay for admin analytics.
+  void _attemptedOrderId;
 
-  if (completed) {
-    return completed;
+  const razorpayPaymentKey = String(razorpayPaymentId || "").trim();
+  const codAdvancePaymentKey = String(codAdvanceRazorpayPaymentId || "").trim();
+  const razorpayOrderKey = String(razorpayOrderId || "").trim();
+
+  if (razorpayPaymentKey || codAdvancePaymentKey || razorpayOrderKey) {
+    const existingPaid = await Order.findOne({
+      user: userId,
+      status: { $ne: "attempted" },
+      $or: [
+        ...(razorpayPaymentKey ? [{ razorpayPaymentId: razorpayPaymentKey }] : []),
+        ...(codAdvancePaymentKey
+          ? [{ codAdvanceRazorpayPaymentId: codAdvancePaymentKey }]
+          : []),
+        ...(razorpayOrderKey ? [{ razorpayOrderId: razorpayOrderKey }] : []),
+      ],
+    }).sort({ createdAt: -1 });
+
+    if (existingPaid) {
+      await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
+      return existingPaid;
+    }
   }
 
   const orderMessage =
