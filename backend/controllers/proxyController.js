@@ -1,3 +1,5 @@
+import { resizeRemoteImage } from "../utils/imageOptimize.js";
+
 function getAllowedImageHosts() {
   const hosts = new Set(["res.cloudinary.com"]);
 
@@ -92,5 +94,38 @@ export async function proxyImageDownload(req, res) {
     if (!ok) return;
   } catch {
     res.status(502).json({ message: "Failed to fetch image" });
+  }
+}
+
+/**
+ * On-demand resize for catalog images (existing full-size CDN assets).
+ * GET /api/proxy/img?u=<url>&w=400
+ */
+export async function optimizeImage(req, res) {
+  const imageUrl = String(req.query.u || req.query.url || "").trim();
+  const width = Number(req.query.w || req.query.width || 400);
+
+  if (!imageUrl) {
+    return res.status(400).json({ message: "Image URL is required" });
+  }
+
+  if (!isAllowedImageUrl(imageUrl)) {
+    return res.status(403).json({ message: "Image URL is not allowed" });
+  }
+
+  try {
+    const result = await resizeRemoteImage(imageUrl, width);
+    res.setHeader("Content-Type", result.contentType);
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=2592000, stale-while-revalidate=86400"
+    );
+    if (result.fromCache) {
+      res.setHeader("X-Image-Cache", "HIT");
+    }
+    return res.send(result.buffer);
+  } catch (error) {
+    console.error("optimizeImage failed:", error.message);
+    return res.status(502).json({ message: "Failed to optimize image" });
   }
 }

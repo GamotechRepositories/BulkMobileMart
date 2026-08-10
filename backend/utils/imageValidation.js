@@ -3,7 +3,8 @@ import { normalizeUploadFolder } from "./uploadFolders.js";
 
 export const MAX_IMAGE_DATA_URL_LENGTH = 2_500_000;
 export const MAX_IMAGE_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_HERO_BANNER_BYTES = 15 * 1024 * 1024;
+/** File-size only (no width/height checks). Server still auto-optimizes. */
+export const MAX_HERO_BANNER_BYTES = 5 * 1024 * 1024;
 
 export function getMaxUploadBytesForFolder(folder) {
   if (folder === "hero-banners" || folder === "offer-banners") {

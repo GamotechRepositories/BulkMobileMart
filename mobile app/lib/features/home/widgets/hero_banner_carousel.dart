@@ -206,7 +206,7 @@ class _BannerSlide extends StatelessWidget {
         alignment: Alignment.center,
         width: double.infinity,
         height: double.infinity,
-        cacheWidth: 720,
+        cacheWidth: 480,
         cacheHeight: 336,
       ),
     );

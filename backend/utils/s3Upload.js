@@ -6,6 +6,7 @@ import {
   buildS3ObjectKey,
   normalizeUploadFolder,
 } from "./uploadFolders.js";
+import { optimizeUploadImageBuffer } from "./imageOptimize.js";
 
 const MIME_TO_EXT = {
   "image/jpeg": "jpg",
@@ -20,6 +21,8 @@ const MIME_TO_EXT = {
   "video/x-m4v": "m4v",
   "application/pdf": "pdf",
 };
+
+const LONG_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 function getS3Client() {
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
@@ -66,7 +69,20 @@ export async function uploadBufferToS3({ buffer, mimeType, folder, originalName 
     throw new Error("Invalid upload folder");
   }
 
-  const ext = extensionFromMime(mimeType) || extensionFromName(originalName) || "bin";
+  let body = buffer;
+  let contentType = mimeType || "application/octet-stream";
+
+  if (String(contentType).startsWith("image/")) {
+    const optimized = await optimizeUploadImageBuffer(
+      buffer,
+      contentType,
+      normalizedFolder
+    );
+    body = optimized.buffer;
+    contentType = optimized.mimeType;
+  }
+
+  const ext = extensionFromMime(contentType) || extensionFromName(originalName) || "bin";
   const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
   const key = buildS3ObjectKey(normalizedFolder, fileName);
 
@@ -75,8 +91,9 @@ export async function uploadBufferToS3({ buffer, mimeType, folder, originalName 
     new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: key,
-      Body: buffer,
-      ContentType: mimeType || "application/octet-stream",
+      Body: body,
+      ContentType: contentType,
+      CacheControl: LONG_CACHE_CONTROL,
     })
   );
 
@@ -131,6 +148,7 @@ export async function presignUpload({ mimeType, folder, originalName = "", expir
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: key,
     ContentType: mimeType || "application/octet-stream",
+    CacheControl: LONG_CACHE_CONTROL,
   });
 
   const uploadUrl = await getSignedUrl(client, command, { expiresIn });

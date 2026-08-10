@@ -199,7 +199,7 @@ class _HomeWholesaleBannerState extends ConsumerState<HomeWholesaleBanner> {
             child: AppNetworkImage(
               imageUrl: banner.imageUrl,
               fit: BoxFit.cover,
-              cacheWidth: 720,
+              cacheWidth: 480,
               cacheHeight: 336,
             ),
           ),

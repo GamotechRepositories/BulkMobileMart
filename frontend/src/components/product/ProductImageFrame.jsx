@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { optimizeImageUrl } from "../../utils/optimizeImageUrl";
 
 function ProductImagePlaceholder({ className = "" }) {
   return (
@@ -28,9 +29,16 @@ const FIT_CLASS = {
   stretch: "product-image--stretch",
 };
 
-function ProductImageFrame({ src, alt = "", className = "", fit = "cover" }) {
+function ProductImageFrame({
+  src,
+  alt = "",
+  className = "",
+  fit = "cover",
+  width = 400,
+}) {
   const [error, setError] = useState(false);
   const fitClass = FIT_CLASS[fit] || FIT_CLASS.cover;
+  const optimizedSrc = optimizeImageUrl(src, width);
 
   if (!src || error) {
     return <ProductImagePlaceholder className={`${fitClass} ${className}`} />;
@@ -39,9 +47,10 @@ function ProductImageFrame({ src, alt = "", className = "", fit = "cover" }) {
   return (
     <div className={`product-image ${fitClass} ${className}`}>
       <img
-        src={src}
+        src={optimizedSrc}
         alt={alt}
         loading="lazy"
+        decoding="async"
         onError={() => setError(true)}
       />
     </div>

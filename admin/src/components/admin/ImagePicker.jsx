@@ -21,7 +21,9 @@ function ImagePicker({
   const [error, setError] = useState("");
   const folderLabel = UPLOAD_FOLDER_LABELS[folder] || folder;
   const limitBytes = maxBytes ?? getMaxUploadBytes(folder) ?? DEFAULT_MAX_UPLOAD_BYTES;
-  const sizeHint = hint || `JPG, PNG, WEBP or GIF · Max ${formatMaxUploadMb(limitBytes)}`;
+  const sizeHint =
+    hint ||
+    `Any width/height OK · JPG, PNG, WEBP or GIF · Max ${formatMaxUploadMb(limitBytes)} · auto-optimized on upload`;
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];

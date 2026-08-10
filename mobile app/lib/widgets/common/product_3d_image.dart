@@ -21,7 +21,7 @@ class Product3DImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cache = (size * 2).toInt();
+    final cache = size.round().clamp(48, 256);
     final imageSize = size - padding * 2;
 
     return SizedBox(

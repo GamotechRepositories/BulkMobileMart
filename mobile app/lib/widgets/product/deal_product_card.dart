@@ -222,8 +222,8 @@ class DealProductCard extends ConsumerWidget {
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.cover,
-                      cacheWidth: 360,
-                      cacheHeight: 480,
+                      cacheWidth: 180,
+                      cacheHeight: 240,
                       errorIcon: Icons.image_outlined,
                     )
                 : const Center(

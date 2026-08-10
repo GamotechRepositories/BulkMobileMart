@@ -47,6 +47,7 @@ class HomePromoBanner extends StatelessWidget {
                 child: AppNetworkImage(
                   imageUrl: AppConstants.promoBannerImage,
                   fit: BoxFit.contain,
+                  cacheWidth: 200,
                   errorIcon: Icons.headphones_outlined,
                 ),
               ),
