@@ -1,6 +1,7 @@
 /**
  * Display-sized image URL helper (website).
- * Cloudinary gets transforms; CloudFront/S3 goes through API resize proxy.
+ * Cloudinary gets transforms; CloudFront/S3 use the original CDN URL
+ * (same as before — API resize proxy only after backend is deployed).
  */
 export function optimizeImageUrl(url, width = 400) {
   const raw = String(url || "").trim();
@@ -19,17 +20,5 @@ export function optimizeImageUrl(url, width = 400) {
     return `${raw.slice(0, index + marker.length)}w_${targetWidth},c_limit,q_auto,f_auto/${after}`;
   }
 
-  try {
-    const parsed = new URL(raw);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return raw;
-    }
-  } catch {
-    return raw;
-  }
-
-  const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-  if (!apiBase) return raw;
-
-  return `${apiBase}/api/proxy/img?u=${encodeURIComponent(raw)}&w=${targetWidth}`;
+  return raw;
 }

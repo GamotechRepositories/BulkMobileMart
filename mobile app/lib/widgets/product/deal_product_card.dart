@@ -9,27 +9,38 @@ import '../../features/cart/cart_controller.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../models/product_pricing_models.dart';
+import '../../routes/app_router.dart';
 import '../common/app_network_image.dart';
 import 'product_price_display.dart';
 import 'wishlist_button.dart';
 
-/// Fixed dimensions so every product card is identical in grids and carousels.
+/// Compact product card — square image + tight title/price/button (no empty gap).
 class DealProductCardDimensions {
   const DealProductCardDimensions._();
 
-  static const double width = 152;
-  static const double height = 244;
-  static const double titleHeight = 15;
-  static const double priceHeight = 16;
-  static const double buttonHeight = 34;
-  static const double contentPaddingVertical = 8;
-  static const double bottomSectionHeight =
-      contentPaddingVertical + titleHeight + priceHeight + 2 + buttonHeight;
+  static const double width = 150;
+  static const double contentPadding = 6;
+  static const double titleHeight = 18;
+  static const double priceHeight = 18;
+  static const double buttonHeight = 36;
+  static const double contentGap = 4;
+  static const double buttonTopGap = 4;
+
+  /// Image is 1:1 → 150×150.
+  static const double imageSize = width;
+
+  /// image + padding + title + gap + price + gap + button
+  static const double height = imageSize +
+      (contentPadding * 2) +
+      titleHeight +
+      contentGap +
+      priceHeight +
+      buttonTopGap +
+      buttonHeight; // 242
 
   /// Use for `SliverGridDelegateWithFixedCrossAxisCount.childAspectRatio`.
-  static const double gridChildAspectRatio = 0.58;
-  /// Taller ratio for 2-row home deal slides so price + button are not clipped.
-  static const double homeDealsGridAspectRatio = 0.55;
+  static const double gridChildAspectRatio = width / height;
+  static const double homeDealsGridAspectRatio = width / height;
 }
 
 class DealProductCard extends ConsumerWidget {
@@ -54,12 +65,6 @@ class DealProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final discount = product.discountedPercent > 0
-        ? product.discountedPercent.round()
-        : (product.price > 0
-            ? (((product.price - product.discountedPrice) / product.price) * 100)
-                .round()
-            : 0);
     final hasVariants = isMultiVariant(product);
     final effectiveCartQuantity = hasVariants
         ? ref.watch(
@@ -79,7 +84,6 @@ class DealProductCard extends ConsumerWidget {
             height: constraints.maxHeight,
             child: _buildCardShell(
               context,
-              discount,
               ref: ref,
               effectiveCartQuantity: effectiveCartQuantity,
               borderRadius: AppDecorations.radiusMd,
@@ -95,7 +99,6 @@ class DealProductCard extends ConsumerWidget {
       height: DealProductCardDimensions.height,
       child: _buildCardShell(
         context,
-        discount,
         ref: ref,
         effectiveCartQuantity: effectiveCartQuantity,
         borderRadius: flat ? AppDecorations.radiusSm : AppDecorations.radiusMd,
@@ -108,8 +111,7 @@ class DealProductCard extends ConsumerWidget {
   }
 
   Widget _buildCardShell(
-    BuildContext context,
-    int discount, {
+    BuildContext context, {
     required WidgetRef ref,
     required int effectiveCartQuantity,
     required double borderRadius,
@@ -121,51 +123,51 @@ class DealProductCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppDecorations.cardBackground,
         borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          AspectRatio(
+            aspectRatio: 1,
             child: _buildImageSection(
               context,
-              discount,
               clipTop: clipTopImage,
               borderRadius: borderRadius,
             ),
           ),
-          SizedBox(
-            height: DealProductCardDimensions.bottomSectionHeight,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 2, 10, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    height: DealProductCardDimensions.titleHeight,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _buildTitle(context),
+          Padding(
+            padding: const EdgeInsets.all(DealProductCardDimensions.contentPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: DealProductCardDimensions.titleHeight,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildTitle(context),
+                  ),
+                ),
+                const SizedBox(height: DealProductCardDimensions.contentGap),
+                SizedBox(
+                  height: DealProductCardDimensions.priceHeight,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ProductPriceDisplay(
+                      product: product,
+                      size: ProductPriceSize.sm,
                     ),
                   ),
-                  SizedBox(
-                    height: DealProductCardDimensions.priceHeight,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: ProductPriceDisplay(
-                        product: product,
-                        size: ProductPriceSize.sm,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  _buildCartAction(
-                    context,
-                    ref,
-                    inStock,
-                    effectiveCartQuantity,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: DealProductCardDimensions.buttonTopGap),
+                _buildCartAction(
+                  context,
+                  ref,
+                  inStock,
+                  effectiveCartQuantity,
+                ),
+              ],
             ),
           ),
         ],
@@ -192,18 +194,17 @@ class DealProductCard extends ConsumerWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
           color: AppColors.textPrimary,
-          height: 1.1,
+          height: 1.25,
         ),
       ),
     );
   }
 
   Widget _buildImageSection(
-    BuildContext context,
-    int discount, {
+    BuildContext context, {
     required bool clipTop,
     required double borderRadius,
   }) {
@@ -218,14 +219,14 @@ class DealProductCard extends ConsumerWidget {
             color: Colors.white,
             child: product.primaryImage != null
                 ? AppNetworkImage(
-                      imageUrl: product.primaryImage!,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      cacheWidth: 180,
-                      cacheHeight: 240,
-                      errorIcon: Icons.image_outlined,
-                    )
+                    imageUrl: product.primaryImage!,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    cacheWidth: 150,
+                    cacheHeight: 150,
+                    errorIcon: Icons.image_outlined,
+                  )
                 : const Center(
                     child: Icon(
                       Icons.image_outlined,
@@ -235,26 +236,6 @@ class DealProductCard extends ConsumerWidget {
                   ),
           ),
         ),
-        if (discount > 0)
-          Positioned(
-            left: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '-$discount%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
         Positioned(
           right: 6,
           top: 6,
@@ -288,123 +269,124 @@ class DealProductCard extends ConsumerWidget {
     if (hasVariants) {
       void openVariants() => _openVariantPicker(context);
       if (effectiveCartQuantity > 0) {
-        return SizedBox(
-          height: DealProductCardDimensions.buttonHeight,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.borderLight),
-              borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
-              color: Colors.white,
-            ),
-            child: Row(
-              children: [
-                _qtyButton(openVariants, label: '−'),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      '$effectiveCartQuantity',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-                _qtyButton(inStock ? openVariants : null, label: '+'),
-              ],
-            ),
-          ),
+        return _quantityStepper(
+          quantity: effectiveCartQuantity,
+          onMinus: openVariants,
+          onPlus: inStock ? openVariants : null,
         );
       }
-      return SizedBox(
-        height: DealProductCardDimensions.buttonHeight,
-        child: ElevatedButton(
-          onPressed: inStock ? openVariants : null,
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            padding: EdgeInsets.zero,
-            disabledBackgroundColor: AppColors.borderLight,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
-            ),
-            textStyle: const TextStyle(
-              inherit: false,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.4,
-            ),
-          ),
-          child: Text(inStock ? 'ADD' : 'OUT OF STOCK'),
-        ),
+      return _addToCartButton(
+        inStock: inStock,
+        onPressed: inStock ? openVariants : null,
       );
     }
 
     if (effectiveCartQuantity > 0) {
-      return SizedBox(
-        height: DealProductCardDimensions.buttonHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.borderLight),
-            borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
-            color: Colors.white,
-          ),
-          child: Row(
-            children: [
-              _qtyButton(
-                onDecrease,
-                label: '−',
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '$effectiveCartQuantity',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-              _qtyButton(
-                inStock ? onIncrease : null,
-                label: '+',
-              ),
-            ],
-          ),
-        ),
+      return _quantityStepper(
+        quantity: effectiveCartQuantity,
+        onMinus: onDecrease,
+        onPlus: inStock ? onIncrease : null,
       );
     }
 
+    return Builder(
+      builder: (buttonContext) => _addToCartButton(
+        inStock: inStock,
+        onPressed: inStock ? () => onAdd(buttonContext) : null,
+      ),
+    );
+  }
+
+  Widget _addToCartButton({
+    required bool inStock,
+    required VoidCallback? onPressed,
+  }) {
     return SizedBox(
       height: DealProductCardDimensions.buttonHeight,
-      child: Builder(
-        builder: (buttonContext) => ElevatedButton(
-          onPressed: inStock ? () => onAdd(buttonContext) : null,
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            padding: EdgeInsets.zero,
-            disabledBackgroundColor: AppColors.borderLight,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
-            ),
-            textStyle: const TextStyle(
-              inherit: false,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.4,
-            ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.borderLight,
+          disabledForegroundColor: AppColors.textMuted,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
           ),
-          child: Text(inStock ? 'ADD' : 'OUT OF STOCK'),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (inStock) ...[
+              const Icon(Icons.shopping_cart_outlined, size: 14),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(
+                inStock ? 'Add to Cart' : 'OUT OF STOCK',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quantityStepper({
+    required int quantity,
+    required VoidCallback? onMinus,
+    required VoidCallback? onPlus,
+  }) {
+    return SizedBox(
+      height: DealProductCardDimensions.buttonHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            _qtyButton(onMinus, label: '−'),
+            Expanded(
+              child: Center(
+                child: Text(
+                  '$quantity',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            _qtyButton(onPlus, label: '+'),
+          ],
         ),
       ),
     );
   }
 
   void _openVariantPicker(BuildContext context) {
+    final rootContext = rootNavigatorKey.currentContext ?? context;
     showModalBottomSheet<void>(
-      context: context,
+      context: rootContext,
       isScrollControlled: true,
+      useRootNavigator: true,
+      useSafeArea: true,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (sheetContext) => _VariantPickerSheet(product: product),
     );
   }
@@ -459,32 +441,38 @@ class _VariantPickerSheet extends ConsumerWidget {
     final cartItems = ref.watch(cartControllerProvider.select((state) => state.items));
     final notifier = ref.read(cartControllerProvider.notifier);
     final variants = product.variants;
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.55;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              product.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Choose a variant',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 10),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: variants.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                product.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Choose a variant',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: variants.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
                   final variant = variants[index];
                   final variantName = variant.name.trim();
                   final cartLine = _lineForVariant(cartItems, variantName);
@@ -639,6 +627,7 @@ class _VariantPickerSheet extends ConsumerWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

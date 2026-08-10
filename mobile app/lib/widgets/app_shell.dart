@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/bootstrap/app_bootstrap.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../routes/route_paths.dart';
 import '../../features/cart/cart_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import 'app_back_binding.dart';
@@ -96,8 +97,23 @@ class _AppShellState extends ConsumerState<AppShell> {
     widget.navigationShell.goBranch(index, initialLocation: false);
   }
 
+  void _goHomeAfterAuth() {
+    ref.read(authControllerProvider.notifier).clearRedirectHomeAfterAuth();
+    widget.navigationShell.goBranch(0, initialLocation: true);
+    if (mounted) {
+      context.go(RoutePaths.home);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(
+      authControllerProvider.select((s) => s.redirectHomeAfterAuth),
+      (previous, next) {
+        if (next) _goHomeAfterAuth();
+      },
+    );
+
     final cartCount = ref.watch(
       cartControllerProvider.select((s) => s.cartCount),
     );

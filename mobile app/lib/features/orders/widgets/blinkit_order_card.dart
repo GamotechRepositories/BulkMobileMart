@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/theme.dart';
+import '../../../core/utils/order_again_navigation.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/external_link.dart';
 import '../../../core/utils/order_utils.dart';
@@ -40,7 +41,7 @@ class BlinkitOrderCard extends ConsumerWidget {
                 children: [
                   _OrderHeader(
                     order: order,
-                    onMenuTap: () => _showOrderMenu(context, order, productId),
+                    onMenuTap: () => _showOrderMenu(context, ref, order, productId),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -105,24 +106,12 @@ class BlinkitOrderCard extends ConsumerWidget {
             isAttempted: order.status == 'attempted',
             hasRating: deliveryRating != null,
             onRate: () => _showRatingSheet(context, ref, order.id),
-            onOrderAgain: () => _handleOrderAgain(context, order, productId),
+            onOrderAgain: () => navigateOrderAgain(context: context, ref: ref, order: order),
             onViewDetails: () => context.push('/orders/${order.id}'),
           ),
         ],
       ),
     );
-  }
-
-  void _handleOrderAgain(BuildContext context, Order order, String? productId) {
-    if (order.items.length > 1) {
-      context.push('/orders/${order.id}');
-      return;
-    }
-    if (productId != null) {
-      context.push('/product/$productId');
-      return;
-    }
-    context.push('/orders/${order.id}');
   }
 
   void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
@@ -188,7 +177,7 @@ class BlinkitOrderCard extends ConsumerWidget {
     );
   }
 
-  void _showOrderMenu(BuildContext context, Order order, String? productId) {
+  void _showOrderMenu(BuildContext context, WidgetRef ref, Order order, String? productId) {
     final rootContext = rootNavigatorKey.currentContext ?? context;
     showDialog<void>(
       context: rootContext,
@@ -230,14 +219,16 @@ class BlinkitOrderCard extends ConsumerWidget {
                   context.push('/orders/${order.id}/invoice');
                 },
               ),
-              if (productId != null) ...[
+              if (order.status == 'attempted' || productId != null) ...[
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.shopping_bag_outlined),
-                  title: const Text('Order again'),
+                  title: Text(
+                    order.status == 'attempted' ? 'Complete checkout' : 'Order again',
+                  ),
                   onTap: () {
                     Navigator.pop(dialogContext);
-                    context.push('/product/$productId');
+                    navigateOrderAgain(context: context, ref: ref, order: order);
                   },
                 ),
               ],
@@ -405,7 +396,19 @@ class _OrderFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isAttempted) {
-      return _FooterAction(label: 'View details', onTap: onViewDetails);
+      return Row(
+        children: [
+          Expanded(child: _FooterAction(label: 'View details', onTap: onViewDetails)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: SizedBox(
+              width: 1,
+              child: ColoredBox(color: AppColors.borderLight),
+            ),
+          ),
+          Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
+        ],
+      );
     }
 
     if (isDelivered && !hasRating) {

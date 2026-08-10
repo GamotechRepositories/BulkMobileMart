@@ -11,6 +11,26 @@ class AppDecorations {
   static const double radiusLg = 16;
   static const double radiusXl = 20;
 
+  /// Matches [MobileHeader] home-tab bottom curve and home hero banner top curve.
+  static const double homeShellCornerRadius = 22.0;
+
+  static BorderRadius get homeShellTopRadius => const BorderRadius.only(
+        topLeft: Radius.circular(homeShellCornerRadius),
+        topRight: Radius.circular(homeShellCornerRadius),
+      );
+
+  static BorderRadius get homeShellBottomRadius => const BorderRadius.only(
+        bottomLeft: Radius.circular(homeShellCornerRadius),
+        bottomRight: Radius.circular(homeShellCornerRadius),
+      );
+
+  static BorderRadius get homeBannerImageRadius => const BorderRadius.only(
+        topLeft: Radius.circular(homeShellCornerRadius),
+        topRight: Radius.circular(homeShellCornerRadius),
+        bottomLeft: Radius.circular(radiusLg),
+        bottomRight: Radius.circular(radiusLg),
+      );
+
   static const EdgeInsets pagePadding =
       EdgeInsets.symmetric(horizontal: 16);
 

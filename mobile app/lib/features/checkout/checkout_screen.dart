@@ -28,9 +28,14 @@ import '../../widgets/common/skeleton_loaders.dart';
 const _maxOrderNoteLength = 200;
 
 class CheckoutScreen extends ConsumerStatefulWidget {
-  const CheckoutScreen({super.key, this.initialCouponCode});
+  const CheckoutScreen({
+    super.key,
+    this.initialCouponCode,
+    this.initialAttemptedOrderId,
+  });
 
   final String? initialCouponCode;
+  final String? initialAttemptedOrderId;
 
   @override
   ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -159,6 +164,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    final attemptedId = widget.initialAttemptedOrderId?.trim();
+    if (attemptedId != null && attemptedId.isNotEmpty) {
+      _attemptedOrderId = attemptedId;
+    }
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);

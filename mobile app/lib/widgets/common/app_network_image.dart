@@ -5,11 +5,9 @@ import '../../config/theme.dart';
 import '../../core/utils/image_url_utils.dart';
 import 'shimmer.dart';
 
-/// Network image with sized CDN/proxy URL + memory/disk cache sizing.
-///
-/// If the optimize proxy is unavailable (backend not deployed yet), falls back
-/// to the original CDN URL so images still show.
-class AppNetworkImage extends StatefulWidget {
+/// Network image with memory/disk cache sizing.
+/// Loads the same CDN URLs as the website (no broken API resize proxy).
+class AppNetworkImage extends StatelessWidget {
   const AppNetworkImage({
     super.key,
     required this.imageUrl,
@@ -30,7 +28,7 @@ class AppNetworkImage extends StatefulWidget {
   final double? width;
   final double? height;
   final Alignment alignment;
-  /// Logical px used for decode + remote resize request.
+  /// Logical px used for decode sizing.
   final int? cacheWidth;
   /// Logical px used for decode height.
   final int? cacheHeight;
@@ -38,21 +36,6 @@ class AppNetworkImage extends StatefulWidget {
   final IconData errorIcon;
   final double errorIconSize;
   final bool optimizeRemote;
-
-  @override
-  State<AppNetworkImage> createState() => _AppNetworkImageState();
-}
-
-class _AppNetworkImageState extends State<AppNetworkImage> {
-  var _useOriginal = false;
-
-  @override
-  void didUpdateWidget(covariant AppNetworkImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
-      _useOriginal = false;
-    }
-  }
 
   int? _logicalDim(double? logical, int? cacheLogical) {
     final value = cacheLogical?.toDouble() ?? logical;
@@ -68,28 +51,27 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
-    final original = widget.imageUrl.trim();
+    final original = imageUrl.trim();
     if (original.isEmpty) {
       return _errorBox();
     }
 
-    final logicalW = _logicalDim(widget.width, widget.cacheWidth);
-    final logicalH = _logicalDim(widget.height, widget.cacheHeight);
+    final logicalW = _logicalDim(width, cacheWidth);
+    final logicalH = _logicalDim(height, cacheHeight);
     final memW = _memDim(context, logicalW);
     final memH = _memDim(context, logicalH);
 
     final networkW = memW ?? (logicalW != null ? logicalW * 2 : null);
-    final optimized = widget.optimizeRemote && !_useOriginal
+    final resolvedUrl = optimizeRemote
         ? optimizeImageUrl(original, width: networkW)
         : original;
-    final resolvedUrl = optimized;
 
     return CachedNetworkImage(
       imageUrl: resolvedUrl,
-      fit: widget.fit,
-      alignment: widget.alignment,
-      width: widget.width,
-      height: widget.height,
+      fit: fit,
+      alignment: alignment,
+      width: width,
+      height: height,
       memCacheWidth: memW,
       memCacheHeight: memH,
       maxWidthDiskCache: memW != null ? memW.clamp(200, 1200) : 800,
@@ -97,21 +79,8 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       filterQuality: FilterQuality.medium,
       fadeInDuration: const Duration(milliseconds: 120),
       fadeOutDuration: const Duration(milliseconds: 80),
-      placeholder: (_, _) => widget.placeholder ?? _loadingBox(),
-      errorWidget: (_, _, _) {
-        // Optimize proxy missing / failed → show original CDN image.
-        if (!_useOriginal &&
-            widget.optimizeRemote &&
-            resolvedUrl != original) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_useOriginal) {
-              setState(() => _useOriginal = true);
-            }
-          });
-          return widget.placeholder ?? _loadingBox();
-        }
-        return _errorBox();
-      },
+      placeholder: (_, _) => placeholder ?? _loadingBox(),
+      errorWidget: (_, _, _) => _errorBox(),
     );
   }
 
@@ -128,11 +97,7 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     return ColoredBox(
       color: Colors.white,
       child: Center(
-        child: Icon(
-          widget.errorIcon,
-          size: widget.errorIconSize,
-          color: AppColors.textMuted,
-        ),
+        child: Icon(errorIcon, size: errorIconSize, color: AppColors.textMuted),
       ),
     );
   }

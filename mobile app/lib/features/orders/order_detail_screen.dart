@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
 import '../../core/providers/app_providers.dart';
-import '../../core/utils/order_utils.dart';
+import '../../core/utils/order_again_navigation.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../features/orders/widgets/blinkit_order_detail_body.dart';
@@ -66,10 +66,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   }
 
   void _handleOrderAgain(Order order) {
-    final productId = getPrimaryProductId(order);
-    if (productId != null) {
-      context.push('/product/$productId');
-    }
+    navigateOrderAgain(context: context, ref: ref, order: order);
   }
 
   @override

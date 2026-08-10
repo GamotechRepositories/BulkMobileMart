@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
 import '../../core/utils/product_search.dart';
 import '../../features/auth/auth_controller.dart';
@@ -28,8 +29,6 @@ class MobileHeader extends ConsumerStatefulWidget {
 }
 
 class _MobileHeaderState extends ConsumerState<MobileHeader> {
-  static const _homeBottomRadius = 22.0;
-
   final _searchFocusNode = FocusNode();
   bool _searchOpen = false;
 
@@ -106,12 +105,8 @@ class _MobileHeaderState extends ConsumerState<MobileHeader> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ClipRRect(
-            borderRadius: roundedHomeBottom
-                ? const BorderRadius.only(
-                    bottomLeft: Radius.circular(_homeBottomRadius),
-                    bottomRight: Radius.circular(_homeBottomRadius),
-                  )
-                : BorderRadius.zero,
+            borderRadius:
+                roundedHomeBottom ? AppDecorations.homeShellBottomRadius : BorderRadius.zero,
             child: DecoratedBox(
               decoration: const BoxDecoration(color: Colors.white),
               child: Padding(

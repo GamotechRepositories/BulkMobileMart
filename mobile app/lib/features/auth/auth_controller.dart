@@ -60,6 +60,14 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(clearAuthModal: true);
   }
 
+  void requestRedirectHomeAfterAuth() {
+    state = state.copyWith(redirectHomeAfterAuth: true);
+  }
+
+  void clearRedirectHomeAfterAuth() {
+    state = state.copyWith(clearRedirectHomeAfterAuth: true);
+  }
+
   void setAuthModal(AuthModalMode mode) {
     state = state.copyWith(authModal: mode);
   }

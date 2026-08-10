@@ -116,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => CheckoutScreen(
           initialCouponCode: state.uri.queryParameters['coupon'],
+          initialAttemptedOrderId: state.uri.queryParameters['attemptedOrderId'],
         ),
       ),
       GoRoute(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
 
+import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
 
 import '../../core/refresh/app_refresh.dart';
@@ -188,40 +189,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           slivers: [
 
             SliverToBoxAdapter(
-
-              child: DecoratedBox(
-
-                decoration: const BoxDecoration(
-
-                  gradient: LinearGradient(
-
-                    begin: Alignment.topCenter,
-
-                    end: Alignment.bottomCenter,
-
-                    colors: [
-
-                      Colors.white,
-
-                      Colors.white,
-
-                      AppColors.pageBackground,
-
-                    ],
-
-                    stops: [0.0, 0.45, 1.0],
-
+              child: ClipRRect(
+                borderRadius: AppDecorations.homeShellTopRadius,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white,
+                        Colors.white,
+                        AppColors.pageBackground,
+                      ],
+                      stops: [0.0, 0.45, 1.0],
+                    ),
                   ),
-
-                ),
-
-                child: Column(
-                  children: [
-                    const RepaintBoundary(child: HeroBannerCarousel()),
-                  ],
+                  child: const Column(
+                    children: [
+                      RepaintBoundary(child: HeroBannerCarousel()),
+                    ],
+                  ),
                 ),
               ),
-
             ),
 
             const SliverToBoxAdapter(child: CategoryNavSection()),

@@ -199,7 +199,7 @@ class _BannerSlide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(AppDecorations.radiusLg),
+      borderRadius: AppDecorations.homeBannerImageRadius,
       child: AppNetworkImage(
         imageUrl: banner.imageUrl,
         fit: BoxFit.cover,

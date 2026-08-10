@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../config/app_decorations.dart';
 import '../category/category_grid_tile.dart';
 import '../layout/shell_bottom_insets.dart';
 import '../product/deal_product_card.dart';
@@ -16,7 +17,7 @@ class SkeletonHeroBanner extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppDecorations.homeBannerImageRadius,
           child: const SkeletonBox(height: 168, borderRadius: 16),
         ),
       ),
