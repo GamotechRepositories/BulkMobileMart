@@ -3,7 +3,7 @@
  *
  * Usage:
  *   node backend/scripts/setAppUpdate.js
- *   node backend/scripts/setAppUpdate.js 1.0.5 1.0.5
+ *   node backend/scripts/setAppUpdate.js 1.0.6 1.0.6
  */
 import "dotenv/config";
 import mongoose from "mongoose";
@@ -14,7 +14,7 @@ import {
   serializeStoreSettings,
 } from "../utils/storeSettingsHelpers.js";
 
-const latestVersion = process.argv[2] || "1.0.5";
+const latestVersion = process.argv[2] || "1.0.6";
 const minVersion = process.argv[3] || latestVersion;
 
 async function main() {

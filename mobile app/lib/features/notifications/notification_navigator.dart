@@ -133,6 +133,8 @@ abstract final class NotificationNavigator {
       _push(context, '/orders/${notification.orderId}');
       return;
     }
+
+    _push(context, '/notifications/${notification.id}');
   }
 
   static Future<void> flushPending(BuildContext context, WidgetRef ref) async {

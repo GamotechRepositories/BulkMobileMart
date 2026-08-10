@@ -174,7 +174,7 @@ Future<void> showProductShareSheet(
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
-              'Shares full product card image with price',
+              'Shares image, name, brand, price, and product link',
               style: TextStyle(fontSize: 13, color: Colors.black54),
             ),
           ),

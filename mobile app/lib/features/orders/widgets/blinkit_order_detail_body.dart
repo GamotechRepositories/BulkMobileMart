@@ -38,12 +38,16 @@ class BlinkitOrderDetailBody extends ConsumerStatefulWidget {
     super.key,
     required this.order,
     required this.onInvoice,
-    required this.onOrderAgain,
+    this.onCancel,
+    this.cancelling = false,
+    this.cancelError,
   });
 
   final Order order;
   final VoidCallback onInvoice;
-  final VoidCallback onOrderAgain;
+  final VoidCallback? onCancel;
+  final bool cancelling;
+  final String? cancelError;
 
   @override
   ConsumerState<BlinkitOrderDetailBody> createState() =>
@@ -84,7 +88,9 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
           child: ColoredBox(
             color: Colors.white,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(
+                bottom: 16 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 if (order.shipment.canOpenTracking) ...[
                   Padding(
@@ -141,12 +147,17 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   child: _DownloadInvoiceButton(onTap: widget.onInvoice),
                 ),
                 const SizedBox(height: 24),
-                _OrderDetailsSection(order: order, orderCode: orderCode),
+                _OrderDetailsSection(
+                  order: order,
+                  orderCode: orderCode,
+                  onCancel: widget.onCancel,
+                  cancelling: widget.cancelling,
+                  cancelError: widget.cancelError,
+                ),
               ],
             ),
           ),
         ),
-        _BottomOrderAgain(onTap: widget.onOrderAgain),
       ],
     );
   }
@@ -728,10 +739,16 @@ class _OrderDetailsSection extends StatelessWidget {
   const _OrderDetailsSection({
     required this.order,
     required this.orderCode,
+    this.onCancel,
+    this.cancelling = false,
+    this.cancelError,
   });
 
   final Order order;
   final String orderCode;
+  final VoidCallback? onCancel;
+  final bool cancelling;
+  final String? cancelError;
 
   @override
   Widget build(BuildContext context) {
@@ -739,6 +756,7 @@ class _OrderDetailsSection extends StatelessWidget {
     final receiverName = getAddressFullName(addr);
     final phone = addr.number.trim().isNotEmpty ? '+91 ${addr.number.trim()}' : '';
     final shipments = splitOrderShipments(order.items);
+    final canCancel = order.status == 'confirm' && onCancel != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -838,6 +856,32 @@ class _OrderDetailsSection extends StatelessWidget {
             label: 'Payment status',
             value: getOrderPaymentLabel(order),
           ),
+          if (canCancel) ...[
+            const SizedBox(height: 24),
+            OutlinedButton(
+              onPressed: cancelling ? null : onCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                disabledForegroundColor: Colors.red.shade200,
+                side: BorderSide(color: Colors.red.shade200),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                cancelling ? 'Cancelling...' : 'Cancel order',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (cancelError != null && cancelError!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                cancelError!,
+                style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -900,47 +944,6 @@ class _DetailField extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BottomOrderAgain extends StatelessWidget {
-  const _BottomOrderAgain({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.borderLight)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: FilledButton(
-            onPressed: onTap,
-            style: FilledButton.styleFrom(
-              backgroundColor: blinkitPink,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              elevation: 0,
-            ),
-            child: const Text(
-              'Order Again',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

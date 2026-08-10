@@ -25,6 +25,7 @@ import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/product_price_display.dart';
+import '../../widgets/product/product_admin_share_sheet.dart';
 import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
 import '../../widgets/product/product_video_player.dart';
@@ -936,11 +937,7 @@ class _ProductDetailBottomBar extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
-              onPressed: () => showProductShareSheet(
-                context,
-                product,
-                variantName: activeVariantName,
-              ),
+              onPressed: () => showProductAdminShareSheet(context, product),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary, width: 2),

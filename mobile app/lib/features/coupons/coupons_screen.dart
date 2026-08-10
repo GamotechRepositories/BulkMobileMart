@@ -215,21 +215,12 @@ class _CouponsScreenState extends ConsumerState<CouponsScreen> {
                     coupon: coupon,
                     copied: _copiedCode == coupon.code,
                     expanded: _expandedCodes.contains(coupon.code),
-                    applying: _applying && _applyingCode == coupon.code,
                     onCopy: () => _copyCode(coupon.code),
                     onToggleExpand: () => setState(() {
                       if (!_expandedCodes.remove(coupon.code)) {
                         _expandedCodes.add(coupon.code);
                       }
                     }),
-                    onAction: () {
-                      if (coupon.redemptionBlocked.isNotEmpty) return;
-                      if (coupon.unlocked) {
-                        _applyCoupon(coupon.code);
-                      } else {
-                        context.go(RoutePaths.cart);
-                      }
-                    },
                   ),
                 ),
               ),
@@ -286,19 +277,15 @@ class _CouponCard extends StatelessWidget {
     required this.coupon,
     required this.copied,
     required this.expanded,
-    required this.applying,
     required this.onCopy,
     required this.onToggleExpand,
-    required this.onAction,
   });
 
   final Coupon coupon;
   final bool copied;
   final bool expanded;
-  final bool applying;
   final VoidCallback onCopy;
   final VoidCallback onToggleExpand;
-  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -439,30 +426,6 @@ class _CouponCard extends StatelessWidget {
             if (coupon.minOrderAmount > 0)
               _detailRow('Minimum order', formatInr(coupon.minOrderAmount)),
           ],
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: blocked || applying ? null : onAction,
-              style: unlocked
-                  ? null
-                  : FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.textPrimary,
-                      side: const BorderSide(color: AppColors.borderLight),
-                    ),
-              child: applying
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(unlocked ? 'Apply coupon' : 'View cart'),
-            ),
-          ),
         ],
       ),
     );

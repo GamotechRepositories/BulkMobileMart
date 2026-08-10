@@ -29,7 +29,7 @@ void main() {
     test('builds product list path with query params', () {
       expect(
         ProductSearch.buildPath(query: 'charger', categoryName: 'Cables'),
-        '/product?q=charger&categoryName=Cables',
+        '/product?q=charger&categoryName=Cables&sort=newest',
       );
     });
   });

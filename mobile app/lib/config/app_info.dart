@@ -6,5 +6,5 @@ class AppInfo {
   static const String tagline = 'B2B wholesale mobile accessories';
   static const String androidPackageId = 'com.bulkmobilemart.app';
   static const String iosBundleId = 'com.bulkmobilemart.app';
-  static const String version = '1.0.5';
+  static const String version = '1.0.6';
 }

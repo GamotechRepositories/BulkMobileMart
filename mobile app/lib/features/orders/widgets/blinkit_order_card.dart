@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/theme.dart';
-import '../../../core/utils/order_again_navigation.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/external_link.dart';
 import '../../../core/utils/order_utils.dart';
@@ -23,7 +22,6 @@ class BlinkitOrderCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final isDelivered = order.status == 'delivered';
-    final productId = getPrimaryProductId(order);
 
     return Material(
       color: Colors.white,
@@ -41,7 +39,7 @@ class BlinkitOrderCard extends ConsumerWidget {
                 children: [
                   _OrderHeader(
                     order: order,
-                    onMenuTap: () => _showOrderMenu(context, ref, order, productId),
+                    onMenuTap: () => _showOrderMenu(context, order),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -101,83 +99,16 @@ class BlinkitOrderCard extends ConsumerWidget {
             ),
           const SizedBox(height: 14),
           const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
-          _OrderFooter(
-            isDelivered: isDelivered,
-            isAttempted: order.status == 'attempted',
-            hasRating: deliveryRating != null,
-            onRate: () => _showRatingSheet(context, ref, order.id),
-            onOrderAgain: () => navigateOrderAgain(context: context, ref: ref, order: order),
-            onViewDetails: () => context.push('/orders/${order.id}'),
+          _FooterAction(
+            label: 'View details',
+            onTap: () => context.push('/orders/${order.id}'),
           ),
         ],
       ),
     );
   }
 
-  void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
-    var selected = 5;
-    final rootContext = rootNavigatorKey.currentContext ?? context;
-    showModalBottomSheet<void>(
-      context: rootContext,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Rate your delivery experience',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final star = index + 1;
-                      return IconButton(
-                        onPressed: () => setState(() => selected = star),
-                        icon: Icon(
-                          star <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
-                          color: _actionPink,
-                          size: 34,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: () async {
-                      await ref
-                          .read(deliveryRatingsProvider.notifier)
-                          .setRating(orderId, selected);
-                      if (sheetContext.mounted) Navigator.pop(sheetContext);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _actionPink,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Submit rating'),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showOrderMenu(BuildContext context, WidgetRef ref, Order order, String? productId) {
+  void _showOrderMenu(BuildContext context, Order order) {
     final rootContext = rootNavigatorKey.currentContext ?? context;
     showDialog<void>(
       context: rootContext,
@@ -219,19 +150,6 @@ class BlinkitOrderCard extends ConsumerWidget {
                   context.push('/orders/${order.id}/invoice');
                 },
               ),
-              if (order.status == 'attempted' || productId != null) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.shopping_bag_outlined),
-                  title: Text(
-                    order.status == 'attempted' ? 'Complete checkout' : 'Order again',
-                  ),
-                  onTap: () {
-                    Navigator.pop(dialogContext);
-                    navigateOrderAgain(context: context, ref: ref, order: order);
-                  },
-                ),
-              ],
             ],
           ),
         );
@@ -373,61 +291,6 @@ class _DeliveryRatingRow extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _OrderFooter extends StatelessWidget {
-  const _OrderFooter({
-    required this.isDelivered,
-    required this.isAttempted,
-    required this.hasRating,
-    required this.onRate,
-    required this.onOrderAgain,
-    required this.onViewDetails,
-  });
-
-  final bool isDelivered;
-  final bool isAttempted;
-  final bool hasRating;
-  final VoidCallback onRate;
-  final VoidCallback onOrderAgain;
-  final VoidCallback onViewDetails;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isAttempted) {
-      return Row(
-        children: [
-          Expanded(child: _FooterAction(label: 'View details', onTap: onViewDetails)),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: SizedBox(
-              width: 1,
-              child: ColoredBox(color: AppColors.borderLight),
-            ),
-          ),
-          Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
-        ],
-      );
-    }
-
-    if (isDelivered && !hasRating) {
-      return Row(
-        children: [
-          Expanded(child: _FooterAction(label: 'Rate Order', onTap: onRate)),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: SizedBox(
-              width: 1,
-              child: ColoredBox(color: AppColors.borderLight),
-            ),
-          ),
-          Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
-        ],
-      );
-    }
-
-    return _FooterAction(label: 'Order Again', onTap: onOrderAgain);
   }
 }
 
