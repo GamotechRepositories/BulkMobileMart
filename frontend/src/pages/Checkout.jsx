@@ -35,6 +35,7 @@ import {
   getCheckoutPaymentMethod,
   PAYMENT_PLAN,
 } from "../utils/payment";
+import { trackInitiateCheckout, trackPurchase } from "../meta";
 
 const MAX_ORDER_NOTE_LENGTH = 200;
 
@@ -148,6 +149,7 @@ function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const hasTrackedCheckoutRef = useRef(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.ADVANCE);
   const paymentMethod = getCheckoutPaymentMethod(paymentPlan);
@@ -273,6 +275,20 @@ function Checkout() {
       setBootstrapping(false);
     }
   }, [user, authLoading, loadCart]);
+
+  useEffect(() => {
+    if (!bootstrapping && checkoutItems.length > 0 && !hasTrackedCheckoutRef.current) {
+      hasTrackedCheckoutRef.current = true;
+      trackInitiateCheckout({
+        items: checkoutItems.map((item) => ({
+          productId: item.productId || item._id || item.id,
+          quantity: item.quantity || 1,
+          price: item.discountedPrice ?? item.price ?? 0,
+        })),
+        totalAmount: orderTotal || subtotal || 0,
+      });
+    }
+  }, [bootstrapping, checkoutItems, orderTotal, subtotal]);
 
   useEffect(() => {
     if (addressesLoading || hasAutoOpenedAddressRef.current) return;
@@ -422,7 +438,16 @@ function Checkout() {
     };
   }, [location.state?.applyCouponCode, authLoading, user, subtotal, navigate, location.pathname]);
 
-  const completeOrderSuccess = async (note = "") => {
+  const completeOrderSuccess = async (note = "", orderData = null) => {
+    trackPurchase({
+      orderId: orderData?._id || orderData?.orderId || Date.now(),
+      items: checkoutItems.map((item) => ({
+        productId: item.productId || item._id || item.id,
+        quantity: item.quantity || 1,
+        price: item.discountedPrice ?? item.price ?? 0,
+      })),
+      totalAmount: orderTotal || subtotal || 0,
+    });
     setOrderSuccessNote(
       note || "Your order has been placed and will be delivered soon."
     );
@@ -471,7 +496,7 @@ function Checkout() {
         setPlacingOrder(true);
         setOrderError("");
         try {
-          await verifyRazorpayPayment({
+          const { data: verifyRes } = await verifyRazorpayPayment({
             addressId: selectedAddressId,
             paymentMode,
             customerMessage: safeTrim(messageRef.current),
@@ -487,7 +512,8 @@ function Checkout() {
           await completeOrderSuccess(
             paymentMode === PAYMENT_PLAN.ADVANCE
               ? "Order confirmed. 10% paid via Razorpay. Pay the balance on delivery."
-              : ""
+              : "",
+            verifyRes?.data
           );
         } catch (err) {
           setOrderError(

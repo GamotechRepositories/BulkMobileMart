@@ -18,6 +18,7 @@ import {
   removeLine,
   setLineQuantity,
 } from "../utils/cartState";
+import { trackAddToCart } from "../meta";
 
 const CartContext = createContext(null);
 const TOAST_DURATION_MS = 2600;
@@ -209,6 +210,13 @@ export function CartProvider({ children }) {
       } else {
         showAddedToCartToast(product);
       }
+
+      trackAddToCart({
+        productId: product._id || product.id,
+        productName: product.productName || product.name || product.title || "",
+        price: product.finalPrice ?? product.discountedPrice ?? product.price ?? product.wholesalePrice ?? 0,
+        quantity: qty,
+      });
 
       return runCartMutation((current) => ({
         optimisticItems: addOrMergeLine(current, product, qty, variantName, colorName),

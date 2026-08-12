@@ -31,6 +31,7 @@ import ProductShareMenu from "../components/product/ProductShareMenu";
 import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
 import { updateProductShareMeta } from "../utils/productShare";
 import { tryOpenProductInApp } from "../utils/openMobileApp";
+import { trackViewContent } from "../meta";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -493,6 +494,11 @@ function ProductDetail() {
 
         if (nextProduct?._id) {
           addRecentlyViewed(nextProduct._id);
+          trackViewContent({
+            productId: nextProduct._id,
+            productName: nextProduct.productName || nextProduct.name || nextProduct.title || "",
+            price: nextProduct.finalPrice ?? nextProduct.discountedPrice ?? nextProduct.price ?? nextProduct.wholesalePrice ?? 0,
+          });
         }
       } catch {
         setProduct(null);
