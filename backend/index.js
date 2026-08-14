@@ -28,6 +28,7 @@ import adminNotificationRoutes from "./routes/adminNotificationRoutes.js";
 import testFcmRoutes from "./routes/testFcmRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
+import metaAdsRoutes from "./routes/metaAdsRoutes.js";
 import { getFirebaseAdmin } from "./config/firebaseAdmin.js";
 
 const app = express();
@@ -77,6 +78,7 @@ app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/test", testFcmRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/meta-ads", metaAdsRoutes);
 
 connectDB().then(async () => {
   try {

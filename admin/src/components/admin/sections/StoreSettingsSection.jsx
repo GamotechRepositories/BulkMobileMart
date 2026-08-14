@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getEnviaWebhookSetup,
+  getMetaAdsSummary,
   getStoreSettings,
   registerEnviaWebhook,
   updateStoreSettings,
@@ -170,6 +171,9 @@ function StoreSettingsSection() {
   const [enviaWebhook, setEnviaWebhook] = useState(null);
   const [enviaWebhookLoading, setEnviaWebhookLoading] = useState(false);
   const [enviaWebhookRegistering, setEnviaWebhookRegistering] = useState(false);
+  const [metaAdsSummary, setMetaAdsSummary] = useState(null);
+  const [metaAdsLoading, setMetaAdsLoading] = useState(false);
+  const [copiedFormat, setCopiedFormat] = useState("");
   const [form, setForm] = useState({
     minimumOrderValue: "3000",
     minimumShippingCharge: "280",
@@ -265,6 +269,29 @@ function StoreSettingsSection() {
   useEffect(() => {
     loadEnviaWebhookSetup();
   }, [loadEnviaWebhookSetup]);
+
+  const loadMetaAdsSummary = useCallback(async () => {
+    setMetaAdsLoading(true);
+    try {
+      const { data } = await getMetaAdsSummary();
+      setMetaAdsSummary(data?.meta_ads_feed || null);
+    } catch {
+      setMetaAdsSummary(null);
+    } finally {
+      setMetaAdsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMetaAdsSummary();
+  }, [loadMetaAdsSummary]);
+
+  const copyToClipboard = (text, format) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedFormat(format);
+    setTimeout(() => setCopiedFormat(""), 2500);
+  };
 
   const handleRegisterEnviaWebhook = async () => {
     setEnviaWebhookRegistering(true);
@@ -1170,6 +1197,125 @@ function StoreSettingsSection() {
           </div>
 
           <SectionSaveButton section="envia" />
+        </div>
+      </div>
+
+      {/* Meta Ads Product Catalog Feed Section */}
+      <div className={cardClass}>
+        <div className={formHeaderClass}>
+          <div>
+            <h3 className="text-base font-semibold text-neutral-900">
+              Meta Ads &amp; Commerce Product Feed
+            </h3>
+            <p className="text-xs text-neutral-500">
+              Use these API feed URLs to sync your active products into Facebook &amp; Instagram Ads Catalog Manager (Advantage+ Catalog).
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {metaAdsLoading ? (
+            <p className="text-sm text-neutral-500">Loading catalog feed status…</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-4 items-center justify-between rounded-md bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
+                <div>
+                  <span className="font-semibold">Active Products in Feed:</span>{" "}
+                  {metaAdsSummary?.total_active_products ?? "—"} total ({metaAdsSummary?.total_instock_products ?? "—"} in stock)
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    RSS 2.0 XML / CSV / JSON
+                  </span>
+                </div>
+              </div>
+
+              {/* Feed URL inputs with copy buttons */}
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>Meta Catalog XML Feed URL (Recommended for Meta Commerce Manager)</label>
+                    {copiedFormat === "xml" && (
+                      <span className="text-xs text-green-600 font-medium">Copied!</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      className={`${inputClass} font-mono text-xs bg-neutral-50`}
+                      value={metaAdsSummary?.feed_urls?.xml_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.xml"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metaAdsSummary?.feed_urls?.xml_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.xml", "xml")}
+                      className="px-3 py-1.5 bg-neutral-900 text-white rounded text-xs hover:bg-neutral-800 transition"
+                    >
+                      Copy XML
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>Meta Catalog CSV Feed URL</label>
+                    {copiedFormat === "csv" && (
+                      <span className="text-xs text-green-600 font-medium">Copied!</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      className={`${inputClass} font-mono text-xs bg-neutral-50`}
+                      value={metaAdsSummary?.feed_urls?.csv_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.csv"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metaAdsSummary?.feed_urls?.csv_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.csv", "csv")}
+                      className="px-3 py-1.5 bg-neutral-900 text-white rounded text-xs hover:bg-neutral-800 transition"
+                    >
+                      Copy CSV
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={labelClass}>JSON API Endpoint</label>
+                    {copiedFormat === "json" && (
+                      <span className="text-xs text-green-600 font-medium">Copied!</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      className={`${inputClass} font-mono text-xs bg-neutral-50`}
+                      value={metaAdsSummary?.feed_urls?.json_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.json"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metaAdsSummary?.feed_urls?.json_feed || "https://api.bulkmobilemart.in/api/meta-ads/catalog.json", "json")}
+                      className="px-3 py-1.5 bg-neutral-900 text-white rounded text-xs hover:bg-neutral-800 transition"
+                    >
+                      Copy JSON
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-neutral-600 bg-neutral-50 p-3 rounded border border-neutral-200">
+                <p className="font-semibold text-neutral-800 mb-1">Setup Instructions for Meta Commerce Manager:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Go to <strong>Meta Commerce Manager</strong> &gt; <strong>Catalogs</strong> &gt; <strong>Data Sources</strong>.</li>
+                  <li>Select <strong>Add Items</strong> &gt; <strong>Data Feed</strong> &gt; <strong>Scheduled Feed</strong>.</li>
+                  <li>Paste the <strong>XML Feed URL</strong> above into the Data Feed URL field.</li>
+                  <li>Set update frequency (e.g., Daily or Hourly) to automatically sync prices and inventory with Meta Ads.</li>
+                </ol>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

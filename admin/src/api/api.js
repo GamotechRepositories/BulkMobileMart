@@ -213,4 +213,6 @@ export const uploadVideoFile = async (file, folder, { onProgress } = {}) => {
   return { data: { data: { url: cloudFrontUrl } } };
 };
 
+export const getMetaAdsSummary = () => api.get("/api/meta-ads/summary");
+
 export default api;
