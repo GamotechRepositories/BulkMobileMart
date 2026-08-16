@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { buildProductSearchUrl } from "../../utils/productSearch";
+import { NotificationDropdown } from "./NotificationDropdown";
 
 export const LOGO_URL =
   "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
@@ -77,6 +78,10 @@ function UtilityIcons({ user, onLoginClick }) {
         </div>
       </div>
 
+      <NotificationDropdown user={user} onLoginClick={onLoginClick} />
+
+      <div className="w-px h-9 bg-gray-200 mx-1 lg:mx-2" aria-hidden="true" />
+
       <button
         type="button"
         onClick={onLoginClick}
@@ -112,6 +117,7 @@ function UtilityIcons({ user, onLoginClick }) {
     </div>
   );
 }
+
 
 function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
   return (

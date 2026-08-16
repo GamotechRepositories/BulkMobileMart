@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import AuthModal from "./components/auth/AuthModal";
 import Layout from "./components/layout/Layout";
 import ScrollToTop from "./components/layout/ScrollToTop";
@@ -49,9 +50,11 @@ function App() {
       <OpeningSplash />
       <ScrollToTop />
       <AuthProvider>
-        <CartProvider>
-        <WishlistProvider>
-        <Routes>
+        <NotificationProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <Routes>
+
           <Route
             path="/"
             element={
@@ -228,8 +231,9 @@ function App() {
         </Routes>
         <FloatingCornerActions />
         <AuthModalHost />
-        </WishlistProvider>
-        </CartProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

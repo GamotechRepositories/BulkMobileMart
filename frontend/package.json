@@ -14,6 +14,7 @@
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.101.2",
     "axios": "^1.17.0",
+    "firebase": "^12.17.1",
     "pako": "^1.0.11",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

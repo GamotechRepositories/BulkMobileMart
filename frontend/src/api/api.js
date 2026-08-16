@@ -84,6 +84,15 @@ export const resetPasswordWithPhoneOtp = (data) =>
   api.post("/api/users/password/reset", data);
 export const getMe = () => api.get("/api/users/me");
 export const updateMe = (data) => api.patch("/api/users/me", data);
+export const saveFcmToken = (token, deviceType = "web") =>
+  api.post("/api/users/fcm-token", { token, deviceType });
+
+export const getNotifications = (params) => api.get("/api/notifications", { params });
+export const getUnreadNotificationCount = () => api.get("/api/notifications/unread-count");
+export const markNotificationRead = (id) => api.put(`/api/notifications/${id}/read`);
+export const markAllNotificationsRead = () => api.put("/api/notifications/read-all");
+export const deleteNotification = (id) => api.delete(`/api/notifications/${id}`);
+
 
 function buildAddressPayload(data) {
   const fullName = data.fullName?.trim() || data.name?.trim() || "";

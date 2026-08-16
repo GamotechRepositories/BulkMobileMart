@@ -8,6 +8,7 @@ import { NavIconWrap } from "./NavIconWrap";
 import { HeaderWhatsAppButton } from "./HeaderWhatsAppButton";
 import MobileMenuDrawer from "./MobileMenuDrawer";
 import MobileSearchBar from "./MobileSearchBar";
+import { NotificationDropdown } from "../layout/NotificationDropdown";
 
 function MobileHeader() {
   const { user, openAuthModal } = useAuth();
@@ -91,6 +92,9 @@ function MobileHeader() {
             </button>
 
             <HeaderWhatsAppButton />
+
+            <NotificationDropdown user={user} onLoginClick={() => openAuthModal("login")} />
+
 
             <Link
               to="/wishlist"
