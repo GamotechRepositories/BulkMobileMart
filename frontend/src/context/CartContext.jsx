@@ -18,7 +18,6 @@ import {
   removeLine,
   setLineQuantity,
 } from "../utils/cartState";
-import { getProductSku } from "../utils/productSku";
 import { trackAddToCart } from "../meta";
 
 const CartContext = createContext(null);
@@ -212,10 +211,8 @@ export function CartProvider({ children }) {
         showAddedToCartToast(product);
       }
 
-      const itemSku = getProductSku(product) || product._id || product.id;
-
       trackAddToCart({
-        productId: itemSku,
+        productId: product._id || product.id,
         productName: product.productName || product.name || product.title || "",
         price: product.finalPrice ?? product.discountedPrice ?? product.price ?? product.wholesalePrice ?? 0,
         quantity: qty,

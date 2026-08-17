@@ -1,5 +1,4 @@
 import { getUnitPriceForQuantity, getVariantStock } from "./productPricing";
-import { getProductSku } from "./productSku";
 
 export function matchesCartLine(item, productId, variantName = "", colorName = "") {
   return (
@@ -24,7 +23,6 @@ export function mapCartItems(cart) {
 
       return {
         _id: item.product._id,
-        sku: item.product.sku || getProductSku(item.product),
         variantName,
         colorName: item.colorName || "",
         name: item.product.name,
@@ -62,7 +60,6 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
 
   return {
     _id: product._id,
-    sku: product.sku || getProductSku(product),
     variantName: variantName || "",
     colorName: colorName || "",
     name: product.name,

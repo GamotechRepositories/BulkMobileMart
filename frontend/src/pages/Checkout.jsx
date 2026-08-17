@@ -36,7 +36,6 @@ import {
   PAYMENT_PLAN,
 } from "../utils/payment";
 import { trackInitiateCheckout, trackPurchase } from "../meta";
-import { getProductSku } from "../utils/productSku";
 
 const MAX_ORDER_NOTE_LENGTH = 200;
 
@@ -282,7 +281,7 @@ function Checkout() {
       hasTrackedCheckoutRef.current = true;
       trackInitiateCheckout({
         items: checkoutItems.map((item) => ({
-          productId: item.sku || getProductSku(item) || item.productId || item._id || item.id,
+          productId: item.productId || item._id || item.id,
           quantity: item.quantity || 1,
           price: item.discountedPrice ?? item.price ?? 0,
         })),
@@ -443,7 +442,7 @@ function Checkout() {
     trackPurchase({
       orderId: orderData?._id || orderData?.orderId || Date.now(),
       items: checkoutItems.map((item) => ({
-        productId: item.sku || getProductSku(item) || item.productId || item._id || item.id,
+        productId: item.productId || item._id || item.id,
         quantity: item.quantity || 1,
         price: item.discountedPrice ?? item.price ?? 0,
       })),

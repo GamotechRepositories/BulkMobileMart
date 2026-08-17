@@ -32,7 +32,6 @@ import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
 import { updateProductShareMeta } from "../utils/productShare";
 import { tryOpenProductInApp } from "../utils/openMobileApp";
 import { trackViewContent } from "../meta";
-import { getProductSku } from "../utils/productSku";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -45,9 +44,19 @@ const formatPrice = (amount) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+function productSku(product) {
+  if (product.sku?.trim()) {
+    return product.sku.trim().toUpperCase();
+  }
+  const code = (product.subcategory || product.brandName || "SKU")
+    .replace(/\s+/g, "-")
+    .toUpperCase();
+  return `BMM-${code}`;
+}
+
 function ProductSkuRow({ product }) {
   const [copied, setCopied] = useState(false);
-  const sku = getProductSku(product);
+  const sku = productSku(product);
 
   const handleCopy = async () => {
     try {
@@ -485,9 +494,8 @@ function ProductDetail() {
 
         if (nextProduct?._id) {
           addRecentlyViewed(nextProduct._id);
-          const productItemSku = getProductSku(nextProduct) || nextProduct._id;
           trackViewContent({
-            productId: productItemSku,
+            productId: nextProduct._id,
             productName: nextProduct.productName || nextProduct.name || nextProduct.title || "",
             price: nextProduct.finalPrice ?? nextProduct.discountedPrice ?? nextProduct.price ?? nextProduct.wholesalePrice ?? 0,
           });
