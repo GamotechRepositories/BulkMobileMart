@@ -53,11 +53,28 @@ const checkSecretAuth = (req) => {
 };
 
 /**
+ * Helper to get the canonical SKU for a product.
+ * Uses product.sku (trimmed and uppercase) if available,
+ * or generates a consistent fallback SKU format.
+ */
+const getProductSku = (product) => {
+  if (product?.sku && typeof product.sku === "string" && product.sku.trim()) {
+    return product.sku.trim().toUpperCase();
+  }
+  const code = (product?.subcategory || product?.brandName || "SKU")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+  const shortId = product?._id ? product._id.toString().slice(-6).toUpperCase() : "";
+  return `BMM-${code}${shortId ? `-${shortId}` : ""}`;
+};
+
+/**
  * Converts product doc (and optional variant) into standardized Meta Product Feed object
  */
 const buildMetaProductItem = (product, variant = null, baseUrl = "", currency = "INR") => {
-  const productId = product._id.toString();
-  const sku = product.sku || productId;
+  const productId = product._id ? product._id.toString() : "";
+  const sku = getProductSku(product);
 
   let itemId = sku;
   let title = product.name || "";
@@ -67,7 +84,7 @@ const buildMetaProductItem = (product, variant = null, baseUrl = "", currency = 
   let inStock = product.inStock && stock > 0;
 
   if (variant) {
-    const variantSlug = (variant.name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const variantSlug = (variant.name || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-");
     itemId = `${sku}_${variantSlug}`;
     title = `${product.name} (${variant.name})`;
     if (variant.price) price = variant.price;
@@ -92,7 +109,7 @@ const buildMetaProductItem = (product, variant = null, baseUrl = "", currency = 
   const isSale = salePrice > 0 && salePrice < price;
 
   return {
-    id: itemId,
+    id: itemId, // Meta Content ID (<g:id>): strictly product SKU
     title,
     description,
     availability,
@@ -106,11 +123,11 @@ const buildMetaProductItem = (product, variant = null, baseUrl = "", currency = 
     google_product_category: googleCategory,
     product_type: productType,
     inventory: stock,
-    item_group_id: variant ? productId : "",
+    item_group_id: variant ? sku : "",
     custom_label_0: product.hotSelling ? "Hot Selling" : product.justArrived ? "Just Arrived" : "",
     custom_label_1: product.discountedPercent ? `${product.discountedPercent}% OFF` : "",
     raw_product_id: productId,
-    sku: product.sku || "",
+    sku: sku,
     updated_at: product.updatedAt ? new Date(product.updatedAt).toISOString() : new Date().toISOString(),
   };
 };
