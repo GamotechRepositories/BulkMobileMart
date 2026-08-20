@@ -25,6 +25,8 @@ if (user) {
   user.phone = phone;
   user.password = password;
   user.role = "admin";
+  user.adminType = "super";
+  user.adminTabs = [];
   await user.save();
   console.log(`Updated admin: ${user.email}`);
 } else {
@@ -34,6 +36,8 @@ if (user) {
     phone,
     password,
     role: "admin",
+    adminType: "super",
+    adminTabs: [],
   });
   console.log(`Created admin: ${user.email}`);
 }

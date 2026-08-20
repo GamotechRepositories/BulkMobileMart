@@ -4,6 +4,12 @@ import Order from "../models/order/Order.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
 import {
+  formatAdminPermissions,
+  isSuperAdmin,
+  sanitizeAdminTabs,
+  validateLimitedAdminTabs,
+} from "../utils/adminPermissions.js";
+import {
   normalizeIndianPhone,
   sendLoginOtp as dispatchLoginOtp,
   verifyLoginOtp as validateLoginOtp,
@@ -32,6 +38,7 @@ const formatAuthUser = (user) => ({
   shopAddress: user.shopAddress || "",
   gstNumber: user.gstNumber || "",
   role: user.role,
+  ...formatAdminPermissions(user),
 });
 
 function pickSignupProfileFields(body) {
@@ -491,6 +498,7 @@ export const getMe = async (req, res) => {
         shopAddress: req.user.shopAddress || "",
         gstNumber: req.user.gstNumber || "",
         role: req.user.role,
+        ...formatAdminPermissions(req.user),
         createdAt: req.user.createdAt,
         updatedAt: req.user.updatedAt,
       },
@@ -819,6 +827,7 @@ export const updateMe = async (req, res) => {
         shopAddress: user.shopAddress || "",
         gstNumber: user.gstNumber || "",
         role: user.role,
+        ...formatAdminPermissions(user),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -1050,6 +1059,261 @@ export const deleteUser = async (req, res) => {
     }
 
     res.status(200).json({ success: true, message: "User deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+function formatAdminAccount(user) {
+  const permissions = formatAdminPermissions(user);
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    adminType: permissions.adminType,
+    adminTabs: permissions.adminTabs,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export const getAdminUsers = async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaginationParams(req.query);
+    const filter = { role: "admin" };
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    if (search) {
+      const pattern = { $regex: escapeRegex(search), $options: "i" };
+      filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
+    }
+
+    const [admins, total] = await Promise.all([
+      User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      User.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: admins.map(formatAdminAccount),
+      pagination: buildPaginatedResponse({ page, limit, total }),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createAdminUser = async (req, res) => {
+  try {
+    const { name, email, phone, password, adminType = "limited", adminTabs = [] } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !phone?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, phone, and password are required",
+      });
+    }
+
+    const normalizedType = adminType === "super" ? "super" : "limited";
+    let normalizedTabs = [];
+
+    if (normalizedType === "limited") {
+      const tabValidation = validateLimitedAdminTabs(adminTabs);
+      if (!tabValidation.ok) {
+        return res.status(400).json({ success: false, message: tabValidation.message });
+      }
+      normalizedTabs = tabValidation.tabs;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim();
+
+    const existingUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
+    });
+
+    if (existingUser) {
+      const field = existingUser.phone === normalizedPhone ? "Phone" : "Email";
+      return res.status(409).json({
+        success: false,
+        message: `${field} is already registered`,
+      });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      password,
+      role: "admin",
+      adminType: normalizedType,
+      adminTabs: normalizedTabs,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Admin user created",
+      data: formatAdminAccount(user),
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateAdminUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user || user.role !== "admin") {
+      return res.status(404).json({ success: false, message: "Admin user not found" });
+    }
+
+    const { name, email, phone, password, adminType, adminTabs } = req.body;
+
+    if (email !== undefined) {
+      const trimmedEmail = String(email || "").trim().toLowerCase();
+      if (!trimmedEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required for admin accounts",
+        });
+      }
+
+      const existing = await User.findOne({
+        email: trimmedEmail,
+        _id: { $ne: user._id },
+      });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: "Email is already registered",
+        });
+      }
+      user.email = trimmedEmail;
+    }
+
+    if (phone !== undefined) {
+      const trimmedPhone = String(phone || "").trim();
+      if (!trimmedPhone) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone is required",
+        });
+      }
+
+      const existing = await User.findOne({
+        phone: trimmedPhone,
+        _id: { $ne: user._id },
+      });
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          message: "Phone is already registered",
+        });
+      }
+      user.phone = trimmedPhone;
+    }
+
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({ success: false, message: "Name is required" });
+      }
+      user.name = String(name).trim();
+    }
+
+    if (password) {
+      user.password = password;
+    }
+
+    if (adminType !== undefined) {
+      const normalizedType = adminType === "super" ? "super" : "limited";
+      user.adminType = normalizedType;
+
+      if (normalizedType === "super") {
+        user.adminTabs = [];
+      } else if (adminTabs !== undefined) {
+        const tabValidation = validateLimitedAdminTabs(adminTabs);
+        if (!tabValidation.ok) {
+          return res.status(400).json({ success: false, message: tabValidation.message });
+        }
+        user.adminTabs = tabValidation.tabs;
+      } else if (!sanitizeAdminTabs(user.adminTabs).length) {
+        return res.status(400).json({
+          success: false,
+          message: "Select at least one sidebar tab for limited admin access",
+        });
+      }
+    } else if (adminTabs !== undefined) {
+      if (user.adminType !== "limited") {
+        return res.status(400).json({
+          success: false,
+          message: "Sidebar tabs can only be set for limited admin accounts",
+        });
+      }
+
+      const tabValidation = validateLimitedAdminTabs(adminTabs);
+      if (!tabValidation.ok) {
+        return res.status(400).json({ success: false, message: tabValidation.message });
+      }
+      user.adminTabs = tabValidation.tabs;
+    }
+
+    if (
+      req.user._id.toString() === user._id.toString() &&
+      user.adminType === "limited"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot change your own admin access level",
+      });
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Admin user updated",
+      data: formatAdminAccount(user),
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const message = Object.values(error.errors)
+        .map((err) => err.message)
+        .join(", ");
+      return res.status(400).json({ success: false, message });
+    }
+
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteAdminUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user || user.role !== "admin") {
+      return res.status(404).json({ success: false, message: "Admin user not found" });
+    }
+
+    if (req.user._id.toString() === user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own admin account",
+      });
+    }
+
+    await user.deleteOne();
+
+    res.status(200).json({ success: true, message: "Admin user deleted" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

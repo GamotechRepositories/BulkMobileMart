@@ -25,6 +25,7 @@ import StoreSettingsSection from "../components/admin/sections/StoreSettingsSect
 import AddCouponSection from "../components/admin/sections/AddCouponSection";
 import ShowCouponSection from "../components/admin/sections/ShowCouponSection";
 import PromotionalNotificationSection from "../components/admin/sections/PromotionalNotificationSection";
+import AdminUsersSection from "../components/admin/sections/AdminUsersSection";
 import AdminLogin from "./AdminLogin";
 
 function Admin() {
@@ -55,6 +56,7 @@ function Admin() {
           <Route path="coupons/show" element={<ShowCouponSection />} />
           <Route path="coupons" element={<Navigate to="show" replace />} />
           <Route path="users" element={<UserSection />} />
+          <Route path="admin-users" element={<AdminUsersSection />} />
           <Route path="orders/create" element={<CreateOrderSection />} />
           <Route path="orders/:id" element={<AdminOrderDetailSection />} />
           <Route path="orders" element={<OrderSection />} />

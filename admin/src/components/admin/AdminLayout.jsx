@@ -17,10 +17,15 @@ import {
   IconTestimonial,
   IconSettings,
   IconUsers,
+  IconUser,
   IconCreateOrder,
   IconCoupon,
   IconPromotional,
 } from "./AdminIcons";
+import {
+  filterNavItemsForUser,
+  isSuperAdmin,
+} from "../../utils/adminPermissions";
 
 const PAGE_TITLES = {
   "/": "Dashboard",
@@ -37,6 +42,7 @@ const PAGE_TITLES = {
   "/testimonials/show": "Testimonials",
   "/settings": "Store Settings",
   "/users": "Users",
+  "/admin-users": "Admin Users",
   "/orders": "Orders",
   "/orders/create": "Create Order",
   "/payments": "Payments",
@@ -48,9 +54,10 @@ const PAGE_TITLES = {
 };
 
 const NAV_ITEMS = [
-  { type: "link", to: "/", label: "Dashboard", end: true, icon: IconDashboard },
+  { type: "link", tabKey: "dashboard", to: "/", label: "Dashboard", end: true, icon: IconDashboard },
   {
     type: "group",
+    tabKey: "products",
     label: "Products",
     icon: IconProduct,
     basePath: "/products",
@@ -59,9 +66,10 @@ const NAV_ITEMS = [
       { to: "/products/show", label: "Show Product" },
     ],
   },
-  { type: "link", to: "/orders/create", label: "Create Order", icon: IconCreateOrder },
+  { type: "link", tabKey: "orders-create", to: "/orders/create", label: "Create Order", icon: IconCreateOrder },
   {
     type: "group",
+    tabKey: "orders",
     label: "Orders",
     icon: IconOrder,
     basePath: "/orders",
@@ -71,6 +79,7 @@ const NAV_ITEMS = [
   },
   {
     type: "group",
+    tabKey: "categories",
     label: "Categories",
     icon: IconCategory,
     basePath: "/categories",
@@ -81,6 +90,7 @@ const NAV_ITEMS = [
   },
   {
     type: "group",
+    tabKey: "brands",
     label: "Brands",
     icon: IconBrand,
     basePath: "/brands",
@@ -91,6 +101,7 @@ const NAV_ITEMS = [
   },
   {
     type: "group",
+    tabKey: "testimonials",
     label: "Testimonials",
     icon: IconTestimonial,
     basePath: "/testimonials",
@@ -99,15 +110,16 @@ const NAV_ITEMS = [
       { to: "/testimonials/show", label: "Show Testimonials" },
     ],
   },
-  { type: "link", to: "/settings", label: "Store Settings", icon: IconSettings },
-  { type: "link", to: "/payments", label: "Payments", icon: IconPayment },
-  { type: "link", to: "/revenue", label: "Revenue", icon: IconPayment },
-  { type: "link", to: "/coupons/show", label: "Coupons", icon: IconCoupon },
-  { type: "link", to: "/promotional-notifications", label: "Promotional", icon: IconPromotional },
-  { type: "link", to: "/support", label: "Support", icon: IconSupport },
-  { type: "link", to: "/users", label: "Users", icon: IconUsers },
-  { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
-  { type: "link", to: "/offer-banners", label: "Offer Banners", icon: IconPromotional },
+  { type: "link", tabKey: "settings", to: "/settings", label: "Store Settings", icon: IconSettings },
+  { type: "link", tabKey: "payments", to: "/payments", label: "Payments", icon: IconPayment },
+  { type: "link", tabKey: "revenue", to: "/revenue", label: "Revenue", icon: IconPayment },
+  { type: "link", tabKey: "coupons", to: "/coupons/show", label: "Coupons", icon: IconCoupon },
+  { type: "link", tabKey: "promotional", to: "/promotional-notifications", label: "Promotional", icon: IconPromotional },
+  { type: "link", tabKey: "support", to: "/support", label: "Support", icon: IconSupport },
+  { type: "link", tabKey: "users", to: "/users", label: "Users", icon: IconUsers },
+  { type: "link", tabKey: "admin-users", to: "/admin-users", label: "Admin Users", icon: IconUser, superOnly: true },
+  { type: "link", tabKey: "banners", to: "/banners", label: "Hero Banners", icon: IconBanner },
+  { type: "link", tabKey: "offer-banners", to: "/offer-banners", label: "Offer Banners", icon: IconPromotional },
 ];
 
 const navLinkClass = ({ isActive }) =>
@@ -265,6 +277,7 @@ function SidebarContent({
   hasUnreadSupport,
   hasUnreadOrders,
   hasUnreadPayments,
+  navItems,
 }) {
   const [openGroupKey, setOpenGroupKey] = useState("");
 
@@ -301,7 +314,7 @@ function SidebarContent({
       </div>
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-y-contain pb-4 [-webkit-overflow-scrolling:touch]">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           if (item.type === "group") {
             const showOrdersBadge =
               item.basePath === "/orders" && hasUnreadOrders;
@@ -375,6 +388,11 @@ function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const navItems = filterNavItemsForUser(
+    NAV_ITEMS.filter((item) => !item.superOnly || isSuperAdmin(adminUser)),
+    adminUser
+  );
+
   const pageTitle =
     location.pathname === "/orders/create"
       ? "Create Order"
@@ -440,6 +458,7 @@ function AdminLayout() {
           hasUnreadSupport={hasUnreadSupport && !isSupportPage}
           hasUnreadOrders={hasUnreadOrders && !isOrdersPage}
           hasUnreadPayments={hasUnreadPayments && !isPaymentsPage}
+          navItems={navItems}
         />
       </aside>
 

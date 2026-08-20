@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import { canAccessAdminTab, isSuperAdmin } from "../utils/adminPermissions.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -86,5 +87,41 @@ export const requireAdmin = (req, res, next) => {
       message: "Admin access only",
     });
   }
+  next();
+};
+
+export const requireSuperAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only",
+    });
+  }
+
+  if (!isSuperAdmin(req.user)) {
+    return res.status(403).json({
+      success: false,
+      message: "Super admin access only",
+    });
+  }
+
+  next();
+};
+
+export const requireAdminTab = (tabKey) => (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only",
+    });
+  }
+
+  if (!canAccessAdminTab(req.user, tabKey)) {
+    return res.status(403).json({
+      success: false,
+      message: "Insufficient admin permissions",
+    });
+  }
+
   next();
 };

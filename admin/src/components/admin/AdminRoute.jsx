@@ -1,5 +1,10 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import {
+  canAccessAdminTab,
+  getFirstAllowedPath,
+  getTabKeyForPath,
+} from "../../utils/adminPermissions";
 
 function AdminRoute() {
   const { adminUser, loading } = useAuth();
@@ -17,6 +22,11 @@ function AdminRoute() {
     return (
       <Navigate to="/login" replace state={{ from: location.pathname }} />
     );
+  }
+
+  const tabKey = getTabKeyForPath(location.pathname);
+  if (tabKey && !canAccessAdminTab(adminUser, tabKey)) {
+    return <Navigate to={getFirstAllowedPath(adminUser)} replace />;
   }
 
   return <Outlet />;

@@ -24,6 +24,8 @@ if (user.role === "admin") {
 }
 
 user.role = "admin";
+user.adminType = "super";
+user.adminTabs = [];
 await user.save();
 
 console.log(`Promoted ${user.email} to admin.`);
