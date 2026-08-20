@@ -3,7 +3,7 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { amountInWords } from "../../shared/invoice/amountInWords.js";
 import {
   buildInvoiceLineItems,
-  buildInvoiceTotals,
+  buildInvoiceTotalsForOrder,
   formatInvoiceAmount,
   formatInvoiceDate,
   formatPlaceOfSupply,
@@ -125,14 +125,11 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
   const customerName = getAddressFullName(addr) || customer?.name || "-";
   const customerGst = customer?.gstNumber || addr?.gstNumber || "URP";
   const lineItems = buildInvoiceLineItems(order?.items || []);
-  const totals = buildInvoiceTotals({
-    lineItems,
-    deliveryCharges: order?.deliveryCharges || 0,
-    couponDiscount: order?.couponDiscount || 0,
+  const totals = buildInvoiceTotalsForOrder(order, lineItems, {
     sellerState: config.stateName,
     customerState: addr?.state || "",
   });
-  const grandTotal = order?.total ?? totals.grandTotal;
+  const grandTotal = totals.grandTotal;
   const advancePayment = getInvoiceAdvancePaymentDetails(order);
   const isAttempted = order?.status === "attempted";
   const documentTitle = isAttempted ? "ATTEMPTED ORDER" : "TAX INVOICE";
@@ -172,11 +169,6 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
         value: formatMoney(row.amount),
       })
     ),
-    e(SummaryRow, {
-      key: "ship",
-      label: "Shipping Charges",
-      value: totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges),
-    }),
   ];
 
   if (totals.couponDiscount > 0) {
@@ -190,6 +182,14 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
       })
     );
   }
+
+  summaryRows.push(
+    e(SummaryRow, {
+      key: "ship",
+      label: "Shipping Charges",
+      value: totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges),
+    })
+  );
 
   summaryRows.push(
     e(SummaryRow, {

@@ -292,10 +292,9 @@ class _InvoiceSnapshot {
     final isAttempted = order.status == 'attempted';
     final addr = order.deliveryAddress;
     final lineItems = buildInvoiceLineItems(order.items);
-    final totals = buildInvoiceTotals(
-      lineItems: lineItems,
-      deliveryCharges: order.deliveryCharges,
-      couponDiscount: order.couponDiscount,
+    final totals = buildInvoiceTotalsForOrder(
+      order,
+      lineItems,
       sellerState: config.stateName,
       customerState: addr.state,
     );
@@ -326,7 +325,7 @@ class _InvoiceSnapshot {
       paymentStatus: getInvoicePaymentStatusLabel(order.paymentStatus),
       lineItems: lineItems,
       totals: totals,
-      grandTotal: order.total,
+      grandTotal: totals.grandTotal,
       advancePayment: getInvoiceAdvancePaymentDetails(order),
       isAttempted: isAttempted,
       couponCode: order.couponCode.trim(),

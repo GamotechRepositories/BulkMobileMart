@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { amountInWords } from "./amountInWords.js";
 import {
   buildInvoiceLineItems,
-  buildInvoiceTotals,
+  buildInvoiceTotalsForOrder,
   formatInvoiceAmount,
   formatInvoiceDate,
   formatPlaceOfSupply,
@@ -96,14 +96,11 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
   const customerName = getAddressFullName(addr) || customer?.name || "—";
   const customerGst = customer?.gstNumber || addr?.gstNumber || "URP";
   const lineItems = buildInvoiceLineItems(order?.items || []);
-  const totals = buildInvoiceTotals({
-    lineItems,
-    deliveryCharges: order?.deliveryCharges || 0,
-    couponDiscount: order?.couponDiscount || 0,
+  const totals = buildInvoiceTotalsForOrder(order, lineItems, {
     sellerState: config.stateName,
     customerState: addr?.state || "",
   });
-  const grandTotal = order?.total ?? totals.grandTotal;
+  const grandTotal = totals.grandTotal;
   const advancePayment = getInvoiceAdvancePaymentDetails(order);
   const isAttempted = order?.status === "attempted";
   const documentTitle = isAttempted ? "ATTEMPTED ORDER" : "TAX INVOICE";

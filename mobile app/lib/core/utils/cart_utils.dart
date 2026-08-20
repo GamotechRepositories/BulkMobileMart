@@ -1,6 +1,7 @@
 import '../../models/cart_item.dart';
 import '../../models/store_settings.dart';
 import 'order_settings.dart';
+import 'product_pricing.dart';
 
 class CartSummary {
   const CartSummary({
@@ -22,8 +23,11 @@ class CartSummary {
 
 double calculateCartSavings(List<CartItem> items) {
   return items.fold<double>(0, (sum, item) {
-    final original = item.price > 0 ? item.price : item.discountedPrice;
-    final diff = (original - item.discountedPrice).clamp(0.0, double.infinity);
+    final product = productFromCartItem(item);
+    final sale = item.unitPrice;
+    final original = getOriginalPriceForQuantity(product, item.quantity, item.variantName);
+    final compareOriginal = original > 0 ? original : item.price;
+    final diff = (compareOriginal - sale).clamp(0.0, double.infinity);
     return sum + diff * item.quantity;
   });
 }

@@ -111,24 +111,30 @@ CartItem cartItemFromProduct(
   String variantName = '',
   String colorName = '',
 }) {
-  final base = CartItem.fromProduct(product, quantity: quantity);
+  final resolvedVariant = variantName.trim();
+  final unitPrice = getUnitPriceForQuantity(product, quantity, resolvedVariant);
+  final originalPrice = getOriginalPriceForQuantity(product, quantity, resolvedVariant);
+  final source = getPricingSource(product, resolvedVariant);
+
   return CartItem(
-    id: base.id,
-    name: base.name,
-    brandName: base.brandName,
-    price: base.price,
-    discountedPrice: base.discountedPrice,
-    productImages: base.productImages,
-    stock: base.stock,
+    id: product.id,
+    name: product.name,
+    brandName: product.brandName,
+    price: originalPrice > 0 ? originalPrice : (source?.price ?? product.price),
+    discountedPrice: unitPrice > 0
+        ? unitPrice
+        : (source?.discountedPrice ?? product.discountedPrice),
+    productImages: product.productImages,
+    stock: product.stock,
     quantity: quantity,
-    variantName: variantName.trim(),
+    variantName: resolvedVariant,
     colorName: colorName.trim(),
-    pricingType: base.pricingType,
-    bulkPricing: base.bulkPricing,
-    variantType: base.variantType,
-    variants: base.variants,
-    minOrderQuantity: base.minOrderQuantity,
-    stepByQuantity: base.stepByQuantity,
+    pricingType: source?.pricingType ?? product.pricingType,
+    bulkPricing: source?.bulkPricing ?? product.bulkPricing,
+    variantType: product.variantType,
+    variants: product.variants,
+    minOrderQuantity: source?.minOrderQuantity ?? product.minOrderQuantity,
+    stepByQuantity: source?.stepByQuantity ?? product.stepByQuantity,
   );
 }
 

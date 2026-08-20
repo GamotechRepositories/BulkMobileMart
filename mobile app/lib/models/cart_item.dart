@@ -40,7 +40,11 @@ class CartItem {
   final int? minOrderQuantity;
   final int? stepByQuantity;
 
-  double get lineTotal => discountedPrice * quantity;
+  /// Quantity-aware unit price (bulk tiers, variants) — matches product detail & backend.
+  double get unitPrice =>
+      getUnitPriceForQuantity(_productFromCartItem(this), quantity, variantName);
+
+  double get lineTotal => unitPrice * quantity;
 
   int get quantityStep => getCartStepForCartItem(this);
 
@@ -125,6 +129,8 @@ class CartItem {
     );
   }
 }
+
+Product productFromCartItem(CartItem item) => _productFromCartItem(item);
 
 Product _productFromCartItem(CartItem item) {
   return Product(

@@ -80,12 +80,11 @@ export function splitInclusiveGst(amount, gstRate = INVOICE_CONFIG.defaultGstRat
   return { taxableValue, gstAmount, gstRate: rate, inclusive };
 }
 
-export function buildInvoiceLineItems(items = [], gstRate = INVOICE_CONFIG.defaultGstRate) {
+export function buildInvoiceLineItems(items = []) {
   return (items || []).map((item, index) => {
     const qty = Number(item.quantity) || 0;
     const rate = Number(item.price) || 0;
-    const inclusive = roundMoney(rate * qty);
-    const split = splitInclusiveGst(inclusive, item.gstRate ?? gstRate);
+    const amount = roundMoney(rate * qty);
 
     return {
       srNo: index + 1,
@@ -93,12 +92,17 @@ export function buildInvoiceLineItems(items = [], gstRate = INVOICE_CONFIG.defau
       hsn: item.hsn || item.hsnCode || INVOICE_CONFIG.defaultHsn,
       qty,
       rate,
-      taxableValue: split.taxableValue,
-      gstRate: split.gstRate,
-      gstAmount: split.gstAmount,
-      amount: split.inclusive,
+      amount,
     };
   });
+}
+
+function sumLineItemsSubtotal(lineItems = []) {
+  const raw = (lineItems || []).reduce(
+    (sum, item) => sum + (Number(item.rate) || 0) * (Number(item.qty) || 0),
+    0
+  );
+  return roundMoney(raw);
 }
 
 export function buildInvoiceTotals({
@@ -107,24 +111,33 @@ export function buildInvoiceTotals({
   couponDiscount = 0,
   sellerState = INVOICE_CONFIG.stateName,
   customerState = "",
+  orderSubtotal,
+  orderTotal,
 }) {
-  // Prices are GST-inclusive. Show the full items total as Sub Total — do not
-  // back out GST or list SGST/CGST/IGST rows on the invoice summary.
-  const itemsInclusive = roundMoney(
-    lineItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+  // GST-inclusive prices. Sub Total → coupon → shipping → total.
+  // Sum rate * qty once (matches backend order subtotal), then round.
+  const itemsSum = sumLineItemsSubtotal(lineItems);
+  const subTotal = roundMoney(
+    orderSubtotal != null && Number(orderSubtotal) >= 0
+      ? Number(orderSubtotal)
+      : itemsSum
   );
   const coupon = roundMoney(
-    Math.min(Math.max(0, Number(couponDiscount) || 0), itemsInclusive)
+    Math.min(Math.max(0, Number(couponDiscount) || 0), subTotal)
   );
   const intraState =
     normalizeStateName(sellerState) === normalizeStateName(customerState || sellerState);
 
-  const delivery = roundMoney(deliveryCharges);
-  // Matches backend: total = (subtotal - coupon) + deliveryCharges
-  const grandTotal = roundMoney(itemsInclusive - coupon + delivery);
+  const delivery = roundMoney(Number(deliveryCharges) || 0);
+  const calculatedGrandTotal = roundMoney(subTotal - coupon + delivery);
+  const grandTotal = roundMoney(
+    orderTotal != null && Number(orderTotal) >= 0
+      ? Number(orderTotal)
+      : calculatedGrandTotal
+  );
 
   return {
-    subTotal: itemsInclusive,
+    subTotal,
     totalGst: 0,
     shippingTaxable: delivery,
     shippingGst: 0,
@@ -134,6 +147,23 @@ export function buildInvoiceTotals({
     grandTotal,
     intraState,
   };
+}
+
+export function buildInvoiceTotalsForOrder(
+  order,
+  lineItems = [],
+  { sellerState = INVOICE_CONFIG.stateName, customerState = "" } = {}
+) {
+  const addr = order?.deliveryAddress || {};
+  return buildInvoiceTotals({
+    lineItems,
+    deliveryCharges: order?.deliveryCharges || 0,
+    couponDiscount: order?.couponDiscount || 0,
+    sellerState,
+    customerState: customerState || addr?.state || "",
+    orderSubtotal: order?.subtotal,
+    orderTotal: order?.total,
+  });
 }
 
 export function mergeInvoiceConfig(storeSettings) {

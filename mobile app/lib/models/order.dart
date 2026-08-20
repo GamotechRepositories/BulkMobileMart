@@ -195,6 +195,7 @@ class Order {
     this.createdAt,
     this.codAdvancePaidAt,
     this.codAdvanceAmount = 0,
+    this.advancePaidAmount = 0,
     this.razorpayPaymentId = '',
     this.razorpayOrderId = '',
     this.paidAt,
@@ -219,6 +220,7 @@ class Order {
   final DateTime? createdAt;
   final DateTime? codAdvancePaidAt;
   final double codAdvanceAmount;
+  final double advancePaidAmount;
   final String razorpayPaymentId;
   final String razorpayOrderId;
   final DateTime? paidAt;
@@ -269,7 +271,8 @@ class Order {
       codAdvancePaidAt: json['codAdvancePaidAt'] != null
           ? DateTime.tryParse(json['codAdvancePaidAt'].toString())
           : null,
-      codAdvanceAmount: _toDouble(json['codAdvanceAmount'] ?? json['advancePaidAmount']),
+      codAdvanceAmount: _toDouble(json['codAdvanceAmount']),
+      advancePaidAmount: _toDouble(json['advancePaidAmount']),
       razorpayPaymentId: json['razorpayPaymentId']?.toString() ?? '',
       razorpayOrderId: json['razorpayOrderId']?.toString() ?? '',
       paidAt: json['paidAt'] != null

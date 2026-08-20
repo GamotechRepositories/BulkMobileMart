@@ -267,17 +267,13 @@ class InvoiceLineItem {
   final double amount;
 }
 
-List<InvoiceLineItem> buildInvoiceLineItems(
-  List<OrderItem> items, [
-  double gstRate = 18,
-]) {
+List<InvoiceLineItem> buildInvoiceLineItems(List<OrderItem> items) {
   final result = <InvoiceLineItem>[];
   for (var i = 0; i < items.length; i++) {
     final item = items[i];
     final qty = item.quantity;
     final rate = item.price;
-    final inclusive = roundMoney(rate * qty);
-    final split = splitInclusiveGst(inclusive, gstRate);
+    final amount = roundMoney(rate * qty);
     result.add(
       InvoiceLineItem(
         srNo: i + 1,
@@ -285,14 +281,82 @@ List<InvoiceLineItem> buildInvoiceLineItems(
         hsn: InvoiceConfig.defaults.defaultHsn,
         qty: qty,
         rate: rate,
-        taxableValue: split.taxableValue,
-        gstRate: split.gstRate,
-        gstAmount: split.gstAmount,
-        amount: split.inclusive,
+        taxableValue: amount,
+        gstRate: 0,
+        gstAmount: 0,
+        amount: amount,
       ),
     );
   }
   return result;
+}
+
+double sumLineItemsSubtotal(List<InvoiceLineItem> lineItems) {
+  final raw = lineItems.fold<double>(
+    0,
+    (sum, item) => sum + item.rate * item.qty,
+  );
+  return roundMoney(raw);
+}
+
+InvoiceTotals buildInvoiceTotals({
+  required List<InvoiceLineItem> lineItems,
+  required double deliveryCharges,
+  double couponDiscount = 0,
+  String sellerState = 'Maharashtra',
+  String customerState = '',
+  double? orderSubtotal,
+  double? orderTotal,
+}) {
+  final itemsSum = sumLineItemsSubtotal(lineItems);
+  final subTotal = roundMoney(
+    orderSubtotal != null && orderSubtotal >= 0 ? orderSubtotal : itemsSum,
+  );
+  final coupon = roundMoney(
+    couponDiscount.clamp(0, subTotal).toDouble(),
+  );
+  final intraState = normalizeStateName(sellerState) ==
+      normalizeStateName(
+        customerState.trim().isEmpty ? sellerState : customerState,
+      );
+
+  final delivery = roundMoney(deliveryCharges);
+  final calculatedGrandTotal = roundMoney(subTotal - coupon + delivery);
+  final grandTotal = roundMoney(
+    orderTotal != null && orderTotal >= 0 ? orderTotal : calculatedGrandTotal,
+  );
+
+  return InvoiceTotals(
+    subTotal: subTotal,
+    totalGst: 0,
+    shippingTaxable: delivery,
+    shippingGst: 0,
+    deliveryCharges: delivery,
+    couponDiscount: coupon,
+    gstBreakdown: const [],
+    grandTotal: grandTotal,
+    intraState: intraState,
+  );
+}
+
+InvoiceTotals buildInvoiceTotalsForOrder(
+  Order order,
+  List<InvoiceLineItem> lineItems, {
+  String sellerState = 'Maharashtra',
+  String customerState = '',
+}) {
+  final state = customerState.trim().isNotEmpty
+      ? customerState
+      : order.deliveryAddress.state;
+  return buildInvoiceTotals(
+    lineItems: lineItems,
+    deliveryCharges: order.deliveryCharges,
+    couponDiscount: order.couponDiscount,
+    sellerState: sellerState,
+    customerState: state,
+    orderSubtotal: order.subtotal,
+    orderTotal: order.total,
+  );
 }
 
 class InvoiceGstBreakdownRow {
@@ -326,41 +390,6 @@ class InvoiceTotals {
   final bool intraState;
 }
 
-InvoiceTotals buildInvoiceTotals({
-  required List<InvoiceLineItem> lineItems,
-  required double deliveryCharges,
-  double couponDiscount = 0,
-  String sellerState = 'Maharashtra',
-  String customerState = '',
-}) {
-  final itemsInclusive = roundMoney(
-    lineItems.fold<double>(0, (sum, item) => sum + item.amount),
-  );
-  final coupon = roundMoney(
-    couponDiscount.clamp(0, itemsInclusive).toDouble(),
-  );
-  final intraState = normalizeStateName(sellerState) ==
-      normalizeStateName(
-        customerState.trim().isEmpty ? sellerState : customerState,
-      );
-
-  final delivery = roundMoney(deliveryCharges);
-  // Matches backend: total = (subtotal - coupon) + deliveryCharges
-  final grandTotal = roundMoney(itemsInclusive - coupon + delivery);
-
-  return InvoiceTotals(
-    subTotal: itemsInclusive,
-    totalGst: 0,
-    shippingTaxable: delivery,
-    shippingGst: 0,
-    deliveryCharges: delivery,
-    couponDiscount: coupon,
-    gstBreakdown: const [],
-    grandTotal: grandTotal,
-    intraState: intraState,
-  );
-}
-
 class InvoiceAdvancePayment {
   const InvoiceAdvancePayment({
     required this.isAdvancePaid,
@@ -388,7 +417,13 @@ InvoiceAdvancePayment getInvoiceAdvancePaymentDetails(Order order) {
     );
   }
 
-  final advancePaid = roundMoney(order.codAdvanceAmount);
+  final advancePaid = roundMoney(
+    order.advancePaidAmount > 0
+        ? order.advancePaidAmount
+        : order.codAdvanceAmount > 0
+            ? order.codAdvanceAmount
+            : 0,
+  );
   final remainingBalance =
       roundMoney((grandTotal - advancePaid).clamp(0, double.infinity));
 

@@ -1,4 +1,6 @@
+import 'package:bulk_mobile_mart/core/utils/cart_utils.dart';
 import 'package:bulk_mobile_mart/core/utils/product_pricing.dart';
+import 'package:bulk_mobile_mart/models/cart_item.dart';
 import 'package:bulk_mobile_mart/models/product.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -178,6 +180,36 @@ void main() {
       expect(getQuantityStep(product), 5);
       expect(hasConfiguredMinOrderQuantity(product), isTrue);
       expect(hasConfiguredQuantityStep(product), isTrue);
+    });
+
+    test('cart line total uses quantity tier price', () {
+      final product = Product.fromJson({
+        'id': 'bulk-cart',
+        'name': 'Bulk Cable',
+        'categories': ['Accessories'],
+        'subcategory': 'Cables',
+        'brandName': 'Brand',
+        'price': 100,
+        'discountedPrice': 90,
+        'discountedPercent': 10,
+        'stock': 200,
+        'productImages': [],
+        'pricingType': 'bulk',
+        'minOrderQuantity': 25,
+        'bulkPricing': {
+          'slabs': [
+            {'minQuantity': 25, 'maxQuantity': 49, 'pricePerUnit': 90},
+            {'minQuantity': 50, 'maxQuantity': null, 'pricePerUnit': 80},
+          ],
+        },
+      });
+
+      final item = CartItem.fromProduct(product, quantity: 50);
+      expect(item.unitPrice, 80);
+      expect(item.lineTotal, 4000);
+
+      final summary = calculateCartSummary([item]);
+      expect(summary.subtotal, 4000);
     });
 
     test('bulk list price uses last slab in bulk price range', () {

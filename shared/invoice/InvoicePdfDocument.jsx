@@ -3,7 +3,7 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { amountInWords } from "./amountInWords.js";
 import {
   buildInvoiceLineItems,
-  buildInvoiceTotals,
+  buildInvoiceTotalsForOrder,
   formatInvoiceAmount,
   formatInvoiceDate,
   formatPlaceOfSupply,
@@ -110,14 +110,11 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
   const customerName = getAddressFullName(addr) || customer?.name || "-";
   const customerGst = customer?.gstNumber || addr?.gstNumber || "URP";
   const lineItems = buildInvoiceLineItems(order?.items || []);
-  const totals = buildInvoiceTotals({
-    lineItems,
-    deliveryCharges: order?.deliveryCharges || 0,
-    couponDiscount: order?.couponDiscount || 0,
+  const totals = buildInvoiceTotalsForOrder(order, lineItems, {
     sellerState: config.stateName,
     customerState: addr?.state || "",
   });
-  const grandTotal = order?.total ?? totals.grandTotal;
+  const grandTotal = totals.grandTotal;
   const advancePayment = getInvoiceAdvancePaymentDetails(order);
   const isAttempted = order?.status === "attempted";
   const documentTitle = isAttempted ? "ATTEMPTED ORDER" : "TAX INVOICE";
@@ -234,10 +231,6 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
               {totals.gstBreakdown.map((row) => (
                 <SummaryRow key={row.label} label={row.label} value={formatMoney(row.amount)} />
               ))}
-              <SummaryRow
-                label="Shipping Charges"
-                value={totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges)}
-              />
               {totals.couponDiscount > 0 ? (
                 <SummaryRow
                   label={
@@ -248,6 +241,10 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
                   value={`- ${formatMoney(totals.couponDiscount)}`}
                 />
               ) : null}
+              <SummaryRow
+                label="Shipping Charges"
+                value={totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges)}
+              />
               <SummaryRow label="Total Amount" value={formatMoney(grandTotal)} highlight />
               {advancePayment.isAdvancePaid ? (
                 <>
