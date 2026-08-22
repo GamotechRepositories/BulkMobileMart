@@ -161,9 +161,7 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
   Widget build(BuildContext context) {
     return PageView.builder(
       controller: _pageController,
-      physics: _isOnBranchRoot
-          ? const PageScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       onPageChanged: _onPageChanged,
       allowImplicitScrolling: false,
       itemCount: widget.children.length,

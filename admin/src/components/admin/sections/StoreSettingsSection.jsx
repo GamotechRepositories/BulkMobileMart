@@ -150,6 +150,17 @@ function serializeEnviaSection(form) {
   });
 }
 
+function serializeAppUpdateSection(form) {
+  return JSON.stringify({
+    latestVersion: String(form.appUpdateLatestVersion ?? "").trim(),
+    minVersion: String(form.appUpdateMinVersion ?? "").trim(),
+    forceUpdate: Boolean(form.appUpdateForceUpdate),
+    message: String(form.appUpdateMessage ?? "").trim(),
+    androidStoreUrl: String(form.appUpdateAndroidStoreUrl ?? "").trim(),
+    iosStoreUrl: String(form.appUpdateIosStoreUrl ?? "").trim(),
+  });
+}
+
 function buildSectionSnapshots(form) {
   return {
     order: serializeOrderSection(form),
@@ -158,6 +169,7 @@ function buildSectionSnapshots(form) {
     upi: serializeUpiSection(form),
     cart: serializeCartSection(form),
     envia: serializeEnviaSection(form),
+    appUpdate: serializeAppUpdateSection(form),
   };
 }
 
@@ -189,6 +201,12 @@ function StoreSettingsSection() {
     enviaDefaultCarrier: "",
     enviaDefaultService: "",
     enviaRateCarriers: "xpressbees, delhivery, ekart, amazon, bluedart, dtdc, ecomexpress",
+    appUpdateLatestVersion: "1.0.8",
+    appUpdateMinVersion: "1.0.8",
+    appUpdateForceUpdate: true,
+    appUpdateMessage: "A new version of BulkMobileMart is available. Please update the app to continue.",
+    appUpdateAndroidStoreUrl: "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
+    appUpdateIosStoreUrl: "",
     ...enviaOriginToForm(DEFAULT_ENVIA_PICKUP_ORIGIN),
   });
 
@@ -236,6 +254,12 @@ function StoreSettingsSection() {
         enviaDefaultCarrier: settings.envia?.defaultCarrier || "",
         enviaDefaultService: settings.envia?.defaultService || "",
         enviaRateCarriers: (settings.envia?.rateCarriers || []).join(", "),
+        appUpdateLatestVersion: settings.appUpdate?.latestVersion || "1.0.8",
+        appUpdateMinVersion: settings.appUpdate?.minVersion || "1.0.8",
+        appUpdateForceUpdate: settings.appUpdate?.forceUpdate !== false,
+        appUpdateMessage: settings.appUpdate?.message || "A new version of BulkMobileMart is available. Please update the app to continue.",
+        appUpdateAndroidStoreUrl: settings.appUpdate?.androidStoreUrl || "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
+        appUpdateIosStoreUrl: settings.appUpdate?.iosStoreUrl || "",
         ...enviaOriginToForm(settings.envia?.origin),
       };
       setForm(nextForm);
@@ -395,6 +419,7 @@ function StoreSettingsSection() {
     upi: "UPI payment settings",
     cart: "Cart messages",
     envia: "Parcel partner settings",
+    appUpdate: "Mobile App update settings",
   };
 
   const sectionSerializers = {
@@ -404,6 +429,7 @@ function StoreSettingsSection() {
     upi: serializeUpiSection,
     cart: serializeCartSection,
     envia: serializeEnviaSection,
+    appUpdate: serializeAppUpdateSection,
   };
 
   const isSectionDirty = (section) =>
@@ -416,6 +442,7 @@ function StoreSettingsSection() {
     upi: isSectionDirty("upi"),
     cart: isSectionDirty("cart"),
     envia: isSectionDirty("envia"),
+    appUpdate: isSectionDirty("appUpdate"),
   };
 
   const saveSection = async (section) => {
@@ -499,6 +526,17 @@ function StoreSettingsSection() {
               .map((entry) => entry.trim())
               .filter(Boolean),
             origin: enviaOriginFromForm(form),
+          },
+        };
+      } else if (section === "appUpdate") {
+        payload = {
+          appUpdate: {
+            latestVersion: String(form.appUpdateLatestVersion).trim(),
+            minVersion: String(form.appUpdateMinVersion).trim(),
+            forceUpdate: Boolean(form.appUpdateForceUpdate),
+            message: String(form.appUpdateMessage).trim(),
+            androidStoreUrl: String(form.appUpdateAndroidStoreUrl).trim(),
+            iosStoreUrl: String(form.appUpdateIosStoreUrl).trim(),
           },
         };
       }
@@ -1316,6 +1354,121 @@ function StoreSettingsSection() {
               </div>
             </div>
           )}
+        </div>
+
+        <div
+          className={`${cardClass} space-y-5 ${
+            dirtySections.appUpdate ? "ring-2 ring-amber-200" : ""
+          }`}
+        >
+          <div className={formHeaderClass}>
+            <div>
+              <h3 className="font-semibold text-neutral-900">Mobile App Update (In-App Prompt)</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                Control the in-app update popup for users running older versions of the mobile app.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Latest App Version</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="e.g. 1.0.8"
+                  value={form.appUpdateLatestVersion}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, appUpdateLatestVersion: e.target.value }))
+                  }
+                />
+                <p className="mt-1 text-xs text-neutral-400">
+                  Users on versions below this will see the update popup.
+                </p>
+              </div>
+
+              <div>
+                <label className={labelClass}>Minimum Required Version</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="e.g. 1.0.8"
+                  value={form.appUpdateMinVersion}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, appUpdateMinVersion: e.target.value }))
+                  }
+                />
+                <p className="mt-1 text-xs text-neutral-400">
+                  Versions below this will be forced to update immediately.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 p-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.appUpdateForceUpdate}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, appUpdateForceUpdate: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                />
+                <div>
+                  <span className="text-sm font-medium text-neutral-800">
+                    Force Update (Compulsory)
+                  </span>
+                  <p className="text-xs text-neutral-500">
+                    When enabled, users on older versions cannot dismiss the popup and must update before using the app.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div>
+              <label className={labelClass}>Update Popup Message</label>
+              <textarea
+                rows={2}
+                className={inputClass}
+                placeholder="A new version of BulkMobileMart is available. Please update the app to continue."
+                value={form.appUpdateMessage}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, appUpdateMessage: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Android Play Store / APK URL</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="https://play.google.com/store/apps/details?id=com.bulkmobilemart.app"
+                  value={form.appUpdateAndroidStoreUrl}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, appUpdateAndroidStoreUrl: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>iOS App Store URL (Optional)</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="https://apps.apple.com/..."
+                  value={form.appUpdateIosStoreUrl}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, appUpdateIosStoreUrl: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <SectionSaveButton section="appUpdate" />
         </div>
       </div>
     </div>
