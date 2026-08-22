@@ -36,6 +36,18 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
 
+    final rawUser = storage.session?['user'];
+    User? cachedUser;
+    if (rawUser is Map<String, dynamic>) {
+      try {
+        cachedUser = User.fromJson(rawUser);
+      } catch (_) {}
+    }
+
+    if (cachedUser != null) {
+      state = AuthState(user: cachedUser, token: savedToken, loading: false);
+    }
+
     try {
       final user = await ref.read(apiServiceProvider).fetchMe();
       if (user.isAdmin) {
@@ -46,9 +58,15 @@ class AuthController extends Notifier<AuthState> {
 
       await storage.saveSession(user: user.toJson(), token: savedToken);
       state = AuthState(user: user, token: savedToken, loading: false);
-    } catch (_) {
-      await storage.clear();
-      state = const AuthState(loading: false);
+    } catch (e) {
+      if (e is ApiException && e.statusCode == 401) {
+        await storage.clear();
+        state = const AuthState(loading: false);
+      } else if (cachedUser != null) {
+        state = AuthState(user: cachedUser, token: savedToken, loading: false);
+      } else {
+        state = const AuthState(loading: false);
+      }
     }
   }
 

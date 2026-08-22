@@ -423,31 +423,78 @@ const validateRequiredFields = (payload) => {
 
 const sortOptions = { "categories.0": 1, subcategory: 1, createdAt: -1 };
 
+const PURCHASE_COUNT_CACHE = new Map();
+const PURCHASE_COUNT_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 async function getPurchaseCountsByProductIds(productIds = []) {
   if (!Array.isArray(productIds) || productIds.length === 0) {
     return new Map();
   }
 
-  const counts = await Order.aggregate([
-    {
-      $match: {
-        status: { $nin: ["attempted", "cancelled", "return"] },
-        "items.product": { $in: productIds },
-      },
-    },
-    { $unwind: "$items" },
-    { $match: { "items.product": { $in: productIds } } },
-    {
-      $group: {
-        _id: "$items.product",
-        purchaseCount: { $sum: "$items.quantity" },
-      },
-    },
-  ]);
+  const now = Date.now();
+  const resultMap = new Map();
+  const missingIds = [];
 
-  return new Map(
-    counts.map((entry) => [String(entry._id), Number(entry.purchaseCount) || 0])
-  );
+  for (const id of productIds) {
+    const idStr = String(id);
+    const cached = PURCHASE_COUNT_CACHE.get(idStr);
+    if (cached && cached.expiresAt > now) {
+      resultMap.set(idStr, cached.count);
+    } else {
+      missingIds.push(id);
+    }
+  }
+
+  if (missingIds.length === 0) {
+    return resultMap;
+  }
+
+  try {
+    const counts = await Order.aggregate([
+      {
+        $match: {
+          status: { $nin: ["attempted", "cancelled", "return"] },
+          "items.product": { $in: missingIds },
+        },
+      },
+      { $unwind: "$items" },
+      { $match: { "items.product": { $in: missingIds } } },
+      {
+        $group: {
+          _id: "$items.product",
+          purchaseCount: { $sum: "$items.quantity" },
+        },
+      },
+    ]);
+
+    const foundMap = new Map();
+    counts.forEach((entry) => {
+      foundMap.set(String(entry._id), Number(entry.purchaseCount) || 0);
+    });
+
+    const expiresAt = now + PURCHASE_COUNT_TTL_MS;
+    for (const id of missingIds) {
+      const idStr = String(id);
+      const count = foundMap.get(idStr) || 0;
+      PURCHASE_COUNT_CACHE.set(idStr, { count, expiresAt });
+      resultMap.set(idStr, count);
+    }
+  } catch (error) {
+    console.warn("getPurchaseCountsByProductIds fallback:", error.message);
+    for (const id of missingIds) {
+      resultMap.set(String(id), 0);
+    }
+  }
+
+  if (PURCHASE_COUNT_CACHE.size > 2000) {
+    for (const [key, value] of PURCHASE_COUNT_CACHE.entries()) {
+      if (value.expiresAt <= now) {
+        PURCHASE_COUNT_CACHE.delete(key);
+      }
+    }
+  }
+
+  return resultMap;
 }
 
 export const getProducts = async (req, res) => {
@@ -541,26 +588,23 @@ export const getProducts = async (req, res) => {
 
       const [total, products] = await Promise.all([
         Product.countDocuments(filter),
-        Product.find(filter).sort(sort).skip(skip).limit(limit),
+        Product.find(filter).sort(sort).skip(skip).limit(limit).lean(),
       ]);
 
       const purchaseCounts = await getPurchaseCountsByProductIds(
         products.map((item) => item._id)
       );
-      const data = products.map((item) => {
-        const product = item.toObject();
-        return {
-          ...product,
-          purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-        };
-      });
+      const data = products.map((product) => ({
+        ...product,
+        purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+      }));
 
       return res
         .status(200)
         .json(buildPaginatedResponse(data, total, page, limit));
     }
 
-    let query = Product.find(filter).sort(sort);
+    let query = Product.find(filter).sort(sort).lean();
 
     if (req.query.limit) {
       const limit = Math.min(parseInt(req.query.limit, 10) || 15, 50);
@@ -569,13 +613,10 @@ export const getProducts = async (req, res) => {
 
     const products = await query;
     const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
-    const data = products.map((item) => {
-      const product = item.toObject();
-      return {
-        ...product,
-        purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-      };
-    });
+    const data = products.map((product) => ({
+      ...product,
+      purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+    }));
     res.status(200).json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

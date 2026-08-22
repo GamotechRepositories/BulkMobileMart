@@ -297,6 +297,11 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ categories: 1, subcategory: 1 });
 productSchema.index({ subcategories: 1 });
+productSchema.index({ isActive: 1, createdAt: -1 });
+productSchema.index({ isActive: 1, justArrived: 1 });
+productSchema.index({ isActive: 1, hotSelling: 1 });
+productSchema.index({ isActive: 1, discountedPrice: 1 });
+productSchema.index({ isActive: 1, brandName: 1 });
 productSchema.index(
   { sku: 1 },
   {

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import connectDB from "./config/dbconfig.js";
 import { ensureUserIndexes } from "./utils/ensureUserIndexes.js";
 import { ensureCartCompatibility } from "./utils/ensureCartCompatibility.js";
@@ -31,6 +32,15 @@ import couponRoutes from "./routes/couponRoutes.js";
 import metaAdsRoutes from "./routes/metaAdsRoutes.js";
 import { getFirebaseAdmin } from "./config/firebaseAdmin.js";
 
+// Process-level crash prevention for background async promises & exceptions
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
 const app = express();
 // Default 5001 — macOS AirPlay Receiver often occupies port 5000.
 const PORT = process.env.PORT || 5001;
@@ -41,6 +51,7 @@ if (!process.env.JWT_SECRET) {
   );
 }
 
+app.use(compression());
 app.use(
   cors({
     origin: process.env.CORS_ORIGINS
@@ -79,6 +90,18 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/test", testFcmRoutes);
 app.use("/api/webhooks", webhookRoutes);
 app.use("/api/meta-ads", metaAdsRoutes);
+
+// Global error handling middleware to prevent unhandled express crashes
+app.use((err, req, res, next) => {
+  console.error("Unhandled route error:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+  });
+});
 
 connectDB().then(async () => {
   try {

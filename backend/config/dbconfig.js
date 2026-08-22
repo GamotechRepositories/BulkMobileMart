@@ -6,7 +6,12 @@ const connectDB = async () => {
     "mongodb://127.0.0.1:27017/bulkmobilemartdb";
 
   try {
-    const conn = await mongoose.connect(uri);
+    const conn = await mongoose.connect(uri, {
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     console.log(
       `MongoDB connected: ${conn.connection.host} / ${conn.connection.name}`
     );
