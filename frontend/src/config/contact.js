@@ -14,14 +14,14 @@ export const CONTACT_ADDRESS = "Mumbai Central";
 
 /** WhatsApp community group invite — header & quick join links */
 export const WHATSAPP_GROUP_URL =
-  "https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8";
+  "https://chat.whatsapp.com/KkVrYZ4AzcWHAEjPYtGBur";
 
 export const SOCIAL_LINKS = [
   {
     id: "whatsapp-community",
     label: "WhatsApp Community",
     description: "Join our community group",
-    href: "https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8",
+    href: "https://chat.whatsapp.com/KkVrYZ4AzcWHAEjPYtGBur",
     platform: "whatsapp",
   },
   {

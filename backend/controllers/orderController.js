@@ -8,6 +8,7 @@ import {
   enrichOrderForResponse,
   finalizeOrder,
   normalizeOrderMessage,
+  normalizeOrderSource,
   populateOrderItems,
   prepareCheckoutAttemptData,
   prepareOrderData,
@@ -445,7 +446,8 @@ export const createCheckoutAttempt = async (req, res) => {
     const order = await upsertCheckoutAttemptOrder(
       req.user._id,
       prepared,
-      paymentMethod
+      paymentMethod,
+      normalizeOrderSource(req.body.orderSource)
     );
 
     res.status(200).json({
@@ -543,6 +545,7 @@ export const adminPlaceOrder = async (req, res) => {
       status: "confirm",
       message: orderMessage,
       codAdvanceAmount,
+      orderSource: "admin",
       ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID
         ? { paidAt: new Date() }
         : {}),
@@ -620,6 +623,7 @@ export const placeOrder = async (req, res) => {
       paymentStatus: "unpaid",
       message: orderMessage,
       attemptedOrderId,
+      orderSource: normalizeOrderSource(req.body.orderSource),
     });
 
     void notifyOrderCreated(order, {

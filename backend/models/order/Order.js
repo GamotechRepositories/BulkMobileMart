@@ -116,6 +116,11 @@ const orderSchema = new mongoose.Schema(
       maxlength: 500,
       default: "",
     },
+    orderSource: {
+      type: String,
+      enum: ["website", "app", "admin"],
+      default: "website",
+    },
     shipment: {
       type: new mongoose.Schema(
         {

@@ -283,6 +283,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutItems': _checkoutItemsPayload(items),
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        'orderSource': 'app',
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -388,6 +389,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        'orderSource': 'app',
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -470,6 +472,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
+        'orderSource': 'app',
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
         'razorpay_signature': response.signature,

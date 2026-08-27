@@ -39,6 +39,7 @@ import {
   formatPrice,
   getOrderAdvanceBillingSummary,
   getOrderCouponBillingSummary,
+  getOrderSourceLabel,
   getPaymentStatus,
 } from "./adminOrderUtils";
 
@@ -682,6 +683,12 @@ function AdminOrderDetailSection() {
             </div>
           )}
           <p className="mt-3 text-sm text-neutral-600">
+            Order Source:{" "}
+            <span className="font-medium text-neutral-800">
+              {getOrderSourceLabel(order)}
+            </span>
+          </p>
+          <p className="mt-1 text-sm text-neutral-600">
             Payment Mode:{" "}
             <span className="capitalize">
               {order.paymentMethod === "cod" ? "cash" : order.paymentMethod}

@@ -336,6 +336,7 @@ function Checkout() {
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
+        orderSource: "website",
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -473,6 +474,7 @@ function Checkout() {
       checkoutMode: isBuyNow ? "buyNow" : "cart",
       buyNow: isBuyNow,
       couponCode: appliedCouponRef.current?.code || undefined,
+      orderSource: "website",
     });
     const paymentData = data.data;
 
@@ -505,6 +507,7 @@ function Checkout() {
             buyNow: isBuyNow,
             attemptedOrderId: attemptedOrderIdRef.current,
             couponCode: appliedCouponRef.current?.code || undefined,
+            orderSource: "website",
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,

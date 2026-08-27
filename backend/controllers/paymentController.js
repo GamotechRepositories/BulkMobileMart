@@ -5,6 +5,7 @@ import Payment from "../models/payment/Payment.js";
 import {
   finalizeOrder,
   normalizeOrderMessage,
+  normalizeOrderSource,
   prepareOrderData,
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
@@ -108,6 +109,8 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
+    const orderSource = normalizeOrderSource(req.body.orderSource);
+
     const attemptedOrder = await upsertCheckoutAttemptOrder(
       req.user._id,
       {
@@ -122,7 +125,8 @@ export const createRazorpayOrder = async (req, res) => {
         cart: result.cart,
         checkoutMode: result.checkoutMode,
       },
-      paymentMode === "cod_advance" ? "cod" : "online"
+      paymentMode === "cod_advance" ? "cod" : "online",
+      orderSource
     );
 
     const payableAmount = calculatePayableAmount(result.total, paymentMode);
@@ -266,6 +270,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       ...(isCodAdvance ? { codAdvancePaidAt: new Date() } : {}),
       message: orderMessage,
       attemptedOrderId,
+      orderSource: normalizeOrderSource(req.body.orderSource),
     });
 
     void notifyOrderCreated(order, {
@@ -372,6 +377,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
       attemptedOrderId,
+      orderSource: normalizeOrderSource(req.body.orderSource),
     });
 
     void notifyOrderCreated(order, {

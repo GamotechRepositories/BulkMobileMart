@@ -169,6 +169,25 @@ export function getPaymentMethodLabel(order) {
   return order.paymentMethod === "cod" ? "COD" : "Online";
 }
 
+const ORDER_SOURCE_LABELS = {
+  website: "Website",
+  app: "App",
+  admin: "Admin",
+};
+
+export function getOrderSourceLabel(order) {
+  const source = String(order?.orderSource || "website").trim().toLowerCase();
+  return ORDER_SOURCE_LABELS[source] || "Website";
+}
+
+export function getOrderSourceBadgeClass(order) {
+  const source = String(order?.orderSource || "website").trim().toLowerCase();
+  if (source === "app") return "bg-violet-100 text-violet-700";
+  if (source === "admin") return "bg-slate-100 text-slate-700";
+  if (source === "website") return "bg-sky-100 text-sky-700";
+  return "bg-neutral-100 text-neutral-600";
+}
+
 export function getTransactionId(order) {
   if (!order) return "";
 
@@ -348,6 +367,7 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     "Qty",
     "Price",
     "Status",
+    "Source",
     "Payment",
     "Transaction ID",
     "Message",
@@ -362,6 +382,7 @@ export function downloadOrdersCsv(orders, filename = "orders.csv") {
     getTotalQty(order),
     order.total,
     getOrderStatusLabel(order.status),
+    getOrderSourceLabel(order),
     getPaymentStatus(order),
     getTransactionId(order),
     getOrderMessage(order),

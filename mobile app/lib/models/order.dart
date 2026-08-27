@@ -202,6 +202,7 @@ class Order {
     this.shipment = const OrderShipment(),
     this.couponCode = '',
     this.couponDiscount = 0,
+    this.orderSource = 'website',
     this.giftHamper,
   });
 
@@ -227,6 +228,7 @@ class Order {
   final OrderShipment shipment;
   final String couponCode;
   final double couponDiscount;
+  final String orderSource;
   final OrderGiftHamper? giftHamper;
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -283,6 +285,7 @@ class Order {
           : const OrderShipment(),
       couponCode: json['couponCode']?.toString() ?? '',
       couponDiscount: _toDouble(json['couponDiscount']),
+      orderSource: json['orderSource']?.toString() ?? 'website',
       giftHamper: json['giftHamper'] is Map<String, dynamic>
           ? OrderGiftHamper.fromJson(json['giftHamper'] as Map<String, dynamic>)
           : null,

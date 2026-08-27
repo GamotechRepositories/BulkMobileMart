@@ -33,14 +33,14 @@ abstract final class ContactConfig {
       'https://wa.me/917400222233?text=Hi%2C%20I%20need%20support%20with%20my%20order.';
 
   static const whatsAppGroupUrl =
-      'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8';
+      'https://chat.whatsapp.com/KkVrYZ4AzcWHAEjPYtGBur';
 
   static const socialLinks = <SocialLink>[
     SocialLink(
       id: 'whatsapp-community',
       label: 'WhatsApp Community',
       description: 'Join our community group',
-      href: 'https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8',
+      href: 'https://chat.whatsapp.com/KkVrYZ4AzcWHAEjPYtGBur',
       platform: 'whatsapp',
     ),
     SocialLink(

@@ -86,6 +86,17 @@ export function normalizeOrderMessage(body = {}) {
   return typeof raw === "string" ? raw.trim().slice(0, 500) : "";
 }
 
+const ORDER_SOURCES = new Set(["website", "app", "admin"]);
+
+export function normalizeOrderSource(value, fallback = "website") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "mobile") return "app";
+  if (ORDER_SOURCES.has(normalized)) return normalized;
+  return ORDER_SOURCES.has(fallback) ? fallback : "website";
+}
+
 const populateCart = (query) =>
   query.populate({
     path: "items.product",
@@ -572,8 +583,14 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   };
 }
 
-export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod = "cod") {
+export async function upsertCheckoutAttemptOrder(
+  userId,
+  prepared,
+  paymentMethod = "cod",
+  orderSource = "website"
+) {
   const normalizedPaymentMethod = paymentMethod === "online" ? "online" : "cod";
+  const normalizedOrderSource = normalizeOrderSource(orderSource);
   const payload = {
     items: prepared.orderItems,
     deliveryAddress: prepared.deliveryAddress,
@@ -586,6 +603,7 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     paymentMethod: normalizedPaymentMethod,
     paymentStatus: "unpaid",
     status: "attempted",
+    orderSource: normalizedOrderSource,
   };
 
   let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
@@ -745,6 +763,7 @@ export async function finalizeOrder({
   codAdvancePaidAt = null,
   paidAt,
   message = "",
+  orderSource = "website",
   attemptedOrderId: _attemptedOrderId,
 }) {
   // Always create a fresh order on payment/place — never convert/update the
@@ -793,6 +812,7 @@ export async function finalizeOrder({
     status,
     paymentStatus,
     message: orderMessage,
+    orderSource: normalizeOrderSource(orderSource),
     ...(giftHamper ? { giftHamper } : {}),
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),

@@ -26,6 +26,8 @@ import {
   getCustomerPhone,
   getOrderDisplayId,
   getOrderStatusLabel,
+  getOrderSourceBadgeClass,
+  getOrderSourceLabel,
   getPaymentStatus,
   getPaymentStatusBadgeClass,
   getPaymentStatusLabel,
@@ -213,16 +215,17 @@ function OrderSection() {
         <div className={adminTableWrapperClass}>
           <table className={adminCompactTableClass}>
             <colgroup>
-              <col className="w-[7%]" />
-              <col className="w-[11%]" />
-              <col className="w-[13%]" />
-              <col className="w-[4%]" />
-              <col className="w-[7%]" />
-              <col className="w-[7%]" />
-              <col className="w-[7%]" />
-              <col className="w-[12%]" />
-              <col className="w-[9%]" />
+              <col className="w-[6%]" />
               <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className={adminTableHeaderClass}>
@@ -232,6 +235,7 @@ function OrderSection() {
                 <th className={adminCompactThClass}>Qty</th>
                 <th className={adminCompactThClass}>Price</th>
                 <th className={adminCompactThClass}>Status</th>
+                <th className={adminCompactThClass}>Source</th>
                 <th className={adminCompactThClass}>Payment</th>
                 <th className={adminCompactThClass}>Transaction ID</th>
                 <th className={adminCompactThClass}>Date</th>
@@ -273,6 +277,13 @@ function OrderSection() {
                     <td className={adminCompactTdClass}>
                       <span className="text-[10px] font-medium capitalize text-neutral-600">
                         {getOrderStatusLabel(order.status)}
+                      </span>
+                    </td>
+                    <td className={adminCompactTdClass}>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${getOrderSourceBadgeClass(order)}`}
+                      >
+                        {getOrderSourceLabel(order)}
                       </span>
                     </td>
                     <td className={adminCompactTdClass}>
