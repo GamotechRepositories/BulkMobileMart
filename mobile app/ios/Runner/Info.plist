@@ -88,6 +88,18 @@
 					<string>bulkmobilemart</string>
 				</array>
 			</dict>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>fb1602966787839917</string>
+				</array>
+			</dict>
 		</array>
+		<key>FacebookAppID</key>
+		<string>1602966787839917</string>
+		<key>FacebookClientToken</key>
+		<string>a21b0ee75c805b288357afcf91e2088d</string>
+		<key>FacebookDisplayName</key>
+		<string>BulkMobileMart</string>
 	</dict>
 </plist>

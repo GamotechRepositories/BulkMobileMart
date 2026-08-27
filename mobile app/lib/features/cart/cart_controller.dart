@@ -9,6 +9,7 @@ import '../../core/utils/product_utils.dart';
 import '../../features/home/home_fallback_data.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
+import '../../services/facebook_app_events_service.dart';
 import '../auth/auth_controller.dart';
 import '../../core/utils/ui_sound_effects.dart';
 import '../../widgets/cart/fly_product_animator.dart';
@@ -201,6 +202,14 @@ class CartController extends Notifier<CartState> {
         quantity,
         variantName: effectiveVariant,
         colorName: effectiveColor,
+      );
+
+      unawaited(
+        FacebookAppEventsService.instance.logAddProductToCart(
+          product,
+          quantity,
+          variantName: effectiveVariant,
+        ),
       );
 
       if (!buyNow) {

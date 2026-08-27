@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../models/user.dart';
+import '../../services/facebook_app_events_service.dart';
 import 'auth_state.dart';
 
 final authControllerProvider =
@@ -145,6 +148,8 @@ class AuthController extends Notifier<AuthState> {
     }
 
     await _persistSession(session);
+    unawaited(FacebookAppEventsService.instance.identifyUser(session.user));
+    unawaited(FacebookAppEventsService.instance.logLogin());
     return OtpVerifyResult(user: session.user);
   }
 
@@ -174,11 +179,14 @@ class AuthController extends Notifier<AuthState> {
     }
 
     await _persistSession(session);
+    unawaited(FacebookAppEventsService.instance.identifyUser(session.user));
+    unawaited(FacebookAppEventsService.instance.logCompletedRegistration());
     return session.user;
   }
 
   Future<void> logout() async {
     await ref.read(authStorageProvider).clear();
+    unawaited(FacebookAppEventsService.instance.clearUserIdentity());
     state = const AuthState(loading: false);
   }
 

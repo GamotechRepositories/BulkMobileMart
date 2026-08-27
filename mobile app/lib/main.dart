@@ -10,6 +10,7 @@ import 'core/bootstrap/photo_picker_bootstrap.dart';
 import 'core/providers/app_providers.dart';
 import 'core/storage/auth_storage.dart';
 import 'services/notification_service.dart';
+import 'services/facebook_app_events_service.dart';
 import 'widgets/app_back_binding.dart';
 
 @pragma('vm:entry-point')
@@ -41,6 +42,7 @@ Future<void> main() async {
   await NotificationService.ensureFirebaseReady();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await NotificationService.instance.initialize();
+  await FacebookAppEventsService.instance.initialize();
 
   final authStorage = await AuthStorage.create();
 

@@ -29,6 +29,7 @@ import '../../widgets/product/product_admin_share_sheet.dart';
 import '../../widgets/product/product_share_sheet.dart';
 import '../../widgets/product/wishlist_button.dart';
 import '../../widgets/product/product_video_player.dart';
+import '../../services/facebook_app_events_service.dart';
 
 @immutable
 class ProductDetailCartKey {
@@ -175,6 +176,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       next.whenData((product) {
         if (!mounted) return;
         _initSelectionsForProduct(product);
+        final unitPrice = getUnitPriceForQuantity(
+          product,
+          _quantity,
+          resolveActiveVariantName(product, _selectedVariant),
+        );
+        unawaited(
+          FacebookAppEventsService.instance.logViewProduct(
+            product,
+            unitPrice: unitPrice,
+          ),
+        );
         _recentlyViewedDebounce?.cancel();
         _recentlyViewedDebounce = Timer(const Duration(seconds: 2), () {
           RecentlyViewedStore.add(product.id).then((_) {

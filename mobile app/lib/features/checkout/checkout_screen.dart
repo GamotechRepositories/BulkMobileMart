@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +26,7 @@ import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../services/facebook_app_events_service.dart';
 
 const _maxOrderNoteLength = 200;
 
@@ -60,6 +63,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _pendingPaymentMode = 'online';
   String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
+  bool _initiatedCheckoutLogged = false;
 
   final _couponController = TextEditingController();
   AppliedCoupon? _appliedCoupon;
@@ -345,6 +349,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     };
   }
 
+  void _maybeLogInitiatedCheckout(
+    List<CartItem> cartItems,
+    CartSummary summary,
+  ) {
+    if (_initiatedCheckoutLogged || _orderPlaced || cartItems.isEmpty) return;
+    _initiatedCheckoutLogged = true;
+    unawaited(
+      FacebookAppEventsService.instance.logInitiatedCheckout(
+        items: cartItems,
+        total: summary.total,
+        numItems: summary.itemCount,
+      ),
+    );
+  }
+
   Future<void> _placeOrder() async {
     if (_selectedAddressId == null || _placingOrder) return;
 
@@ -522,6 +541,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _completeOrderSuccess([String? note]) async {
+    final cartItems = ref.read(cartControllerProvider).items;
+    final storeSettings = ref.read(storeSettingsProvider).value;
+    final baseSummary =
+        calculateCartSummary(cartItems, settings: storeSettings);
+    final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
+        .clamp(0.0, baseSummary.subtotal)
+        .toDouble();
+    final summary = applyCouponDiscount(baseSummary, couponDiscount);
+
+    unawaited(
+      FacebookAppEventsService.instance.logPurchase(
+        amount: summary.total,
+        numItems: summary.itemCount,
+        items: cartItems,
+      ),
+    );
+
     setState(() {
       _orderPlaced = true;
       _placingOrder = false;
@@ -594,7 +630,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     if (!cartLoading && cartItems.isNotEmpty && !_orderPlaced) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _syncCheckoutAttempt(cartItems);
+        if (mounted) {
+          _syncCheckoutAttempt(cartItems);
+          _maybeLogInitiatedCheckout(cartItems, summary);
+        }
       });
     }
 
