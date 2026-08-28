@@ -78,7 +78,7 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow, couponCode } =
+    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow, couponCode, attemptedOrderId } =
       req.body;
     if (!addressId) {
       return res.status(400).json({
@@ -99,6 +99,7 @@ export const createRazorpayOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -126,7 +127,8 @@ export const createRazorpayOrder = async (req, res) => {
         checkoutMode: result.checkoutMode,
       },
       paymentMode === "cod_advance" ? "cod" : "online",
-      orderSource
+      orderSource,
+      attemptedOrderId || null
     );
 
     const payableAmount = calculatePayableAmount(result.total, paymentMode);
@@ -225,6 +227,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      excludeOrderId: attemptedOrderId || undefined,
     });
 
     if (result.error) {
@@ -344,6 +347,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
       return res.status(result.status).json({

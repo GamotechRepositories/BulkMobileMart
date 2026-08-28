@@ -64,6 +64,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
   bool _initiatedCheckoutLogged = false;
+  String? _resumeAttemptedOrderId;
 
   final _couponController = TextEditingController();
   AppliedCoupon? _appliedCoupon;
@@ -170,6 +171,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.initState();
     final attemptedId = widget.initialAttemptedOrderId?.trim();
     if (attemptedId != null && attemptedId.isNotEmpty) {
+      _resumeAttemptedOrderId = attemptedId;
       _attemptedOrderId = attemptedId;
     }
     _razorpay = Razorpay();
@@ -271,13 +273,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         .toList();
   }
 
+  String? get _checkoutAttemptedOrderId => _resumeAttemptedOrderId ?? _attemptedOrderId;
+
   Future<String?> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
-    if (_orderPlaced || items.isEmpty) return _attemptedOrderId;
+    if (_orderPlaced || items.isEmpty) return _checkoutAttemptedOrderId;
 
     final key =
         '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
-    if (!force && key == _lastCheckoutAttemptKey && _attemptedOrderId != null) {
-      return _attemptedOrderId;
+    if (!force && key == _lastCheckoutAttemptKey && _checkoutAttemptedOrderId != null) {
+      return _checkoutAttemptedOrderId;
     }
 
     try {
@@ -288,19 +292,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         'orderSource': 'app',
+        if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
-      if (orderId != null && orderId.isNotEmpty) {
+      if (orderId != null && orderId.isNotEmpty && _resumeAttemptedOrderId == null) {
         _attemptedOrderId = orderId;
         _lastCheckoutAttemptKey = key;
         return orderId;
+      }
+      if (orderId != null && orderId.isNotEmpty) {
+        _lastCheckoutAttemptKey = key;
       }
     } catch (_) {
       // Caller can retry with force before payment.
     }
 
-    return _attemptedOrderId;
+    return _checkoutAttemptedOrderId;
   }
 
   Future<void> _handleSaveAddress(Map<String, String> form) async {
@@ -409,6 +417,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         'orderSource': 'app',
+        if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -419,7 +428,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
 
       final attemptedId = body['attemptedOrderId']?.toString();
-      if (attemptedId != null && attemptedId.isNotEmpty) {
+      if (attemptedId != null && attemptedId.isNotEmpty && _resumeAttemptedOrderId == null) {
         _attemptedOrderId = attemptedId;
       }
 
@@ -490,7 +499,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-        if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
+        if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
         'orderSource': 'app',
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,

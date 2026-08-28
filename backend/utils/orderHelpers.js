@@ -20,6 +20,7 @@ import { calculateOrderTotal } from "./gstHelpers.js";
 import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../shared/store/giftHamper.js";
+import { formatIndiaDateString } from "../../shared/date/indiaDate.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -95,6 +96,15 @@ export function normalizeOrderSource(value, fallback = "website") {
   if (normalized === "mobile") return "app";
   if (ORDER_SOURCES.has(normalized)) return normalized;
   return ORDER_SOURCES.has(fallback) ? fallback : "website";
+}
+
+function isSameIndiaCalendarDay(value, compareTo = new Date()) {
+  const left = value instanceof Date ? value : new Date(value);
+  const right = compareTo instanceof Date ? compareTo : new Date(compareTo);
+  if (Number.isNaN(left.getTime()) || Number.isNaN(right.getTime())) {
+    return false;
+  }
+  return formatIndiaDateString(left) === formatIndiaDateString(right);
 }
 
 const populateCart = (query) =>
@@ -365,6 +375,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
+    excludeOrderId: options.excludeOrderId,
   });
   if (pricing.error) {
     return pricing;
@@ -523,6 +534,46 @@ async function resolveItemsForCheckout(userId, options = {}) {
   return { itemsToProcess, cart, checkoutMode };
 }
 
+async function resolveAttemptedOrderForCheckout(userId, attemptedOrderId = null) {
+  if (attemptedOrderId) {
+    const explicit = await Order.findOne({
+      _id: attemptedOrderId,
+      user: userId,
+      status: "attempted",
+    })
+      .select("_id")
+      .lean();
+    if (explicit) {
+      return explicit;
+    }
+  }
+
+  return Order.findOne({ user: userId, status: "attempted" })
+    .sort({ updatedAt: -1 })
+    .select("_id")
+    .lean();
+}
+
+export async function supersedeAttemptedOrder(userId, attemptedOrderId, confirmOrder) {
+  if (!attemptedOrderId || !confirmOrder?._id) {
+    return null;
+  }
+
+  return Order.findOneAndUpdate(
+    {
+      _id: attemptedOrderId,
+      user: userId,
+      status: "attempted",
+    },
+    {
+      $set: {
+        status: "cancelled",
+      },
+    },
+    { new: true }
+  );
+}
+
 export async function prepareCheckoutAttemptData(userId, options = {}) {
   const user = await User.findById(userId);
   if (!user) {
@@ -554,10 +605,10 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
 
   const { orderItems, subtotal } = built;
 
-  const attemptedOrder = await Order.findOne({ user: userId, status: "attempted" })
-    .sort({ updatedAt: -1 })
-    .select("_id")
-    .lean();
+  const attemptedOrder = await resolveAttemptedOrderForCheckout(
+    userId,
+    options.attemptedOrderId
+  );
 
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
@@ -587,7 +638,8 @@ export async function upsertCheckoutAttemptOrder(
   userId,
   prepared,
   paymentMethod = "cod",
-  orderSource = "website"
+  orderSource = "website",
+  attemptedOrderId = null
 ) {
   const normalizedPaymentMethod = paymentMethod === "online" ? "online" : "cod";
   const normalizedOrderSource = normalizeOrderSource(orderSource);
@@ -606,9 +658,26 @@ export async function upsertCheckoutAttemptOrder(
     orderSource: normalizedOrderSource,
   };
 
-  let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
-    updatedAt: -1,
-  });
+  let order = null;
+  let preserveHistoricalAttempt = false;
+
+  if (attemptedOrderId) {
+    order = await Order.findOne({
+      _id: attemptedOrderId,
+      user: userId,
+      status: "attempted",
+    });
+    if (order && !isSameIndiaCalendarDay(order.createdAt)) {
+      preserveHistoricalAttempt = true;
+      order = null;
+    }
+  }
+
+  if (!order && !preserveHistoricalAttempt) {
+    order = await Order.findOne({ user: userId, status: "attempted" }).sort({
+      updatedAt: -1,
+    });
+  }
 
   if (order) {
     Object.assign(order, payload);
@@ -764,11 +833,10 @@ export async function finalizeOrder({
   paidAt,
   message = "",
   orderSource = "website",
-  attemptedOrderId: _attemptedOrderId,
+  attemptedOrderId = null,
 }) {
-  // Always create a fresh order on payment/place — never convert/update the
-  // attempted checkout draft. Attempted orders stay for admin analytics.
-  void _attemptedOrderId;
+  // Always create a fresh confirm order on payment/place — never convert the
+  // attempted checkout draft in place. The attempted row is superseded after success.
 
   const razorpayPaymentKey = String(razorpayPaymentId || "").trim();
   const codAdvancePaymentKey = String(codAdvanceRazorpayPaymentId || "").trim();
@@ -789,6 +857,7 @@ export async function finalizeOrder({
 
     if (existingPaid) {
       await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
+      await supersedeAttemptedOrder(userId, attemptedOrderId, existingPaid);
       return existingPaid;
     }
   }
@@ -828,6 +897,7 @@ export async function finalizeOrder({
   });
 
   await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
+  await supersedeAttemptedOrder(userId, attemptedOrderId, order);
 
   return order;
 }

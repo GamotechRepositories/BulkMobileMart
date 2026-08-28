@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ProductImageFrame from "../components/product/ProductImageFrame";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -127,6 +127,10 @@ function AddressSummary({ address }) {
 function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const resumeAttemptedOrderIdRef = useRef(
+    searchParams.get("attemptedOrderId")?.trim() || null
+  );
   const { user, loading: authLoading, openAuthModal } = useAuth();
   const { items, loading: cartLoading, loadCart, resetCart } = useCart();
 
@@ -168,9 +172,12 @@ function Checkout() {
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const messageRef = useRef("");
-  const attemptedOrderIdRef = useRef(null);
+  const attemptedOrderIdRef = useRef(resumeAttemptedOrderIdRef.current);
   const appliedCouponRef = useRef(null);
   const hasAutoOpenedAddressRef = useRef(false);
+
+  const getCheckoutAttemptedOrderId = () =>
+    resumeAttemptedOrderIdRef.current || attemptedOrderIdRef.current;
 
   const checkoutAttemptKey = useMemo(
     () =>
@@ -325,7 +332,7 @@ function Checkout() {
 
   const syncCheckoutAttempt = useCallback(async () => {
     if (authLoading || bootstrapping || !user || orderPlaced || checkoutItems.length === 0) {
-      return attemptedOrderIdRef.current;
+      return getCheckoutAttemptedOrderId();
     }
 
     try {
@@ -337,18 +344,21 @@ function Checkout() {
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
         orderSource: "website",
+        attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
       });
       const orderId = data?.data?._id;
       if (orderId) {
-        setAttemptedOrderId(orderId);
-        attemptedOrderIdRef.current = orderId;
-        return orderId;
+        if (!resumeAttemptedOrderIdRef.current) {
+          setAttemptedOrderId(orderId);
+          attemptedOrderIdRef.current = orderId;
+        }
+        return getCheckoutAttemptedOrderId();
       }
     } catch (err) {
       console.warn("Checkout attempt sync failed:", err.response?.data?.message || err.message);
     }
 
-    return attemptedOrderIdRef.current;
+    return getCheckoutAttemptedOrderId();
   }, [
     authLoading,
     bootstrapping,
@@ -475,10 +485,11 @@ function Checkout() {
       buyNow: isBuyNow,
       couponCode: appliedCouponRef.current?.code || undefined,
       orderSource: "website",
+      attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
     });
     const paymentData = data.data;
 
-    if (paymentData.attemptedOrderId) {
+    if (paymentData.attemptedOrderId && !resumeAttemptedOrderIdRef.current) {
       setAttemptedOrderId(paymentData.attemptedOrderId);
       attemptedOrderIdRef.current = paymentData.attemptedOrderId;
     }
@@ -505,7 +516,7 @@ function Checkout() {
             checkoutItems: checkoutItemsPayload,
             checkoutMode: isBuyNow ? "buyNow" : "cart",
             buyNow: isBuyNow,
-            attemptedOrderId: attemptedOrderIdRef.current,
+            attemptedOrderId: getCheckoutAttemptedOrderId(),
             couponCode: appliedCouponRef.current?.code || undefined,
             orderSource: "website",
             razorpay_order_id: response.razorpay_order_id,

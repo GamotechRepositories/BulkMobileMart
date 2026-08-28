@@ -425,13 +425,15 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
 
 export const createCheckoutAttempt = async (req, res) => {
   try {
-    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow, couponCode } = req.body;
+    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow, couponCode, attemptedOrderId } =
+      req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
       checkoutItems,
       checkoutMode,
       buyNow,
       couponCode,
+      attemptedOrderId,
     });
 
     if (prepared.error) {
@@ -447,7 +449,8 @@ export const createCheckoutAttempt = async (req, res) => {
       req.user._id,
       prepared,
       paymentMethod,
-      normalizeOrderSource(req.body.orderSource)
+      normalizeOrderSource(req.body.orderSource),
+      attemptedOrderId || null
     );
 
     res.status(200).json({
@@ -597,6 +600,7 @@ export const placeOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
       return res.status(result.status).json({
