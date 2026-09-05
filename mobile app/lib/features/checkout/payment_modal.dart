@@ -20,7 +20,6 @@ class PaymentModal extends StatefulWidget {
     super.key,
     required this.paymentMethod,
     required this.orderTotal,
-    required this.onPayWithRazorpay,
     required this.onSubmitUpiProof,
     required this.onUploadScreenshot,
     this.merchantUpiId,
@@ -35,7 +34,6 @@ class PaymentModal extends StatefulWidget {
   final String? merchantUpiId;
   final String? merchantUpiName;
   final List<MerchantUpiAccount> merchantUpiAccounts;
-  final VoidCallback onPayWithRazorpay;
   final Future<String?> Function({
     required String screenshotUrl,
     required String screenshotName,
@@ -324,7 +322,7 @@ class _PaymentModalState extends State<PaymentModal> {
                         const SizedBox(height: 12),
                         const _AlertBanner(
                           message:
-                              'UPI is not set up yet. Contact store admin or use Razorpay.',
+                              'UPI is not set up yet. Contact store admin to configure UPI in Settings.',
                           color: Colors.amber,
                           icon: Icons.info_outline_rounded,
                         ),
@@ -376,7 +374,6 @@ class _PaymentModalState extends State<PaymentModal> {
                 canSubmit: _screenshotUrl != null && _hasUpiId,
                 submitting: _submittingProof,
                 onSubmit: _submitProof,
-                onRazorpay: widget.onPayWithRazorpay,
               ),
             ],
           ),
@@ -1038,7 +1035,6 @@ class _BottomActions extends StatelessWidget {
     required this.canSubmit,
     required this.submitting,
     required this.onSubmit,
-    required this.onRazorpay,
   });
 
   final bool busy;
@@ -1046,7 +1042,6 @@ class _BottomActions extends StatelessWidget {
   final bool canSubmit;
   final bool submitting;
   final VoidCallback onSubmit;
-  final VoidCallback onRazorpay;
 
   @override
   Widget build(BuildContext context) {
@@ -1063,37 +1058,21 @@ class _BottomActions extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: FilledButton(
-              onPressed: busy || uploading || !canSubmit ? null : onSubmit,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.borderLight,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(
-                submitting ? 'Confirming order...' : 'Confirm Order',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-              ),
-            ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton(
+          onPressed: busy || uploading || !canSubmit ? null : onSubmit,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            disabledBackgroundColor: AppColors.borderLight,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: busy ? null : onRazorpay,
-            child: Text(
-              busy ? 'Please wait...' : 'Pay via Razorpay instead',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
-            ),
+          child: Text(
+            submitting ? 'Confirming order...' : 'Confirm Order',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
-        ],
+        ),
       ),
     );
   }

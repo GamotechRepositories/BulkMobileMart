@@ -86,7 +86,7 @@ function PaymentProofsSection() {
         {pagination.total} pending UPI payment proof{pagination.total === 1 ? "" : "s"}
       </p>
       <p className="mb-4 text-xs text-neutral-500">
-        Review customer UPI screenshots here. Successful Razorpay payments are listed under Payments.
+        Review customer UPI payment screenshots here and approve or reject them.
       </p>
 
       {loading ? (

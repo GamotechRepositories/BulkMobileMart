@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
@@ -12,8 +11,8 @@ import '../../core/providers/app_providers.dart';
 import '../../core/utils/address_utils.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
-import '../../core/utils/razorpay_error_message.dart';
 import '../../core/utils/payment_utils.dart';
+import '../../core/utils/upload_folders.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
@@ -22,11 +21,13 @@ import '../../features/settings/store_settings_provider.dart';
 import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
+import '../../models/store_settings.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../services/facebook_app_events_service.dart';
+import 'payment_modal.dart';
 
 const _maxOrderNoteLength = 200;
 
@@ -45,8 +46,6 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  late final Razorpay _razorpay;
-
   String? _selectedAddressId;
   bool _showAddressForm = false;
   bool _showAddressPicker = false;
@@ -60,7 +59,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _orderPlaced = false;
   bool _showSuccessModal = false;
   String _orderSuccessNote = '';
-  String _pendingPaymentMode = 'online';
   String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
   bool _initiatedCheckoutLogged = false;
@@ -71,101 +69,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _applyingCoupon = false;
   String _couponError = '';
 
-  String _formatPaymentErrorMessage(
-    String message, {
-    int? code,
-    String? gatewayReason,
-    bool verificationFailed = false,
-  }) {
-    final raw = message.trim();
-    final lower = raw.toLowerCase();
-    final reason = (gatewayReason ?? '').trim();
-    final hasReason = reason.isNotEmpty;
-    final isCancelled = code == Razorpay.PAYMENT_CANCELLED ||
-        lower.contains('cancel');
-    final isNetwork = code == Razorpay.NETWORK_ERROR ||
-        lower.contains('network') ||
-        lower.contains('internet') ||
-        lower.contains('timeout');
-    final isConfig = code == Razorpay.INVALID_OPTIONS ||
-        lower.contains('not configured') ||
-        lower.contains('invalid payment response');
-
-    if (verificationFailed) {
-      return 'Payment was received, but order confirmation failed.\n'
-          'Please wait 2-3 minutes and check My Orders once.\n'
-          'If the order is still missing, contact support with your payment reference.';
-    }
-    if (hasReason) {
-      if (lower.contains('insufficient') || reason.toLowerCase().contains('insufficient')) {
-        return 'Payment failed: insufficient balance.\nReason: $reason';
-      }
-      if (lower.contains('declin') || reason.toLowerCase().contains('declin')) {
-        return 'Payment was declined by bank/wallet.\nReason: $reason';
-      }
-      if (lower.contains('vpa') ||
-          lower.contains('upi') ||
-          reason.toLowerCase().contains('vpa') ||
-          reason.toLowerCase().contains('upi')) {
-        return 'UPI payment failed.\nReason: $reason';
-      }
-      if (lower.contains('expired') || reason.toLowerCase().contains('expired')) {
-        return 'Payment session expired.\nReason: $reason';
-      }
-    }
-    if (isCancelled) {
-      return 'Payment cancelled by user.\n'
-          'No amount will be charged for this order attempt.';
-    }
-    if (isNetwork) {
-      return 'Payment failed due to network issue.\n'
-          'Please check internet and try again.';
-    }
-    if (isConfig) {
-      return 'Payment setup issue detected.\n'
-          'Please try again after some time or contact support.';
-    }
-    if (hasReason) {
-      return 'Payment failed.\nReason: $reason';
-    }
-    return raw;
-  }
-
-  String? _extractGatewayReason(PaymentFailureResponse response) {
-    final body = response.error;
-    if (body == null) return null;
-    for (final key in const [
-      'description',
-      'reason',
-      'message',
-      'error_description',
-      'source',
-      'step',
-    ]) {
-      final value = body[key]?.toString().trim();
-      if (value != null &&
-          value.isNotEmpty &&
-          value.toLowerCase() != 'null' &&
-          value.toLowerCase() != 'undefined') {
-        return value;
-      }
-    }
-
-    final nested = body['error'];
-    if (nested is Map) {
-      for (final key in const ['description', 'reason', 'message']) {
-        final value = nested[key]?.toString().trim();
-        if (value != null &&
-            value.isNotEmpty &&
-            value.toLowerCase() != 'null' &&
-            value.toLowerCase() != 'undefined') {
-          return value;
-        }
-      }
-    }
-    return null;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -174,10 +77,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _resumeAttemptedOrderId = attemptedId;
       _attemptedOrderId = attemptedId;
     }
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     Future.microtask(() {
       ref.read(storeSettingsProvider.notifier).refresh();
@@ -198,7 +97,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   @override
   void dispose() {
-    _razorpay.clear();
     _couponController.dispose();
     super.dispose();
   }
@@ -395,158 +293,83 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     await _syncCheckoutAttempt(cartItems, force: true);
     if (!mounted) return;
 
-    await _startRazorpayPayment();
+    await _openUpiPaymentModal(summary, storeSettings);
   }
 
   String get _apiPaymentMode => _paymentPlan;
 
-  Future<void> _startRazorpayPayment() async {
-    if (_selectedAddressId == null) return;
+  Future<void> _openUpiPaymentModal(
+    CartSummary summary,
+    StoreSettings? storeSettings,
+  ) async {
+    final paymentMethod = PaymentUtils.checkoutPaymentMethod(_paymentPlan);
 
-    setState(() {
-      _placingOrder = true;
-      _orderError = '';
-    });
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: !_placingOrder,
+      enableDrag: !_placingOrder,
+      builder: (sheetContext) => PaymentModal(
+        paymentMethod: paymentMethod,
+        orderTotal: summary.total,
+        merchantUpiId: storeSettings?.merchantUpiId,
+        merchantUpiName: storeSettings?.merchantUpiName,
+        merchantUpiAccounts: storeSettings?.merchantUpiAccounts ?? const [],
+        processing: _placingOrder,
+        error: _orderError,
+        onUploadScreenshot: (filePath) => ref
+            .read(apiServiceProvider)
+            .uploadImageFile(filePath, UploadFolders.paymentProofs),
+        onSubmitUpiProof: ({
+          required String screenshotUrl,
+          required String screenshotName,
+          required String upiTransactionRef,
+        }) async {
+          setState(() {
+            _placingOrder = true;
+            _orderError = '';
+          });
 
-    try {
-      final cartItems = ref.read(cartControllerProvider).items;
-      final response = await ref.read(apiServiceProvider).createRazorpayOrder({
-        'addressId': _selectedAddressId,
-        'paymentMode': _apiPaymentMode,
-        'checkoutItems': _checkoutItemsPayload(cartItems),
-        'checkoutMode': 'cart',
-        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-        'orderSource': 'app',
-        if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
-      });
-      final body = ApiResponseParser.getData(response.data);
-      if (body is! Map<String, dynamic>) {
-        throw ApiException(
-          ApiResponseParser.getMessage(response.data) ??
-              'Invalid payment response from server.',
-        );
-      }
+          try {
+            final cartItems = ref.read(cartControllerProvider).items;
+            await ref.read(apiServiceProvider).submitUpiPaymentProof({
+              'addressId': _selectedAddressId,
+              'paymentMode': _apiPaymentMode,
+              'customerMessage': _message.trim(),
+              'checkoutItems': _checkoutItemsPayload(cartItems),
+              'checkoutMode': 'cart',
+              if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+              'orderSource': 'app',
+              if (_checkoutAttemptedOrderId != null)
+                'attemptedOrderId': _checkoutAttemptedOrderId,
+              'screenshot': screenshotUrl,
+              'screenshotName': screenshotName,
+              'upiTransactionRef': upiTransactionRef,
+            });
 
-      final attemptedId = body['attemptedOrderId']?.toString();
-      if (attemptedId != null && attemptedId.isNotEmpty && _resumeAttemptedOrderId == null) {
-        _attemptedOrderId = attemptedId;
-      }
-
-      final keyId = body['keyId']?.toString() ?? '';
-      final razorpayOrderId = body['razorpayOrderId']?.toString() ?? '';
-      final amountRaw = body['amount'];
-      final amountPaise = amountRaw is int
-          ? amountRaw
-          : int.tryParse(amountRaw?.toString() ?? '');
-
-      if (keyId.isEmpty || razorpayOrderId.isEmpty) {
-        throw ApiException(
-          ApiResponseParser.getMessage(response.data) ??
-              'Online payment is not configured. Please contact support.',
-        );
-      }
-      if (amountPaise == null || amountPaise <= 0) {
-        throw ApiException('Invalid payment amount.');
-      }
-
-      _pendingPaymentMode = _apiPaymentMode;
-      setState(() => _placingOrder = false);
-
-      final user = ref.read(authControllerProvider).user!;
-      final options = <String, dynamic>{
-        'key': keyId,
-        'amount': amountPaise,
-        'order_id': razorpayOrderId,
-        'name': 'Bulk Mobile Mart',
-        'description': _paymentPlan == PaymentPlan.advance
-            ? '10% advance payment via Razorpay'
-            : 'Full order payment via Razorpay',
-        'prefill': {
-          'contact': user.phone,
-          'email': user.email,
-          'name': user.name,
+            final note = _apiPaymentMode == PaymentPlan.advance
+                ? 'Order confirmed. We will verify your 10% advance payment shortly. Pay the balance on delivery.'
+                : 'Order confirmed. We will verify your UPI payment shortly.';
+            await _completeOrderSuccess(note);
+            return null;
+          } catch (e) {
+            final message = apiErrorMessage(
+              e,
+              fallback: 'Failed to submit payment proof. Please try again.',
+            );
+            if (mounted) {
+              setState(() {
+                _placingOrder = false;
+                _orderError = message;
+              });
+            }
+            return message;
+          }
         },
-      };
-      _razorpay.open(options);
-    } catch (e) {
-      final rawMessage = apiErrorMessage(
-        e,
-        fallback: 'Failed to start payment. Please try again.',
-      );
-      final message = _formatPaymentErrorMessage(rawMessage);
-      setState(() {
-        _placingOrder = false;
-        _orderError = message;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      }
-    }
-  }
-
-  Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
-    setState(() {
-      _placingOrder = true;
-      _orderError = '';
-    });
-
-    try {
-      final cartItems = ref.read(cartControllerProvider).items;
-      await ref.read(apiServiceProvider).verifyRazorpayPayment({
-        'addressId': _selectedAddressId,
-        'paymentMode': _pendingPaymentMode,
-        'customerMessage': _message.trim(),
-        'checkoutItems': _checkoutItemsPayload(cartItems),
-        'checkoutMode': 'cart',
-        if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
-        if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
-        'orderSource': 'app',
-        'razorpay_order_id': response.orderId,
-        'razorpay_payment_id': response.paymentId,
-        'razorpay_signature': response.signature,
-      });
-      await _completeOrderSuccess(
-        _pendingPaymentMode == PaymentPlan.advance
-            ? 'Order confirmed. 10% paid via Razorpay. Pay the balance on delivery.'
-            : null,
-      );
-    } catch (e) {
-      final rawMessage = apiErrorMessage(
-        e,
-        fallback: 'Payment verified but order failed. Contact support.',
-      );
-      setState(() {
-        _orderError = _formatPaymentErrorMessage(
-          rawMessage,
-          verificationFailed: true,
-        );
-        _placingOrder = false;
-      });
-    }
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    final gatewayReason = _extractGatewayReason(response);
-    final message = _formatPaymentErrorMessage(
-      razorpayErrorMessage(response),
-      code: response.code,
-      gatewayReason: gatewayReason,
+      ),
     );
-    setState(() {
-      _placingOrder = false;
-      _orderError = message;
-    });
-    final cartItems = ref.read(cartControllerProvider).items;
-    if (cartItems.isNotEmpty) {
-      _syncCheckoutAttempt(cartItems, force: true);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    // no-op
   }
 
   Future<void> _completeOrderSuccess([String? note]) async {
@@ -670,7 +493,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       const SizedBox(height: 12),
                     ],
                     _StepSection(
-                      title: 'Payment via Razorpay',
+                      title: 'UPI Payment (COD Advance & QR)',
                       child: RadioGroup<String>(
                         groupValue: _paymentPlan,
                         onChanged: (value) {
@@ -692,7 +515,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               selected: _paymentPlan == PaymentPlan.full,
                               title: 'Pay 100% now',
                               subtitle:
-                                  'Complete payment of ${formatInr(summary.total, withDecimals: true)} via Razorpay',
+                                  'Complete payment of ${formatInr(summary.total, withDecimals: true)} via UPI QR',
                               onTap: () => setState(() => _paymentPlan = PaymentPlan.full),
                             ),
                           ],
@@ -870,7 +693,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ],
                           const Divider(height: 24),
                           _summaryRow(
-                            'Pay now (Razorpay)',
+                            'Pay now (UPI)',
                             formatInr(
                               PaymentUtils.payableAmount(summary.total, _paymentPlan),
                               withDecimals: true,
@@ -972,7 +795,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: [
                         CircularProgressIndicator(color: AppColors.primary),
                         SizedBox(height: 16),
-                        Text('Processing payment...', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Text('Confirming order...', style: TextStyle(fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -1211,7 +1034,7 @@ class _CheckoutPayBar extends StatelessWidget {
 
     final buttonLabel = placingOrder
         ? 'Please wait...'
-        : 'Pay ${formatInr(payableNow, withDecimals: true)} with Razorpay';
+        : 'Pay ${formatInr(payableNow, withDecimals: true)} with UPI';
 
     String? helperText;
     if (!minimumOrderMet) {
@@ -1246,7 +1069,7 @@ class _CheckoutPayBar extends StatelessWidget {
                   children: [
                     const Expanded(
                       child: Text(
-                        'Pay now (Razorpay)',
+                        'Pay now (UPI)',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,

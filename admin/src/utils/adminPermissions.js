@@ -7,7 +7,7 @@ export const ADMIN_TAB_OPTIONS = [
   { key: "brands", label: "Brands" },
   { key: "testimonials", label: "Testimonials" },
   { key: "settings", label: "Store Settings" },
-  { key: "payments", label: "Payments" },
+  { key: "payments", label: "UPI Proofs" },
   { key: "revenue", label: "Revenue" },
   { key: "coupons", label: "Coupons" },
   { key: "promotional", label: "Promotional" },

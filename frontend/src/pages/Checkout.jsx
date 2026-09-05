@@ -6,13 +6,12 @@ import { useCart } from "../context/CartContext";
 import {
   getAddresses,
   addAddress,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
   getStoreSettings,
   createCheckoutAttempt,
   validateCoupon,
+  submitUpiPaymentProof,
 } from "../api/api";
-import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
+import PaymentModal from "../components/checkout/PaymentModal";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import {
   clearBuyNowCheckout,
@@ -164,6 +163,8 @@ function Checkout() {
   const [orderError, setOrderError] = useState("");
   const [bootstrapping, setBootstrapping] = useState(true);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentModalError, setPaymentModalError] = useState("");
   const [message, setMessage] = useState("");
   const [storeSettings, setStoreSettings] = useState(null);
   const [attemptedOrderId, setAttemptedOrderId] = useState(null);
@@ -469,92 +470,51 @@ function Checkout() {
     setShowSuccessModal(true);
   };
 
-  const handleRazorpayPayment = async () => {
-    const paymentMode = paymentPlan;
-
-    const scriptLoaded = await loadRazorpayScript();
-    if (!scriptLoaded) {
-      throw new Error("Failed to load payment gateway");
+  const handleSubmitUpiProof = async ({ screenshot, screenshotName, upiTransactionRef }) => {
+    setPlacingOrder(true);
+    setPaymentModalError("");
+    try {
+      const { data } = await submitUpiPaymentProof({
+        addressId: selectedAddressId,
+        paymentMode: paymentPlan,
+        customerMessage: safeTrim(messageRef.current),
+        checkoutItems: checkoutItemsPayload,
+        checkoutMode: isBuyNow ? "buyNow" : "cart",
+        buyNow: isBuyNow,
+        couponCode: appliedCouponRef.current?.code || undefined,
+        orderSource: "website",
+        attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
+        screenshot,
+        screenshotName,
+        upiTransactionRef,
+      });
+      setShowPaymentModal(false);
+      const note =
+        paymentPlan === PAYMENT_PLAN.ADVANCE
+          ? "Order confirmed. We will verify your 10% advance payment shortly. Pay the balance on delivery."
+          : "Order confirmed. We will verify your UPI payment shortly.";
+      await completeOrderSuccess(note, data.data?.order);
+    } catch (err) {
+      setPaymentModalError(
+        err.response?.data?.message || "Failed to submit payment proof. Please try again."
+      );
+    } finally {
+      setPlacingOrder(false);
     }
-
-    const { data } = await createRazorpayOrder({
-      addressId: selectedAddressId,
-      paymentMode,
-      checkoutItems: checkoutItemsPayload,
-      checkoutMode: isBuyNow ? "buyNow" : "cart",
-      buyNow: isBuyNow,
-      couponCode: appliedCouponRef.current?.code || undefined,
-      orderSource: "website",
-      attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
-    });
-    const paymentData = data.data;
-
-    if (paymentData.attemptedOrderId && !resumeAttemptedOrderIdRef.current) {
-      setAttemptedOrderId(paymentData.attemptedOrderId);
-      attemptedOrderIdRef.current = paymentData.attemptedOrderId;
-    }
-
-    setPlacingOrder(false);
-
-    openRazorpayCheckout({
-      keyId: paymentData.keyId,
-      amount: paymentData.amount,
-      razorpayOrderId: paymentData.razorpayOrderId,
-      user,
-      description:
-        paymentMode === PAYMENT_PLAN.ADVANCE
-          ? "10% advance payment via Razorpay"
-          : "Full order payment via Razorpay",
-      onSuccess: async (response) => {
-        setPlacingOrder(true);
-        setOrderError("");
-        try {
-          const { data: verifyRes } = await verifyRazorpayPayment({
-            addressId: selectedAddressId,
-            paymentMode,
-            customerMessage: safeTrim(messageRef.current),
-            checkoutItems: checkoutItemsPayload,
-            checkoutMode: isBuyNow ? "buyNow" : "cart",
-            buyNow: isBuyNow,
-            attemptedOrderId: getCheckoutAttemptedOrderId(),
-            couponCode: appliedCouponRef.current?.code || undefined,
-            orderSource: "website",
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          });
-          await completeOrderSuccess(
-            paymentMode === PAYMENT_PLAN.ADVANCE
-              ? "Order confirmed. 10% paid via Razorpay. Pay the balance on delivery."
-              : "",
-            verifyRes?.data
-          );
-        } catch (err) {
-          setOrderError(
-            err.response?.data?.message || "Payment verified but order failed. Contact support."
-          );
-        } finally {
-          setPlacingOrder(false);
-        }
-      },
-      onDismiss: async () => {
-        setPlacingOrder(false);
-        setOrderError("Payment cancelled. Your order was not placed.");
-        await syncCheckoutAttempt();
-      },
-    });
   };
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId || placingOrder || !minimumOrderMet) return;
     setOrderError("");
+    setPaymentModalError("");
     setPlacingOrder(true);
     await loadCart();
     try {
       await syncCheckoutAttempt();
-      await handleRazorpayPayment();
+      setPlacingOrder(false);
+      setShowPaymentModal(true);
     } catch (err) {
-      setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
+      setOrderError(err.response?.data?.message || "Failed to prepare checkout. Please try again.");
       setPlacingOrder(false);
     }
   };
@@ -754,7 +714,7 @@ function Checkout() {
           ) : (
             <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
               <div className="space-y-3 sm:space-y-4">
-                <StepSection title="Payment via Razorpay">
+                <StepSection title="UPI Payment (COD Advance & QR)">
                   <div className="space-y-3">
                     <label
                       className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
@@ -776,7 +736,7 @@ function Checkout() {
                           Pay 10% now · balance on delivery
                         </p>
                         <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via Razorpay ·{" "}
+                          Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via UPI ·{" "}
                           {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
                           on delivery
                         </p>
@@ -803,7 +763,7 @@ function Checkout() {
                           Pay 100% now
                         </p>
                         <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Complete payment of {formatPrice(orderTotal, 2)} via Razorpay
+                          Complete payment of {formatPrice(orderTotal, 2)} via UPI QR
                         </p>
                       </div>
                     </label>
@@ -981,7 +941,7 @@ function Checkout() {
                     </span>
                   </div>
                   <div className="flex justify-between text-text-secondary">
-                    <span>Pay now (Razorpay)</span>
+                    <span>Pay now (UPI)</span>
                     <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
                   </div>
                   {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
@@ -1036,8 +996,8 @@ function Checkout() {
                   {placingOrder
                     ? "Please wait..."
                     : paymentPlan === PAYMENT_PLAN.ADVANCE
-                      ? `Pay ${formatPrice(payableNow, 2)} with Razorpay`
-                      : `Pay ${formatPrice(orderTotal, 2)} with Razorpay`}
+                      ? `Pay ${formatPrice(payableNow, 2)} with UPI`
+                      : `Pay ${formatPrice(orderTotal, 2)} with UPI`}
                 </button>
 
               </div>
@@ -1045,6 +1005,21 @@ function Checkout() {
           )}
         </div>
       </section>
+
+      <PaymentModal
+        open={showPaymentModal}
+        onClose={() => {
+          if (!placingOrder) setShowPaymentModal(false);
+        }}
+        paymentMethod={paymentMethod}
+        orderTotal={orderTotal}
+        merchantUpiId={storeSettings?.merchantUpiId || ""}
+        merchantUpiName={storeSettings?.merchantUpiName || ""}
+        merchantUpiAccounts={storeSettings?.merchantUpiAccounts || []}
+        onSubmitUpiProof={handleSubmitUpiProof}
+        processing={placingOrder}
+        error={paymentModalError}
+      />
     </div>
   );
 }

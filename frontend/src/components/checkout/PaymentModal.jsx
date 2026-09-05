@@ -31,7 +31,6 @@ function PaymentModal({
   merchantUpiId = "",
   merchantUpiName = "",
   merchantUpiAccounts = [],
-  onPayWithRazorpay,
   onSubmitUpiProof,
   processing,
   error = "",
@@ -360,16 +359,7 @@ function PaymentModal({
             disabled={processing || uploadingScreenshot || !screenshot || !hasUpiId}
             className="flex w-full items-center justify-center rounded-lg bg-primary py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
           >
-            {processing ? "Sending..." : "Send screenshot"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onPayWithRazorpay}
-            disabled={processing}
-            className="flex w-full items-center justify-center gap-1 rounded-lg border border-primary bg-white py-1.5 text-[11px] font-semibold text-primary transition hover:bg-orange-50 disabled:opacity-60"
-          >
-            {processing ? "Processing..." : "Pay via Razorpay instead"}
+            {processing ? "Confirming order..." : "Confirm order"}
           </button>
         </div>
       </div>
