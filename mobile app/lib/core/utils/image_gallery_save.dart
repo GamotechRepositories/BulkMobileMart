@@ -12,14 +12,15 @@ class GallerySaveResult {
   final String? message;
 }
 
-/// Saves a product image using MediaStore / Photos add APIs.
+/// Saves a network image using MediaStore / Photos add APIs.
 ///
 /// Android 10+ (API 29+): no READ_MEDIA / storage read permission is requested.
 /// Older Android may need WRITE_EXTERNAL_STORAGE (maxSdkVersion 29 in the manifest).
 /// iOS uses NSPhotoLibraryAddUsageDescription only (add access), not full library read.
-Future<GallerySaveResult> saveProductImageToGallery({
+Future<GallerySaveResult> saveNetworkImageToGallery({
   required String imageUrl,
-  required String productId,
+  required String fileName,
+  String successMessage = 'Image saved to gallery.',
 }) async {
   final url = imageUrl.trim();
   if (url.isEmpty) {
@@ -57,11 +58,11 @@ Future<GallerySaveResult> saveProductImageToGallery({
       );
     }
 
-    final safeId = productId.replaceAll(RegExp(r'[^\w-]'), '');
-    final name = safeId.isEmpty ? 'product-image' : 'product-$safeId';
+    final safeName = fileName.replaceAll(RegExp(r'[^\w.-]'), '');
+    final name = safeName.isEmpty ? 'image' : safeName;
 
     await Gal.putImageBytes(bytes, name: name);
-    return const GallerySaveResult(success: true);
+    return GallerySaveResult(success: true, message: successMessage);
   } on GalException catch (error) {
     return GallerySaveResult(success: false, message: error.type.message);
   } catch (_) {
@@ -70,4 +71,17 @@ Future<GallerySaveResult> saveProductImageToGallery({
       message: 'Could not save image.',
     );
   }
+}
+
+Future<GallerySaveResult> saveProductImageToGallery({
+  required String imageUrl,
+  required String productId,
+}) async {
+  final safeId = productId.replaceAll(RegExp(r'[^\w-]'), '');
+  final name = safeId.isEmpty ? 'product-image' : 'product-$safeId';
+
+  return saveNetworkImageToGallery(
+    imageUrl: imageUrl,
+    fileName: name,
+  );
 }

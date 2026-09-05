@@ -11,6 +11,7 @@ import '../../config/env.dart';
 import '../../config/theme.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/image_gallery_save.dart';
 import '../../core/utils/upi_payment.dart';
 import '../../models/store_settings.dart';
 import '../../widgets/common/image_source_sheet.dart';
@@ -58,6 +59,7 @@ class _PaymentModalState extends State<PaymentModal> {
   String? _uploadError;
   bool _uploadingScreenshot = false;
   bool _submittingProof = false;
+  bool _downloadingQr = false;
   bool _chooserOpened = false;
   bool _paymentStarted = false;
   int _selectedUpiIndex = 0;
@@ -113,7 +115,7 @@ class _PaymentModalState extends State<PaymentModal> {
 
   bool get _hasScreenshot => _screenshotLocalPath != null || _screenshotUrl != null;
 
-  bool get _busy => widget.processing || _uploadingScreenshot || _submittingProof;
+  bool get _busy => widget.processing || _uploadingScreenshot || _submittingProof || _downloadingQr;
 
   @override
   void initState() {
@@ -149,6 +151,32 @@ class _PaymentModalState extends State<PaymentModal> {
     if (launched) {
       setState(() => _paymentStarted = true);
     }
+  }
+
+  Future<void> _downloadQr(String qrUrl) async {
+    if (_downloadingQr || qrUrl.isEmpty) return;
+
+    setState(() => _downloadingQr = true);
+
+    final result = await saveNetworkImageToGallery(
+      imageUrl: qrUrl,
+      fileName: 'upi-payment-${_payableAmount.toStringAsFixed(2)}',
+      successMessage: 'QR code saved to gallery.',
+    );
+
+    if (!mounted) return;
+    setState(() => _downloadingQr = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.success
+              ? (result.message ?? 'QR code saved to gallery.')
+              : (result.message ?? 'Could not save QR code.'),
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _pickScreenshot() async {
@@ -344,7 +372,9 @@ class _PaymentModalState extends State<PaymentModal> {
                         onSelectUpi: (index) => setState(() => _selectedUpiIndex = index),
                         showMobileOptions: _showMobileUpiOptions,
                         busy: _busy,
+                        downloadingQr: _downloadingQr,
                         onPay: () => _openUpiChooser(),
+                        onDownloadQr: () => _downloadQr(qrUrl),
                       ),
                       const SizedBox(height: 20),
                       _StepHeader(
@@ -614,7 +644,9 @@ class _PayStepCard extends StatelessWidget {
     required this.onSelectUpi,
     required this.showMobileOptions,
     required this.busy,
+    required this.downloadingQr,
     required this.onPay,
+    required this.onDownloadQr,
   });
 
   final bool hasUpiId;
@@ -625,7 +657,9 @@ class _PayStepCard extends StatelessWidget {
   final ValueChanged<int> onSelectUpi;
   final bool showMobileOptions;
   final bool busy;
+  final bool downloadingQr;
   final VoidCallback onPay;
+  final VoidCallback onDownloadQr;
 
   @override
   Widget build(BuildContext context) {
@@ -797,6 +831,35 @@ class _PayStepCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: OutlinedButton.icon(
+                      onPressed: busy || downloadingQr ? null : onDownloadQr,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.borderLight),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: downloadingQr
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_rounded, size: 18),
+                      label: Text(
+                        downloadingQr ? 'Saving QR...' : 'Download QR',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -107,6 +107,37 @@ export function getQrCodeImageUrl(amount, note, config = {}) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=4&data=${encodeURIComponent(uri)}`;
 }
 
+export function getQrDownloadFilename(amount) {
+  const safeAmount = Number(amount);
+  const label = Number.isFinite(safeAmount) ? safeAmount.toFixed(2) : "payment";
+  return `upi-payment-${label}.png`;
+}
+
+export async function downloadQrCodeImage(qrUrl, filename = "upi-payment-qr.png") {
+  if (!qrUrl || typeof window === "undefined") return false;
+
+  try {
+    const response = await fetch(qrUrl);
+    if (!response.ok) {
+      throw new Error("Failed to fetch QR image");
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+    return true;
+  } catch {
+    window.open(qrUrl, "_blank", "noopener,noreferrer");
+    return false;
+  }
+}
+
 export function isMobileDevice() {
   if (typeof navigator === "undefined") return false;
   return /android|iphone|ipad|ipod/i.test(navigator.userAgent);

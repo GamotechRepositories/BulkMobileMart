@@ -4,8 +4,10 @@ import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import {
   buildMerchantUpiConfig,
+  downloadQrCodeImage,
   getPayableAmount,
   getQrCodeImageUrl,
+  getQrDownloadFilename,
   isMobileDevice,
   openUpiAppChooser,
   pickEnabledMerchantUpiAccounts,
@@ -41,6 +43,8 @@ function PaymentModal({
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
+  const [qrDownloadHint, setQrDownloadHint] = useState("");
   const [selectedUpiIndex, setSelectedUpiIndex] = useState(0);
 
   const payableAmount = getPayableAmount(orderTotal, paymentMethod);
@@ -93,6 +97,8 @@ function PaymentModal({
       setScreenshotPreview("");
       setUpiTransactionRef("");
       setUploadError("");
+      setDownloadingQr(false);
+      setQrDownloadHint("");
       setSelectedUpiIndex(0);
       return undefined;
     }
@@ -153,6 +159,21 @@ function PaymentModal({
     setScreenshot(null);
     setScreenshotPreview("");
     setUploadError("");
+  };
+
+  const handleDownloadQr = async () => {
+    if (!hasUpiId || !qrUrl || downloadingQr) return;
+
+    setDownloadingQr(true);
+    setQrDownloadHint("");
+
+    const saved = await downloadQrCodeImage(qrUrl, getQrDownloadFilename(payableAmount));
+    setDownloadingQr(false);
+    setQrDownloadHint(
+      saved
+        ? "QR code downloaded."
+        : "Could not download automatically. QR opened in a new tab — save it from there."
+    );
   };
 
   const handleSubmitProof = async () => {
@@ -269,6 +290,28 @@ function PaymentModal({
               )}
               {hasUpiId && upiConfig.upiId ? (
                 <p className="mt-1 text-[10px] text-text-muted">Pay to: {upiConfig.upiId}</p>
+              ) : null}
+
+              {hasUpiId && qrUrl ? (
+                <button
+                  type="button"
+                  disabled={processing || downloadingQr}
+                  onClick={handleDownloadQr}
+                  className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-border-light bg-white px-3 py-1.5 text-[11px] font-semibold text-primary transition hover:border-primary/40 hover:bg-orange-50 disabled:opacity-50"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                  {downloadingQr ? "Downloading..." : "Download QR"}
+                </button>
+              ) : null}
+
+              {qrDownloadHint ? (
+                <p className="mt-1.5 text-center text-[10px] leading-snug text-text-secondary">{qrDownloadHint}</p>
               ) : null}
 
               {onMobile ? (
