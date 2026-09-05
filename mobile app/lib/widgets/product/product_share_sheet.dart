@@ -2,13 +2,121 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../config/env.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/network_image_bytes.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_share_capture.dart';
 import '../../models/product.dart';
+
+String _imageExtension(String imageUrl) {
+  final match = RegExp(r'\.(jpe?g|png|webp|gif)(?:\?|$)', caseSensitive: false)
+      .firstMatch(imageUrl);
+  return match?.group(1)?.toLowerCase() ?? 'jpg';
+}
+
+String _mimeTypeForExtension(String ext) {
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'jpeg':
+    case 'jpg':
+    default:
+      return 'image/jpeg';
+  }
+}
+
+Future<void> shareProductImageOnly(
+  BuildContext context,
+  Product product,
+) async {
+  final imageUrl = product.primaryImage ?? '';
+  if (imageUrl.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No product image available to share')),
+    );
+    return;
+  }
+
+  var loadingVisible = true;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    useRootNavigator: true,
+    builder: (_) => const Center(
+      child: Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text('Preparing image to share...'),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  try {
+    final bytes = await downloadNetworkImageBytes(imageUrl);
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      loadingVisible = false;
+    }
+
+    if (bytes != null && bytes.isNotEmpty) {
+      final ext = _imageExtension(imageUrl);
+      final safeName = product.name
+          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .trim()
+          .replaceAll(RegExp(r'\s+'), '-')
+          .toLowerCase();
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/${safeName.isEmpty ? 'product' : safeName}.$ext');
+      await file.writeAsBytes(bytes, flush: true);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              file.path,
+              mimeType: _mimeTypeForExtension(ext),
+              name: file.uri.pathSegments.last,
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not download image to share')),
+      );
+    }
+  } catch (error, stackTrace) {
+    debugPrint('Share image only failed: $error\n$stackTrace');
+    if (context.mounted && loadingVisible) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share image')),
+      );
+    }
+  }
+}
 
 String buildProductShareUrl(String productId) =>
     '${Env.storeUrl}/product/$productId?openInApp=1';

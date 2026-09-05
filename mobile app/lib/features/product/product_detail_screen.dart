@@ -120,7 +120,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
-    final nextQuantity = cartLineQuantity ?? minOrderQuantity;
+    final nextQuantity = cartLineQuantity ?? (_quantity < minOrderQuantity ? minOrderQuantity : _quantity);
     final clamped = nextQuantity.clamp(minOrderQuantity, maxQuantity);
 
     if (_quantity != clamped) {
@@ -156,6 +156,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final colors = getAvailableColors(product, activeVariant);
     if (_selectedColor.isEmpty && colors.isNotEmpty) {
       _selectedColor = colors.first.name;
+      changed = true;
+    }
+
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariant);
+    if (_quantity < minOrderQuantity) {
+      _quantity = minOrderQuantity;
       changed = true;
     }
 
@@ -223,6 +229,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       colorName: selectionColor,
     );
 
+    final cartLineQuantity = ref.watch(productDetailCartQuantityProvider(cartKey));
+    _syncQuantityForProduct(product, activeVariantName, cartLineQuantity);
+
     ref.listen<int?>(productDetailCartQuantityProvider(cartKey), (previous, next) {
       _syncQuantityForProduct(product, activeVariantName, next);
     });
@@ -230,12 +239,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final variantStock = getVariantStock(product, activeVariantName);
     final inStock = variantStock > 0;
     final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final effectiveQuantity = _quantity < minOrderQuantity ? minOrderQuantity : _quantity;
     final quantityStep = getCartAdjustStep(product, activeVariantName);
     final showMoq = hasConfiguredMinOrderQuantity(product, activeVariantName);
     final showStepByQty = hasConfiguredQuantityStep(product, activeVariantName);
     final maxQuantity = getMaxOrderQuantity(product, activeVariantName);
     final currentUnitPrice =
-        getUnitPriceForQuantity(product, _quantity, activeVariantName);
+        getUnitPriceForQuantity(product, effectiveQuantity, activeVariantName);
     final bulkTiers = getBulkTierRows(product, activeVariantName);
     final showBulkSection = isBulkPricing(product, activeVariantName);
     final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
@@ -284,10 +294,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => showProductShareSheet(
+                    onPressed: () => shareProductImageOnly(
                       context,
                       product,
-                      variantName: activeVariantName,
                     ),
                     icon: const Icon(Icons.share_outlined),
                   ),
@@ -312,7 +321,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               ProductPriceDisplay(
                 product: product,
                 variantName: activeVariantName,
-                quantity: _quantity,
+                quantity: effectiveQuantity,
                 size: ProductPriceSize.lg,
               ),
               if (isMultiVariant(product)) ...[
@@ -434,7 +443,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           _QuantitySelector(
-                            quantity: _quantity,
+                            quantity: effectiveQuantity,
                             min: minOrderQuantity,
                             max: maxQuantity,
                             disabled: !inStock,
@@ -759,7 +768,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     setState(() {
-      _quantity = (_quantity - quantityStep).clamp(minOrderQuantity, _quantity);
+      final base = _quantity < minOrderQuantity ? minOrderQuantity : _quantity;
+      final newQty = base - quantityStep;
+      _quantity = newQty < minOrderQuantity ? minOrderQuantity : newQty;
     });
   }
 
@@ -818,7 +829,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     setState(() {
-      _quantity = (_quantity + quantityStep).clamp(minOrderQuantity, maxQuantity);
+      final base = _quantity < minOrderQuantity ? minOrderQuantity : _quantity;
+      final next = base + quantityStep;
+      _quantity = next > maxQuantity ? maxQuantity : (next < minOrderQuantity ? minOrderQuantity : next);
     });
   }
 
@@ -829,7 +842,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     BuildContext flySourceContext,
   ) async {
     final availableColors = getAvailableColors(product, activeVariantName);
-    if (availableColors.isNotEmpty && selectionColor.isEmpty) return;
+    if (availableColors.isNotEmpty && selectionColor.isEmpty) {
+      _showQuantityMessage('Please select a color');
+      return;
+    }
+
+    final minOrderQuantity = getMinOrderQuantity(product, activeVariantName);
+    final targetQuantity = _quantity < minOrderQuantity ? minOrderQuantity : _quantity;
 
     final existingLine = findCartLineForProductDetail(
       ref.read(cartControllerProvider).items,
@@ -848,7 +867,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
-          _quantity,
+          targetQuantity,
           variantName: activeVariantName,
           colorName: selectionColor,
           flySourceContext: flySourceContext,
@@ -857,6 +876,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ref.read(authControllerProvider.notifier).openAuthModal();
     } else if (result == AddToCartResult.success) {
       setState(() => _quantitySyncedKey = null);
+    } else if (result == AddToCartResult.failed && mounted) {
+      final errorMsg = ref.read(cartControllerProvider).errorMessage;
+      if (errorMsg != null && errorMsg.isNotEmpty) {
+        _showQuantityMessage(errorMsg);
+      }
     }
   }
 

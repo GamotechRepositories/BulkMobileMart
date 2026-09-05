@@ -118,14 +118,6 @@ class _PaymentModalState extends State<PaymentModal> {
   bool get _busy => widget.processing || _uploadingScreenshot || _submittingProof || _downloadingQr;
 
   @override
-  void initState() {
-    super.initState();
-    if (_showMobileUpiOptions) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _openUpiChooser(auto: true));
-    }
-  }
-
-  @override
   void dispose() {
     _txnIdController.dispose();
     super.dispose();
@@ -359,7 +351,7 @@ class _PaymentModalState extends State<PaymentModal> {
                       _StepHeader(
                         step: 1,
                         title: 'Pay via UPI',
-                        subtitle: 'Open your UPI app or scan QR code',
+                        subtitle: 'Scan QR code to make payment',
                         done: _paymentStarted,
                       ),
                       const SizedBox(height: 10),
@@ -370,10 +362,8 @@ class _PaymentModalState extends State<PaymentModal> {
                         upiAccounts: _enabledUpiAccounts,
                         selectedUpiIndex: _selectedUpiIndex,
                         onSelectUpi: (index) => setState(() => _selectedUpiIndex = index),
-                        showMobileOptions: _showMobileUpiOptions,
                         busy: _busy,
                         downloadingQr: _downloadingQr,
-                        onPay: () => _openUpiChooser(),
                         onDownloadQr: () => _downloadQr(qrUrl),
                       ),
                       const SizedBox(height: 20),
@@ -642,10 +632,8 @@ class _PayStepCard extends StatelessWidget {
     required this.upiAccounts,
     required this.selectedUpiIndex,
     required this.onSelectUpi,
-    required this.showMobileOptions,
     required this.busy,
     required this.downloadingQr,
-    required this.onPay,
     required this.onDownloadQr,
   });
 
@@ -655,10 +643,8 @@ class _PayStepCard extends StatelessWidget {
   final List<MerchantUpiAccount> upiAccounts;
   final int selectedUpiIndex;
   final ValueChanged<int> onSelectUpi;
-  final bool showMobileOptions;
   final bool busy;
   final bool downloadingQr;
-  final VoidCallback onPay;
   final VoidCallback onDownloadQr;
 
   @override
@@ -718,56 +704,6 @@ class _PayStepCard extends StatelessWidget {
               }),
             ),
             const SizedBox(height: 12),
-          ],
-          if (showMobileOptions && hasUpiId) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                onPressed: busy ? null : onPay,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/images/payment/upi.svg',
-                      width: 22,
-                      height: 22,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'Open UPI App',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: Divider(color: AppColors.borderLight)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Text(
-                    'OR SCAN QR',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-                Expanded(child: Divider(color: AppColors.borderLight)),
-              ],
-            ),
-            const SizedBox(height: 14),
           ],
           if (hasUpiId && qrUrl.isNotEmpty)
             Container(

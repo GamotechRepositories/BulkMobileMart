@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../config/env.dart';
 
@@ -16,9 +18,10 @@ Future<Uint8List?> downloadNetworkImageBytes(String imageUrl) async {
   if (url.isEmpty) return null;
 
   final encoded = Uri.encodeComponent(url);
+  final isQrService = url.contains('qrserver.com');
   final sources = <String>[
     url,
-    '${Env.productionApiUrl}/api/proxy/image?url=$encoded',
+    if (!isQrService) '${Env.productionApiUrl}/api/proxy/image?url=$encoded',
   ];
 
   final dio = Dio(
@@ -26,7 +29,13 @@ Future<Uint8List?> downloadNetworkImageBytes(String imageUrl) async {
       connectTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(seconds: 30),
       responseType: ResponseType.bytes,
-      validateStatus: (status) => status != null && status >= 200 && status < 300,
+      followRedirects: true,
+      maxRedirects: 5,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36',
+        'Accept': 'image/png,image/jpeg,image/*,*/*',
+      },
+      validateStatus: (status) => status != null && status >= 200 && status < 400,
     ),
   );
 
@@ -38,9 +47,25 @@ Future<Uint8List?> downloadNetworkImageBytes(String imageUrl) async {
         return Uint8List.fromList(data);
       }
     } catch (_) {
-      // Try proxy/direct fallback.
+      // Try next source.
     }
   }
+
+  // Native HttpClient fallback
+  try {
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 15);
+    final request = await client.getUrl(Uri.parse(url));
+    request.headers.set('User-Agent', 'Mozilla/5.0 (Linux; Android 13; Mobile)');
+    request.headers.set('Accept', 'image/png,image/jpeg,image/*,*/*');
+    final response = await request.close();
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final bytes = await consolidateHttpClientResponseBytes(response);
+      client.close();
+      if (bytes.isNotEmpty) return bytes;
+    }
+    client.close();
+  } catch (_) {}
 
   return null;
 }

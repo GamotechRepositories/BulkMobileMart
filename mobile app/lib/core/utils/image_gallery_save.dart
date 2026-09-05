@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'network_image_bytes.dart';
 
@@ -13,10 +14,6 @@ class GallerySaveResult {
 }
 
 /// Saves a network image using MediaStore / Photos add APIs.
-///
-/// Android 10+ (API 29+): no READ_MEDIA / storage read permission is requested.
-/// Older Android may need WRITE_EXTERNAL_STORAGE (maxSdkVersion 29 in the manifest).
-/// iOS uses NSPhotoLibraryAddUsageDescription only (add access), not full library read.
 Future<GallerySaveResult> saveNetworkImageToGallery({
   required String imageUrl,
   required String fileName,
@@ -31,17 +28,9 @@ Future<GallerySaveResult> saveNetworkImageToGallery({
   }
 
   try {
-    // Skip runtime permission prompts on modern Android — `gal` already treats
-    // API > 29 as granted. Only request when the platform actually needs it
-    // (legacy Android write, or iOS add-to-library).
-    final needsAccessPrompt = !kIsWeb &&
-        (Platform.isIOS ||
-            Platform.isMacOS ||
-            (Platform.isAndroid &&
-                !await Gal.hasAccess()));
-
-    if (needsAccessPrompt) {
-      final granted = await Gal.requestAccess();
+    final hasAccess = await Gal.hasAccess(toAlbum: false);
+    if (!hasAccess) {
+      final granted = await Gal.requestAccess(toAlbum: false);
       if (!granted) {
         return const GallerySaveResult(
           success: false,
@@ -59,16 +48,21 @@ Future<GallerySaveResult> saveNetworkImageToGallery({
     }
 
     final safeName = fileName.replaceAll(RegExp(r'[^\w.-]'), '');
-    final name = safeName.isEmpty ? 'image' : safeName;
+    final name = safeName.isEmpty ? 'qr-payment' : safeName;
 
-    await Gal.putImageBytes(bytes, name: name);
+    final tempDir = await getTemporaryDirectory();
+    final tempFile = File('${tempDir.path}/$name.png');
+    await tempFile.writeAsBytes(bytes, flush: true);
+
+    await Gal.putImage(tempFile.path);
     return GallerySaveResult(success: true, message: successMessage);
   } on GalException catch (error) {
     return GallerySaveResult(success: false, message: error.type.message);
-  } catch (_) {
+  } catch (error, st) {
+    debugPrint('saveNetworkImageToGallery failed: $error\n$st');
     return const GallerySaveResult(
       success: false,
-      message: 'Could not save image.',
+      message: 'Could not save image to gallery.',
     );
   }
 }
