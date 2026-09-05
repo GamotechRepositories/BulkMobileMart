@@ -553,12 +553,23 @@ function Checkout() {
 
   const selectedAddress = addresses.find((addr) => addr._id === selectedAddressId) || null;
 
-  const addressFormInitial = {
-    ...ADDRESS_FORM_FIELDS,
-    fullName: user.name || "",
-    number: user.phone || "",
-    email: user.email || "",
-  };
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-mobile-bg px-3 py-6 sm:px-4 lg:px-8">
+        <div className="mx-auto max-w-7xl animate-pulse space-y-4">
+          <div className="h-8 w-40 rounded-lg bg-white" />
+          <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+            <div className="space-y-4">
+              <div className="h-44 rounded-xl border border-border-light bg-white" />
+              <div className="h-36 rounded-xl border border-border-light bg-white" />
+              <div className="h-32 rounded-xl border border-border-light bg-white" />
+            </div>
+            <div className="h-[480px] rounded-xl border border-border-light bg-white" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -577,6 +588,13 @@ function Checkout() {
       </div>
     );
   }
+
+  const addressFormInitial = {
+    ...ADDRESS_FORM_FIELDS,
+    fullName: user.name || "",
+    number: user.phone || "",
+    email: user.email || "",
+  };
 
   return (
     <div className="min-h-screen bg-mobile-bg text-text-primary">
