@@ -430,7 +430,7 @@ export const submitUpiPaymentProof = async (req, res) => {
 export const getPaymentUnreadCount = async (req, res) => {
   try {
     const { since } = req.query;
-    const filter = { status: "pending" };
+    const filter = { status: "pending", source: "upi_manual" };
 
     if (since) {
       const sinceDate = new Date(since);
@@ -534,9 +534,11 @@ export const getAdminPayments = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
     const { status, orderIds } = req.query;
-    const filter = {};
+    const filter = { source: "upi_manual" };
 
-    if (status && ["pending", "verified", "rejected"].includes(status)) {
+    if (status === "reviewed") {
+      filter.status = { $in: ["verified", "rejected"] };
+    } else if (status && ["pending", "verified", "rejected"].includes(status)) {
       filter.status = status;
     }
 

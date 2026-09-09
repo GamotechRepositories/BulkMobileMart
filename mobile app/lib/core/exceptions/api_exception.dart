@@ -50,6 +50,20 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+String? apiErrorCode(Object error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map<String, dynamic>) {
+      final code = data['code']?.toString().trim();
+      if (code != null && code.isNotEmpty) return code;
+    }
+  }
+  if (error is ApiException && error.cause is DioException) {
+    return apiErrorCode(error.cause as DioException);
+  }
+  return null;
+}
+
 String apiErrorMessage(
   Object error, {
   String fallback = 'Something went wrong. Please try again.',

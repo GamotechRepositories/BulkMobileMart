@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { uploadImageFile } from "../../api/api";
 import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
@@ -8,8 +8,6 @@ import {
   getPayableAmount,
   getQrCodeImageUrl,
   getQrDownloadFilename,
-  isMobileDevice,
-  openUpiAppChooser,
   pickEnabledMerchantUpiAccounts,
 } from "../../utils/upiPayment";
 
@@ -37,7 +35,6 @@ function PaymentModal({
   processing,
   error = "",
 }) {
-  const [upiHint, setUpiHint] = useState("");
   const [screenshot, setScreenshot] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [upiTransactionRef, setUpiTransactionRef] = useState("");
@@ -67,32 +64,9 @@ function PaymentModal({
   );
   const qrUrl = getQrCodeImageUrl(payableAmount, paymentNote, upiConfig);
   const hasUpiId = Boolean(upiConfig.upiId);
-  const onMobile = isMobileDevice();
-
-  const openUpiChooser = useCallback(() => {
-    if (!hasUpiId) {
-      setUpiHint("UPI ID is not configured. Please contact support.");
-      return;
-    }
-
-    setUpiHint("");
-    const launched = openUpiAppChooser(payableAmount, paymentNote, upiConfig);
-
-    if (launched) {
-      setUpiHint("Complete payment in your UPI app, then upload screenshot.");
-      return;
-    }
-
-    setUpiHint(
-      onMobile
-        ? "No UPI app found. Install PhonePe, Paytm, or GPay — or scan the QR code."
-        : "Open this page on your phone to pay with UPI, or scan the QR code."
-    );
-  }, [hasUpiId, onMobile, payableAmount, paymentNote, upiConfig]);
 
   useEffect(() => {
     if (!open) {
-      setUpiHint("");
       setScreenshot(null);
       setScreenshotPreview("");
       setUpiTransactionRef("");
@@ -314,34 +288,9 @@ function PaymentModal({
                 <p className="mt-1.5 text-center text-[10px] leading-snug text-text-secondary">{qrDownloadHint}</p>
               ) : null}
 
-              {onMobile ? (
-                <div className="mt-3 w-full">
-                  <button
-                    type="button"
-                    disabled={processing || !hasUpiId}
-                    onClick={openUpiChooser}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
-                  >
-                    <img
-                      src="/assets/payment/upi.svg"
-                      alt=""
-                      width={20}
-                      height={20}
-                      className="h-5 w-5 shrink-0"
-                      aria-hidden="true"
-                    />
-                    Pay with UPI
-                  </button>
-                </div>
-              ) : (
-                <p className="mt-3 text-center text-[10px] text-text-muted">
-                  Open this page on your phone to pay with UPI, or scan the QR code above.
-                </p>
-              )}
-
-              {upiHint && (
-                <p className="mt-2 text-center text-[10px] leading-snug text-text-secondary">{upiHint}</p>
-              )}
+              <p className="mt-3 text-center text-[10px] text-text-muted">
+                Scan the QR code or download it to pay, then upload your payment screenshot below.
+              </p>
             </div>
 
             <div className="rounded-lg border border-border-light bg-mobile-surface/40 p-2">

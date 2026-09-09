@@ -173,13 +173,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   String? get _checkoutAttemptedOrderId => _resumeAttemptedOrderId ?? _attemptedOrderId;
 
-  Future<String?> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
-    if (_orderPlaced || items.isEmpty) return _checkoutAttemptedOrderId;
+  Future<bool> _handleUnavailableCartItems(Object error) async {
+    if (apiErrorCode(error) != 'CART_ITEMS_UNAVAILABLE') return false;
+
+    await ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+    if (!mounted) return true;
+    setState(() {
+      _orderError = apiErrorMessage(
+        error,
+        fallback: 'Some items in your cart are no longer available.',
+      );
+    });
+    return true;
+  }
+
+  Future<bool> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
+    if (_orderPlaced || items.isEmpty) return true;
 
     final key =
         '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (!force && key == _lastCheckoutAttemptKey && _checkoutAttemptedOrderId != null) {
-      return _checkoutAttemptedOrderId;
+      return true;
     }
 
     try {
@@ -197,16 +211,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (orderId != null && orderId.isNotEmpty && _resumeAttemptedOrderId == null) {
         _attemptedOrderId = orderId;
         _lastCheckoutAttemptKey = key;
-        return orderId;
-      }
-      if (orderId != null && orderId.isNotEmpty) {
+      } else if (orderId != null && orderId.isNotEmpty) {
         _lastCheckoutAttemptKey = key;
       }
-    } catch (_) {
-      // Caller can retry with force before payment.
+      return true;
+    } catch (e) {
+      if (await _handleUnavailableCartItems(e)) {
+        return false;
+      }
+      return true;
     }
-
-    return _checkoutAttemptedOrderId;
   }
 
   Future<void> _handleSaveAddress(Map<String, String> form) async {
@@ -290,8 +304,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     if (!meetsMinimumOrder(summary.subtotal, minimumOrderValue)) return;
 
-    await _syncCheckoutAttempt(cartItems, force: true);
-    if (!mounted) return;
+    final canContinue = await _syncCheckoutAttempt(cartItems, force: true);
+    if (!mounted || !canContinue) return;
 
     await _openUpiPaymentModal(summary, storeSettings);
   }
@@ -355,6 +369,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             await _completeOrderSuccess(note);
             return null;
           } catch (e) {
+            if (await _handleUnavailableCartItems(e)) {
+              if (mounted) {
+                setState(() => _placingOrder = false);
+              }
+              return apiErrorMessage(
+                e,
+                fallback: 'Some items in your cart are no longer available.',
+              );
+            }
             final message = apiErrorMessage(
               e,
               fallback: 'Failed to submit payment proof. Please try again.',

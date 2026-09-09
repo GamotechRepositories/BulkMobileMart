@@ -1,10 +1,8 @@
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../config/env.dart';
@@ -60,8 +58,6 @@ class _PaymentModalState extends State<PaymentModal> {
   bool _uploadingScreenshot = false;
   bool _submittingProof = false;
   bool _downloadingQr = false;
-  bool _chooserOpened = false;
-  bool _paymentStarted = false;
   int _selectedUpiIndex = 0;
 
   bool get _isCod => widget.paymentMethod == 'cod';
@@ -111,8 +107,6 @@ class _PaymentModalState extends State<PaymentModal> {
 
   bool get _hasUpiId => _selectedUpiAccount != null;
 
-  bool get _showMobileUpiOptions => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-
   bool get _hasScreenshot => _screenshotLocalPath != null || _screenshotUrl != null;
 
   bool get _busy => widget.processing || _uploadingScreenshot || _submittingProof || _downloadingQr;
@@ -121,28 +115,6 @@ class _PaymentModalState extends State<PaymentModal> {
   void dispose() {
     _txnIdController.dispose();
     super.dispose();
-  }
-
-  Future<void> _openUpiChooser({bool auto = false}) async {
-    if (!_hasUpiId) return;
-
-    final account = _selectedUpiAccount;
-    if (account == null) return;
-
-    if (auto && _chooserOpened) return;
-    _chooserOpened = true;
-
-    final launched = await UpiPayment.openUpiChooser(
-      amount: _payableAmount,
-      note: _paymentNote,
-      merchantUpiId: account.upiId,
-      merchantUpiName: account.label,
-    );
-
-    if (!mounted) return;
-    if (launched) {
-      setState(() => _paymentStarted = true);
-    }
   }
 
   Future<void> _downloadQr(String qrUrl) async {
@@ -318,7 +290,7 @@ class _PaymentModalState extends State<PaymentModal> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Pay with UPI, then upload your payment screenshot.',
+                        'Scan the QR code or download it, then upload your payment screenshot.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondary,
                               height: 1.35,
@@ -351,8 +323,7 @@ class _PaymentModalState extends State<PaymentModal> {
                       _StepHeader(
                         step: 1,
                         title: 'Pay via UPI',
-                        subtitle: 'Scan QR code to make payment',
-                        done: _paymentStarted,
+                        subtitle: 'Scan QR code or download to pay',
                       ),
                       const SizedBox(height: 10),
                       _PayStepCard(
@@ -519,7 +490,7 @@ class _StepHeader extends StatelessWidget {
     required this.step,
     required this.title,
     required this.subtitle,
-    required this.done,
+    this.done = false,
   });
 
   final int step;

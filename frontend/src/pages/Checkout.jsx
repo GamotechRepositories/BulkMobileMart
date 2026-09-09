@@ -331,9 +331,25 @@ function Checkout() {
     isBuyNow,
   ]);
 
+  const handleUnavailableCartItems = useCallback(
+    async (err) => {
+      if (err?.response?.data?.code !== "CART_ITEMS_UNAVAILABLE") {
+        return false;
+      }
+
+      await loadCart();
+      setOrderError(
+        err.response?.data?.message ||
+          "Some items in your cart are no longer available. Please review your cart."
+      );
+      return true;
+    },
+    [loadCart]
+  );
+
   const syncCheckoutAttempt = useCallback(async () => {
     if (authLoading || bootstrapping || !user || orderPlaced || checkoutItems.length === 0) {
-      return getCheckoutAttemptedOrderId();
+      return true;
     }
 
     try {
@@ -353,13 +369,15 @@ function Checkout() {
           setAttemptedOrderId(orderId);
           attemptedOrderIdRef.current = orderId;
         }
-        return getCheckoutAttemptedOrderId();
       }
+      return true;
     } catch (err) {
+      if (await handleUnavailableCartItems(err)) {
+        return false;
+      }
       console.warn("Checkout attempt sync failed:", err.response?.data?.message || err.message);
+      return true;
     }
-
-    return getCheckoutAttemptedOrderId();
   }, [
     authLoading,
     bootstrapping,
@@ -370,6 +388,7 @@ function Checkout() {
     paymentMethod,
     checkoutItemsPayload,
     isBuyNow,
+    handleUnavailableCartItems,
   ]);
 
   useEffect(() => {
@@ -495,9 +514,13 @@ function Checkout() {
           : "Order confirmed. We will verify your UPI payment shortly.";
       await completeOrderSuccess(note, data.data?.order);
     } catch (err) {
-      setPaymentModalError(
-        err.response?.data?.message || "Failed to submit payment proof. Please try again."
-      );
+      if (await handleUnavailableCartItems(err)) {
+        setShowPaymentModal(false);
+      } else {
+        setPaymentModalError(
+          err.response?.data?.message || "Failed to submit payment proof. Please try again."
+        );
+      }
     } finally {
       setPlacingOrder(false);
     }
@@ -510,11 +533,17 @@ function Checkout() {
     setPlacingOrder(true);
     await loadCart();
     try {
-      await syncCheckoutAttempt();
+      const canContinue = await syncCheckoutAttempt();
+      if (!canContinue) {
+        setPlacingOrder(false);
+        return;
+      }
       setPlacingOrder(false);
       setShowPaymentModal(true);
     } catch (err) {
-      setOrderError(err.response?.data?.message || "Failed to prepare checkout. Please try again.");
+      if (!(await handleUnavailableCartItems(err))) {
+        setOrderError(err.response?.data?.message || "Failed to prepare checkout. Please try again.");
+      }
       setPlacingOrder(false);
     }
   };

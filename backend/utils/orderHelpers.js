@@ -9,6 +9,7 @@ import {
   getVariant,
   getVariantStock,
   isMultiVariant,
+  isProductInStock,
   PRODUCT_PRICING_SELECT,
 } from "./productPricing.js";
 import {
@@ -189,6 +190,16 @@ export function listUnavailableCartItems(items = []) {
       continue;
     }
 
+    const variantName = normalizeVariantName(item.variantName);
+    if (!isProductInStock(item.product, variantName)) {
+      unavailable.push({
+        productId: item.product._id,
+        name: item.product.name || "Unavailable product",
+        reason: "out_of_stock",
+      });
+      continue;
+    }
+
     available.push(item);
   }
 
@@ -276,8 +287,12 @@ async function resolveCheckoutItems(rawItems, { skipStockCheck = false } = {}) {
     const availableStock = getVariantStock(product, normalizedVariantName);
     if (!skipStockCheck && qty > availableStock) {
       return {
-        error: `Only ${availableStock} units available in stock`,
+        error:
+          availableStock <= 0
+            ? `${product.name} is out of stock`
+            : `Only ${availableStock} units available in stock`,
         status: 400,
+        code: availableStock <= 0 ? "CART_ITEMS_UNAVAILABLE" : "INSUFFICIENT_STOCK",
       };
     }
 
@@ -307,6 +322,15 @@ function buildOrderItemsFromResolved(items) {
 
     const variantName = item.variantName || "";
     const colorName = item.colorName || "";
+
+    if (!isProductInStock(item.product, variantName)) {
+      return {
+        error: `${item.product.name || "One or more products"} is out of stock`,
+        status: 400,
+        code: "CART_ITEMS_UNAVAILABLE",
+      };
+    }
+
     const price = getUnitPriceForQuantity(item.product, item.quantity, variantName);
     subtotal += price * item.quantity;
 
@@ -518,17 +542,19 @@ async function resolveItemsForCheckout(userId, options = {}) {
     }
 
     const { unavailable, available } = listUnavailableCartItems(cart.items);
-    if (unavailable.length && !available.length) {
+    if (unavailable.length) {
+      cart.items = available;
+      await cart.save();
       const names = unavailable.map((item) => item.name).join(", ");
       return {
-        error: `These items are no longer available: ${names}`,
+        error: `These items are no longer available: ${names}. They were removed from your cart. Please review and try again.`,
         status: 400,
         code: "CART_ITEMS_UNAVAILABLE",
         removedItems: unavailable,
       };
     }
 
-    itemsToProcess = available.length ? available : cart.items;
+    itemsToProcess = cart.items;
   }
 
   return { itemsToProcess, cart, checkoutMode };
@@ -589,10 +615,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
       (await Address.findOne({ user: userId }).sort({ updatedAt: -1 }));
   }
 
-  const resolvedItems = await resolveItemsForCheckout(userId, {
-    ...options,
-    skipStockCheck: true,
-  });
+  const resolvedItems = await resolveItemsForCheckout(userId, options);
   if (resolvedItems.error) {
     return resolvedItems;
   }
