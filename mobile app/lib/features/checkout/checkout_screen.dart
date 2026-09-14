@@ -23,7 +23,7 @@ import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
 import '../../models/store_settings.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/address/address_form.dart';
+import '../../widgets/address/address_sheets.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../services/facebook_app_events_service.dart';
@@ -47,13 +47,11 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _selectedAddressId;
-  bool _showAddressForm = false;
-  bool _showAddressPicker = false;
   bool _savingAddress = false;
   String _paymentPlan = PaymentPlan.advance;
   String _message = '';
   int _messageLength = 0;
-  String _formError = '';
+  bool _autoOpenedAddressSheet = false;
   String _orderError = '';
   bool _placingOrder = false;
   bool _orderPlaced = false;
@@ -223,50 +221,52 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
-  Future<void> _handleSaveAddress(Map<String, String> form) async {
-    setState(() {
-      _savingAddress = true;
-      _formError = '';
-    });
+  Future<String?> _handleSaveAddress(Map<String, String> form) async {
+    setState(() => _savingAddress = true);
 
     final error = await ref.read(addressControllerProvider.notifier).saveAddress(
           form,
           makeDefault: ref.read(addressControllerProvider).addresses.isEmpty,
         );
 
-    if (!mounted) return;
+    if (!mounted) return error;
 
     if (error == null) {
       final addresses = ref.read(addressControllerProvider).addresses;
       final newest = addresses.isNotEmpty ? addresses.first : null;
       setState(() {
         _savingAddress = false;
-        _showAddressForm = false;
-        _showAddressPicker = false;
         _selectedAddressId = newest?.id;
       });
     } else {
-      setState(() {
-        _savingAddress = false;
-        _formError = error;
-      });
+      setState(() => _savingAddress = false);
     }
+
+    return error;
   }
 
-  Map<String, String> _addressInitialValues() {
+  Future<void> _openAddAddressSheet() async {
     final user = ref.read(authControllerProvider).user;
-    return {
-      'fullName': user?.name ?? '',
-      'number': user?.phone ?? '',
-      'email': user?.email ?? '',
-      'shopNo': '',
-      'shopName': '',
-      'fullAddress': '',
-      'landmark': '',
-      'city': '',
-      'state': '',
-      'pincode': '',
-    };
+    final addresses = ref.read(addressControllerProvider).addresses;
+
+    await showAddressFormSheet(
+      context,
+      initial: buildNewAddressInitialValues(user: user, addresses: addresses),
+      phoneOptions: buildAddressPhoneOptions(user: user, addresses: addresses),
+      onSubmit: _handleSaveAddress,
+    );
+  }
+
+  Future<void> _openAddressPickerSheet(List<Address> addresses) async {
+    final pickedId = await showAddressPickerSheet(
+      context,
+      addresses: addresses,
+      selectedId: _selectedAddressId,
+      onAddNew: _openAddAddressSheet,
+    );
+    if (pickedId != null && mounted) {
+      setState(() => _selectedAddressId = pickedId);
+    }
   }
 
   void _maybeLogInitiatedCheckout(
@@ -432,6 +432,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final addressesLoading =
         ref.watch(addressControllerProvider.select((s) => s.loading));
 
+    ref.listen(addressControllerProvider, (previous, next) {
+      if (_autoOpenedAddressSheet || next.loading || next.addresses.isNotEmpty) {
+        return;
+      }
+      _autoOpenedAddressSheet = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openAddAddressSheet());
+      });
+    });
+
     if (!isLoggedIn) {
       return Scaffold(
         appBar: AppBar(title: const Text('Checkout')),
@@ -547,90 +557,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     const SizedBox(height: 12),
                     _StepSection(
-                      title: 'Delivery Details',
+                      title: 'Delivery address',
                       child: addressesLoading
                           ? const SkeletonAddressList()
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (addressList.isEmpty && !_showAddressForm) ...[
-                                  const Text(
-                                    'No saved address yet. Add one to continue.',
-                                    style: TextStyle(color: AppColors.textSecondary),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: FilledButton.icon(
-                                      onPressed: () => setState(() => _showAddressForm = true),
-                                      icon: const Icon(Icons.add, size: 20),
-                                      label: const Text('Add delivery address'),
-                                      style: FilledButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                                if (selectedAddress != null &&
-                                    !_showAddressForm &&
-                                    !_showAddressPicker)
-                                  _SelectedAddressCard(
-                                    address: selectedAddress,
-                                    showChange: addressList.length > 1,
-                                    onChange: () => setState(() => _showAddressPicker = true),
-                                  ),
-                                if (_showAddressPicker && !_showAddressForm)
-                                  _AddressPicker(
-                                    addresses: addressList,
-                                    selectedId: _selectedAddressId,
-                                    onSelect: (id) => setState(() {
-                                      _selectedAddressId = id;
-                                      _showAddressPicker = false;
-                                    }),
-                                    onAddNew: () => setState(() {
-                                      _showAddressForm = true;
-                                      _showAddressPicker = false;
-                                    }),
-                                  ),
-                                if (_showAddressForm) ...[
-                                  AddressForm(
-                                    plain: true,
-                                    initial: _addressInitialValues(),
-                                    submitting: _savingAddress,
-                                    onCancel: () => setState(() {
-                                      _showAddressForm = false;
-                                      _formError = '';
-                                    }),
-                                    onSubmit: _handleSaveAddress,
-                                  ),
-                                  if (_formError.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _formError,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                                    ),
-                                  ],
-                                ] else if (addressList.isNotEmpty &&
-                                    selectedAddress == null &&
-                                    !_showAddressPicker)
-                                  TextButton(
-                                    onPressed: () => setState(() => _showAddressForm = true),
-                                    child: const Text('+ Add Address'),
-                                  ),
-                                if (selectedAddress != null &&
-                                    !_showAddressForm &&
-                                    !_showAddressPicker)
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton(
-                                      onPressed: () => setState(() => _showAddressForm = true),
-                                      child: const Text('+ Add new address'),
-                                    ),
-                                  ),
-                              ],
+                          : _CheckoutDeliveryAddressSection(
+                              addresses: addressList,
+                              selectedAddress: selectedAddress,
+                              savingAddress: _savingAddress,
+                              onAddAddress: _openAddAddressSheet,
+                              onChangeAddress: () =>
+                                  _openAddressPickerSheet(addressList),
                             ),
                     ),
                     const SizedBox(height: 12),
@@ -1304,146 +1240,221 @@ class _StepSection extends StatelessWidget {
   }
 }
 
-class _SelectedAddressCard extends StatelessWidget {
-  const _SelectedAddressCard({
-    required this.address,
-    required this.showChange,
-    required this.onChange,
+class _CheckoutDeliveryAddressSection extends StatelessWidget {
+  const _CheckoutDeliveryAddressSection({
+    required this.addresses,
+    required this.selectedAddress,
+    required this.savingAddress,
+    required this.onAddAddress,
+    required this.onChangeAddress,
   });
 
-  final Address address;
-  final bool showChange;
-  final VoidCallback onChange;
+  final List<Address> addresses;
+  final Address? selectedAddress;
+  final bool savingAddress;
+  final VoidCallback onAddAddress;
+  final VoidCallback onChangeAddress;
+
+  @override
+  Widget build(BuildContext context) {
+    if (addresses.isEmpty) {
+      return _EmptyDeliveryAddressCard(
+        saving: savingAddress,
+        onAdd: onAddAddress,
+      );
+    }
+
+    if (selectedAddress == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Select where you want your order delivered.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onChangeAddress,
+            icon: const Icon(Icons.location_on_outlined, size: 20),
+            label: const Text('Choose saved address'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: onAddAddress,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add new address'),
+          ),
+        ],
+      );
+    }
+
+    return _SelectedAddressCard(
+      address: selectedAddress!,
+      onChange: onChangeAddress,
+      onAddNew: onAddAddress,
+    );
+  }
+}
+
+class _EmptyDeliveryAddressCard extends StatelessWidget {
+  const _EmptyDeliveryAddressCard({
+    required this.saving,
+    required this.onAdd,
+  });
+
+  final bool saving;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.mobileSurface.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        getAddressFullName(address),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    if (address.isDefault) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'DEFAULT',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (showChange)
-                TextButton(onPressed: onChange, child: const Text('Change')),
-            ],
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.location_on_outlined,
+              color: AppColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No delivery address yet',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
           ),
           const SizedBox(height: 6),
-          Text(
-            formatAddressLine(address),
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+          const Text(
+            'Add your shop address once — we will use it for all future orders.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
-          const SizedBox(height: 4),
-          Text('+91 ${address.number}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: saving ? null : onAdd,
+              icon: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.add_rounded, size: 20),
+              label: Text(saving ? 'Saving...' : 'Add delivery address'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _AddressPicker extends StatelessWidget {
-  const _AddressPicker({
-    required this.addresses,
-    required this.selectedId,
-    required this.onSelect,
+class _SelectedAddressCard extends StatelessWidget {
+  const _SelectedAddressCard({
+    required this.address,
+    required this.onChange,
     required this.onAddNew,
   });
 
-  final List<Address> addresses;
-  final String? selectedId;
-  final ValueChanged<String> onSelect;
+  final Address address;
+  final VoidCallback onChange;
   final VoidCallback onAddNew;
 
   @override
   Widget build(BuildContext context) {
-    return RadioGroup<String>(
-      groupValue: selectedId,
-      onChanged: (value) {
-        if (value != null) onSelect(value);
-      },
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ...addresses.map(
-            (addr) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => onSelect(addr.id),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: selectedId == addr.id ? AppColors.primary : AppColors.borderLight,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: AddressTileBody(address: address)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onChange,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    color: selectedId == addr.id
-                        ? AppColors.primary.withValues(alpha: 0.05)
-                        : Colors.white,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Radio<String>(
-                        value: addr.id,
-                        activeColor: AppColors.primary,
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              getAddressFullName(addr),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              formatAddressLine(addr),
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  child: const Text('Change'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: onAddNew,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add new'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(onPressed: onAddNew, child: const Text('+ Add new address')),
-        ),
         ],
       ),
     );

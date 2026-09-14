@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/session_expired_handler.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/utils/jwt_utils.dart';
 import '../../models/user.dart';
 import '../../services/facebook_app_events_service.dart';
 import 'auth_state.dart';
@@ -26,8 +28,30 @@ class OtpVerifyResult {
 class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() {
-    Future<void>.delayed(const Duration(milliseconds: 500), _restoreSession);
-    return const AuthState();
+    final handler = ref.read(sessionExpiredHandlerProvider);
+    handler.bind(_onSessionExpired);
+    ref.onDispose(handler.unbind);
+
+    Future<void>.microtask(_restoreSession);
+
+    final storage = ref.read(authStorageProvider);
+    final savedToken = storage.token;
+    if (savedToken != null &&
+        savedToken.isNotEmpty &&
+        !JwtUtils.isExpired(savedToken)) {
+      // Validate with /me before marking logged in — avoids race with cart APIs.
+      return const AuthState(loading: true);
+    }
+    return const AuthState(loading: false);
+  }
+
+  void _onSessionExpired({required bool promptLogin}) {
+    if (!ref.mounted) return;
+    unawaited(FacebookAppEventsService.instance.clearUserIdentity());
+    state = AuthState(
+      loading: false,
+      authModal: promptLogin ? AuthModalMode.login : null,
+    );
   }
 
   Future<void> _restoreSession() async {
@@ -39,17 +63,14 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
 
-    final rawUser = storage.session?['user'];
-    User? cachedUser;
-    if (rawUser is Map<String, dynamic>) {
-      try {
-        cachedUser = User.fromJson(rawUser);
-      } catch (_) {}
+    // Client-side expiry: never keep a dead JWT as "logged in".
+    if (JwtUtils.isExpired(savedToken)) {
+      await storage.clear();
+      state = const AuthState(loading: false);
+      return;
     }
 
-    if (cachedUser != null) {
-      state = AuthState(user: cachedUser, token: savedToken, loading: false);
-    }
+    state = const AuthState(loading: true);
 
     try {
       final user = await ref.read(apiServiceProvider).fetchMe();
@@ -65,9 +86,22 @@ class AuthController extends Notifier<AuthState> {
       if (e is ApiException && e.statusCode == 401) {
         await storage.clear();
         state = const AuthState(loading: false);
-      } else if (cachedUser != null) {
+        return;
+      }
+
+      // Transient network/server error: keep offline session only if JWT still valid.
+      final rawUser = storage.session?['user'];
+      User? cachedUser;
+      if (rawUser is Map<String, dynamic>) {
+        try {
+          cachedUser = User.fromJson(rawUser);
+        } catch (_) {}
+      }
+
+      if (cachedUser != null && !JwtUtils.isExpired(savedToken)) {
         state = AuthState(user: cachedUser, token: savedToken, loading: false);
       } else {
+        await storage.clear();
         state = const AuthState(loading: false);
       }
     }

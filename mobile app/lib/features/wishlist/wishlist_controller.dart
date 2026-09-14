@@ -79,7 +79,7 @@ class WishlistController extends Notifier<WishlistState> {
 
   Future<void> loadWishlist() async {
     final auth = ref.read(authControllerProvider);
-    if (!auth.isLoggedIn) {
+    if (!auth.isLoggedIn || auth.loading) {
       state = const WishlistState();
       return;
     }
@@ -100,6 +100,7 @@ class WishlistController extends Notifier<WishlistState> {
     if (product.id.length < 10) return false;
 
     final auth = ref.read(authControllerProvider);
+    if (auth.loading) return false;
     if (!auth.isLoggedIn) {
       _pendingToggle = product;
       ref.read(authControllerProvider.notifier).openAuthModal();

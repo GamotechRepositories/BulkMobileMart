@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../models/address.dart';
 import '../auth/auth_controller.dart';
@@ -101,7 +102,9 @@ class AddressController extends Notifier<AddressState> {
       }
       return null;
     } catch (e) {
-      const message = 'Failed to save address';
+      final message = e is ApiException && e.message.isNotEmpty
+          ? e.message
+          : 'Failed to save address';
       state = state.copyWith(error: message);
       return message;
     }

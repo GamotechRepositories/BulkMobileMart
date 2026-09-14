@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_utils.dart';
@@ -141,7 +142,7 @@ class CartController extends Notifier<CartState> {
 
   Future<void> loadCart({bool silent = false}) async {
     final auth = ref.read(authControllerProvider);
-    if (!auth.isLoggedIn) {
+    if (!auth.isLoggedIn || auth.loading) {
       state = const CartState();
       return;
     }
@@ -178,6 +179,9 @@ class CartController extends Notifier<CartState> {
     final effectiveColor = colorName.trim();
 
     final auth = ref.read(authControllerProvider);
+    if (auth.loading) {
+      return AddToCartResult.failed;
+    }
     if (!auth.isLoggedIn) {
       _pending = PendingCartAction(
         product: product,
@@ -232,7 +236,10 @@ class CartController extends Notifier<CartState> {
 
       return AddToCartResult.success;
     } catch (error) {
-      state = state.copyWith(errorMessage: authErrorMessage(error));
+      // 401 is handled globally — login sheet opens; skip duplicate snackbar.
+      if (!isUnauthorizedApiError(error)) {
+        state = state.copyWith(errorMessage: authErrorMessage(error));
+      }
       return AddToCartResult.failed;
     }
   }
@@ -337,7 +344,9 @@ class CartController extends Notifier<CartState> {
     } catch (error) {
       state = state.copyWith(
         items: previous,
-        errorMessage: authErrorMessage(error),
+        errorMessage: isUnauthorizedApiError(error)
+            ? null
+            : authErrorMessage(error),
       );
       return false;
     }

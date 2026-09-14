@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/constants.dart';
+import '../utils/jwt_utils.dart';
 
 class AuthStorage {
   AuthStorage(this._prefs);
@@ -24,6 +25,20 @@ class AuthStorage {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Token only when present and not past JWT `exp` (client-side check).
+  String? get validToken {
+    final value = token;
+    if (value == null || value.isEmpty) return null;
+    if (JwtUtils.isExpired(value)) return null;
+    return value;
+  }
+
+  bool get hasExpiredToken {
+    final value = token;
+    if (value == null || value.isEmpty) return false;
+    return JwtUtils.isExpired(value);
   }
 
   Map<String, dynamic>? get session {
@@ -49,5 +64,12 @@ class AuthStorage {
 
   Future<void> clear() async {
     await _prefs.remove(AppConstants.authStorageKey);
+  }
+
+  /// Drops a locally-expired session so we never send a dead JWT.
+  Future<bool> clearIfTokenExpired() async {
+    if (!hasExpiredToken) return false;
+    await clear();
+    return true;
   }
 }

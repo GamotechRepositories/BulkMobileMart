@@ -16,6 +16,8 @@ class LocationAutocompleteField extends StatefulWidget {
     this.maxLength,
     this.inputFormatters,
     this.onSelected,
+    this.onChanged,
+    this.errorText,
   });
 
   final TextEditingController controller;
@@ -26,6 +28,8 @@ class LocationAutocompleteField extends StatefulWidget {
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
   final ValueChanged<String>? onSelected;
+  final ValueChanged<String>? onChanged;
+  final String? errorText;
 
   @override
   State<LocationAutocompleteField> createState() => _LocationAutocompleteFieldState();
@@ -136,45 +140,79 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
     overlay.insert(_overlayEntry!);
   }
 
+  InputBorder _fieldBorder(Color color, {double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: TextField(
-        controller: widget.controller,
-        enabled: widget.enabled,
-        keyboardType: widget.keyboardType,
-        maxLength: widget.maxLength,
-        inputFormatters: widget.inputFormatters,
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          counterText: '',
-          filled: true,
-          fillColor: widget.enabled ? Colors.white : Colors.grey.shade50,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.borderLight),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.borderLight),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.primary),
+    final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
+    final errorColor = Colors.red.shade700;
+    final errorFill = Colors.red.shade50;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CompositedTransformTarget(
+          link: _layerLink,
+          child: TextField(
+            controller: widget.controller,
+            enabled: widget.enabled,
+            keyboardType: widget.keyboardType,
+            maxLength: widget.maxLength,
+            inputFormatters: widget.inputFormatters,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              counterText: '',
+              filled: true,
+              fillColor: hasError
+                  ? errorFill
+                  : (widget.enabled
+                      ? const Color(0xFFFAFAFA)
+                      : Colors.grey.shade50),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              border: _fieldBorder(
+                hasError ? errorColor : AppColors.borderLight,
+              ),
+              enabledBorder: _fieldBorder(
+                hasError ? errorColor : AppColors.borderLight,
+              ),
+              focusedBorder: _fieldBorder(
+                hasError ? errorColor : AppColors.primary,
+                width: hasError ? 1.5 : 1.5,
+              ),
+              errorBorder: _fieldBorder(errorColor),
+              focusedErrorBorder: _fieldBorder(errorColor, width: 1.5),
+            ),
+            onTap: () {
+              if (!widget.enabled) return;
+              _scheduleLoad(widget.controller.text);
+            },
+            onChanged: (value) {
+              if (!widget.enabled) return;
+              widget.onChanged?.call(value);
+              _scheduleLoad(value);
+            },
+            onEditingComplete: _removeOverlay,
           ),
         ),
-        onTap: () {
-          if (!widget.enabled) return;
-          _scheduleLoad(widget.controller.text);
-        },
-        onChanged: (value) {
-          if (!widget.enabled) return;
-          _scheduleLoad(value);
-        },
-        onEditingComplete: _removeOverlay,
-      ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Text(
+            widget.errorText!,
+            style: TextStyle(
+              color: errorColor,
+              fontSize: 12,
+              height: 1.3,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -94,5 +94,28 @@ String _sanitizeApiMessage(String? value, {required String fallback}) {
   if (lower == 'undefined' || lower == 'null' || lower == 'nan') {
     return fallback;
   }
+  if (_isSessionExpiredMessage(lower)) {
+    return 'Session expired. Please sign in again.';
+  }
   return trimmed;
+}
+
+bool isUnauthorizedApiError(Object error) {
+  if (error is ApiException && error.statusCode == 401) return true;
+  if (error is DioException) {
+    if (error.response?.statusCode == 401) return true;
+    if (error.error is ApiException &&
+        (error.error as ApiException).statusCode == 401) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _isSessionExpiredMessage(String lower) {
+  return lower.contains('invalid or expired token') ||
+      lower.contains('not authorized') ||
+      lower.contains('please login again') ||
+      lower.contains('please login') ||
+      lower.contains('user no longer exists');
 }
