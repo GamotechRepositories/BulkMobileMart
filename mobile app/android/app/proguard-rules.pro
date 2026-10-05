@@ -18,3 +18,11 @@
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.firebase.**
+
+# Facebook SDK & App Events
+-keep class com.facebook.** { *; }
+-dontwarn com.facebook.**
+-keepclassmembers class com.facebook.** {
+   *;
+}
+

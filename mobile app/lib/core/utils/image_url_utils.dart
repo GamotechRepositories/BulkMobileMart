@@ -7,7 +7,7 @@ String optimizeImageUrl(String rawUrl, {int? width}) {
   final url = rawUrl.trim();
   if (url.isEmpty) return url;
 
-  final targetWidth = width == null ? null : width.clamp(64, 1600);
+  final targetWidth = width?.clamp(64, 1600);
   if (targetWidth == null) return url;
 
   final cloudinary = _optimizeCloudinaryUrl(url, targetWidth);

@@ -86,7 +86,7 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
   void _showOverlay() {
     _removeOverlay();
 
-    final overlay = Overlay.of(context);
+    final overlay = Overlay.maybeOf(context);
     if (overlay == null) return;
 
     final renderBox = context.findRenderObject() as RenderBox?;

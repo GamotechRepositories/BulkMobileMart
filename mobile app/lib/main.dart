@@ -15,23 +15,59 @@ import 'widgets/app_back_binding.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.handleBackgroundMessage(message);
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await NotificationService.handleBackgroundMessage(message);
+  } catch (error, stackTrace) {
+    if (kDebugMode) {
+      debugPrint('FCM background message handler error: $error\n$stackTrace');
+    }
+  }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global Flutter and platform error shield — prevent uncaught exceptions from killing the app.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    if (kDebugMode) {
+      debugPrint('FlutterError: ${details.exceptionAsString()}');
+    }
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (kDebugMode) {
+      debugPrint('PlatformDispatcher error: $error\n$stack');
+    }
+    return true; // Handled, do not crash process
+  };
+
   // Register before runApp so we receive Android back before the app exits.
-  AppBackBinding.instance.install();
+  try {
+    AppBackBinding.instance.install();
+  } catch (e) {
+    debugPrint('AppBackBinding install failed: $e');
+  }
 
   // Keep decoded images bounded on low-RAM devices (3–6 GB class hardware).
-  PaintingBinding.instance.imageCache.maximumSize = 60;
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 32 << 20;
+  try {
+    PaintingBinding.instance.imageCache.maximumSize = 60;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 32 << 20;
+  } catch (_) {}
 
   // Gallery picks use the system Photo Picker — no READ_MEDIA_* permissions.
-  configureAndroidPhotoPicker();
+  try {
+    configureAndroidPhotoPicker();
+  } catch (e) {
+    debugPrint('configureAndroidPhotoPicker failed: $e');
+  }
 
-  await Env.load();
+  try {
+    await Env.load();
+  } catch (e) {
+    debugPrint('Env.load error: $e');
+  }
 
   if (kDebugMode) {
     for (final issue in Env.validate()) {
@@ -39,17 +75,34 @@ Future<void> main() async {
     }
   }
 
-  await NotificationService.ensureFirebaseReady();
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await NotificationService.instance.initialize();
-  await FacebookAppEventsService.instance.initialize();
+  // Firebase initialization — wrapped so missing config/services does not block app launch.
+  try {
+    await NotificationService.ensureFirebaseReady();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await NotificationService.instance.initialize();
+  } catch (e, st) {
+    debugPrint('Firebase/Notification initialization skipped or failed: $e\n$st');
+  }
 
-  final authStorage = await AuthStorage.create();
+  // Facebook App Events SDK initialization — safe call.
+  try {
+    await FacebookAppEventsService.instance.initialize();
+  } catch (e, st) {
+    debugPrint('FacebookAppEventsService initialization failed: $e\n$st');
+  }
+
+  AuthStorage? authStorage;
+  try {
+    authStorage = await AuthStorage.create();
+  } catch (e, st) {
+    debugPrint('AuthStorage.create failed: $e\n$st');
+  }
 
   runApp(
     ProviderScope(
       overrides: [
-        authStorageProvider.overrideWithValue(authStorage),
+        if (authStorage != null)
+          authStorageProvider.overrideWithValue(authStorage),
       ],
       child: const BulkMobileMartApp(),
     ),
@@ -57,6 +110,8 @@ Future<void> main() async {
 
   // Font fetch after first frame — never block runApp.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    GoogleFonts.pendingFonts([GoogleFonts.plusJakartaSans()]);
+    try {
+      GoogleFonts.pendingFonts([GoogleFonts.plusJakartaSans()]);
+    } catch (_) {}
   });
 }

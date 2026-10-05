@@ -30,11 +30,24 @@ class _DeepLinkListenerState extends ConsumerState<DeepLinkListener> {
   }
 
   Future<void> _init() async {
-    _subscription = _appLinks.uriLinkStream.listen(_queueUri);
+    try {
+      _subscription = _appLinks.uriLinkStream.listen(
+        _queueUri,
+        onError: (e) {
+          if (kDebugMode) {
+            debugPrint('DeepLinkListener stream error: $e');
+          }
+        },
+      );
 
-    final initial = await _appLinks.getInitialLink();
-    if (initial != null) {
-      _queueUri(initial);
+      final initial = await _appLinks.getInitialLink();
+      if (initial != null) {
+        _queueUri(initial);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('DeepLinkListener init error: $e');
+      }
     }
   }
 

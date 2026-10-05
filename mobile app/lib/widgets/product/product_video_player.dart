@@ -51,10 +51,20 @@ class _ProductVideoPlayerState extends State<ProductVideoPlayer> {
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
-    _controller = controller;
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _initializing = false;
+        });
+      }
+      return;
+    }
 
     try {
+      final controller = VideoPlayerController.networkUrl(uri);
+      _controller = controller;
       await controller.initialize();
       if (!mounted) return;
       setState(() {
@@ -67,7 +77,9 @@ class _ProductVideoPlayerState extends State<ProductVideoPlayer> {
         _failed = true;
         _initializing = false;
       });
-      await controller.dispose();
+      try {
+        await _controller?.dispose();
+      } catch (_) {}
       _controller = null;
     }
   }

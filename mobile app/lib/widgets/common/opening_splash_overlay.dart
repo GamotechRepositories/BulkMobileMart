@@ -17,7 +17,6 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
     with SingleTickerProviderStateMixin {
   static const _maxTotal = Duration(milliseconds: 2200);
   static const _holdDuration = Duration(milliseconds: 1500);
-  static const _fadeDuration = Duration(milliseconds: 500);
 
   AnimationController? _controller;
   Animation<double>? _contentOpacity;
@@ -30,9 +29,11 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
   @override
   void initState() {
     super.initState();
-    final reduceMotion = MediaQueryData.fromView(
-      WidgetsBinding.instance.platformDispatcher.views.first,
-    ).disableAnimations;
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    final reduceMotion = views.isNotEmpty
+        ? MediaQueryData.fromView(views.first).disableAnimations
+        : WidgetsBinding
+            .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
 
     if (reduceMotion) {
       _animationsEnabled = false;
