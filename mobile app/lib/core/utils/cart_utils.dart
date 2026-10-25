@@ -65,6 +65,20 @@ CartSummary applyCouponDiscount(CartSummary summary, double couponDiscount) {
   );
 }
 
+/// Applies wallet points discount to the summary total (1 point = ₹1).
+CartSummary applyWalletDiscount(CartSummary summary, double walletDiscount) {
+  final discount = walletDiscount.clamp(0.0, summary.total);
+  if (discount <= 0) return summary;
+  return CartSummary(
+    subtotal: summary.subtotal,
+    shipping: summary.shipping,
+    total: (summary.total - discount).clamp(0.0, double.infinity),
+    itemCount: summary.itemCount,
+    shippingFree: summary.shippingFree,
+    savings: summary.savings,
+  );
+}
+
 bool meetsMinimumOrder(double subtotal, double minimumOrderValue) {
   return subtotal >= minimumOrderValue;
 }

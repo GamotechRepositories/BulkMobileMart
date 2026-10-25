@@ -161,6 +161,18 @@ function serializeAppUpdateSection(form) {
   });
 }
 
+function serializeWalletSection(form) {
+  return JSON.stringify({
+    walletEnabled: Boolean(form.walletEnabled),
+    walletReferralEnabled: Boolean(form.walletReferralEnabled),
+    walletReferralRewardReferee: String(form.walletReferralRewardReferee ?? "").trim(),
+    walletReferralRewardReferrer: String(form.walletReferralRewardReferrer ?? "").trim(),
+    walletOrderRewardEnabled: Boolean(form.walletOrderRewardEnabled),
+    walletOrderRewardThreshold: String(form.walletOrderRewardThreshold ?? "").trim(),
+    walletOrderRewardPoints: String(form.walletOrderRewardPoints ?? "").trim(),
+  });
+}
+
 function buildSectionSnapshots(form) {
   return {
     order: serializeOrderSection(form),
@@ -170,6 +182,7 @@ function buildSectionSnapshots(form) {
     cart: serializeCartSection(form),
     envia: serializeEnviaSection(form),
     appUpdate: serializeAppUpdateSection(form),
+    wallet: serializeWalletSection(form),
   };
 }
 
@@ -207,6 +220,13 @@ function StoreSettingsSection() {
     appUpdateMessage: "A new version of BulkMobileMart is available. Please update the app to continue.",
     appUpdateAndroidStoreUrl: "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
     appUpdateIosStoreUrl: "",
+    walletEnabled: true,
+    walletReferralEnabled: true,
+    walletReferralRewardReferee: "50",
+    walletReferralRewardReferrer: "50",
+    walletOrderRewardEnabled: true,
+    walletOrderRewardThreshold: "1000",
+    walletOrderRewardPoints: "25",
     ...enviaOriginToForm(DEFAULT_ENVIA_PICKUP_ORIGIN),
   });
 
@@ -260,6 +280,13 @@ function StoreSettingsSection() {
         appUpdateMessage: settings.appUpdate?.message || "A new version of BulkMobileMart is available. Please update the app to continue.",
         appUpdateAndroidStoreUrl: settings.appUpdate?.androidStoreUrl || "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
         appUpdateIosStoreUrl: settings.appUpdate?.iosStoreUrl || "",
+        walletEnabled: Boolean(settings.walletSettings?.enabled ?? true),
+        walletReferralEnabled: Boolean(settings.walletSettings?.referralEnabled ?? true),
+        walletReferralRewardReferee: String(settings.walletSettings?.referralRewardReferee ?? 50),
+        walletReferralRewardReferrer: String(settings.walletSettings?.referralRewardReferrer ?? 50),
+        walletOrderRewardEnabled: Boolean(settings.walletSettings?.orderRewardEnabled ?? true),
+        walletOrderRewardThreshold: String(settings.walletSettings?.orderRewardThreshold ?? 1000),
+        walletOrderRewardPoints: String(settings.walletSettings?.orderRewardPoints ?? 25),
         ...enviaOriginToForm(settings.envia?.origin),
       };
       setForm(nextForm);
@@ -414,6 +441,7 @@ function StoreSettingsSection() {
 
   const sectionSaveLabels = {
     order: "Order & shipping rules",
+    wallet: "Wallet & Referral rewards",
     giftHampers: "Gift hamper tiers",
     slabs: "Shipping slabs",
     upi: "UPI payment settings",
@@ -424,6 +452,7 @@ function StoreSettingsSection() {
 
   const sectionSerializers = {
     order: serializeOrderSection,
+    wallet: serializeWalletSection,
     giftHampers: serializeGiftHampersSection,
     slabs: serializeSlabsSection,
     upi: serializeUpiSection,
@@ -437,6 +466,7 @@ function StoreSettingsSection() {
 
   const dirtySections = {
     order: isSectionDirty("order"),
+    wallet: isSectionDirty("wallet"),
     giftHampers: isSectionDirty("giftHampers"),
     slabs: isSectionDirty("slabs"),
     upi: isSectionDirty("upi"),
@@ -468,6 +498,18 @@ function StoreSettingsSection() {
         payload = {
           minimumOrderValue: Number(form.minimumOrderValue),
           minimumShippingCharge: Number(form.minimumShippingCharge),
+        };
+      } else if (section === "wallet") {
+        payload = {
+          walletSettings: {
+            enabled: Boolean(form.walletEnabled),
+            referralEnabled: Boolean(form.walletReferralEnabled),
+            referralRewardReferee: Math.max(0, Number(form.walletReferralRewardReferee) || 0),
+            referralRewardReferrer: Math.max(0, Number(form.walletReferralRewardReferrer) || 0),
+            orderRewardEnabled: Boolean(form.walletOrderRewardEnabled),
+            orderRewardThreshold: Math.max(0, Number(form.walletOrderRewardThreshold) || 0),
+            orderRewardPoints: Math.max(0, Number(form.walletOrderRewardPoints) || 0),
+          },
         };
       } else if (section === "giftHampers") {
         payload = {
@@ -681,6 +723,139 @@ function StoreSettingsSection() {
           </div>
 
           <SectionSaveButton section="order" />
+        </div>
+
+        {/* Wallet & Referral Rewards Rules */}
+        <div
+          className={`${cardClass} space-y-5 ${
+            dirtySections.wallet ? "ring-2 ring-amber-200" : ""
+          }`}
+        >
+          <div className={formHeaderClass}>
+            <div>
+              <h3 className="font-semibold text-neutral-900">Wallet & Referral Rewards</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                Configure points awarded for referral code signups and cashback on orders above threshold.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Master Toggle */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.walletEnabled}
+                onChange={(e) => setForm((prev) => ({ ...prev, walletEnabled: e.target.checked }))}
+                className="h-4 w-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-sm font-semibold text-neutral-900">Enable Wallet & Points System</span>
+            </label>
+
+            {/* Referral Settings Section */}
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-neutral-900">Referral Program</h4>
+                  <p className="text-xs text-neutral-500">Points credited when a user registers with a friend's code.</p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.walletReferralEnabled}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletReferralEnabled: e.target.checked }))}
+                    className="h-4 w-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-xs font-medium text-neutral-700">Active</span>
+                </label>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                <div>
+                  <label className={labelClass}>New User Reward (Points to Referee)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className={inputClass}
+                    value={form.walletReferralRewardReferee}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletReferralRewardReferee: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Points added to the wallet of the user who entered the code.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Referrer Reward (Points to Code Owner)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className={inputClass}
+                    value={form.walletReferralRewardReferrer}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletReferralRewardReferrer: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Points added to the wallet of the user whose code was shared.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Purchase Cashback Section */}
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-neutral-900">Order Purchase Rewards (Cashback)</h4>
+                  <p className="text-xs text-neutral-500">Reward points added automatically on orders meeting minimum spend.</p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.walletOrderRewardEnabled}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletOrderRewardEnabled: e.target.checked }))}
+                    className="h-4 w-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-xs font-medium text-neutral-700">Active</span>
+                </label>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                <div>
+                  <label className={labelClass}>Minimum Order Threshold (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className={inputClass}
+                    value={form.walletOrderRewardThreshold}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletOrderRewardThreshold: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Order total must be equal or greater than this amount to qualify.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Reward Points Awarded (Points)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className={inputClass}
+                    value={form.walletOrderRewardPoints}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletOrderRewardPoints: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Points credited into user's wallet upon order confirmation.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <SectionSaveButton section="wallet" />
         </div>
 
         <div

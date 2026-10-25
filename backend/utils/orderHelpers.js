@@ -22,8 +22,15 @@ import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../shared/store/giftHamper.js";
 import { formatIndiaDateString } from "../../shared/date/indiaDate.js";
+import {
+  rewardOrderPurchase,
+  applyWalletPoints,
+  refundOrderRedeemedPoints,
+} from "../controllers/walletController.js";
+import Wallet from "../models/wallet/Wallet.js";
+import mongoose from "mongoose";
 
-async function computeOrderPricing(subtotal, couponCode, options = {}) {
+export async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
   let resolvedCouponCode = "";
   let couponDiscount = 0;
@@ -46,13 +53,41 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
 
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-  const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+  const { gstAmount, total: totalBeforeWallet } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+
+  let walletDiscount = 0;
+  let walletPointsRedeemed = 0;
+  const walletEnabled = storeSettings?.walletSettings?.enabled !== false;
+
+  const wantWallet =
+    options.useWalletPoints === true ||
+    options.useWalletPoints === "true" ||
+    (options.walletPoints != null && Number(options.walletPoints) > 0);
+
+  if (walletEnabled && wantWallet && options.userId) {
+    const userWallet = await Wallet.findOne({ userId: options.userId, status: "active" });
+    const availablePoints = userWallet ? Math.max(0, userWallet.pointsBalance || 0) : 0;
+    if (availablePoints > 0) {
+      const maxRedeemable = Math.min(availablePoints, Math.floor(totalBeforeWallet));
+      const requestedPoints =
+        options.walletPoints != null && options.walletPoints !== ""
+          ? Math.max(0, Math.floor(Number(options.walletPoints)))
+          : maxRedeemable;
+      walletPointsRedeemed = Math.min(maxRedeemable, requestedPoints);
+      walletDiscount = walletPointsRedeemed; // 1 point = ₹1
+    }
+  }
+
+  const finalTotal = Math.max(0, Math.round((totalBeforeWallet - walletDiscount) * 100) / 100);
 
   return {
     storeSettings,
     deliveryCharges,
     gstAmount,
-    total,
+    total: finalTotal,
+    totalBeforeWallet,
+    walletDiscount,
+    walletPointsRedeemed,
     couponCode: resolvedCouponCode,
     couponDiscount,
   };
@@ -400,13 +435,24 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     excludeOrderId: options.excludeOrderId,
+    useWalletPoints: options.useWalletPoints,
+    walletPoints: options.walletPoints,
   });
   if (pricing.error) {
     return pricing;
   }
 
-  const { storeSettings, deliveryCharges, gstAmount, total, couponCode, couponDiscount } =
-    pricing;
+  const {
+    storeSettings,
+    deliveryCharges,
+    gstAmount,
+    total,
+    totalBeforeWallet,
+    walletDiscount,
+    walletPointsRedeemed,
+    couponCode,
+    couponDiscount,
+  } = pricing;
 
   if (!meetsMinimumOrder(subtotal, storeSettings)) {
     return {
@@ -449,6 +495,9 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     deliveryCharges,
     gstAmount,
     total,
+    totalBeforeWallet,
+    walletDiscount,
+    walletPointsRedeemed,
     cart,
     checkoutMode,
   };
@@ -636,12 +685,23 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     excludeOrderId: attemptedOrder?._id,
+    useWalletPoints: options.useWalletPoints,
+    walletPoints: options.walletPoints,
   });
   if (pricing.error) {
     return pricing;
   }
 
-  const { deliveryCharges, gstAmount, total, couponCode, couponDiscount } = pricing;
+  const {
+    deliveryCharges,
+    gstAmount,
+    total,
+    totalBeforeWallet,
+    walletDiscount,
+    walletPointsRedeemed,
+    couponCode,
+    couponDiscount,
+  } = pricing;
 
   return {
     orderItems,
@@ -652,6 +712,9 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     deliveryCharges,
     gstAmount,
     total,
+    totalBeforeWallet,
+    walletDiscount,
+    walletPointsRedeemed,
     cart,
     checkoutMode,
   };
@@ -664,7 +727,8 @@ export async function upsertCheckoutAttemptOrder(
   orderSource = "website",
   attemptedOrderId = null
 ) {
-  const normalizedPaymentMethod = paymentMethod === "online" ? "online" : "cod";
+  const normalizedPaymentMethod =
+    paymentMethod === "online" ? "online" : paymentMethod === "wallet" ? "wallet" : "cod";
   const normalizedOrderSource = normalizeOrderSource(orderSource);
   const payload = {
     items: prepared.orderItems,
@@ -672,6 +736,8 @@ export async function upsertCheckoutAttemptOrder(
     subtotal: prepared.subtotal,
     couponCode: prepared.couponCode || "",
     couponDiscount: prepared.couponDiscount || 0,
+    walletDiscount: prepared.walletDiscount || 0,
+    walletPointsRedeemed: prepared.walletPointsRedeemed || 0,
     deliveryCharges: prepared.deliveryCharges,
     gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
@@ -770,6 +836,8 @@ export async function completeAttemptedOrder({
   subtotal,
   couponCode = "",
   couponDiscount = 0,
+  walletDiscount = 0,
+  walletPointsRedeemed = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -806,6 +874,8 @@ export async function completeAttemptedOrder({
   order.subtotal = subtotal;
   order.couponCode = couponCode || "";
   order.couponDiscount = couponDiscount > 0 ? couponDiscount : 0;
+  order.walletDiscount = walletDiscount > 0 ? walletDiscount : 0;
+  order.walletPointsRedeemed = walletPointsRedeemed > 0 ? walletPointsRedeemed : 0;
   order.deliveryCharges = deliveryCharges;
   order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
@@ -839,6 +909,8 @@ export async function finalizeOrder({
   subtotal,
   couponCode = "",
   couponDiscount = 0,
+  walletDiscount = 0,
+  walletPointsRedeemed = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -885,39 +957,90 @@ export async function finalizeOrder({
     }
   }
 
+  const redeemedPoints = Math.floor(Number(walletPointsRedeemed)) || 0;
+  const appliedWalletDiscount = Number(walletDiscount) || 0;
+  const orderId = new mongoose.Types.ObjectId();
+
+  // If points were redeemed, debit atomically from user's wallet
+  if (redeemedPoints > 0) {
+    await applyWalletPoints({
+      userId,
+      type: "points_redemption",
+      pointsDelta: -redeemedPoints,
+      referenceId: `ORDER-REDEEM-${orderId}`,
+      description: `Redeemed ${redeemedPoints} points on Order`,
+      metadata: {
+        orderId,
+        pointsRedeemed: redeemedPoints,
+        walletDiscount: appliedWalletDiscount,
+      },
+    });
+  }
+
   const orderMessage =
     typeof message === "string" ? message.trim().slice(0, 500) : "";
 
   const giftHamper = await resolveGiftHamperSnapshot(total);
 
-  const order = await Order.create({
-    user: userId,
-    items: orderItems,
-    deliveryAddress,
-    paymentMethod,
-    subtotal,
-    couponCode: couponCode || "",
-    couponDiscount: couponDiscount > 0 ? couponDiscount : 0,
-    deliveryCharges,
-    gstAmount: gstAmount > 0 ? gstAmount : 0,
-    total,
-    status,
-    paymentStatus,
-    message: orderMessage,
-    orderSource: normalizeOrderSource(orderSource),
-    ...(giftHamper ? { giftHamper } : {}),
-    ...(razorpayOrderId && { razorpayOrderId }),
-    ...(razorpayPaymentId && { razorpayPaymentId }),
-    ...(codAdvanceAmount > 0 && { codAdvanceAmount }),
-    ...(razorpayPaidAmount > 0 && { razorpayPaidAmount }),
-    ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
-    ...(codAdvancePaidAt && { codAdvancePaidAt }),
-    ...(paidAt && { paidAt }),
-  });
+  const isFullyPaidByWallet = total === 0 && redeemedPoints > 0;
+  const finalPaymentMethod = isFullyPaidByWallet ? "wallet" : paymentMethod;
+  const finalPaymentStatus = isFullyPaidByWallet ? "paid" : paymentStatus;
+  const finalPaidAt = isFullyPaidByWallet && !paidAt ? new Date() : (paidAt || null);
+
+  let order;
+  try {
+    order = await Order.create({
+      _id: orderId,
+      user: userId,
+      items: orderItems,
+      deliveryAddress,
+      paymentMethod: finalPaymentMethod,
+      subtotal,
+      couponCode: couponCode || "",
+      couponDiscount: couponDiscount > 0 ? couponDiscount : 0,
+      walletDiscount: appliedWalletDiscount > 0 ? appliedWalletDiscount : 0,
+      walletPointsRedeemed: redeemedPoints > 0 ? redeemedPoints : 0,
+      deliveryCharges,
+      gstAmount: gstAmount > 0 ? gstAmount : 0,
+      total,
+      status,
+      paymentStatus: finalPaymentStatus,
+      message: orderMessage,
+      orderSource: normalizeOrderSource(orderSource),
+      ...(giftHamper ? { giftHamper } : {}),
+      ...(razorpayOrderId && { razorpayOrderId }),
+      ...(razorpayPaymentId && { razorpayPaymentId }),
+      ...(codAdvanceAmount > 0 && { codAdvanceAmount }),
+      ...(razorpayPaidAmount > 0 && { razorpayPaidAmount }),
+      ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
+      ...(codAdvancePaidAt && { codAdvancePaidAt }),
+      ...(finalPaidAt && { paidAt: finalPaidAt }),
+    });
+  } catch (createErr) {
+    // If order creation fails after debiting points, refund the debited points immediately
+    if (redeemedPoints > 0) {
+      try {
+        await refundOrderRedeemedPoints({
+          _id: orderId,
+          user: userId,
+          walletPointsRedeemed: redeemedPoints,
+        });
+      } catch (rollbackErr) {
+        console.error("Failed to rollback redeemed points on order creation failure:", rollbackErr);
+      }
+    }
+    throw createErr;
+  }
 
   await User.findByIdAndUpdate(userId, {
     $addToSet: { orders: order._id },
   });
+
+  try {
+    await rewardOrderPurchase(order);
+  } catch (rewardErr) {
+    console.error("Order purchase reward error:", rewardErr.message);
+  }
 
   await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
   await supersedeAttemptedOrder(userId, attemptedOrderId, order);

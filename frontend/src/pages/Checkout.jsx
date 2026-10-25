@@ -10,6 +10,8 @@ import {
   createCheckoutAttempt,
   validateCoupon,
   submitUpiPaymentProof,
+  getMyWallet,
+  placeOrder,
 } from "../api/api";
 import PaymentModal from "../components/checkout/PaymentModal";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
@@ -172,6 +174,9 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [wallet, setWallet] = useState(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [useWalletPoints, setUseWalletPoints] = useState(false);
   const messageRef = useRef("");
   const attemptedOrderIdRef = useRef(resumeAttemptedOrderIdRef.current);
   const appliedCouponRef = useRef(null);
@@ -180,11 +185,58 @@ function Checkout() {
   const getCheckoutAttemptedOrderId = () =>
     resumeAttemptedOrderIdRef.current || attemptedOrderIdRef.current;
 
+  useEffect(() => {
+    if (!user) {
+      setWallet(null);
+      setWalletLoading(false);
+      return undefined;
+    }
+    let active = true;
+    setWalletLoading(true);
+    getMyWallet()
+      .then(({ data }) => {
+        // Backend returns { success: true, data: { ...wallet, stats, referral, rewardsConfig } }
+        const walletObj = data?.data?.wallet || data?.data || null;
+        if (active) setWallet(walletObj);
+      })
+      .catch((err) => {
+        console.error("Failed to load wallet at checkout:", err);
+        if (active) setWallet(null);
+      })
+      .finally(() => {
+        if (active) setWalletLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const subtotal = checkoutItems.reduce(
+    (sum, item) => sum + item.discountedPrice * item.quantity,
+    0
+  );
+  const couponDiscount = appliedCoupon?.discountAmount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  const { total: orderTotalBeforeWallet } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+
+  const isWalletFeatureEnabled = storeSettings?.walletSettings?.enabled !== false;
+  const walletActive = wallet && wallet.status !== "suspended";
+  const walletBalance =
+    walletActive && isWalletFeatureEnabled
+      ? Math.max(0, Number(wallet.pointsBalance) || 0)
+      : 0;
+  const maxRedeemablePoints = Math.min(walletBalance, Math.floor(orderTotalBeforeWallet));
+  const walletPointsRedeemed = useWalletPoints ? maxRedeemablePoints : 0;
+  const walletDiscount = walletPointsRedeemed; // 1 point = ₹1
+  const orderTotal = Math.max(0, Math.round((orderTotalBeforeWallet - walletDiscount) * 100) / 100);
+  const isFullyPaidByWallet = useWalletPoints && orderTotal === 0 && walletPointsRedeemed > 0;
+
   const checkoutAttemptKey = useMemo(
     () =>
       JSON.stringify({
         addressId: selectedAddressId,
-        paymentMethod,
+        paymentMethod: isFullyPaidByWallet ? "wallet" : paymentMethod,
         paymentPlan,
         items: checkoutItems.map((item) => ({
           productId: item.productId || item._id,
@@ -193,8 +245,19 @@ function Checkout() {
           colorName: item.colorName || "",
         })),
         couponCode: appliedCoupon?.code || "",
+        useWalletPoints,
+        walletPointsRedeemed,
       }),
-    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon]
+    [
+      selectedAddressId,
+      paymentMethod,
+      paymentPlan,
+      checkoutItems,
+      appliedCoupon,
+      useWalletPoints,
+      walletPointsRedeemed,
+      isFullyPaidByWallet,
+    ]
   );
 
   useEffect(() => {
@@ -209,16 +272,10 @@ function Checkout() {
     appliedCouponRef.current = appliedCoupon;
   }, [appliedCoupon]);
 
-  const subtotal = checkoutItems.reduce(
-    (sum, item) => sum + item.discountedPrice * item.quantity,
-    0
-  );
-  const couponDiscount = appliedCoupon?.discountAmount || 0;
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
-  const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
-  const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
+  const payableNow = isFullyPaidByWallet ? 0 : calculatePayableAmount(orderTotal, paymentPlan);
+  const balanceOnDelivery = isFullyPaidByWallet
+    ? 0
+    : Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
   const minimumOrderMet = meetsMinimumOrder(subtotal, storeSettings);
   const minimumOrderShortfall = getMinimumOrderShortfall(subtotal, storeSettings);
   const minimumOrderValue = mergeStoreSettings(storeSettings).minimumOrderValue;
@@ -355,11 +412,13 @@ function Checkout() {
     try {
       const { data } = await createCheckoutAttempt({
         addressId: selectedAddressId || undefined,
-        paymentMethod,
+        paymentMethod: isFullyPaidByWallet ? "wallet" : paymentMethod,
         checkoutItems: checkoutItemsPayload,
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
+        useWalletPoints: Boolean(useWalletPoints),
+        walletPoints: walletPointsRedeemed,
         orderSource: "website",
         attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
       });
@@ -386,8 +445,11 @@ function Checkout() {
     checkoutItems.length,
     selectedAddressId,
     paymentMethod,
+    isFullyPaidByWallet,
     checkoutItemsPayload,
     isBuyNow,
+    useWalletPoints,
+    walletPointsRedeemed,
     handleUnavailableCartItems,
   ]);
 
@@ -501,6 +563,8 @@ function Checkout() {
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
+        useWalletPoints: Boolean(useWalletPoints),
+        walletPoints: walletPointsRedeemed,
         orderSource: "website",
         attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
         screenshot,
@@ -538,6 +602,26 @@ function Checkout() {
         setPlacingOrder(false);
         return;
       }
+
+      if (isFullyPaidByWallet) {
+        const { data } = await placeOrder({
+          addressId: selectedAddressId,
+          paymentMethod: "wallet",
+          customerMessage: safeTrim(messageRef.current),
+          checkoutItems: checkoutItemsPayload,
+          checkoutMode: isBuyNow ? "buyNow" : "cart",
+          buyNow: isBuyNow,
+          couponCode: appliedCouponRef.current?.code || undefined,
+          useWalletPoints: true,
+          walletPoints: walletPointsRedeemed,
+          orderSource: "website",
+          attemptedOrderId: getCheckoutAttemptedOrderId() || undefined,
+        });
+        const note = `Order confirmed! Your order was fully paid using ${walletPointsRedeemed} Bulk Mart Wallet points.`;
+        await completeOrderSuccess(note, data.data);
+        return;
+      }
+
       setPlacingOrder(false);
       setShowPaymentModal(true);
     } catch (err) {
@@ -761,60 +845,131 @@ function Checkout() {
           ) : (
             <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
               <div className="space-y-3 sm:space-y-4">
-                <StepSection title="UPI Payment (COD Advance & QR)">
-                  <div className="space-y-3">
-                    <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
-                        paymentPlan === PAYMENT_PLAN.ADVANCE
-                          ? "border-primary bg-primary/5"
-                          : "border-border-light hover:border-primary/40"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.ADVANCE}
-                        checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-text-primary sm:text-base">
-                          Pay 10% now · balance on delivery
-                        </p>
-                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via UPI ·{" "}
-                          {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
-                          on delivery
-                        </p>
+                {isWalletFeatureEnabled ? (
+                  <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50/90 via-purple-50/40 to-white p-3.5 shadow-sm sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-bold text-text-primary sm:text-base">Use Bulk Mart Wallet</h3>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                walletBalance > 0
+                                  ? "bg-indigo-100 text-indigo-700"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {walletLoading
+                                ? "Checking..."
+                                : `${walletBalance} ${walletBalance === 1 ? "point" : "points"} (₹${walletBalance})`}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-text-secondary sm:text-sm">
+                            {walletLoading ? (
+                              "Loading your wallet points..."
+                            ) : walletBalance > 0 ? (
+                              useWalletPoints
+                                ? `Redeeming ${walletPointsRedeemed} points (1 pt = ₹1). You save ${formatPrice(walletDiscount)}!`
+                                : `Redeem your points to save up to ${formatPrice(maxRedeemablePoints)} on this order.`
+                            ) : (
+                              "You currently have 0 wallet points. Earn points on qualifying orders and by referring friends!"
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </label>
-
-                    <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
-                        paymentPlan === PAYMENT_PLAN.FULL
-                          ? "border-primary bg-primary/5"
-                          : "border-border-light hover:border-primary/40"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.FULL}
-                        checked={paymentPlan === PAYMENT_PLAN.FULL}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-text-primary sm:text-base">
-                          Pay 100% now
-                        </p>
-                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Complete payment of {formatPrice(orderTotal, 2)} via UPI QR
-                        </p>
-                      </div>
-                    </label>
+                      {walletBalance > 0 ? (
+                        <label className="relative flex cursor-pointer items-center select-none pt-1">
+                          <input
+                            type="checkbox"
+                            checked={useWalletPoints}
+                            onChange={(e) => setUseWalletPoints(e.target.checked)}
+                            className="h-5 w-5 rounded border-gray-300 text-indigo-600 accent-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </label>
+                      ) : null}
+                    </div>
                   </div>
+                ) : null}
+
+                <StepSection title="UPI Payment (COD Advance & QR)">
+                  {isFullyPaidByWallet ? (
+                    <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-600 text-white">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-green-900">
+                            100% Covered by Wallet Points ({walletPointsRedeemed} pts)
+                          </p>
+                          <p className="text-xs text-green-700">
+                            Remaining order total is ₹0. No UPI payment or cash on delivery is needed!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <label
+                        className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
+                          paymentPlan === PAYMENT_PLAN.ADVANCE
+                            ? "border-primary bg-primary/5"
+                            : "border-border-light hover:border-primary/40"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentPlan"
+                          value={PAYMENT_PLAN.ADVANCE}
+                          checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
+                          onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-text-primary sm:text-base">
+                            Pay 10% now · balance on delivery
+                          </p>
+                          <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
+                            Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via UPI ·{" "}
+                            {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
+                            on delivery
+                          </p>
+                        </div>
+                      </label>
+
+                      <label
+                        className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
+                          paymentPlan === PAYMENT_PLAN.FULL
+                            ? "border-primary bg-primary/5"
+                            : "border-border-light hover:border-primary/40"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentPlan"
+                          value={PAYMENT_PLAN.FULL}
+                          checked={paymentPlan === PAYMENT_PLAN.FULL}
+                          onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-text-primary sm:text-base">
+                            Pay 100% now
+                          </p>
+                          <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
+                            Complete payment of {formatPrice(orderTotal, 2)} via UPI QR
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </StepSection>
 
                 <StepSection title="Delivery Details">
@@ -981,24 +1136,39 @@ function Checkout() {
                       <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
                     </div>
                   ) : null}
+                  {walletDiscount > 0 ? (
+                    <div className="flex justify-between text-indigo-700">
+                      <span>Wallet discount ({walletPointsRedeemed} pts)</span>
+                      <span className="font-semibold">-{formatPrice(walletDiscount)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between text-text-secondary">
                     <span>Delivery Charges</span>
                     <span className="font-semibold text-text-primary">
                       {formatPrice(deliveryCharges)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-text-secondary">
-                    <span>Pay now (UPI)</span>
-                    <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
-                  </div>
-                  {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
-                    <div className="flex justify-between text-text-secondary">
-                      <span>Balance on delivery</span>
-                      <span className="font-medium text-text-primary">
-                        {formatPrice(balanceOnDelivery, 2)}
-                      </span>
+                  {!isFullyPaidByWallet ? (
+                    <>
+                      <div className="flex justify-between text-text-secondary">
+                        <span>Pay now (UPI)</span>
+                        <span className="font-medium text-text-primary">{formatPrice(payableNow, 2)}</span>
+                      </div>
+                      {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
+                        <div className="flex justify-between text-text-secondary">
+                          <span>Balance on delivery</span>
+                          <span className="font-medium text-text-primary">
+                            {formatPrice(balanceOnDelivery, 2)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-green-700 font-semibold">
+                      <span>Payable</span>
+                      <span>₹0 (Covered by Wallet)</span>
                     </div>
-                  ) : null}
+                  )}
                   {!minimumOrderMet ? (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
                       Add {formatPrice(minimumOrderShortfall)} more to reach the minimum order of{" "}
@@ -1018,7 +1188,7 @@ function Checkout() {
                   <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  You will save {formatPrice(savings)} on this order
+                  You will save {formatPrice(savings + walletDiscount)} on this order
                 </div>
 
                 {orderError && (
@@ -1031,7 +1201,9 @@ function Checkout() {
                   type="button"
                   disabled={!selectedAddressId || placingOrder || !minimumOrderMet}
                   onClick={handlePlaceOrder}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-5 sm:px-6 sm:py-3.5"
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-5 sm:px-6 sm:py-3.5 ${
+                    isFullyPaidByWallet ? "bg-green-600" : "bg-primary"
+                  }`}
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
@@ -1042,9 +1214,11 @@ function Checkout() {
                   </svg>
                   {placingOrder
                     ? "Please wait..."
-                    : paymentPlan === PAYMENT_PLAN.ADVANCE
-                      ? `Pay ${formatPrice(payableNow, 2)} with UPI`
-                      : `Pay ${formatPrice(orderTotal, 2)} with UPI`}
+                    : isFullyPaidByWallet
+                      ? `Place Order (Paid with ${walletPointsRedeemed} pts)`
+                      : paymentPlan === PAYMENT_PLAN.ADVANCE
+                        ? `Pay ${formatPrice(payableNow, 2)} with UPI`
+                        : `Pay ${formatPrice(orderTotal, 2)} with UPI`}
                 </button>
 
               </div>

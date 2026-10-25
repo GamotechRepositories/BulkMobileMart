@@ -61,6 +61,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _lastCheckoutAttemptKey;
   bool _initiatedCheckoutLogged = false;
   String? _resumeAttemptedOrderId;
+  Map<String, dynamic>? _wallet;
+  bool _useWalletPoints = false;
 
   final _couponController = TextEditingController();
   AppliedCoupon? _appliedCoupon;
@@ -90,7 +92,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (initialCode.isNotEmpty) {
         _applyCoupon(initialCode);
       }
+      _loadWallet();
     });
+  }
+
+  Future<void> _loadWallet() async {
+    if (!ref.read(authControllerProvider).isLoggedIn) return;
+    try {
+      final wallet = await ref.read(apiServiceProvider).fetchMyWallet();
+      if (!mounted) return;
+      setState(() => _wallet = wallet);
+    } catch (_) {}
   }
 
   @override
@@ -189,7 +201,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (_orderPlaced || items.isEmpty) return true;
 
     final key =
-        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
+        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|$_useWalletPoints|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (!force && key == _lastCheckoutAttemptKey && _checkoutAttemptedOrderId != null) {
       return true;
     }
@@ -201,6 +213,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutItems': _checkoutItemsPayload(items),
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        if (_useWalletPoints) 'useWalletPoints': true,
         'orderSource': 'app',
         if (_checkoutAttemptedOrderId != null) 'attemptedOrderId': _checkoutAttemptedOrderId,
       });
@@ -300,22 +313,85 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     final storeSettings = ref.read(storeSettingsProvider).value;
-    final summary = calculateCartSummary(cartItems, settings: storeSettings);
+    final baseSummary = calculateCartSummary(cartItems, settings: storeSettings);
+    final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
+        .clamp(0.0, baseSummary.subtotal)
+        .toDouble();
+    final postCouponSummary = applyCouponDiscount(baseSummary, couponDiscount);
+
+    final isWalletFeatureEnabled =
+        storeSettings?.walletSettings?.enabled ?? true;
+    final pointsBalance = (_wallet?['status'] != 'suspended' && isWalletFeatureEnabled)
+        ? ((_wallet?['pointsBalance'] as num?)?.toInt() ?? 0)
+        : 0;
+    final maxRedeemablePoints = pointsBalance > 0
+        ? postCouponSummary.total.toInt().clamp(0, pointsBalance)
+        : 0;
+    final walletPointsRedeemed = _useWalletPoints ? maxRedeemablePoints : 0;
+    final walletDiscount = walletPointsRedeemed.toDouble();
+    final summary = applyWalletDiscount(postCouponSummary, walletDiscount);
+    final isFullyPaidByWallet =
+        _useWalletPoints && summary.total == 0 && walletPointsRedeemed > 0;
+
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     if (!meetsMinimumOrder(summary.subtotal, minimumOrderValue)) return;
 
     final canContinue = await _syncCheckoutAttempt(cartItems, force: true);
     if (!mounted || !canContinue) return;
 
-    await _openUpiPaymentModal(summary, storeSettings);
+    if (isFullyPaidByWallet) {
+      setState(() {
+        _placingOrder = true;
+        _orderError = '';
+      });
+
+      try {
+        await ref.read(apiServiceProvider).placeOrder({
+          'addressId': _selectedAddressId,
+          'paymentMethod': 'wallet',
+          'customerMessage': _message.trim(),
+          'checkoutItems': _checkoutItemsPayload(cartItems),
+          'checkoutMode': 'cart',
+          if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+          'useWalletPoints': true,
+          'walletPoints': walletPointsRedeemed,
+          'orderSource': 'app',
+          if (_checkoutAttemptedOrderId != null)
+            'attemptedOrderId': _checkoutAttemptedOrderId,
+        });
+
+        setState(() => _placingOrder = false);
+        final note =
+            'Order confirmed! Your order was fully paid using $walletPointsRedeemed Bulk Mart Wallet points.';
+        await _completeOrderSuccess(note);
+        return;
+      } catch (e) {
+        if (await _handleUnavailableCartItems(e)) {
+          if (mounted) setState(() => _placingOrder = false);
+          return;
+        }
+        if (mounted) {
+          setState(() {
+            _placingOrder = false;
+            _orderError =
+                apiErrorMessage(e, fallback: 'Failed to place order. Please try again.');
+          });
+        }
+        return;
+      }
+    }
+
+    await _openUpiPaymentModal(summary, storeSettings,
+        walletPointsRedeemed: walletPointsRedeemed);
   }
 
   String get _apiPaymentMode => _paymentPlan;
 
   Future<void> _openUpiPaymentModal(
     CartSummary summary,
-    StoreSettings? storeSettings,
-  ) async {
+    StoreSettings? storeSettings, {
+    int walletPointsRedeemed = 0,
+  }) async {
     final paymentMethod = PaymentUtils.checkoutPaymentMethod(_paymentPlan);
 
     await showModalBottomSheet<void>(
@@ -355,6 +431,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               'checkoutItems': _checkoutItemsPayload(cartItems),
               'checkoutMode': 'cart',
               if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+              if (_useWalletPoints) 'useWalletPoints': true,
+              if (walletPointsRedeemed > 0) 'walletPoints': walletPointsRedeemed,
               'orderSource': 'app',
               if (_checkoutAttemptedOrderId != null)
                 'attemptedOrderId': _checkoutAttemptedOrderId,
@@ -362,6 +440,38 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               'screenshotName': screenshotName,
               'upiTransactionRef': upiTransactionRef,
             });
+
+            final note = _apiPaymentMode == PaymentPlan.advance
+                ? 'Order confirmed. We will verify your 10% advance payment shortly. Pay the balance on delivery.'
+                : 'Order confirmed. We will verify your UPI payment shortly.';
+            await _completeOrderSuccess(note);
+            return null;
+          } catch (e) {
+            if (await _handleUnavailableCartItems(e)) {
+              if (mounted) {
+                setState(() => _placingOrder = false);
+              }
+              return apiErrorMessage(
+                e,
+                fallback: 'Some items in your cart are no longer available.',
+              );
+            }
+            final message = apiErrorMessage(
+              e,
+              fallback: 'Failed to submit payment proof. Please try again.',
+            );
+            if (mounted) {
+              setState(() {
+                _placingOrder = false;
+                _orderError = message;
+              });
+            }
+            return message;
+          }
+        },
+      ),
+    );
+  }
 
             final note = _apiPaymentMode == PaymentPlan.advance
                 ? 'Order confirmed. We will verify your 10% advance payment shortly. Pay the balance on delivery.'
@@ -475,7 +585,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
-    final summary = applyCouponDiscount(baseSummary, couponDiscount);
+    final postCouponSummary = applyCouponDiscount(baseSummary, couponDiscount);
+
+    final isWalletFeatureEnabled =
+        storeSettings?.walletSettings?.enabled ?? true;
+    final pointsBalance = (_wallet?['status'] != 'suspended' && isWalletFeatureEnabled)
+        ? ((_wallet?['pointsBalance'] as num?)?.toInt() ?? 0)
+        : 0;
+    final maxRedeemablePoints = pointsBalance > 0
+        ? postCouponSummary.total.toInt().clamp(0, pointsBalance)
+        : 0;
+    final walletPointsRedeemed = _useWalletPoints ? maxRedeemablePoints : 0;
+    final walletDiscount = walletPointsRedeemed.toDouble();
+    final summary = applyWalletDiscount(postCouponSummary, walletDiscount);
+    final isFullyPaidByWallet =
+        _useWalletPoints && summary.total == 0 && walletPointsRedeemed > 0;
+
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
     final orderShortfall =
@@ -525,35 +650,146 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    _StepSection(
-                      title: 'UPI Payment (COD Advance & QR)',
-                      child: RadioGroup<String>(
-                        groupValue: _paymentPlan,
-                        onChanged: (value) {
-                          if (value != null) setState(() => _paymentPlan = value);
-                        },
-                        child: Column(
-                          children: [
-                            _PaymentPlanOption(
-                              value: PaymentPlan.advance,
-                              selected: _paymentPlan == PaymentPlan.advance,
-                              title: 'Pay 10% now · balance on delivery',
-                              subtitle:
-                                  'Pay ${formatInr(PaymentUtils.advanceAmount(summary.total), withDecimals: true)} now · ${formatInr(summary.total - PaymentUtils.advanceAmount(summary.total), withDecimals: true)} on delivery',
-                              onTap: () => setState(() => _paymentPlan = PaymentPlan.advance),
-                            ),
-                            const SizedBox(height: 10),
-                            _PaymentPlanOption(
-                              value: PaymentPlan.full,
-                              selected: _paymentPlan == PaymentPlan.full,
-                              title: 'Pay 100% now',
-                              subtitle:
-                                  'Complete payment of ${formatInr(summary.total, withDecimals: true)} via UPI QR',
-                              onTap: () => setState(() => _paymentPlan = PaymentPlan.full),
-                            ),
-                          ],
+                    if (isWalletFeatureEnabled) ...[
+                      _StepSection(
+                        title: 'Bulk Mart Wallet',
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.indigo.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo.shade600,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.account_balance_wallet_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$pointsBalance Points Available (₹$pointsBalance)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: pointsBalance > 0
+                                            ? Colors.indigo.shade900
+                                            : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      pointsBalance > 0
+                                          ? (_useWalletPoints
+                                              ? 'Redeeming $walletPointsRedeemed pts to save ₹$walletDiscount'
+                                              : 'Redeem up to $maxRedeemablePoints pts on this order')
+                                          : 'You have 0 wallet points. Earn points on qualifying orders & referrals!',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: pointsBalance > 0
+                                            ? Colors.indigo.shade700
+                                            : Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (pointsBalance > 0)
+                                Checkbox(
+                                  value: _useWalletPoints,
+                                  activeColor: Colors.indigo.shade600,
+                                  onChanged: (val) {
+                                    setState(() => _useWalletPoints = val ?? false);
+                                  },
+                                ),
+                            ],
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                    ],
+                    _StepSection(
+                      title: isFullyPaidByWallet
+                          ? 'Payment Method'
+                          : 'UPI Payment (COD Advance & QR)',
+                      child: isFullyPaidByWallet
+                          ? Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.green.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle_rounded,
+                                      color: Colors.green.shade700, size: 24),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '100% Covered by Wallet Points ($walletPointsRedeemed pts)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: Colors.green.shade900,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Remaining payable is ₹0. No UPI or advance payment needed!',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.green.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : RadioGroup<String>(
+                              groupValue: _paymentPlan,
+                              onChanged: (value) {
+                                if (value != null) setState(() => _paymentPlan = value);
+                              },
+                              child: Column(
+                                children: [
+                                  _PaymentPlanOption(
+                                    value: PaymentPlan.advance,
+                                    selected: _paymentPlan == PaymentPlan.advance,
+                                    title: 'Pay 10% now · balance on delivery',
+                                    subtitle:
+                                        'Pay ${formatInr(PaymentUtils.advanceAmount(summary.total), withDecimals: true)} now · ${formatInr(summary.total - PaymentUtils.advanceAmount(summary.total), withDecimals: true)} on delivery',
+                                    onTap: () => setState(() => _paymentPlan = PaymentPlan.advance),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _PaymentPlanOption(
+                                    value: PaymentPlan.full,
+                                    selected: _paymentPlan == PaymentPlan.full,
+                                    title: 'Pay 100% now',
+                                    subtitle:
+                                        'Complete payment of ${formatInr(summary.total, withDecimals: true)} via UPI QR',
+                                    onTap: () => setState(() => _paymentPlan = PaymentPlan.full),
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 12),
                     _StepSection(
@@ -650,22 +886,66 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               ],
                             ),
                           ],
-                          const Divider(height: 24),
-                          _summaryRow(
-                            'Pay now (UPI)',
-                            formatInr(
-                              PaymentUtils.payableAmount(summary.total, _paymentPlan),
-                              withDecimals: true,
-                            ),
-                          ),
-                          if (_paymentPlan == PaymentPlan.advance) ...[
+                          if (walletDiscount > 0) ...[
                             const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Wallet discount ($walletPointsRedeemed pts)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  '-${formatInr(walletDiscount)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const Divider(height: 24),
+                          if (!isFullyPaidByWallet) ...[
                             _summaryRow(
-                              'Balance on delivery',
+                              'Pay now (UPI)',
                               formatInr(
-                                summary.total - PaymentUtils.advanceAmount(summary.total),
+                                PaymentUtils.payableAmount(summary.total, _paymentPlan),
                                 withDecimals: true,
                               ),
+                            ),
+                            if (_paymentPlan == PaymentPlan.advance) ...[
+                              const SizedBox(height: 8),
+                              _summaryRow(
+                                'Balance on delivery',
+                                formatInr(
+                                  summary.total - PaymentUtils.advanceAmount(summary.total),
+                                  withDecimals: true,
+                                ),
+                              ),
+                            ],
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Payable',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade800,
+                                  ),
+                                ),
+                                Text(
+                                  '₹0 (Covered by Wallet)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                           const SizedBox(height: 8),
@@ -821,6 +1101,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               orderShortfall: orderShortfall,
               hasAddress: _selectedAddressId != null,
               placingOrder: _placingOrder,
+              isFullyPaidByWallet: isFullyPaidByWallet,
+              walletPointsRedeemed: walletPointsRedeemed,
               onPay: _placeOrder,
             ),
     );
@@ -973,6 +1255,8 @@ class _CheckoutPayBar extends StatelessWidget {
     required this.hasAddress,
     required this.placingOrder,
     required this.onPay,
+    this.isFullyPaidByWallet = false,
+    this.walletPointsRedeemed = 0,
   });
 
   final CartSummary summary;
@@ -983,6 +1267,8 @@ class _CheckoutPayBar extends StatelessWidget {
   final bool hasAddress;
   final bool placingOrder;
   final VoidCallback onPay;
+  final bool isFullyPaidByWallet;
+  final int walletPointsRedeemed;
 
   @override
   Widget build(BuildContext context) {
@@ -993,7 +1279,9 @@ class _CheckoutPayBar extends StatelessWidget {
 
     final buttonLabel = placingOrder
         ? 'Please wait...'
-        : 'Pay ${formatInr(payableNow, withDecimals: true)} with UPI';
+        : isFullyPaidByWallet
+            ? 'Place Order (Paid with $walletPointsRedeemed pts)'
+            : 'Pay ${formatInr(payableNow, withDecimals: true)} with UPI';
 
     String? helperText;
     if (!minimumOrderMet) {
@@ -1024,47 +1312,72 @@ class _CheckoutPayBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (minimumOrderMet) ...[
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Pay now (UPI)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      formatInr(payableNow, withDecimals: true),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                if (paymentPlan == PaymentPlan.advance) ...[
-                  const SizedBox(height: 6),
+                if (!isFullyPaidByWallet) ...[
                   Row(
                     children: [
                       const Expanded(
                         child: Text(
-                          'Balance on delivery',
+                          'Pay now (UPI)',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ),
                       Text(
-                        formatInr(balanceOnDelivery, withDecimals: true),
+                        formatInr(payableNow, withDecimals: true),
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (paymentPlan == PaymentPlan.advance) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Balance on delivery',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          formatInr(balanceOnDelivery, withDecimals: true),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ] else ...[
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Payable',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        '₹0 (Covered by Wallet)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.green,
                         ),
                       ),
                     ],
@@ -1078,6 +1391,8 @@ class _CheckoutPayBar extends StatelessWidget {
                 child: FilledButton(
                   onPressed: canPay ? onPay : null,
                   style: FilledButton.styleFrom(
+                    backgroundColor:
+                        isFullyPaidByWallet ? Colors.green.shade600 : AppColors.primary,
                     disabledBackgroundColor:
                         placingOrder && readyToPay ? AppColors.primary : AppColors.borderLight,
                     disabledForegroundColor:

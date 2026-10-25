@@ -241,6 +241,12 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
                   value={`- ${formatMoney(totals.couponDiscount)}`}
                 />
               ) : null}
+              {totals.walletDiscount > 0 ? (
+                <SummaryRow
+                  label={`Less: Wallet Points (${order?.walletPointsRedeemed || totals.walletDiscount} pts)`}
+                  value={`- ${formatMoney(totals.walletDiscount)}`}
+                />
+              ) : null}
               <SummaryRow
                 label="Shipping Charges"
                 value={totals.deliveryCharges === 0 ? "Free" : formatMoney(totals.deliveryCharges)}

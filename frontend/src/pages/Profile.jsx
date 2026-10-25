@@ -7,6 +7,9 @@ import {
   updateAddress,
   deleteAddress,
   getMyOrders,
+  getMyWallet,
+  getMyWalletTransactions,
+  claimReferralCode,
 } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import BuyAgainCard from "../components/product/BuyAgainCard";
@@ -57,6 +60,58 @@ function extractRecentOrderItems(orders, maxItems = 12) {
   }
 
   return items;
+}
+
+function formatTransactionDate(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getTransactionTypeDetails(type) {
+  switch (type) {
+    case "cashback":
+      return {
+        label: "Cashback Reward",
+        badgeClass: "bg-emerald-100 text-emerald-800",
+      };
+    case "referral_reward":
+      return {
+        label: "Referral Bonus",
+        badgeClass: "bg-emerald-100 text-emerald-800",
+      };
+    case "points_redemption":
+      return {
+        label: "Points Redeemed",
+        badgeClass: "bg-amber-100 text-amber-800",
+      };
+    case "points_expiry":
+      return {
+        label: "Points Expired",
+        badgeClass: "bg-red-100 text-red-800",
+      };
+    case "reward_reversal":
+      return {
+        label: "Reward Reversed",
+        badgeClass: "bg-red-100 text-red-800",
+      };
+    case "admin_adjustment":
+      return {
+        label: "Admin Adjustment",
+        badgeClass: "bg-blue-100 text-blue-800",
+      };
+    default:
+      return {
+        label: type ? type.replace(/_/g, " ") : "Transaction",
+        badgeClass: "bg-gray-100 text-gray-800",
+      };
+  }
 }
 
 function ProfileInfoRow({ icon, label, value, onEdit, showDivider }) {
@@ -128,6 +183,14 @@ function Profile() {
   const [showSettings, setShowSettings] = useState(false);
   const addressesRef = useRef(null);
 
+  // Wallet state
+  const [wallet, setWallet] = useState(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [walletTransactions, setWalletTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [transactionFilter, setTransactionFilter] = useState("all");
+
   const loadAddresses = async () => {
     setLoading(true);
     try {
@@ -152,16 +215,108 @@ function Profile() {
     }
   };
 
+  const loadWallet = async () => {
+    setWalletLoading(true);
+    try {
+      const { data } = await getMyWallet();
+      setWallet(data.data || null);
+    } catch (err) {
+      console.error("Failed to load wallet:", err);
+      setWallet(null);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const loadWalletTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const { data } = await getMyWalletTransactions({ limit: 50 });
+      setWalletTransactions(data.data || []);
+    } catch (err) {
+      console.error("Failed to load transactions:", err);
+      setWalletTransactions([]);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadAddresses();
       loadRecentItems();
+      loadWallet();
     } else {
       setAddresses([]);
       setRecentItems([]);
+      setWallet(null);
       setLoading(false);
+      setWalletLoading(false);
     }
   }, [user]);
+
+  const filteredTransactions = useMemo(() => {
+    if (transactionFilter === "credit") {
+      return walletTransactions.filter((tx) => Number(tx.pointsDelta) > 0);
+    }
+    if (transactionFilter === "debit") {
+      return walletTransactions.filter((tx) => Number(tx.pointsDelta) < 0);
+    }
+    return walletTransactions;
+  }, [walletTransactions, transactionFilter]);
+
+  // Referral state & handlers
+  const [referralInput, setReferralInput] = useState("");
+  const [claimingReferral, setClaimingReferral] = useState(false);
+  const [referralMsg, setReferralMsg] = useState({ error: "", success: "" });
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyCode = (code) => {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleShareLink = async (link, code) => {
+    if (!link) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Join BulkMobileMart",
+          text: `Use my referral code ${code} to get welcome bonus points on BulkMobileMart!`,
+          url: link,
+        });
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") return;
+      }
+    }
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleClaimReferral = async (e) => {
+    e?.preventDefault();
+    if (!referralInput.trim()) return;
+    setClaimingReferral(true);
+    setReferralMsg({ error: "", success: "" });
+    try {
+      const { data } = await claimReferralCode(referralInput.trim());
+      setReferralMsg({ error: "", success: data.message || "Referral bonus claimed!" });
+      setReferralInput("");
+      loadWallet();
+    } catch (err) {
+      setReferralMsg({
+        error: err.response?.data?.message || "Failed to claim referral code",
+        success: "",
+      });
+    } finally {
+      setClaimingReferral(false);
+    }
+  };
 
   useEffect(() => {
     if (addressIndex >= addresses.length) {
@@ -310,9 +465,187 @@ function Profile() {
           />
         </div>
 
+        {/* Wallet Balance Card */}
+        <div className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-[#FFF5ED] via-white to-[#FFE8D4]/50 p-4 shadow-sm transition hover:shadow-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm shadow-primary/30">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                </svg>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                    Wallet Balance
+                  </span>
+                  {wallet?.status && (
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        wallet.status === "blocked"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          wallet.status === "blocked" ? "bg-red-500" : "bg-emerald-500"
+                        }`}
+                      />
+                      {wallet.status === "blocked" ? "Blocked" : "Active"}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-extrabold text-text-primary">
+                    {walletLoading ? "..." : (wallet?.pointsBalance ?? 0).toLocaleString()}
+                  </span>
+                  <span className="text-xs font-bold text-primary">Points</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowWalletModal(true);
+                loadWalletTransactions();
+              }}
+              className="flex items-center gap-1 rounded-xl border border-primary/25 bg-white px-3 py-2 text-xs font-bold text-primary shadow-xs transition hover:bg-primary hover:text-white"
+            >
+              History
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mt-3.5 grid grid-cols-2 gap-2 border-t border-primary/10 pt-3">
+            <div className="flex items-center gap-2 rounded-xl border border-border-light/60 bg-white/80 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-text-secondary">Total Earned</p>
+                <p className="truncate text-xs font-bold text-emerald-600">
+                  +{wallet?.stats?.totalEarned?.toLocaleString() ?? 0} pts
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-xl border border-border-light/60 bg-white/80 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium text-text-secondary">Total Redeemed</p>
+                <p className="truncate text-xs font-bold text-amber-700">
+                  {wallet?.stats?.totalRedeemed?.toLocaleString() ?? 0} pts
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Refer & Earn Card */}
+        <div className="overflow-hidden rounded-2xl border border-primary/20 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFE8D4] text-primary">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-primary">Refer & Earn</h3>
+                <p className="text-xs text-text-secondary">
+                  Invite friends to earn {wallet?.rewardsConfig?.referralRewardReferrer ?? 50} bonus points!
+                </p>
+              </div>
+            </div>
+
+            {wallet?.referral?.referredUsersCount > 0 && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                {wallet.referral.referredUsersCount} invited
+              </span>
+            )}
+          </div>
+
+          {/* Referral Code Box */}
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-dashed border-primary/40 bg-[#FFF5ED] px-3.5 py-2.5">
+            <div>
+              <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
+                Your Referral Code
+              </p>
+              <p className="font-mono text-base font-extrabold tracking-widest text-primary">
+                {wallet?.referral?.code || "..."}
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleCopyCode(wallet?.referral?.code)}
+                className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-primary shadow-xs border border-primary/20 hover:bg-primary hover:text-white transition"
+              >
+                {copiedCode ? "Copied! ✓" : "Copy Code"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareLink(wallet?.referral?.link, wallet?.referral?.code)}
+                className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-bold text-white shadow-xs hover:brightness-110 transition"
+              >
+                {copiedLink ? "Link Copied! ✓" : "Share Link"}
+              </button>
+            </div>
+          </div>
+
+          {/* Transaction Reward Notice Banner */}
+          {wallet?.rewardsConfig?.orderRewardEnabled && (
+            <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-amber-50/70 border border-amber-200/60 px-3 py-2 text-xs text-amber-900">
+              <span className="text-base">🎁</span>
+              <span>
+                Earn <strong>+{wallet.rewardsConfig.orderRewardPoints} reward points</strong> on every order above <strong>₹{wallet.rewardsConfig.orderRewardThreshold}</strong>!
+              </span>
+            </div>
+          )}
+
+          {/* Claim referral input (if user hasn't claimed a referral yet) */}
+          {!wallet?.referral?.referredBy && (
+            <form onSubmit={handleClaimReferral} className="mt-3 border-t border-border-light/60 pt-3">
+              <p className="text-xs font-semibold text-text-primary">Have a friend's referral code?</p>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter referral code"
+                  value={referralInput}
+                  onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                  className="flex-1 rounded-xl border border-border-light px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-text-primary focus:border-primary focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={claimingReferral || !referralInput.trim()}
+                  className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-xs disabled:opacity-50 hover:brightness-110 transition"
+                >
+                  {claimingReferral ? "Claiming..." : "Claim Bonus"}
+                </button>
+              </div>
+              {referralMsg.error && (
+                <p className="mt-1.5 text-[11px] text-red-600">{referralMsg.error}</p>
+              )}
+              {referralMsg.success && (
+                <p className="mt-1.5 text-[11px] text-emerald-600 font-medium">{referralMsg.success}</p>
+              )}
+            </form>
+          )}
+        </div>
+
         <div className="flex rounded-2xl border border-primary/10 bg-[#FFF5ED] px-2 py-4">
           <QuickLink
-            label="My Addresses"
+            label="Addresses"
             onClick={scrollToAddresses}
             icon={
               <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -322,11 +655,23 @@ function Profile() {
             }
           />
           <QuickLink
-            label="My Orders"
+            label="Orders"
             to="/orders"
             icon={
               <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            }
+          />
+          <QuickLink
+            label="Wallet"
+            onClick={() => {
+              setShowWalletModal(true);
+              loadWalletTransactions();
+            }}
+            icon={
+              <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
               </svg>
             }
           />
@@ -340,7 +685,7 @@ function Profile() {
             }
           />
           <QuickLink
-            label="Account Settings"
+            label="Setting"
             onClick={() => setShowSettings(true)}
             icon={
               <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -507,6 +852,174 @@ function Profile() {
           )}
         </section>
       </div>
+
+      {/* Wallet History Modal */}
+      {showWalletModal && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/50 backdrop-blur-xs sm:items-center sm:p-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border-light px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFE8D4] text-primary">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-text-primary">Wallet History</h3>
+                  <p className="text-xs text-text-secondary">Points ledger and statements</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWalletModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary hover:bg-mobile-surface"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Top Balance Summary Banner */}
+            <div className="border-b border-primary/10 bg-[#FFF5ED] px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-text-secondary">Available Balance</span>
+                  <p className="text-xl font-extrabold text-text-primary">
+                    {(wallet?.pointsBalance ?? 0).toLocaleString()}{" "}
+                    <span className="text-xs font-bold text-primary">Points</span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-text-secondary">Earned / Spent</span>
+                  <p className="text-xs font-semibold text-text-primary">
+                    <span className="text-emerald-600">+{wallet?.stats?.totalEarned ?? 0}</span> /{" "}
+                    <span className="text-amber-700">-{wallet?.stats?.totalRedeemed ?? 0}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="mt-3 flex gap-2">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "credit", label: "Earned (+)" },
+                  { id: "debit", label: "Spent (-)" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setTransactionFilter(tab.id)}
+                    className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                      transactionFilter === tab.id
+                        ? "bg-primary text-white shadow-xs"
+                        : "border border-border-light bg-white text-text-secondary hover:bg-white/80"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Transactions List */}
+            <div className="flex-1 divide-y divide-border-light overflow-y-auto px-5 py-4">
+              {transactionsLoading ? (
+                <div className="space-y-3 py-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 animate-pulse rounded-xl bg-mobile-surface" />
+                  ))}
+                </div>
+              ) : filteredTransactions.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFE8D4] text-primary">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <p className="font-semibold text-text-primary">No transactions found</p>
+                  <p className="mx-auto mt-1 max-w-xs text-xs text-text-secondary">
+                    {transactionFilter === "all"
+                      ? "Earn points by placing orders or through cashbacks and rewards!"
+                      : `No ${transactionFilter === "credit" ? "earned" : "spent"} transactions found.`}
+                  </p>
+                </div>
+              ) : (
+                filteredTransactions.map((tx) => {
+                  const isCredit = Number(tx.pointsDelta) > 0;
+                  const typeInfo = getTransactionTypeDetails(tx.type);
+                  return (
+                    <div key={tx._id} className="flex items-start justify-between py-3.5 first:pt-0 last:pb-0">
+                      <div className="flex min-w-0 flex-1 items-start gap-3 pr-3">
+                        <div
+                          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            isCredit ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                          }`}
+                        >
+                          {isCredit ? (
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-bold text-text-primary">{typeInfo.label}</span>
+                            {tx.status === "reversed" && (
+                              <span className="rounded bg-red-100 px-1.5 py-0.2 text-[9px] font-bold text-red-700">
+                                REVERSED
+                              </span>
+                            )}
+                          </div>
+                          {tx.description && (
+                            <p className="mt-0.5 truncate text-xs text-text-secondary">{tx.description}</p>
+                          )}
+                          <div className="mt-1 flex items-center gap-2 text-[10px] text-text-muted">
+                            <span>{formatTransactionDate(tx.createdAt)}</span>
+                            {tx.referenceId && (
+                              <>
+                                <span>•</span>
+                                <span className="font-mono">Ref: {tx.referenceId}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p
+                          className={`text-sm font-extrabold ${
+                            isCredit ? "text-emerald-600" : "text-amber-700"
+                          }`}
+                        >
+                          {isCredit ? `+${tx.pointsDelta}` : tx.pointsDelta} pts
+                        </p>
+                        <p className="text-[10px] text-text-secondary">
+                          Bal: {tx.balanceAfter ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="rounded-b-3xl border-t border-border-light bg-mobile-surface p-4">
+              <button
+                type="button"
+                onClick={() => setShowWalletModal(false)}
+                className="w-full rounded-xl bg-primary py-2.5 text-xs font-bold text-white transition hover:brightness-110"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSettings && (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 px-4 pb-6 sm:items-center">

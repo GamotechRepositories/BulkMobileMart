@@ -15,6 +15,8 @@ export const ADMIN_TAB_KEYS = [
   "users",
   "banners",
   "offer-banners",
+  "wallet",
+  "wallets",
 ];
 
 export const SUPER_ONLY_ADMIN_TAB_KEYS = ["admin-users"];

@@ -153,6 +153,13 @@ export const getAvailableCoupons = (params) => api.get("/api/coupons/available",
 
 export const submitSupportMessage = (data) => api.post("/api/support", data);
 
+export const getMyWallet = () => api.get("/api/wallet");
+export const getMyWalletTransactions = (params) =>
+  api.get("/api/wallet/transactions", { params });
+export const claimReferralCode = (referralCode) =>
+  api.post("/api/wallet/claim-referral", { referralCode });
+export const getWalletSettings = () => api.get("/api/wallet/settings");
+
 export const uploadImageFile = (file, folder) => {
   const formData = new FormData();
   formData.append("image", file);

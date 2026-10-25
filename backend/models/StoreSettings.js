@@ -158,6 +158,35 @@ const appUpdateSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const walletSettingsSchema = new mongoose.Schema(
+  {
+    enabled: { type: Boolean, default: true },
+    referralEnabled: { type: Boolean, default: true },
+    referralRewardReferee: {
+      type: Number,
+      default: 50,
+      min: [0, "Referee reward must be 0 or more"],
+    },
+    referralRewardReferrer: {
+      type: Number,
+      default: 50,
+      min: [0, "Referrer reward must be 0 or more"],
+    },
+    orderRewardEnabled: { type: Boolean, default: true },
+    orderRewardThreshold: {
+      type: Number,
+      default: 1000,
+      min: [0, "Order reward threshold must be 0 or more"],
+    },
+    orderRewardPoints: {
+      type: Number,
+      default: 25,
+      min: [0, "Order reward points must be 0 or more"],
+    },
+  },
+  { _id: false }
+);
+
 const storeSettingsSchema = new mongoose.Schema(
   {
     key: {
@@ -235,6 +264,10 @@ const storeSettingsSchema = new mongoose.Schema(
     },
     appUpdate: {
       type: appUpdateSchema,
+      default: () => ({}),
+    },
+    walletSettings: {
+      type: walletSettingsSchema,
       default: () => ({}),
     },
   },

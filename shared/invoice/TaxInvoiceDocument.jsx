@@ -259,6 +259,12 @@ const TaxInvoiceDocument = forwardRef(function TaxInvoiceDocument(
                       value={`-${formatInvoiceAmount(totals.couponDiscount)}`}
                     />
                   ) : null}
+                  {totals.walletDiscount > 0 ? (
+                    <SummaryRow
+                      label={`Less: Wallet Points (${order?.walletPointsRedeemed || totals.walletDiscount} pts)`}
+                      value={`-${formatInvoiceAmount(totals.walletDiscount)}`}
+                    />
+                  ) : null}
                   <SummaryRow
                     label="Shipping Charges"
                     value={

@@ -9,6 +9,7 @@ import {
   sanitizeAdminTabs,
   validateLimitedAdminTabs,
 } from "../utils/adminPermissions.js";
+import { processReferralReward } from "./walletController.js";
 import {
   normalizeIndianPhone,
   sendLoginOtp as dispatchLoginOtp,
@@ -38,6 +39,8 @@ const formatAuthUser = (user) => ({
   shopAddress: user.shopAddress || "",
   gstNumber: user.gstNumber || "",
   role: user.role,
+  referralCode: user.referralCode || "",
+  referredBy: user.referredBy || null,
   ...formatAdminPermissions(user),
 });
 
@@ -388,12 +391,34 @@ export const completeOtpSignup = async (req, res) => {
       });
     }
 
+    let referrerUser = null;
+    if (
+      req.body.referralCode &&
+      typeof req.body.referralCode === "string" &&
+      req.body.referralCode.trim()
+    ) {
+      const normalizedReferral = req.body.referralCode.trim().toUpperCase();
+      referrerUser = await User.findOne({ referralCode: normalizedReferral });
+    }
+
     const user = await User.create({
       name: name.trim(),
       phone,
       role: "user",
+      ...(referrerUser ? { referredBy: referrerUser._id } : {}),
       ...optionalSignupFields,
     });
+
+    if (referrerUser) {
+      try {
+        await processReferralReward({
+          newUserId: user._id,
+          referrerId: referrerUser._id,
+        });
+      } catch (refErr) {
+        console.error("Referral reward error during signup:", refErr);
+      }
+    }
 
     const token = signToken(user._id);
 
@@ -498,6 +523,8 @@ export const getMe = async (req, res) => {
         shopAddress: req.user.shopAddress || "",
         gstNumber: req.user.gstNumber || "",
         role: req.user.role,
+        referralCode: req.user.referralCode || "",
+        referredBy: req.user.referredBy || null,
         ...formatAdminPermissions(req.user),
         createdAt: req.user.createdAt,
         updatedAt: req.user.updatedAt,

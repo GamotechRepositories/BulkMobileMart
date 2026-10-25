@@ -909,6 +909,14 @@ function AdminOrderDetailSection() {
               )}
             </div>
           )}
+          {order.walletDiscount > 0 ? (
+            <div className="flex justify-between text-green-700">
+              <span>
+                Wallet Points Redeemed ({order.walletPointsRedeemed || order.walletDiscount} pts)
+              </span>
+              <span>-{formatPrice(order.walletDiscount)}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between text-neutral-600">
             <span>Delivery Charges</span>
             {editingDeliveryCharge ? (

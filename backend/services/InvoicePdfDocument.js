@@ -183,6 +183,16 @@ export default function InvoicePdfDocument({ order, customer, storeSettings, log
     );
   }
 
+  if (totals.walletDiscount > 0) {
+    summaryRows.push(
+      e(SummaryRow, {
+        key: "wallet",
+        label: `Less: Wallet Points (${order?.walletPointsRedeemed || totals.walletDiscount} pts)`,
+        value: `- ${formatMoney(totals.walletDiscount)}`,
+      })
+    );
+  }
+
   summaryRows.push(
     e(SummaryRow, {
       key: "ship",

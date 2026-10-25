@@ -109,12 +109,13 @@ export function buildInvoiceTotals({
   lineItems = [],
   deliveryCharges = 0,
   couponDiscount = 0,
+  walletDiscount = 0,
   sellerState = INVOICE_CONFIG.stateName,
   customerState = "",
   orderSubtotal,
   orderTotal,
 }) {
-  // GST-inclusive prices. Sub Total → coupon → shipping → total.
+  // GST-inclusive prices. Sub Total → coupon → shipping → wallet → total.
   // Sum rate * qty once (matches backend order subtotal), then round.
   const itemsSum = sumLineItemsSubtotal(lineItems);
   const subTotal = roundMoney(
@@ -125,11 +126,12 @@ export function buildInvoiceTotals({
   const coupon = roundMoney(
     Math.min(Math.max(0, Number(couponDiscount) || 0), subTotal)
   );
+  const wallet = roundMoney(Math.max(0, Number(walletDiscount) || 0));
   const intraState =
     normalizeStateName(sellerState) === normalizeStateName(customerState || sellerState);
 
   const delivery = roundMoney(Number(deliveryCharges) || 0);
-  const calculatedGrandTotal = roundMoney(subTotal - coupon + delivery);
+  const calculatedGrandTotal = roundMoney(Math.max(0, subTotal - coupon + delivery - wallet));
   const grandTotal = roundMoney(
     orderTotal != null && Number(orderTotal) >= 0
       ? Number(orderTotal)
@@ -143,6 +145,7 @@ export function buildInvoiceTotals({
     shippingGst: 0,
     deliveryCharges: delivery,
     couponDiscount: coupon,
+    walletDiscount: wallet,
     gstBreakdown: [],
     grandTotal,
     intraState,
@@ -159,6 +162,7 @@ export function buildInvoiceTotalsForOrder(
     lineItems,
     deliveryCharges: order?.deliveryCharges || 0,
     couponDiscount: order?.couponDiscount || 0,
+    walletDiscount: order?.walletDiscount || 0,
     sellerState,
     customerState: customerState || addr?.state || "",
     orderSubtotal: order?.subtotal,

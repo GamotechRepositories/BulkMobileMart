@@ -166,6 +166,7 @@ export function getOrderDisplayId(order) {
 }
 
 export function getPaymentMethodLabel(order) {
+  if (order.paymentMethod === "wallet") return "Wallet Points";
   return order.paymentMethod === "cod" ? "COD" : "Online";
 }
 

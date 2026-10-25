@@ -78,8 +78,17 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow, couponCode, attemptedOrderId } =
-      req.body;
+    const {
+      addressId,
+      paymentMode = "online",
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      attemptedOrderId,
+      useWalletPoints,
+      walletPoints,
+    } = req.body;
     if (!addressId) {
       return res.status(400).json({
         success: false,
@@ -94,11 +103,18 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
+    const wantWallet =
+      useWalletPoints === true ||
+      useWalletPoints === "true" ||
+      (walletPoints != null && Number(walletPoints) > 0);
+
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutItems,
       checkoutMode,
       buyNow,
       couponCode,
+      useWalletPoints: wantWallet,
+      walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
@@ -107,6 +123,14 @@ export const createRazorpayOrder = async (req, res) => {
         message: result.error,
         ...(result.code ? { code: result.code } : {}),
         ...(result.removedItems ? { removedItems: result.removedItems } : {}),
+      });
+    }
+
+    if (result.total <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Order total is fully covered by wallet points. Please place order directly.",
+        isFullyPaidByWallet: true,
       });
     }
 
@@ -120,6 +144,8 @@ export const createRazorpayOrder = async (req, res) => {
         subtotal: result.subtotal,
         couponCode: result.couponCode,
         couponDiscount: result.couponDiscount,
+        walletDiscount: result.walletDiscount,
+        walletPointsRedeemed: result.walletPointsRedeemed,
         deliveryCharges: result.deliveryCharges,
         gstAmount: result.gstAmount,
         total: result.total,
@@ -192,6 +218,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       buyNow,
       attemptedOrderId,
       couponCode,
+      useWalletPoints,
+      walletPoints,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -221,12 +249,19 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
+    const wantWallet =
+      useWalletPoints === true ||
+      useWalletPoints === "true" ||
+      (walletPoints != null && Number(walletPoints) > 0);
+
     const razorpayOrder = await razorpay.orders.fetch(razorpay_order_id);
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutItems,
       checkoutMode,
       buyNow,
       couponCode,
+      useWalletPoints: wantWallet,
+      walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
     });
 
@@ -257,6 +292,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      walletDiscount: result.walletDiscount,
+      walletPointsRedeemed: result.walletPointsRedeemed,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -304,6 +341,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       buyNow,
       attemptedOrderId,
       couponCode,
+      useWalletPoints,
+      walletPoints,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
@@ -342,11 +381,18 @@ export const submitUpiPaymentProof = async (req, res) => {
       });
     }
 
+    const wantWallet =
+      useWalletPoints === true ||
+      useWalletPoints === "true" ||
+      (walletPoints != null && Number(walletPoints) > 0);
+
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutItems,
       checkoutMode,
       buyNow,
       couponCode,
+      useWalletPoints: wantWallet,
+      walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
@@ -370,6 +416,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      walletDiscount: result.walletDiscount,
+      walletPointsRedeemed: result.walletPointsRedeemed,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,

@@ -36,6 +36,7 @@ import {
   trackEnviaShipment,
 } from "../services/enviaShippingService.js";
 import { GIFT_HAMPER_STATUSES } from "../../shared/store/giftHamper.js";
+import { reverseOrderReward, refundOrderRedeemedPoints } from "./walletController.js";
 import {
   formatIndiaDateString,
   getIndiaDayEnd,
@@ -425,8 +426,17 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
 
 export const createCheckoutAttempt = async (req, res) => {
   try {
-    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow, couponCode, attemptedOrderId } =
-      req.body;
+    const {
+      addressId,
+      checkoutItems,
+      paymentMethod,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      attemptedOrderId,
+      useWalletPoints,
+      walletPoints,
+    } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
       checkoutItems,
@@ -434,6 +444,8 @@ export const createCheckoutAttempt = async (req, res) => {
       buyNow,
       couponCode,
       attemptedOrderId,
+      useWalletPoints,
+      walletPoints,
     });
 
     if (prepared.error) {
@@ -571,8 +583,16 @@ export const adminPlaceOrder = async (req, res) => {
 
 export const placeOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, attemptedOrderId, checkoutMode, buyNow, couponCode } =
-      req.body;
+    const {
+      addressId,
+      paymentMethod,
+      attemptedOrderId,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      useWalletPoints,
+      walletPoints,
+    } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
@@ -582,7 +602,7 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    if (!paymentMethod || !["cod", "online"].includes(paymentMethod)) {
+    if (!paymentMethod || !["cod", "online", "wallet"].includes(paymentMethod)) {
       return res.status(400).json({
         success: false,
         message: "Valid payment method is required",
@@ -596,10 +616,18 @@ export const placeOrder = async (req, res) => {
       });
     }
 
+    const wantWallet =
+      useWalletPoints === true ||
+      useWalletPoints === "true" ||
+      paymentMethod === "wallet" ||
+      (walletPoints != null && Number(walletPoints) > 0);
+
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutMode,
       buyNow,
       couponCode,
+      useWalletPoints: wantWallet,
+      walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
     });
     if (result.error) {
@@ -611,6 +639,18 @@ export const placeOrder = async (req, res) => {
       });
     }
 
+    if (paymentMethod === "wallet" && result.total > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Wallet points do not cover the full order amount. Remaining balance: ₹${result.total}. Please choose COD or Online payment for the balance.`,
+      });
+    }
+
+    const isFullyPaidByWallet = result.total === 0 && result.walletPointsRedeemed > 0;
+    const finalPaymentMethod = isFullyPaidByWallet ? "wallet" : "cod";
+    const finalPaymentStatus = isFullyPaidByWallet ? "paid" : "unpaid";
+    const paidAt = isFullyPaidByWallet ? new Date() : null;
+
     let order = await finalizeOrder({
       userId: req.user._id,
       orderItems: result.orderItems,
@@ -618,13 +658,16 @@ export const placeOrder = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      walletDiscount: result.walletDiscount,
+      walletPointsRedeemed: result.walletPointsRedeemed,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
       cart: result.cart,
       checkoutMode: result.checkoutMode,
-      paymentMethod: "cod",
-      paymentStatus: "unpaid",
+      paymentMethod: finalPaymentMethod,
+      paymentStatus: finalPaymentStatus,
+      paidAt,
       message: orderMessage,
       attemptedOrderId,
       orderSource: normalizeOrderSource(req.body.orderSource),
@@ -733,6 +776,18 @@ export const cancelOrder = async (req, res) => {
     }
 
     await order.save();
+
+    try {
+      await reverseOrderReward(order);
+    } catch (e) {
+      console.error("Failed to reverse reward on cancellation:", e);
+    }
+
+    try {
+      await refundOrderRedeemedPoints(order);
+    } catch (e) {
+      console.error("Failed to refund redeemed points on cancellation:", e);
+    }
 
     res.status(200).json({
       success: true,
@@ -1362,6 +1417,19 @@ export const updateOrder = async (req, res) => {
     let order = await populateOrderItems(
       Order.findById(req.params.id).populate("user", "name email phone")
     );
+
+    if (updates.status === "cancelled" && previousStatus !== "cancelled") {
+      try {
+        await reverseOrderReward(order);
+      } catch (e) {
+        console.error("Failed to reverse reward on updateOrder cancellation:", e);
+      }
+      try {
+        await refundOrderRedeemedPoints(order);
+      } catch (e) {
+        console.error("Failed to refund redeemed points on updateOrder cancellation:", e);
+      }
+    }
 
     void notifyOrderStatusChange(order, previousStatus, { notificationStage });
 

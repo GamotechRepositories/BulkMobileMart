@@ -166,6 +166,11 @@ class ApiService {
 
   Future<Response<dynamic>> getAddresses() => _dio.get('/api/addresses');
 
+  Future<Response<dynamic>> getWallet() => _dio.get('/api/wallet');
+
+  Future<Response<dynamic>> getWalletTransactions({int page = 1, int limit = 50}) =>
+      _dio.get('/api/wallet/transactions', queryParameters: {'page': page, 'limit': limit});
+
   Future<Response<dynamic>> addAddress(Map<String, dynamic> data) =>
       _dio.post('/api/addresses', data: _buildAddressPayload(data));
 
@@ -617,6 +622,35 @@ class ApiService {
 
   Future<void> removeAddress(String id) async {
     await deleteAddress(id);
+  }
+
+  Future<Map<String, dynamic>?> fetchMyWallet() async {
+    try {
+      final response = await getWallet();
+      final data = response.data;
+      if (data is Map && data['data'] is Map) {
+        final inner = data['data'] as Map;
+        if (inner['wallet'] is Map) {
+          return Map<String, dynamic>.from(inner['wallet'] as Map);
+        }
+        return Map<String, dynamic>.from(inner);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchMyWalletTransactions() async {
+    try {
+      final response = await getWalletTransactions();
+      final data = response.data;
+      if (data is Map && data['data'] is List) {
+        return (data['data'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
   }
 
   Future<String> uploadPaymentProofImage(String filePath) =>

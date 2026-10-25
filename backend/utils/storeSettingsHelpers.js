@@ -60,7 +60,48 @@ export const DEFAULT_STORE_SETTINGS = {
       "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app",
     iosStoreUrl: "",
   },
+  walletSettings: {
+    enabled: true,
+    referralEnabled: true,
+    referralRewardReferee: 50,
+    referralRewardReferrer: 50,
+    orderRewardEnabled: true,
+    orderRewardThreshold: 1000,
+    orderRewardPoints: 25,
+  },
 };
+
+export function normalizeWalletSettings(source = {}) {
+  const defaults = DEFAULT_STORE_SETTINGS.walletSettings;
+  return {
+    enabled:
+      source?.enabled === undefined ? defaults.enabled : Boolean(source.enabled),
+    referralEnabled:
+      source?.referralEnabled === undefined
+        ? defaults.referralEnabled
+        : Boolean(source.referralEnabled),
+    referralRewardReferee: Math.max(
+      0,
+      Math.round(Number(source?.referralRewardReferee ?? defaults.referralRewardReferee)) || 0
+    ),
+    referralRewardReferrer: Math.max(
+      0,
+      Math.round(Number(source?.referralRewardReferrer ?? defaults.referralRewardReferrer)) || 0
+    ),
+    orderRewardEnabled:
+      source?.orderRewardEnabled === undefined
+        ? defaults.orderRewardEnabled
+        : Boolean(source.orderRewardEnabled),
+    orderRewardThreshold: Math.max(
+      0,
+      Math.round(Number(source?.orderRewardThreshold ?? defaults.orderRewardThreshold)) || 0
+    ),
+    orderRewardPoints: Math.max(
+      0,
+      Math.round(Number(source?.orderRewardPoints ?? defaults.orderRewardPoints)) || 0
+    ),
+  };
+}
 
 export function normalizeAppUpdate(source = {}) {
   const defaults = DEFAULT_STORE_SETTINGS.appUpdate;
@@ -228,6 +269,7 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
         : DEFAULT_STORE_SETTINGS.cartNoticeHi,
     envia,
     appUpdate: normalizeAppUpdate(source.appUpdate),
+    walletSettings: normalizeWalletSettings(source.walletSettings),
   };
 }
 

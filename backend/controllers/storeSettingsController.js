@@ -6,6 +6,7 @@ import {
   normalizeAppUpdate,
   normalizeMerchantUpiAccounts,
   normalizeShippingSlabs,
+  normalizeWalletSettings,
   serializeStoreSettings,
 } from "../utils/storeSettingsHelpers.js";
 import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
@@ -162,6 +163,7 @@ export const updateStoreSettings = async (req, res) => {
       cartNoticeHi,
       envia,
       appUpdate,
+      walletSettings,
     } = req.body;
 
     const payload = {};
@@ -265,10 +267,25 @@ export const updateStoreSettings = async (req, res) => {
       payload.appUpdate = normalizeAppUpdate(appUpdate);
     }
 
+    if (walletSettings !== undefined) {
+      if (!walletSettings || typeof walletSettings !== "object") {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid wallet settings",
+        });
+      }
+      payload.walletSettings = normalizeWalletSettings(walletSettings);
+    }
+
     if (!doc) {
       doc = await StoreSettings.create({ key: "store", ...payload });
     } else {
-      const { envia: enviaPayload, appUpdate: appUpdatePayload, ...rest } = payload;
+      const {
+        envia: enviaPayload,
+        appUpdate: appUpdatePayload,
+        walletSettings: walletSettingsPayload,
+        ...rest
+      } = payload;
       Object.assign(doc, rest);
       if (enviaPayload !== undefined) {
         doc.set("envia", enviaPayload);
@@ -277,6 +294,10 @@ export const updateStoreSettings = async (req, res) => {
       if (appUpdatePayload !== undefined) {
         doc.set("appUpdate", appUpdatePayload);
         doc.markModified("appUpdate");
+      }
+      if (walletSettingsPayload !== undefined) {
+        doc.set("walletSettings", walletSettingsPayload);
+        doc.markModified("walletSettings");
       }
       await doc.save();
     }

@@ -100,7 +100,12 @@ function DesktopOrderCard({ order }) {
   const productId = getPrimaryProductId(order);
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const city = order.deliveryAddress?.city?.trim() || "";
-  const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
+  const paymentMode =
+    order.paymentMethod === "wallet"
+      ? "Wallet Points"
+      : order.paymentMethod === "cod"
+        ? "Cash on Delivery"
+        : "Online Payment";
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
   const isReturn = order.status === "return";

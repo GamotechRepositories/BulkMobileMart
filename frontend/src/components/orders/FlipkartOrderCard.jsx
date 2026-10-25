@@ -176,7 +176,12 @@ function FlipkartOrderCard({ order }) {
   const extraItems = items.length > 1 ? items.length - 1 : 0;
   const totalQty = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   const productId = getPrimaryProductId(order);
-  const paymentMode = order.paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment";
+  const paymentMode =
+    order.paymentMethod === "wallet"
+      ? "Wallet Points"
+      : order.paymentMethod === "cod"
+        ? "Cash on Delivery"
+        : "Online Payment";
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
   const isReturn = order.status === "return";

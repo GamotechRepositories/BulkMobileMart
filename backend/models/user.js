@@ -120,9 +120,45 @@ const userSchema = new mongoose.Schema(
         ref: "Order",
       },
     ],
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
+    },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserBulkMart",
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+export function generateRandomReferralCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "BMM";
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+userSchema.pre("save", async function ensureReferralCode() {
+  if (!this.referralCode && this.role !== "admin") {
+    let code;
+    let exists = true;
+    let attempts = 0;
+    while (exists && attempts < 10) {
+      code = generateRandomReferralCode();
+      const count = await mongoose.models.UserBulkMart?.countDocuments({ referralCode: code });
+      if (!count) exists = false;
+      attempts++;
+    }
+    this.referralCode = code || `BMM${Date.now().toString().slice(-5)}`;
+  }
+});
 
 userSchema.pre("validate", function requireAdminCredentials() {
   if (this.role !== "admin") return;
@@ -155,6 +191,9 @@ userSchema.methods.comparePassword = async function comparePassword(candidate) {
   return bcrypt.compare(candidate, this.password);
 };
 
-const User = mongoose.model("UserBulkMart", userSchema);
+const User = mongoose.models.UserBulkMart || mongoose.model("UserBulkMart", userSchema);
+if (!mongoose.models.User) {
+  mongoose.model("User", userSchema);
+}
 
 export default User;

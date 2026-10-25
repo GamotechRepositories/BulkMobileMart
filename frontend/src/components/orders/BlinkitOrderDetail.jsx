@@ -182,6 +182,18 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 {formatOrderPrice(order.subtotal)}
               </span>
             </div>
+            {order.couponDiscount > 0 ? (
+              <div className="flex justify-between text-[#2E7D32]">
+                <span>Coupon discount {order.couponCode ? `(${order.couponCode})` : ""}</span>
+                <span className="font-semibold">-{formatOrderPrice(order.couponDiscount)}</span>
+              </div>
+            ) : null}
+            {order.walletDiscount > 0 ? (
+              <div className="flex justify-between text-[#2E7D32]">
+                <span>Wallet points ({order.walletPointsRedeemed || order.walletDiscount} pts)</span>
+                <span className="font-semibold">-{formatOrderPrice(order.walletDiscount)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between text-text-secondary">
               <span>Delivery fee</span>
               <div className="flex items-center gap-2">

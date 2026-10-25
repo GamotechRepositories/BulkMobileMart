@@ -30,6 +30,8 @@ import testFcmRoutes from "./routes/testFcmRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import metaAdsRoutes from "./routes/metaAdsRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+import adminWalletRoutes from "./routes/adminWalletRoutes.js";
 import { getFirebaseAdmin } from "./config/firebaseAdmin.js";
 
 // Process-level crash prevention for background async promises & exceptions
@@ -90,6 +92,8 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/test", testFcmRoutes);
 app.use("/api/webhooks", webhookRoutes);
 app.use("/api/meta-ads", metaAdsRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/admin/wallets", adminWalletRoutes);
 
 // Global error handling middleware to prevent unhandled express crashes
 app.use((err, req, res, next) => {
