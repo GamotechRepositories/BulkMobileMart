@@ -3,7 +3,7 @@ export const DEFAULT_PAGE_SIZE = 20;
 export function getPaginationParams(query, defaultLimit = DEFAULT_PAGE_SIZE) {
   const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
   const limit = Math.min(
-    100,
+    200,
     Math.max(1, Number.parseInt(query.limit, 10) || defaultLimit)
   );
   const skip = (page - 1) * limit;

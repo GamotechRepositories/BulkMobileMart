@@ -13,6 +13,7 @@ export const ADMIN_TAB_OPTIONS = [
   { key: "promotional", label: "Promotional" },
   { key: "support", label: "Support" },
   { key: "users", label: "Users" },
+  { key: "wallets", label: "Wallets" },
   { key: "banners", label: "Hero Banners" },
   { key: "offer-banners", label: "Offer Banners" },
 ];
@@ -32,6 +33,7 @@ export const TAB_KEY_TO_DEFAULT_PATH = {
   promotional: "/promotional-notifications",
   support: "/support",
   users: "/users",
+  wallets: "/wallets",
   banners: "/banners",
   "offer-banners": "/offer-banners",
   "admin-users": "/admin-users",

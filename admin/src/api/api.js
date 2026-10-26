@@ -107,6 +107,12 @@ export const updateUserAddress = (userId, addressId, data) =>
 export const updateUser = (id, data) => api.put(`/api/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/api/users/${id}`);
 
+export const getAdminWallets = (params) => api.get("/api/admin/wallets", { params });
+export const getAdminWalletByUserId = (userId) => api.get(`/api/admin/wallets/users/${userId}`);
+export const getAdminWalletTransactions = (params) => api.get("/api/admin/wallets/transactions", { params });
+export const adjustAdminWalletBalance = (data) => api.post("/api/admin/wallets/adjust", data);
+export const updateAdminWalletStatus = (userId, status) => api.patch(`/api/admin/wallets/users/${userId}/status`, { status });
+
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const getAdminOrders = (params) => api.get("/api/orders/admin/all", { params });
 export const getAdminOrderUnreadCount = (params) =>

@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import Order from "../models/order/Order.js";
+import Wallet from "../models/wallet/Wallet.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
 import {
@@ -932,15 +933,21 @@ export const createUser = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query);
-    const filter = { role: { $ne: "admin" } };
 
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
     const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : "";
+    const sortBy = typeof req.query.sortBy === "string" ? req.query.sortBy.trim() : "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+    const walletFilter = typeof req.query.walletFilter === "string" ? req.query.walletFilter.trim() : "all";
+    const walletStatus = typeof req.query.walletStatus === "string" ? req.query.walletStatus.trim() : "all";
+    const orderFilter = typeof req.query.orderFilter === "string" ? req.query.orderFilter.trim() : "all";
+
+    const matchStage = { role: { $ne: "admin" } };
 
     if (search) {
-      const pattern = { $regex: escapeRegex(search), $options: "i" };
-      filter.$or = [
+      const pattern = new RegExp(escapeRegex(search), "i");
+      matchStage.$or = [
         { name: pattern },
         { phone: pattern },
         { email: pattern },
@@ -948,18 +955,137 @@ export const getUsers = async (req, res) => {
       ];
     } else {
       if (name) {
-        filter.name = { $regex: escapeRegex(name), $options: "i" };
+        matchStage.name = new RegExp(escapeRegex(name), "i");
       }
-
       if (phone) {
-        filter.phone = { $regex: escapeRegex(phone), $options: "i" };
+        matchStage.phone = new RegExp(escapeRegex(phone), "i");
       }
     }
 
-    const [total, users] = await Promise.all([
-      User.countDocuments(filter),
-      User.find(filter).select("-password").sort({ createdAt: -1 }).skip(skip).limit(limit),
-    ]);
+    const pipeline = [
+      { $match: matchStage },
+      // Lookup wallet
+      {
+        $lookup: {
+          from: "wallets",
+          localField: "_id",
+          foreignField: "userId",
+          as: "walletDoc",
+        },
+      },
+      {
+        $addFields: {
+          walletDocSingle: { $arrayElemAt: ["$walletDoc", 0] },
+        },
+      },
+      {
+        $addFields: {
+          walletBalance: { $ifNull: ["$walletDocSingle.pointsBalance", 0] },
+          walletStatus: { $ifNull: ["$walletDocSingle.status", "active"] },
+          walletId: "$walletDocSingle._id",
+          wallet: {
+            $cond: {
+              if: { $ne: ["$walletDocSingle", null] },
+              then: {
+                _id: "$walletDocSingle._id",
+                pointsBalance: "$walletDocSingle.pointsBalance",
+                status: "$walletDocSingle.status",
+              },
+              else: { pointsBalance: 0, status: "active" },
+            },
+          },
+        },
+      },
+      {
+        $project: { walletDoc: 0, walletDocSingle: 0, password: 0 },
+      },
+      // Lookup orders to compute total revenue and order count
+      {
+        $lookup: {
+          from: "orders",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$user", "$$userId"] },
+                    { $ne: ["$status", "attempted"] },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalOrders: { $sum: 1 },
+                totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+              },
+            },
+          ],
+          as: "orderSummary",
+        },
+      },
+      {
+        $addFields: {
+          totalOrders: {
+            $ifNull: [{ $arrayElemAt: ["$orderSummary.totalOrders", 0] }, 0],
+          },
+          totalRevenue: {
+            $ifNull: [{ $arrayElemAt: ["$orderSummary.totalRevenue", 0] }, 0],
+          },
+        },
+      },
+      {
+        $project: { orderSummary: 0 },
+      },
+    ];
+
+    // Filter by wallet balance
+    if (walletFilter === "has_balance") {
+      pipeline.push({ $match: { walletBalance: { $gt: 0 } } });
+    } else if (walletFilter === "zero_balance") {
+      pipeline.push({ $match: { walletBalance: { $lte: 0 } } });
+    }
+
+    // Filter by wallet status
+    if (walletStatus === "active" || walletStatus === "blocked") {
+      pipeline.push({ $match: { walletStatus } });
+    }
+
+    // Filter by order history
+    if (orderFilter === "has_orders") {
+      pipeline.push({ $match: { totalOrders: { $gt: 0 } } });
+    } else if (orderFilter === "no_orders") {
+      pipeline.push({ $match: { totalOrders: 0 } });
+    }
+
+    // Sorting
+    let sortObj = {};
+    if (sortBy === "walletBalance") {
+      sortObj = { walletBalance: sortOrder, _id: -1 };
+    } else if (sortBy === "totalRevenue" || sortBy === "orderValue") {
+      sortObj = { totalRevenue: sortOrder, _id: -1 };
+    } else if (sortBy === "totalOrders") {
+      sortObj = { totalOrders: sortOrder, _id: -1 };
+    } else if (sortBy === "name") {
+      sortObj = { name: sortOrder, _id: -1 };
+    } else {
+      sortObj = { createdAt: sortOrder, _id: -1 };
+    }
+    pipeline.push({ $sort: sortObj });
+
+    // Facet for pagination
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [{ $skip: skip }, { $limit: limit }],
+      },
+    });
+
+    const [facetResult] = await User.aggregate(pipeline);
+    const total = facetResult?.metadata?.[0]?.total || 0;
+    const users = facetResult?.data || [];
 
     res.status(200).json(buildPaginatedResponse(users, total, page, limit));
   } catch (error) {
@@ -974,22 +1100,26 @@ export const getUserOrderStats = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    const [stats] = await Order.aggregate([
-      {
-        $match: {
-          user: user._id,
-          status: { $ne: "attempted" },
+    const [statsResult, wallet] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            user: user._id,
+            status: { $ne: "attempted" },
+          },
         },
-      },
-      {
-        $group: {
-          _id: null,
-          totalOrders: { $sum: 1 },
-          totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+          },
         },
-      },
+      ]),
+      Wallet.findOne({ userId: user._id }).lean(),
     ]);
 
+    const stats = statsResult[0];
     const totalOrders = stats?.totalOrders || 0;
     const totalRevenue = Number(stats?.totalRevenue) || 0;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -1002,6 +1132,9 @@ export const getUserOrderStats = async (req, res) => {
         totalOrders,
         totalRevenue,
         averageOrderValue,
+        walletBalance: wallet?.pointsBalance || 0,
+        walletStatus: wallet?.status || "active",
+        walletId: wallet?._id || null,
       },
     });
   } catch (error) {
