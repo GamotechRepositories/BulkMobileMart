@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
-import { createUser, deleteUser, getUserOrderStats, getUsers, updateUser } from "../../../api/api";
+import {
+  createUser,
+  deleteUser,
+  getAdminOrders,
+  getUserOrderStats,
+  getUsers,
+  updateUser,
+} from "../../../api/api";
+import {
+  buildDeliveredMetricsForUsers,
+  mergeDeliveredStatsWithWallet,
+} from "./userOrderMetrics";
 import AdminAlert from "../AdminAlert";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import AdminSearchBar from "../AdminSearchBar";
@@ -47,6 +58,7 @@ function CustomerHistoryPanel({ stats, loading, error, onAdjustWallet }) {
           </button>
         ) : null}
       </div>
+      <p className="text-[11px] text-neutral-500">Order stats count delivered orders only.</p>
       <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <div className="min-w-0 rounded-lg border border-neutral-200 bg-white px-2 py-2 sm:px-3">
           <p className="text-[10px] leading-tight text-neutral-500 sm:text-xs">Total Orders</p>
@@ -115,6 +127,8 @@ function UserSection() {
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [historyByUser, setHistoryByUser] = useState({});
   const [historyLoadingId, setHistoryLoadingId] = useState(null);
+  const [deliveredMetricsByUserId, setDeliveredMetricsByUserId] = useState({});
+  const [deliveredMetricsLoading, setDeliveredMetricsLoading] = useState(false);
   const fetchRequestIdRef = useRef(0);
   const skipSearchDebounceRef = useRef(true);
   const [pagination, setPagination] = useState({
@@ -169,15 +183,32 @@ function UserSection() {
       const { data } = await getUsers(params);
       if (requestId !== fetchRequestIdRef.current) return;
 
-      setUsers(data.data || []);
+      const nextUsers = data.data || [];
+      setUsers(nextUsers);
       setPagination(
         data.pagination || {
           page,
           limit: pageSize,
-          total: data.data?.length || 0,
+          total: nextUsers.length || 0,
           totalPages: 1,
         }
       );
+
+      setDeliveredMetricsLoading(true);
+      buildDeliveredMetricsForUsers(getAdminOrders, nextUsers)
+        .then((metrics) => {
+          if (requestId !== fetchRequestIdRef.current) return;
+          setDeliveredMetricsByUserId(metrics);
+        })
+        .catch(() => {
+          if (requestId !== fetchRequestIdRef.current) return;
+          setDeliveredMetricsByUserId({});
+        })
+        .finally(() => {
+          if (requestId === fetchRequestIdRef.current) {
+            setDeliveredMetricsLoading(false);
+          }
+        });
     } catch (err) {
       if (requestId !== fetchRequestIdRef.current) return;
       setError(
@@ -200,10 +231,25 @@ function UserSection() {
 
     try {
       setHistoryLoadingId(userId);
+      const id = String(userId);
+      let deliveredMetrics = deliveredMetricsByUserId[id];
+
+      if (!deliveredMetrics) {
+        const user = users.find((row) => String(row._id) === id);
+        if (user) {
+          const metricsMap = await buildDeliveredMetricsForUsers(getAdminOrders, [user]);
+          deliveredMetrics = metricsMap[id];
+          setDeliveredMetricsByUserId((prev) => ({ ...prev, ...metricsMap }));
+        }
+      }
+
       const { data } = await getUserOrderStats(userId);
       setHistoryByUser((prev) => ({
         ...prev,
-        [userId]: { stats: data.data, error: "" },
+        [userId]: {
+          stats: mergeDeliveredStatsWithWallet(data.data, deliveredMetrics),
+          error: "",
+        },
       }));
     } catch (err) {
       setHistoryByUser((prev) => ({
@@ -450,7 +496,9 @@ function UserSection() {
                 <th className={adminCompactThClass}>Name</th>
                 <th className={adminCompactThClass}>Phone</th>
                 <th className={adminCompactThClass}>Wallet Balance</th>
-                <th className={adminCompactThClass}>Order Value</th>
+                <th className={adminCompactThClass} title="Delivered orders only">
+                  Order Value
+                </th>
                 <th className={adminCompactThClass}>Joined</th>
                 <th className={adminCompactThClass}>Actions</th>
               </tr>
@@ -460,6 +508,8 @@ function UserSection() {
                 const userId = String(user._id);
                 const isExpanded = expandedUserId === userId;
                 const history = historyByUser[userId];
+                const deliveredMetrics = deliveredMetricsByUserId[userId];
+                const orderValueLoading = deliveredMetricsLoading && !deliveredMetrics;
 
                 return (
                   <Fragment key={userId}>
@@ -506,10 +556,16 @@ function UserSection() {
                       <td className={adminCompactTdClass}>
                         <div className="min-w-0">
                           <p className="font-semibold text-neutral-900 text-xs">
-                            {formatPrice(user.totalRevenue || 0)}
+                            {orderValueLoading
+                              ? "…"
+                              : formatPrice(deliveredMetrics?.totalRevenue ?? 0)}
                           </p>
                           <p className="text-[11px] text-neutral-500">
-                            {user.totalOrders || 0} {user.totalOrders === 1 ? "order" : "orders"}
+                            {orderValueLoading
+                              ? "…"
+                              : `${deliveredMetrics?.totalOrders ?? 0} ${
+                                  (deliveredMetrics?.totalOrders ?? 0) === 1 ? "order" : "orders"
+                                }`}
                           </p>
                         </div>
                       </td>
