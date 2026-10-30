@@ -226,7 +226,9 @@ function Checkout() {
     walletActive && isWalletFeatureEnabled
       ? Math.max(0, Number(wallet.pointsBalance) || 0)
       : 0;
-  const maxRedeemablePoints = Math.min(walletBalance, Math.floor(orderTotalBeforeWallet));
+  const redemptionLimit = wallet?.rewardsConfig?.maxRedemptionPoints;
+  const maxRedeemablePoints = Math.min(walletBalance, Math.floor(orderTotalBeforeWallet),
+    redemptionLimit == null ? Infinity : Math.max(0, Math.floor(Number(redemptionLimit)) || 0));
   const walletPointsRedeemed = useWalletPoints ? maxRedeemablePoints : 0;
   const walletDiscount = walletPointsRedeemed; // 1 point = ₹1
   const orderTotal = Math.max(0, Math.round((orderTotalBeforeWallet - walletDiscount) * 100) / 100);

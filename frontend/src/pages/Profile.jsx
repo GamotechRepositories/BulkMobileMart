@@ -608,7 +608,7 @@ function Profile() {
             <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-amber-50/70 border border-amber-200/60 px-3 py-2 text-xs text-amber-900">
               <span className="text-base">🎁</span>
               <span>
-                Earn <strong>+{wallet.rewardsConfig.orderRewardPoints} reward points</strong> on every order above <strong>₹{wallet.rewardsConfig.orderRewardThreshold}</strong>!
+                Earn <strong>{wallet.rewardsConfig.orderRewardPercentage}% cashback in wallet points</strong> on every order of at least <strong>₹{wallet.rewardsConfig.orderRewardThreshold}</strong>!
               </span>
             </div>
           )}

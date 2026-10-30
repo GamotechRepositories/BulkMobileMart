@@ -172,16 +172,18 @@ const walletSettingsSchema = new mongoose.Schema(
       default: 50,
       min: [0, "Referrer reward must be 0 or more"],
     },
+    maxRedemptionPoints: { type: Number, default: null, min: 0 },
     orderRewardEnabled: { type: Boolean, default: true },
     orderRewardThreshold: {
       type: Number,
       default: 1000,
       min: [0, "Order reward threshold must be 0 or more"],
     },
-    orderRewardPoints: {
+    orderRewardPercentage: {
       type: Number,
-      default: 25,
-      min: [0, "Order reward points must be 0 or more"],
+      default: 1,
+      min: [0, "Cashback percentage must be 0 or more"],
+      max: [100, "Cashback percentage cannot exceed 100"],
     },
   },
   { _id: false }

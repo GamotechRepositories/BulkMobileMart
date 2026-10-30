@@ -2,6 +2,7 @@ import crypto from "crypto";
 import razorpay, { isRazorpayConfigured } from "../config/razorpay.js";
 import Order from "../models/order/Order.js";
 import Payment from "../models/payment/Payment.js";
+import User from "../models/user.js";
 import {
   finalizeOrder,
   normalizeOrderMessage,
@@ -19,7 +20,7 @@ import {
   RAZORPAY_SUCCESS_PAYMENT_STATUSES,
 } from "../utils/paymentHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
-import { buildOrderSearchFilter } from "../utils/adminSearch.js";
+import { buildOrderSearchFilter, escapeRegex } from "../utils/adminSearch.js";
 import {
   notifyOrderCreated,
   notifyPaymentFailed,
@@ -598,6 +599,23 @@ export const getAdminPayments = async (req, res) => {
       if (ids.length > 0) {
         filter.order = { $in: ids };
       }
+    }
+
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    if (search) {
+      const pattern = new RegExp(escapeRegex(search.replace(/^#/, "")), "i");
+      const [users, orders] = await Promise.all([
+        User.find({ $or: [{ name: pattern }, { phone: pattern }] }).select("_id").lean(),
+        Order.find({ orderNumber: pattern }).select("_id").lean(),
+      ]);
+      filter.$or = [
+        { orderNumber: pattern },
+        { upiTransactionRef: pattern },
+        { "deliveryAddress.fullName": pattern },
+        { "deliveryAddress.number": pattern },
+        { user: { $in: users.map((user) => user._id) } },
+        { order: { $in: orders.map((order) => order._id) } },
+      ];
     }
 
     const [total, payments] = await Promise.all([

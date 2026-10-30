@@ -962,6 +962,12 @@ export const getUsers = async (req, res) => {
       }
     }
 
+    if (req.query.referralFilter === "used_code") {
+      matchStage.referredBy = { $ne: null };
+    } else if (req.query.referralFilter === "no_code") {
+      matchStage.referredBy = null;
+    }
+
     const pipeline = [
       { $match: matchStage },
       // Lookup wallet
@@ -1079,7 +1085,25 @@ export const getUsers = async (req, res) => {
     pipeline.push({
       $facet: {
         metadata: [{ $count: "total" }],
-        data: [{ $skip: skip }, { $limit: limit }],
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $lookup: {
+              from: User.collection.name,
+              localField: "referredBy",
+              foreignField: "_id",
+              pipeline: [{ $project: { _id: 1, name: 1, referralCode: 1 } }],
+              as: "referrerDetails",
+            },
+          },
+          {
+            $addFields: {
+              referrer: { $ifNull: [{ $arrayElemAt: ["$referrerDetails", 0] }, null] },
+            },
+          },
+          { $project: { referrerDetails: 0 } },
+        ],
       },
     });
 

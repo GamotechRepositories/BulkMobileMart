@@ -1,3 +1,4 @@
+import { calculateOrderCashback } from "../utils/orderCashback.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import Wallet from "../models/wallet/Wallet.js";
@@ -363,10 +364,11 @@ export async function rewardOrderPurchase(order) {
     if (!ws?.enabled || !ws?.orderRewardEnabled) return null;
 
     const threshold = Number(ws.orderRewardThreshold) || 0;
-    const rewardPoints = Number(ws.orderRewardPoints) || 0;
+    const rewardPercentage = ws.orderRewardPercentage ?? 1;
     const orderTotal = Number(order.total) || 0;
 
-    if (rewardPoints <= 0 || orderTotal < threshold) return null;
+    const rewardPoints = calculateOrderCashback(orderTotal, rewardPercentage, threshold);
+    if (rewardPoints <= 0) return null;
 
     const referenceId = `ORDER-REWARD-${order._id}`;
 
@@ -381,6 +383,7 @@ export async function rewardOrderPurchase(order) {
         orderNumber: order.orderNumber,
         orderTotal,
         rewardThreshold: threshold,
+        rewardPercentage,
       },
     });
 
@@ -508,12 +511,13 @@ export async function getMyWallet(req, res) {
           referredUsersCount: referralCount,
         },
         rewardsConfig: {
+          maxRedemptionPoints: ws?.maxRedemptionPoints ?? null,
           referralEnabled: ws?.referralEnabled ?? true,
           referralRewardReferee: ws?.referralRewardReferee ?? 50,
           referralRewardReferrer: ws?.referralRewardReferrer ?? 50,
           orderRewardEnabled: ws?.orderRewardEnabled ?? true,
           orderRewardThreshold: ws?.orderRewardThreshold ?? 1000,
-          orderRewardPoints: ws?.orderRewardPoints ?? 25,
+          orderRewardPercentage: ws?.orderRewardPercentage ?? 1,
         },
       },
     });

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdminPaymentProofs } from "../../../api/api";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdminNotifications } from "../../../context/AdminNotificationContext";
 import AdminAlert from "../AdminAlert";
+import AdminSearchBar from "../AdminSearchBar";
 import AdminPagination, { ADMIN_PAGE_SIZE } from "../AdminPagination";
 import {
   adminCompactTableClass,
@@ -108,6 +109,9 @@ function ProofsTable({ proofs, showStatus = false, actionLabel, onAction }) {
 function PaymentProofsSection() {
   const { adminUser } = useAuth();
   const { markPaymentsAsSeen } = useAdminNotifications();
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const fetchRequestIdRef = useRef(0);
   const [pendingProofs, setPendingProofs] = useState([]);
   const [reviewedProofs, setReviewedProofs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,8 +137,18 @@ function PaymentProofsSection() {
     markPaymentsAsSeen();
   }, [markPaymentsAsSeen]);
 
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setPendingPage(1);
+      setReviewedPage(1);
+    }, 300);
+    return () => window.clearTimeout(timerId);
+  }, [searchInput]);
+
   const fetchData = useCallback(async () => {
     if (adminUser?.role !== "admin") return;
+    const requestId = ++fetchRequestIdRef.current;
 
     try {
       setLoading(true);
@@ -145,14 +159,17 @@ function PaymentProofsSection() {
           page: pendingPage,
           limit: ADMIN_PAGE_SIZE,
           status: "pending",
+          search: searchQuery,
         }),
         getAdminPaymentProofs({
           page: reviewedPage,
           limit: ADMIN_PAGE_SIZE,
           status: "reviewed",
+          search: searchQuery,
         }),
       ]);
 
+      if (requestId !== fetchRequestIdRef.current) return;
       const loadedPending = pendingRes.data.data || [];
       const loadedReviewed = reviewedRes.data.data || [];
 
@@ -175,13 +192,14 @@ function PaymentProofsSection() {
         }
       );
     } catch (err) {
+      if (requestId !== fetchRequestIdRef.current) return;
       setError(getErrorMessage(err, "Failed to load payment proofs"));
       setPendingProofs([]);
       setReviewedProofs([]);
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
-  }, [adminUser, pendingPage, reviewedPage]);
+  }, [adminUser, pendingPage, reviewedPage, searchQuery]);
 
   useEffect(() => {
     fetchData();
@@ -216,6 +234,14 @@ function PaymentProofsSection() {
         and rejected proofs are kept in the history section below.
       </p>
 
+      <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <AdminSearchBar
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Search by customer name, phone, order number, or UPI reference..."
+        />
+      </div>
+
       <section className="mb-8 rounded-xl border border-amber-200 bg-amber-50/40 p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
@@ -236,7 +262,7 @@ function PaymentProofsSection() {
           <p className="text-sm text-text-secondary">Loading pending proofs...</p>
         ) : pendingProofs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-amber-200 bg-white/70 px-4 py-6 text-sm text-neutral-600">
-            No pending UPI payment proofs.
+            {searchQuery ? "No pending proofs match your search." : "No pending UPI payment proofs."}
           </p>
         ) : (
           <>
@@ -269,7 +295,7 @@ function PaymentProofsSection() {
           <p className="text-sm text-text-secondary">Loading reviewed proofs...</p>
         ) : reviewedProofs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-neutral-200 px-4 py-6 text-sm text-neutral-600">
-            No reviewed UPI payment proofs yet.
+            {searchQuery ? "No reviewed proofs match your search." : "No reviewed UPI payment proofs yet."}
           </p>
         ) : (
           <>

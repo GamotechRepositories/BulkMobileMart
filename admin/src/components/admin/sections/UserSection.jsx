@@ -25,6 +25,7 @@ import {
   adminTableHeaderClass,
   adminTableWrapperClass,
   btnPrimary,
+  btnSecondary,
   iconBtnClass,
   iconBtnDangerClass,
   pageHeaderActionsClass,
@@ -112,6 +113,7 @@ function UserSection() {
   const [adjustingWalletUser, setAdjustingWalletUser] = useState(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_USER_PAGE_SIZE);
   const [searchInput, setSearchInput] = useState("");
@@ -123,6 +125,7 @@ function UserSection() {
   const [walletFilter, setWalletFilter] = useState("all");
   const [orderFilter, setOrderFilter] = useState("all");
   const [walletStatus, setWalletStatus] = useState("all");
+  const [referralFilter, setReferralFilter] = useState("all");
 
   const [expandedUserId, setExpandedUserId] = useState(null);
   const [historyByUser, setHistoryByUser] = useState({});
@@ -171,6 +174,7 @@ function UserSection() {
         walletFilter,
         orderFilter,
         walletStatus,
+        referralFilter,
       };
       if (searchQuery) {
         if (/^\d+$/.test(searchQuery)) {
@@ -220,7 +224,7 @@ function UserSection() {
         setLoading(false);
       }
     }
-  }, [page, pageSize, searchQuery, sortBy, sortOrder, walletFilter, orderFilter, walletStatus]);
+  }, [page, pageSize, searchQuery, sortBy, sortOrder, walletFilter, orderFilter, walletStatus, referralFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -303,6 +307,69 @@ function UserSection() {
     }
   };
 
+  const handleDownloadCsv = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      // Export every matching page, independently of the table's page size.
+      const params = {
+        limit: 200,
+        sortBy,
+        sortOrder,
+        walletFilter,
+        orderFilter,
+        walletStatus,
+        referralFilter,
+      };
+      if (searchQuery) {
+        if (/^\d+$/.test(searchQuery)) params.phone = searchQuery;
+        else params.search = searchQuery;
+      }
+      const rows = [];
+      let exportPage = 1;
+      let totalPages = 1;
+      do {
+        const { data } = await getUsers({ ...params, page: exportPage });
+        rows.push(...(data.data || []));
+        totalPages = data.pagination?.totalPages || 1;
+        exportPage += 1;
+      } while (exportPage <= totalPages);
+
+      const escapeCell = (value) => {
+        let text = String(value ?? "");
+        // Prevent spreadsheet applications from interpreting user input as formulas.
+        if (/^[\s]*[=+@-]/.test(text) || /^[\t\r\n]/.test(text)) text = `'${text}`;
+        return `"${text.replace(/"/g, '""')}"`;
+      };
+      const csvRows = [
+        ["User ID", "Name", "Phone", "Email", "Shop Name", "Referral Code",
+          "Used Referral Code", "Referred By", "Code Used", "Wallet Balance (Points)",
+          "Wallet Status", "Joined"],
+        ...rows.map((user) => [
+          user._id, user.name, user.phone, user.email, user.shopName, user.referralCode,
+          user.referredBy ? "Yes" : "No",
+          user.referrer?.name || (user.referredBy ? "Referrer unavailable" : ""),
+          user.referrer?.referralCode || "", user.walletBalance ?? 0,
+          user.walletStatus || "active", user.createdAt || "",
+        ]),
+      ];
+      const csv = "\uFEFF" + csvRows.map((row) => row.map(escapeCell).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setSuccess(`Exported ${rows.length} users to CSV`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to export users. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
     try {
@@ -341,6 +408,15 @@ function UserSection() {
           </p>
         </div>
         <div className={pageHeaderActionsClass}>
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            disabled={exporting || loading}
+            className={btnSecondary}
+            title="Download all users matching the current search and filters"
+          >
+            {exporting ? "Downloading..." : "Download CSV"}
+          </button>
           <button
             type="button"
             onClick={() => setShowAddUser(true)}
@@ -425,6 +501,20 @@ function UserSection() {
               <option value="blocked">Blocked Only</option>
             </select>
 
+            <select
+              aria-label="Filter by referral code usage"
+              value={referralFilter}
+              onChange={(e) => {
+                setReferralFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All Referrals</option>
+              <option value="used_code">Used a Referral Code</option>
+              <option value="no_code">No Referral Code Used</option>
+            </select>
+
             {/* Page Size Selector */}
             <select
               value={pageSize}
@@ -445,6 +535,7 @@ function UserSection() {
             walletFilter !== "all" ||
             orderFilter !== "all" ||
             walletStatus !== "all" ||
+            referralFilter !== "all" ||
             searchQuery ? (
               <button
                 type="button"
@@ -454,6 +545,7 @@ function UserSection() {
                   setWalletFilter("all");
                   setOrderFilter("all");
                   setWalletStatus("all");
+                  setReferralFilter("all");
                   setSearchInput("");
                   setSearchQuery("");
                   setPage(1);
@@ -473,7 +565,7 @@ function UserSection() {
         <p className="text-text-secondary">
           {error
             ? "Could not load users."
-            : searchQuery || walletFilter !== "all" || orderFilter !== "all"
+            : searchQuery || walletFilter !== "all" || orderFilter !== "all" || referralFilter !== "all"
               ? "No users found matching these filters."
               : "No registered users yet."}
         </p>
@@ -482,10 +574,12 @@ function UserSection() {
           {loading ? (
             <p className="mb-2 px-3 pt-3 text-xs text-neutral-500">Searching...</p>
           ) : null}
-          <table className={adminCompactTableClass}>
+          <table className={`${adminCompactTableClass} min-w-[1100px]`}>
             <colgroup>
-              <col className="w-[24%]" />
-              <col className="w-[16%]" />
+              <col className="w-[18%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[18%]" />
               <col className="w-[18%]" />
               <col className="w-[18%]" />
               <col className="w-[10%]" />
@@ -495,6 +589,8 @@ function UserSection() {
               <tr className={adminTableHeaderClass}>
                 <th className={adminCompactThClass}>Name</th>
                 <th className={adminCompactThClass}>Phone</th>
+                <th className={adminCompactThClass}>Referral Code</th>
+                <th className={adminCompactThClass}>Referred By / Code Used</th>
                 <th className={adminCompactThClass}>Wallet Balance</th>
                 <th className={adminCompactThClass} title="Delivered orders only">
                   Order Value
@@ -531,6 +627,23 @@ function UserSection() {
                       </td>
                       <td className={`${adminCompactTdClass} text-neutral-600`}>
                         <span className="block truncate font-mono text-xs">{user.phone}</span>
+                      </td>
+                      <td className={adminCompactTdClass}>
+                        <span className="font-mono text-xs">{user.referralCode || "—"}</span>
+                      </td>
+                      <td className={adminCompactTdClass}>
+                        {user.referredBy ? (
+                          <div className="min-w-0">
+                            <p className="break-words text-xs font-semibold text-neutral-900">
+                              {user.referrer?.name || "Referrer unavailable"}
+                            </p>
+                            <p className="font-mono text-[11px] text-neutral-500">
+                              {user.referrer?.referralCode || "Code unavailable"}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-neutral-500">No code used</span>
+                        )}
                       </td>
                       <td className={adminCompactTdClass}>
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -619,7 +732,7 @@ function UserSection() {
                     </tr>
                     {isExpanded ? (
                       <tr className="border-b border-neutral-100 bg-neutral-50">
-                        <td colSpan={6} className="px-3 py-3 sm:px-4">
+                        <td colSpan={8} className="px-3 py-3 sm:px-4">
                           <CustomerHistoryPanel
                             stats={history?.stats}
                             loading={historyLoadingId === userId}

@@ -65,9 +65,10 @@ export const DEFAULT_STORE_SETTINGS = {
     referralEnabled: true,
     referralRewardReferee: 50,
     referralRewardReferrer: 50,
+    maxRedemptionPoints: null,
     orderRewardEnabled: true,
     orderRewardThreshold: 1000,
-    orderRewardPoints: 25,
+    orderRewardPercentage: 1,
   },
 };
 
@@ -88,6 +89,10 @@ export function normalizeWalletSettings(source = {}) {
       0,
       Math.round(Number(source?.referralRewardReferrer ?? defaults.referralRewardReferrer)) || 0
     ),
+    maxRedemptionPoints:
+      source?.maxRedemptionPoints == null || source.maxRedemptionPoints === ""
+        ? null
+        : Math.max(0, Math.floor(Number(source.maxRedemptionPoints)) || 0),
     orderRewardEnabled:
       source?.orderRewardEnabled === undefined
         ? defaults.orderRewardEnabled
@@ -96,10 +101,10 @@ export function normalizeWalletSettings(source = {}) {
       0,
       Math.round(Number(source?.orderRewardThreshold ?? defaults.orderRewardThreshold)) || 0
     ),
-    orderRewardPoints: Math.max(
+    orderRewardPercentage: Math.min(100, Math.max(
       0,
-      Math.round(Number(source?.orderRewardPoints ?? defaults.orderRewardPoints)) || 0
-    ),
+      Number(source?.orderRewardPercentage ?? defaults.orderRewardPercentage) || 0
+    )),
   };
 }
 

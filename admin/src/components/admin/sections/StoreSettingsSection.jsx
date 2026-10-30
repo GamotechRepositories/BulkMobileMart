@@ -163,13 +163,14 @@ function serializeAppUpdateSection(form) {
 
 function serializeWalletSection(form) {
   return JSON.stringify({
+    walletMaxRedemptionPoints: String(form.walletMaxRedemptionPoints ?? "").trim(),
     walletEnabled: Boolean(form.walletEnabled),
     walletReferralEnabled: Boolean(form.walletReferralEnabled),
     walletReferralRewardReferee: String(form.walletReferralRewardReferee ?? "").trim(),
     walletReferralRewardReferrer: String(form.walletReferralRewardReferrer ?? "").trim(),
     walletOrderRewardEnabled: Boolean(form.walletOrderRewardEnabled),
     walletOrderRewardThreshold: String(form.walletOrderRewardThreshold ?? "").trim(),
-    walletOrderRewardPoints: String(form.walletOrderRewardPoints ?? "").trim(),
+    walletOrderRewardPercentage: String(form.walletOrderRewardPercentage ?? "").trim(),
   });
 }
 
@@ -224,9 +225,10 @@ function StoreSettingsSection() {
     walletReferralEnabled: true,
     walletReferralRewardReferee: "50",
     walletReferralRewardReferrer: "50",
+    walletMaxRedemptionPoints: "",
     walletOrderRewardEnabled: true,
     walletOrderRewardThreshold: "1000",
-    walletOrderRewardPoints: "25",
+    walletOrderRewardPercentage: "1",
     ...enviaOriginToForm(DEFAULT_ENVIA_PICKUP_ORIGIN),
   });
 
@@ -284,9 +286,10 @@ function StoreSettingsSection() {
         walletReferralEnabled: Boolean(settings.walletSettings?.referralEnabled ?? true),
         walletReferralRewardReferee: String(settings.walletSettings?.referralRewardReferee ?? 50),
         walletReferralRewardReferrer: String(settings.walletSettings?.referralRewardReferrer ?? 50),
+        walletMaxRedemptionPoints: String(settings.walletSettings?.maxRedemptionPoints ?? ""),
         walletOrderRewardEnabled: Boolean(settings.walletSettings?.orderRewardEnabled ?? true),
         walletOrderRewardThreshold: String(settings.walletSettings?.orderRewardThreshold ?? 1000),
-        walletOrderRewardPoints: String(settings.walletSettings?.orderRewardPoints ?? 25),
+        walletOrderRewardPercentage: String(settings.walletSettings?.orderRewardPercentage ?? 1),
         ...enviaOriginToForm(settings.envia?.origin),
       };
       setForm(nextForm);
@@ -506,9 +509,11 @@ function StoreSettingsSection() {
             referralEnabled: Boolean(form.walletReferralEnabled),
             referralRewardReferee: Math.max(0, Number(form.walletReferralRewardReferee) || 0),
             referralRewardReferrer: Math.max(0, Number(form.walletReferralRewardReferrer) || 0),
+            maxRedemptionPoints: String(form.walletMaxRedemptionPoints).trim() === ""
+              ? null : Math.max(0, Math.floor(Number(form.walletMaxRedemptionPoints)) || 0),
             orderRewardEnabled: Boolean(form.walletOrderRewardEnabled),
             orderRewardThreshold: Math.max(0, Number(form.walletOrderRewardThreshold) || 0),
-            orderRewardPoints: Math.max(0, Number(form.walletOrderRewardPoints) || 0),
+            orderRewardPercentage: Math.min(100, Math.max(0, Number(form.walletOrderRewardPercentage) || 0)),
           },
         };
       } else if (section === "giftHampers") {
@@ -752,6 +757,23 @@ function StoreSettingsSection() {
               <span className="text-sm font-semibold text-neutral-900">Enable Wallet & Points System</span>
             </label>
 
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4">
+              <label htmlFor="wallet-redemption-limit" className={labelClass}>Maximum Wallet Points per Order</label>
+              <input
+                id="wallet-redemption-limit"
+                type="number"
+                min="0"
+                step="1"
+                className={inputClass}
+                value={form.walletMaxRedemptionPoints}
+                onChange={(e) => setForm((prev) => ({ ...prev, walletMaxRedemptionPoints: e.target.value }))}
+                placeholder="No limit"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Customers can redeem up to this many points per order (1 point = ₹1), limited by their balance and order total. Leave blank for no limit; enter 0 to disable redemption.
+              </p>
+            </div>
+
             {/* Referral Settings Section */}
             <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -838,17 +860,19 @@ function StoreSettingsSection() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Reward Points Awarded (Points)</label>
+                  <label className={labelClass}>Cashback Percentage (%)</label>
                   <input
                     type="number"
                     min="0"
                     required
                     className={inputClass}
-                    value={form.walletOrderRewardPoints}
-                    onChange={(e) => setForm((prev) => ({ ...prev, walletOrderRewardPoints: e.target.value }))}
+                    max="100"
+                    step="0.01"
+                    value={form.walletOrderRewardPercentage}
+                    onChange={(e) => setForm((prev) => ({ ...prev, walletOrderRewardPercentage: e.target.value }))}
                   />
                   <p className="mt-1 text-xs text-neutral-500">
-                    Points credited into user's wallet upon order confirmation.
+                    Cashback is calculated on the order total and rounded to the nearest whole point. At 1%, a ₹6,000 order earns 60 points (₹60).
                   </p>
                 </div>
               </div>

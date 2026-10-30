@@ -324,8 +324,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final pointsBalance = (_wallet?['status'] != 'suspended' && isWalletFeatureEnabled)
         ? ((_wallet?['pointsBalance'] as num?)?.toInt() ?? 0)
         : 0;
-    final maxRedeemablePoints = pointsBalance > 0
-        ? postCouponSummary.total.toInt().clamp(0, pointsBalance)
+    final redemptionLimit =
+        (_wallet?['rewardsConfig']?['maxRedemptionPoints'] as num?)?.toInt();
+    final cappedBalance = redemptionLimit == null
+        ? pointsBalance
+        : pointsBalance.clamp(0, redemptionLimit);
+    final maxRedeemablePoints = cappedBalance > 0
+        ? postCouponSummary.total.toInt().clamp(0, cappedBalance)
         : 0;
     final walletPointsRedeemed = _useWalletPoints ? maxRedeemablePoints : 0;
     final walletDiscount = walletPointsRedeemed.toDouble();
@@ -592,8 +597,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final pointsBalance = (_wallet?['status'] != 'suspended' && isWalletFeatureEnabled)
         ? ((_wallet?['pointsBalance'] as num?)?.toInt() ?? 0)
         : 0;
-    final maxRedeemablePoints = pointsBalance > 0
-        ? postCouponSummary.total.toInt().clamp(0, pointsBalance)
+    final redemptionLimit =
+        (_wallet?['rewardsConfig']?['maxRedemptionPoints'] as num?)?.toInt();
+    final cappedBalance = redemptionLimit == null
+        ? pointsBalance
+        : pointsBalance.clamp(0, redemptionLimit);
+    final maxRedeemablePoints = cappedBalance > 0
+        ? postCouponSummary.total.toInt().clamp(0, cappedBalance)
         : 0;
     final walletPointsRedeemed = _useWalletPoints ? maxRedeemablePoints : 0;
     final walletDiscount = walletPointsRedeemed.toDouble();
