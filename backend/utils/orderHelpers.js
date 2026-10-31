@@ -69,7 +69,7 @@ export async function computeOrderPricing(subtotal, couponCode, options = {}) {
     const userWallet = await Wallet.findOne({ userId: options.userId, status: "active" });
     const availablePoints = userWallet ? Math.max(0, userWallet.pointsBalance || 0) : 0;
     if (availablePoints > 0) {
-      const maxRedeemable = getMaxRedeemablePoints(availablePoints, totalBeforeWallet, storeSettings?.walletSettings?.maxRedemptionPoints);
+      const maxRedeemable = getMaxRedeemablePoints(availablePoints, totalBeforeWallet, storeSettings?.walletSettings?.maxRedemptionPoints, storeSettings?.walletSettings?.minRedemptionOrderValue);
       const requestedPoints =
         options.walletPoints != null && options.walletPoints !== ""
           ? Math.max(0, Math.floor(Number(options.walletPoints)))

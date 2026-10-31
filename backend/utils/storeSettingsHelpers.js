@@ -65,6 +65,7 @@ export const DEFAULT_STORE_SETTINGS = {
     referralEnabled: true,
     referralRewardReferee: 50,
     referralRewardReferrer: 50,
+    minRedemptionOrderValue: 0,
     maxRedemptionPoints: null,
     orderRewardEnabled: true,
     orderRewardThreshold: 1000,
@@ -89,6 +90,8 @@ export function normalizeWalletSettings(source = {}) {
       0,
       Math.round(Number(source?.referralRewardReferrer ?? defaults.referralRewardReferrer)) || 0
     ),
+    minRedemptionOrderValue: Number.isFinite(Number(source?.minRedemptionOrderValue))
+      ? Math.max(0, Number(source.minRedemptionOrderValue)) : 0,
     maxRedemptionPoints:
       source?.maxRedemptionPoints == null || source.maxRedemptionPoints === ""
         ? null

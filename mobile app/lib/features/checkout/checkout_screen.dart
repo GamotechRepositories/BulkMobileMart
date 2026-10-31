@@ -326,7 +326,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : 0;
     final redemptionLimit =
         (_wallet?['rewardsConfig']?['maxRedemptionPoints'] as num?)?.toInt();
-    final cappedBalance = redemptionLimit == null
+    final minimumWalletOrderValue =
+        (_wallet?['rewardsConfig']?['minRedemptionOrderValue'] as num?)?.toDouble() ?? 0;
+    final meetsWalletOrderMinimum = postCouponSummary.total >= minimumWalletOrderValue;
+    final cappedBalance = !meetsWalletOrderMinimum ? 0 : redemptionLimit == null
         ? pointsBalance
         : pointsBalance.clamp(0, redemptionLimit);
     final maxRedeemablePoints = cappedBalance > 0
@@ -599,7 +602,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : 0;
     final redemptionLimit =
         (_wallet?['rewardsConfig']?['maxRedemptionPoints'] as num?)?.toInt();
-    final cappedBalance = redemptionLimit == null
+    final minimumWalletOrderValue =
+        (_wallet?['rewardsConfig']?['minRedemptionOrderValue'] as num?)?.toDouble() ?? 0;
+    final meetsWalletOrderMinimum = postCouponSummary.total >= minimumWalletOrderValue;
+    final cappedBalance = !meetsWalletOrderMinimum ? 0 : redemptionLimit == null
         ? pointsBalance
         : pointsBalance.clamp(0, redemptionLimit);
     final maxRedeemablePoints = cappedBalance > 0
@@ -701,7 +707,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      pointsBalance > 0
+                                      !meetsWalletOrderMinimum
+                                          ? 'Wallet points can be redeemed on checkout totals of ₹${minimumWalletOrderValue.toStringAsFixed(2)} or more.'
+                                          : pointsBalance > 0
                                           ? (_useWalletPoints
                                               ? 'Redeeming $walletPointsRedeemed pts to save ₹$walletDiscount'
                                               : 'Redeem up to $maxRedeemablePoints pts on this order')
@@ -716,7 +724,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   ],
                                 ),
                               ),
-                              if (pointsBalance > 0)
+                              if (maxRedeemablePoints > 0)
                                 Checkbox(
                                   value: _useWalletPoints,
                                   activeColor: Colors.indigo.shade600,

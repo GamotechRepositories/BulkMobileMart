@@ -227,9 +227,11 @@ function Checkout() {
       ? Math.max(0, Number(wallet.pointsBalance) || 0)
       : 0;
   const redemptionLimit = wallet?.rewardsConfig?.maxRedemptionPoints;
-  const maxRedeemablePoints = Math.min(walletBalance, Math.floor(orderTotalBeforeWallet),
-    redemptionLimit == null ? Infinity : Math.max(0, Math.floor(Number(redemptionLimit)) || 0));
-  const walletPointsRedeemed = useWalletPoints ? maxRedeemablePoints : 0;
+  const minimumWalletOrderValue = Math.max(0, Number(wallet?.rewardsConfig?.minRedemptionOrderValue ?? storeSettings?.walletSettings?.minRedemptionOrderValue) || 0);
+  const meetsWalletOrderMinimum = orderTotalBeforeWallet >= minimumWalletOrderValue;
+  const maxRedeemablePoints = meetsWalletOrderMinimum ? Math.min(walletBalance, Math.floor(orderTotalBeforeWallet),
+    redemptionLimit == null ? Infinity : Math.max(0, Math.floor(Number(redemptionLimit)) || 0)) : 0;
+  const walletPointsRedeemed = useWalletPoints && meetsWalletOrderMinimum ? maxRedeemablePoints : 0;
   const walletDiscount = walletPointsRedeemed; // 1 point = ₹1
   const orderTotal = Math.max(0, Math.round((orderTotalBeforeWallet - walletDiscount) * 100) / 100);
   const isFullyPaidByWallet = useWalletPoints && orderTotal === 0 && walletPointsRedeemed > 0;
@@ -874,6 +876,8 @@ function Checkout() {
                           <p className="mt-1 text-xs text-text-secondary sm:text-sm">
                             {walletLoading ? (
                               "Loading your wallet points..."
+                            ) : !meetsWalletOrderMinimum ? (
+                              `Wallet points can be redeemed on checkout totals of ${formatPrice(minimumWalletOrderValue)} or more. Add ${formatPrice(minimumWalletOrderValue - orderTotalBeforeWallet)} more to unlock redemption.`
                             ) : walletBalance > 0 ? (
                               useWalletPoints
                                 ? `Redeeming ${walletPointsRedeemed} points (1 pt = ₹1). You save ${formatPrice(walletDiscount)}!`
@@ -884,7 +888,7 @@ function Checkout() {
                           </p>
                         </div>
                       </div>
-                      {walletBalance > 0 ? (
+                      {maxRedeemablePoints > 0 ? (
                         <label className="relative flex cursor-pointer items-center select-none pt-1">
                           <input
                             type="checkbox"

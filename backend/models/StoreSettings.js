@@ -172,6 +172,7 @@ const walletSettingsSchema = new mongoose.Schema(
       default: 50,
       min: [0, "Referrer reward must be 0 or more"],
     },
+    minRedemptionOrderValue: { type: Number, default: 0, min: 0 },
     maxRedemptionPoints: { type: Number, default: null, min: 0 },
     orderRewardEnabled: { type: Boolean, default: true },
     orderRewardThreshold: {

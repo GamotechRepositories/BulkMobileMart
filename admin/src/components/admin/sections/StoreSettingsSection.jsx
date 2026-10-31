@@ -163,6 +163,7 @@ function serializeAppUpdateSection(form) {
 
 function serializeWalletSection(form) {
   return JSON.stringify({
+    walletMinRedemptionOrderValue: String(form.walletMinRedemptionOrderValue ?? "0").trim(),
     walletMaxRedemptionPoints: String(form.walletMaxRedemptionPoints ?? "").trim(),
     walletEnabled: Boolean(form.walletEnabled),
     walletReferralEnabled: Boolean(form.walletReferralEnabled),
@@ -225,6 +226,7 @@ function StoreSettingsSection() {
     walletReferralEnabled: true,
     walletReferralRewardReferee: "50",
     walletReferralRewardReferrer: "50",
+    walletMinRedemptionOrderValue: "0",
     walletMaxRedemptionPoints: "",
     walletOrderRewardEnabled: true,
     walletOrderRewardThreshold: "1000",
@@ -286,6 +288,7 @@ function StoreSettingsSection() {
         walletReferralEnabled: Boolean(settings.walletSettings?.referralEnabled ?? true),
         walletReferralRewardReferee: String(settings.walletSettings?.referralRewardReferee ?? 50),
         walletReferralRewardReferrer: String(settings.walletSettings?.referralRewardReferrer ?? 50),
+        walletMinRedemptionOrderValue: String(settings.walletSettings?.minRedemptionOrderValue ?? 0),
         walletMaxRedemptionPoints: String(settings.walletSettings?.maxRedemptionPoints ?? ""),
         walletOrderRewardEnabled: Boolean(settings.walletSettings?.orderRewardEnabled ?? true),
         walletOrderRewardThreshold: String(settings.walletSettings?.orderRewardThreshold ?? 1000),
@@ -509,6 +512,7 @@ function StoreSettingsSection() {
             referralEnabled: Boolean(form.walletReferralEnabled),
             referralRewardReferee: Math.max(0, Number(form.walletReferralRewardReferee) || 0),
             referralRewardReferrer: Math.max(0, Number(form.walletReferralRewardReferrer) || 0),
+            minRedemptionOrderValue: Math.max(0, Number(form.walletMinRedemptionOrderValue) || 0),
             maxRedemptionPoints: String(form.walletMaxRedemptionPoints).trim() === ""
               ? null : Math.max(0, Math.floor(Number(form.walletMaxRedemptionPoints)) || 0),
             orderRewardEnabled: Boolean(form.walletOrderRewardEnabled),
@@ -758,6 +762,20 @@ function StoreSettingsSection() {
             </label>
 
             <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-4">
+              <label htmlFor="wallet-redemption-minimum" className={labelClass}>Minimum Checkout Value to Redeem Points (₹)</label>
+              <input
+                id="wallet-redemption-minimum"
+                type="number"
+                min="0"
+                step="0.01"
+                className={inputClass}
+                value={form.walletMinRedemptionOrderValue}
+                onChange={(e) => setForm((prev) => ({ ...prev, walletMinRedemptionOrderValue: e.target.value }))}
+                aria-describedby="wallet-redemption-minimum-help"
+              />
+              <p id="wallet-redemption-minimum-help" className="mt-1 mb-4 text-xs text-neutral-500">
+                Customers can redeem wallet points only when the checkout total before the wallet discount meets this amount (after coupons, including tax and shipping). Enter 0 for no minimum.
+              </p>
               <label htmlFor="wallet-redemption-limit" className={labelClass}>Maximum Wallet Points per Order</label>
               <input
                 id="wallet-redemption-limit"

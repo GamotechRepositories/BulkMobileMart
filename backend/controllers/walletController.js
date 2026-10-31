@@ -511,6 +511,7 @@ export async function getMyWallet(req, res) {
           referredUsersCount: referralCount,
         },
         rewardsConfig: {
+          minRedemptionOrderValue: ws?.minRedemptionOrderValue ?? 0,
           maxRedemptionPoints: ws?.maxRedemptionPoints ?? null,
           referralEnabled: ws?.referralEnabled ?? true,
           referralRewardReferee: ws?.referralRewardReferee ?? 50,
