@@ -243,12 +243,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _openAccountSettings() {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20, 12, 20,
+            20 + ShellBottomInsets.navBarOverlay + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -262,7 +266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Account Settings',
+                'Settings',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -1328,12 +1332,12 @@ class _QuickLinksBar extends StatelessWidget {
         children: [
           _QuickLink(
             icon: Icons.location_on_outlined,
-            label: 'My Addresses',
+            label: 'Addresses',
             onTap: onAddresses,
           ),
           _QuickLink(
             icon: Icons.receipt_long_outlined,
-            label: 'My Orders',
+            label: 'Orders',
             onTap: onOrders,
           ),
           _QuickLink(
@@ -1343,7 +1347,7 @@ class _QuickLinksBar extends StatelessWidget {
           ),
           _QuickLink(
             icon: Icons.settings_outlined,
-            label: 'Account Settings',
+            label: 'Settings',
             onTap: onSettings,
           ),
         ],
