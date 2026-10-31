@@ -52,9 +52,6 @@ android {
     buildTypes {
         release {
             // Never fall back to debug signing — Play Console rejects debug-signed AABs.
-            check(keystorePropertiesFile.exists()) {
-                "Missing android/key.properties. Copy key.properties.example and create upload-keystore.jks for release builds."
-            }
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -72,4 +69,13 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+// Release credentials are required only when executing release tasks.
+gradle.taskGraph.whenReady {
+    if (allTasks.any { it.project == project && it.name.contains("Release") }) {
+        check(keystorePropertiesFile.exists()) {
+            "Missing android/key.properties. Copy key.properties.example and create upload-keystore.jks for release builds."
+        }
+    }
 }

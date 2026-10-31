@@ -64,6 +64,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _openWalletHistorySheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WalletHistorySheet(wallet: _wallet),
+    );
+  }
+
   Future<void> _loadWallet() async {
     if (!ref.read(authControllerProvider).isLoggedIn) return;
 
@@ -653,7 +662,7 @@ class _WalletBalanceCard extends StatelessWidget {
           colors: [
             AppColors.headerFadeBg,
             Colors.white,
-            AppColors.primaryFadeBg.withValues(alpha: 0.5),
+            AppColors.headerFadeBg.withValues(alpha: 0.5),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1009,7 +1018,7 @@ class _WalletHistorySheetState extends ConsumerState<_WalletHistorySheet> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryFadeBg,
+                    color: AppColors.headerFadeBg,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -1141,7 +1150,7 @@ class _WalletHistorySheetState extends ConsumerState<_WalletHistorySheet> {
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryFadeBg,
+                                color: AppColors.headerFadeBg,
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Icon(

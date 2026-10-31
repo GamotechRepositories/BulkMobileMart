@@ -54,6 +54,15 @@ class AppUpdateSettings {
   }
 }
 
+class WalletSettings {
+  const WalletSettings({this.enabled = true});
+
+  final bool enabled;
+
+  factory WalletSettings.fromJson(Map<String, dynamic>? json) =>
+      WalletSettings(enabled: json?['enabled'] != false);
+}
+
 class StoreSettings {
   const StoreSettings({
     required this.minimumOrderValue,
@@ -65,6 +74,7 @@ class StoreSettings {
     this.cartNoticeEn = const [],
     this.cartNoticeHi = const [],
     this.appUpdate = const AppUpdateSettings(),
+    this.walletSettings = const WalletSettings(),
   });
 
   final double minimumOrderValue;
@@ -76,6 +86,7 @@ class StoreSettings {
   final List<String> cartNoticeEn;
   final List<String> cartNoticeHi;
   final AppUpdateSettings appUpdate;
+  final WalletSettings walletSettings;
 
   List<MerchantUpiAccount> get enabledMerchantUpiAccounts => merchantUpiAccounts
       .where((account) => account.enabled && account.upiId.isNotEmpty)
@@ -122,6 +133,10 @@ class StoreSettings {
       cartNoticeHi: (json['cartNoticeHi'] as List<dynamic>? ?? [])
           .map((item) => item.toString())
           .toList(),
+      walletSettings: WalletSettings.fromJson(
+        json['walletSettings'] is Map<String, dynamic>
+            ? json['walletSettings'] as Map<String, dynamic> : null,
+      ),
       appUpdate: AppUpdateSettings.fromJson(
         appUpdateJson is Map<String, dynamic> ? appUpdateJson : null,
       ),

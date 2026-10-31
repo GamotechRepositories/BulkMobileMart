@@ -481,37 +481,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-            final note = _apiPaymentMode == PaymentPlan.advance
-                ? 'Order confirmed. We will verify your 10% advance payment shortly. Pay the balance on delivery.'
-                : 'Order confirmed. We will verify your UPI payment shortly.';
-            await _completeOrderSuccess(note);
-            return null;
-          } catch (e) {
-            if (await _handleUnavailableCartItems(e)) {
-              if (mounted) {
-                setState(() => _placingOrder = false);
-              }
-              return apiErrorMessage(
-                e,
-                fallback: 'Some items in your cart are no longer available.',
-              );
-            }
-            final message = apiErrorMessage(
-              e,
-              fallback: 'Failed to submit payment proof. Please try again.',
-            );
-            if (mounted) {
-              setState(() {
-                _placingOrder = false;
-                _orderError = message;
-              });
-            }
-            return message;
-          }
-        },
-      ),
-    );
-  }
 
   Future<void> _completeOrderSuccess([String? note]) async {
     final cartItems = ref.read(cartControllerProvider).items;
@@ -875,6 +844,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               compact: true,
                             ),
                           ],
+                          if (walletDiscount > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Wallet discount ($walletPointsRedeemed pts)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  '-${formatInr(walletDiscount)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.indigo.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           _summaryRow(
                             'Shipping',
@@ -899,28 +890,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: Colors.green.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                          if (walletDiscount > 0) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Wallet discount ($walletPointsRedeemed pts)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.indigo.shade700,
-                                  ),
-                                ),
-                                Text(
-                                  '-${formatInr(walletDiscount)}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.indigo.shade700,
                                   ),
                                 ),
                               ],
