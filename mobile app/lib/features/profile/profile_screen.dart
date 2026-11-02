@@ -22,6 +22,7 @@ import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/product/buy_again_card.dart';
 import 'profile_recent_items.dart';
+import 'referral_card.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -401,6 +402,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             wallet: _wallet,
             loading: _walletLoading,
             onTapHistory: _openWalletHistorySheet,
+          ),
+          const SizedBox(height: 14),
+          ReferralCard(
+            wallet: _wallet,
+            loading: _walletLoading,
+            onRefresh: _loadWallet,
           ),
           const SizedBox(height: 14),
           _QuickLinksBar(

@@ -624,6 +624,13 @@ class ApiService {
     await deleteAddress(id);
   }
 
+  Future<String> claimReferralCode(String code) async {
+    final response = await _dio.post('/api/wallet/claim-referral', data: {
+      'referralCode': code.trim().toUpperCase(),
+    });
+    return response.data['message']?.toString() ?? 'Referral bonus claimed!';
+  }
+
   Future<Map<String, dynamic>?> fetchMyWallet() async {
     try {
       final response = await getWallet();

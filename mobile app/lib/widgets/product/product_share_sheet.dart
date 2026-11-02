@@ -13,8 +13,10 @@ import '../../core/utils/product_share_capture.dart';
 import '../../models/product.dart';
 
 String _imageExtension(String imageUrl) {
-  final match = RegExp(r'\.(jpe?g|png|webp|gif)(?:\?|$)', caseSensitive: false)
-      .firstMatch(imageUrl);
+  final match = RegExp(
+    r'\.(jpe?g|png|webp|gif)(?:\?|$)',
+    caseSensitive: false,
+  ).firstMatch(imageUrl);
   return match?.group(1)?.toLowerCase() ?? 'jpg';
 }
 
@@ -33,14 +35,24 @@ String _mimeTypeForExtension(String ext) {
   }
 }
 
-Future<void> shareProductImageOnly(
+Future<void> shareProductImage(
   BuildContext context,
-  Product product,
-) async {
+  Product product, {
+  String variantName = '',
+}) async {
+  final message = buildProductShareMessage(product, variantName: variantName);
+  final renderBox = context.findRenderObject() as RenderBox?;
+  final origin = renderBox == null
+      ? null
+      : renderBox.localToGlobal(Offset.zero) & renderBox.size;
   final imageUrl = product.primaryImage ?? '';
   if (imageUrl.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No product image available to share')),
+    await SharePlus.instance.share(
+      ShareParams(
+        text: message,
+        subject: product.name,
+        sharePositionOrigin: origin,
+      ),
     );
     return;
   }
@@ -59,7 +71,7 @@ Future<void> shareProductImageOnly(
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 12),
-              Text('Preparing image to share...'),
+              Text('Preparing product to share...'),
             ],
           ),
         ),
@@ -83,11 +95,16 @@ Future<void> shareProductImageOnly(
           .toLowerCase();
 
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/${safeName.isEmpty ? 'product' : safeName}.$ext');
+      final file = File(
+        '${dir.path}/${safeName.isEmpty ? 'product' : safeName}.$ext',
+      );
       await file.writeAsBytes(bytes, flush: true);
 
       await SharePlus.instance.share(
         ShareParams(
+          text: message,
+          subject: product.name,
+          sharePositionOrigin: origin,
           files: [
             XFile(
               file.path,
@@ -100,20 +117,22 @@ Future<void> shareProductImageOnly(
       return;
     }
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not download image to share')),
-      );
-    }
+    await SharePlus.instance.share(
+      ShareParams(
+        text: message,
+        subject: product.name,
+        sharePositionOrigin: origin,
+      ),
+    );
   } catch (error, stackTrace) {
-    debugPrint('Share image only failed: $error\n$stackTrace');
+    debugPrint('Product image share failed: $error\n$stackTrace');
     if (context.mounted && loadingVisible) {
       Navigator.of(context, rootNavigator: true).pop();
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not share image')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not share product')));
     }
   }
 }
@@ -121,10 +140,7 @@ Future<void> shareProductImageOnly(
 String buildProductShareUrl(String productId) =>
     '${Env.storeUrl}/product/$productId?openInApp=1';
 
-String buildProductShareMessage(
-  Product product, {
-  String variantName = '',
-}) {
+String buildProductShareMessage(Product product, {String variantName = ''}) {
   final url = buildProductShareUrl(product.id);
   final priceLabel = formatProductPriceLabel(
     product,
@@ -138,6 +154,10 @@ String buildProductShareMessage(
     if (product.brandName.trim().isNotEmpty)
       'Brand: ${product.brandName.trim()}',
     if (variantName.trim().isNotEmpty) 'Variant: ${variantName.trim()}',
+    if (product.description.trim().isNotEmpty) ...[
+      '',
+      product.description.trim(),
+    ],
     '',
     'Shop on Bulk Mobile Mart:',
     url,
@@ -166,18 +186,11 @@ Future<File?> _createShareImageFile(
   );
 }
 
-Future<void> _shareImageFile(
-  File file, {
-  String? caption,
-}) async {
+Future<void> _shareImageFile(File file, {String? caption}) async {
   await SharePlus.instance.share(
     ShareParams(
       files: [
-        XFile(
-          file.path,
-          mimeType: 'image/png',
-          name: 'product-share.png',
-        ),
+        XFile(file.path, mimeType: 'image/png', name: 'product-share.png'),
       ],
       text: caption,
       subject: caption,
@@ -240,10 +253,7 @@ Future<void> shareProductWithCard(
     }
 
     await SharePlus.instance.share(
-      ShareParams(
-        text: message,
-        subject: product.name,
-      ),
+      ShareParams(text: message, subject: product.name),
     );
   } catch (error, stackTrace) {
     debugPrint('Product share failed: $error\n$stackTrace');
@@ -251,9 +261,9 @@ Future<void> shareProductWithCard(
       Navigator.of(context, rootNavigator: true).pop();
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not share product')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not share product')));
     }
   }
 }
@@ -317,9 +327,9 @@ Future<void> showProductShareSheet(
               await Clipboard.setData(ClipboardData(text: message));
               if (sheetContext.mounted) {
                 Navigator.pop(sheetContext);
-                ScaffoldMessenger.of(parentContext).showSnackBar(
-                  const SnackBar(content: Text('Link copied')),
-                );
+                ScaffoldMessenger.of(
+                  parentContext,
+                ).showSnackBar(const SnackBar(content: Text('Link copied')));
               }
             },
           ),

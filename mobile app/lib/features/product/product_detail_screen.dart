@@ -294,9 +294,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => shareProductImageOnly(
+                    tooltip: 'Share product',
+                    onPressed: () => shareProductImage(
                       context,
                       product,
+                      variantName: activeVariantName,
                     ),
                     icon: const Icon(Icons.share_outlined),
                   ),
@@ -1155,7 +1157,8 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
   @override
   void didUpdateWidget(covariant _ProductImageGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_activeMedia >= _items.length) {
+    if (oldWidget.product.id != widget.product.id ||
+        _activeMedia >= _items.length) {
       _activeMedia = 0;
     }
   }
@@ -1183,7 +1186,11 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                 child: activeItem == null
                     ? const Icon(Icons.image_outlined, size: 64, color: AppColors.textMuted)
                     : isVideoActive
-                        ? ProductVideoPlayer(url: activeItem.url, embedded: true)
+                        ? ProductVideoPlayer(
+                            key: ValueKey(activeItem.url),
+                            url: activeItem.url,
+                            embedded: true,
+                          )
                         : AppNetworkImage(
                             imageUrl: activeItem.url,
                             fit: BoxFit.contain,
@@ -1209,6 +1216,17 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                 ),
             ],
           ),
+          if (widget.videoUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => showProductVideoFullScreen(context, widget.videoUrl),
+                icon: const Icon(Icons.play_circle_outline_rounded),
+                label: const Text('Watch video'),
+              ),
+            ),
+          ],
           if (items.length > 1) ...[
             const SizedBox(height: 12),
             SizedBox(
@@ -1221,7 +1239,13 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
                   final item = items[index];
                   final selected = index == _activeMedia;
                   return GestureDetector(
-                    onTap: () => setState(() => _activeMedia = index),
+                    onTap: () {
+                      if (item.type == 'video') {
+                        showProductVideoFullScreen(context, item.url);
+                      } else {
+                        setState(() => _activeMedia = index);
+                      }
+                    },
                     child: Container(
                       width: 64,
                       decoration: BoxDecoration(
