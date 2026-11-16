@@ -1325,8 +1325,13 @@ export const updateOrder = async (req, res) => {
 
       const subtotal = Number(updates.subtotal ?? existingOrder.subtotal) || 0;
       const couponDiscount = Number(existingOrder.couponDiscount) || 0;
+      const walletDiscount = Number(existingOrder.walletDiscount) || 0;
       const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-      const nextTotal = Math.round((discountedSubtotal + charge) * 100) / 100;
+      // Points were already redeemed at checkout; preserve their discount on edits.
+      const nextTotal = Math.max(
+        0,
+        Math.round((discountedSubtotal + charge - walletDiscount) * 100) / 100
+      );
 
       updates.deliveryCharges = charge;
       updates.total = nextTotal;
