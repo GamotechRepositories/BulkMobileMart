@@ -126,6 +126,11 @@ const orderSchema = new mongoose.Schema(
     shipment: {
       type: new mongoose.Schema(
         {
+          baseShippingCharge: { type: Number, default: null, min: 0 },
+          codFee: { type: Number, default: null, min: 0 },
+          codBalance: { type: Number, default: null, min: 0 },
+          codCollectAmount: { type: Number, default: null, min: 0 },
+          volumetricWeight: { type: Number, default: null, min: 0 },
           provider: { type: String, default: "" },
           carrier: { type: String, default: "" },
           service: { type: String, default: "" },

@@ -117,6 +117,7 @@ export const createRazorpayOrder = async (req, res) => {
       useWalletPoints: wantWallet,
       walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
+      paymentMode,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -158,7 +159,7 @@ export const createRazorpayOrder = async (req, res) => {
       attemptedOrderId || null
     );
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode);
+    const payableAmount = calculatePayableAmount(result.total, paymentMode, result.deliveryCharges);
     const amountPaise = Math.round(payableAmount * 100);
 
     const razorpayOrder = await razorpay.orders.create({
@@ -264,6 +265,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       useWalletPoints: wantWallet,
       walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
+      paymentMode,
     });
 
     if (result.error) {
@@ -275,7 +277,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode);
+    const payableAmount = calculatePayableAmount(result.total, paymentMode, result.deliveryCharges);
     const expectedAmount = Math.round(payableAmount * 100);
     if (Number(razorpayOrder.amount) !== expectedAmount) {
       return res.status(400).json({
@@ -395,6 +397,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       useWalletPoints: wantWallet,
       walletPoints,
       excludeOrderId: attemptedOrderId || undefined,
+      paymentMode,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -407,7 +410,7 @@ export const submitUpiPaymentProof = async (req, res) => {
 
     const isCodAdvance = paymentMode === "cod_advance";
     const payableAmount = isCodAdvance
-      ? Math.round(result.total * 0.1 * 100) / 100
+      ? Math.round(Math.max(0, result.total - result.deliveryCharges) * 0.1 * 100) / 100
       : result.total;
 
     const order = await finalizeOrder({

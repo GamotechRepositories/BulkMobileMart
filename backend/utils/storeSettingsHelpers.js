@@ -1,3 +1,4 @@
+import { calculateDeliveryCharges } from "../../shared/shipping/deliveryCharges.js";
 import StoreSettings from "../models/StoreSettings.js";
 import { mergeEnviaOriginDefaults } from "../../shared/shipping/enviaOriginAddress.js";
 import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
@@ -196,8 +197,7 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
   const minimumOrderValue =
     Number(source.minimumOrderValue) || DEFAULT_STORE_SETTINGS.minimumOrderValue;
   const minimumShippingCharge =
-    Number(source.minimumShippingCharge) ||
-    DEFAULT_STORE_SETTINGS.minimumShippingCharge;
+    Number(source.minimumShippingCharge ?? DEFAULT_STORE_SETTINGS.minimumShippingCharge);
   const shippingSlabs = normalizeShippingSlabs(
     source.shippingSlabs?.length
       ? source.shippingSlabs
@@ -281,27 +281,13 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
   };
 }
 
-export function calculateShippingCharge(subtotal, settings) {
-  const amount = Number(subtotal) || 0;
-  const minShipping =
-    Number(settings?.minimumShippingCharge) ||
-    DEFAULT_STORE_SETTINGS.minimumShippingCharge;
-  const slabs = normalizeShippingSlabs(
-    settings?.shippingSlabs || DEFAULT_STORE_SETTINGS.shippingSlabs
-  );
-
-  if (!slabs.length) {
-    return minShipping;
-  }
-
-  let charge = minShipping;
-  for (const slab of slabs) {
-    if (amount >= slab.orderAmount) {
-      charge = slab.shippingCharge;
-    }
-  }
-
-  return charge;
+export function calculateShippingCharge(subtotal, settings, options = {}) {
+  const configured = Number(settings?.minimumShippingCharge ?? DEFAULT_STORE_SETTINGS.minimumShippingCharge);
+  return calculateDeliveryCharges({
+    baseShippingCharge: Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_STORE_SETTINGS.minimumShippingCharge,
+    orderValue: subtotal,
+    ...options,
+  }).deliveryCharges;
 }
 
 export function meetsMinimumOrder(subtotal, settings) {

@@ -52,7 +52,7 @@ export async function computeOrderPricing(subtotal, couponCode, options = {}) {
     couponDiscount = couponResult.couponDiscount;
   }
 
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  let deliveryCharges = calculateShippingCharge(Math.max(0, subtotal - couponDiscount), storeSettings, { isCod: options.paymentMode !== "online" });
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
   const { gstAmount, total: totalBeforeWallet } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
 
@@ -74,12 +74,13 @@ export async function computeOrderPricing(subtotal, couponCode, options = {}) {
         options.walletPoints != null && options.walletPoints !== ""
           ? Math.max(0, Math.floor(Number(options.walletPoints)))
           : maxRedeemable;
-      walletPointsRedeemed = Math.min(maxRedeemable, requestedPoints);
+      walletPointsRedeemed = Math.min(maxRedeemable, requestedPoints, Math.floor(discountedSubtotal + calculateShippingCharge(0, storeSettings, { isCod: false })));
       walletDiscount = walletPointsRedeemed; // 1 point = ₹1
     }
   }
 
-  const finalTotal = Math.max(0, Math.round((totalBeforeWallet - walletDiscount) * 100) / 100);
+  deliveryCharges = calculateShippingCharge(Math.max(0, discountedSubtotal - walletDiscount), storeSettings, { isCod: options.paymentMode !== "online" });
+  const finalTotal = Math.max(0, Math.round((discountedSubtotal + deliveryCharges - walletDiscount) * 100) / 100);
 
   return {
     storeSettings,
@@ -438,6 +439,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     excludeOrderId: options.excludeOrderId,
     useWalletPoints: options.useWalletPoints,
     walletPoints: options.walletPoints,
+    paymentMode: options.paymentMode,
   });
   if (pricing.error) {
     return pricing;
@@ -688,6 +690,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     excludeOrderId: attemptedOrder?._id,
     useWalletPoints: options.useWalletPoints,
     walletPoints: options.walletPoints,
+    paymentMode: options.paymentMode,
   });
   if (pricing.error) {
     return pricing;

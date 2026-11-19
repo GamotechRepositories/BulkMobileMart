@@ -1,3 +1,4 @@
+import { getEnviaLabelCharge } from "../../shared/shipping/deliveryCharges.js";
 import axios from "axios";
 
 import StoreSettings from "../models/StoreSettings.js";
@@ -658,6 +659,7 @@ function pickGeneratedShipmentData(responseData = {}) {
   }
   return {
     provider: "envia",
+    baseShippingCharge: getEnviaLabelCharge(row),
     carrier: safeTrim(row.carrier),
     service: safeTrim(row.service),
     shipmentId: safeTrim(row.shipmentId || row.folio || ""),

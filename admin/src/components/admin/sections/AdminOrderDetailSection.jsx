@@ -918,7 +918,7 @@ function AdminOrderDetailSection() {
             </div>
           ) : null}
           <div className="flex justify-between text-neutral-600">
-            <span>Delivery Charges</span>
+            <span>Delivery Charges{order.shipment?.baseShippingCharge == null ? " (estimated)" : ""}</span>
             {editingDeliveryCharge ? (
               <div className="flex items-center gap-2">
                 <input

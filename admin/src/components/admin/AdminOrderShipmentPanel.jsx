@@ -1,3 +1,4 @@
+import { calculateDeliveryCharges, getOrderProductBalance, getVolumetricWeight } from "@shared/shipping/deliveryCharges.js";
 import { useEffect, useMemo, useState } from "react";
 import {
   createAdminOrderShipment,
@@ -173,6 +174,18 @@ export default function AdminOrderShipmentPanel({
   }, [serviceOptions, selectedServiceId]);
 
   const isPrepaidOrder = isOrderPrepaidShipment(order);
+  const deliveryPreview = calculateDeliveryCharges({
+    baseShippingCharge: selectedService?.quote?.totalPrice ?? 0,
+    orderValue: getOrderProductBalance(order),
+    advanceAmount: order?.advancePaidAmount || order?.codAdvanceAmount || 0,
+    isCod: paymentForm.isCod,
+  });
+
+  useEffect(() => {
+    if (!paymentTouched && paymentForm.isCod && selectedService?.quote) {
+      setPaymentForm((prev) => ({ ...prev, codAmount: String(Math.round((deliveryPreview.codBalance + deliveryPreview.deliveryCharges) * 100) / 100) }));
+    }
+  }, [paymentTouched, paymentForm.isCod, selectedService, deliveryPreview.codBalance, deliveryPreview.deliveryCharges]);
 
   const updatePackageField = (field, value) => {
     setPackageForm((prev) => ({ ...prev, [field]: value }));
@@ -430,6 +443,14 @@ export default function AdminOrderShipmentPanel({
               <p className="text-neutral-500">Updated {formatDateTime(order.shipment.syncedAt)}</p>
             ) : null}
           </div>
+          <div className="rounded-md border border-neutral-200 p-2.5 text-xs text-neutral-700">
+            <p>Minimum shipping charge (Envia label): {order.shipment.baseShippingCharge == null ? "Unavailable — delivery remains estimated" : formatPrice(order.shipment.baseShippingCharge)}</p>
+            {order.shipment.codFee != null ? <p>COD fee (2.5% of {formatPrice(order.shipment.codBalance)}): {formatPrice(order.shipment.codFee)} · Delivery: {formatPrice(order.deliveryCharges)}</p> : null}
+            {order.shipment.volumetricWeight != null ? <p>Volumetric weight: {order.shipment.volumetricWeight.toFixed(3)} KG</p> : null}
+            {order.shipment.codCollectAmount > 0 && Math.abs(order.total - (order.codAdvanceAmount || 0) - order.shipment.codCollectAmount) >= 0.01 ? (
+              <p className="mt-1 text-amber-800">Label COD collection: {formatPrice(order.shipment.codCollectAmount)}. Final balance: {formatPrice(Math.max(0, order.total - (order.codAdvanceAmount || 0)))}. Reconcile the difference before dispatch.</p>
+            ) : null}
+          </div>
           {order.shipment.note ? (
             <p className="text-sm text-neutral-700">
               Shipment note:{" "}
@@ -589,7 +610,7 @@ export default function AdminOrderShipmentPanel({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
             <label className="block">
               <span className={compactFieldLabelClass}>
                 Weight <span className="text-red-600">*</span>
@@ -634,6 +655,59 @@ export default function AdminOrderShipmentPanel({
                 </div>
               </label>
             ))}
+            <label className="block">
+              <span className={compactFieldLabelClass}>Volumetric weight (KG)</span>
+              <input readOnly value={getVolumetricWeight(packageForm)?.toFixed(3) ?? ""}
+                placeholder="Enter dimensions" className={compactInputClass} aria-describedby="volumetric-hint" />
+              <span id="volumetric-hint" className="text-[10px] text-neutral-500">L × W × H / 5000 (CM)</span>
+            </label>
+          </div>
+
+          <div>
+            <span className={compactFieldLabelClass}>Shipping partner</span>
+            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-neutral-200 p-2 lg:grid-cols-5">
+              {(serviceOptions.length ? serviceOptions : SHIPPING_SERVICES).map((entry) => {
+                const quote = entry.quote;
+                const isSelected = selectedServiceId === entry.id;
+                return (
+                  <label
+                    key={entry.id}
+                    className={`flex h-full cursor-pointer flex-col gap-1 rounded-md border px-1.5 py-1.5 ${
+                      isSelected
+                        ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
+                        : "border-neutral-200 bg-white"
+                    }`}
+                  >
+                    <span className="flex items-start gap-1.5">
+                      <input
+                        type="radio"
+                        name="shipping-service"
+                        checked={isSelected}
+                        onChange={() => setSelectedServiceId(entry.id)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <span className="min-w-0 text-[11px] font-medium leading-snug text-neutral-900">
+                        {entry.label}
+                      </span>
+                    </span>
+                    {quote ? (
+                      <span className="pl-4 text-[10px] leading-snug text-neutral-600">
+                        <span className="block font-semibold text-neutral-800">
+                          {formatPrice(quote.totalPrice)}
+                        </span>
+                        {quote.deliveryEstimate ? (
+                          <span className="block truncate">{quote.deliveryEstimate}</span>
+                        ) : null}
+                      </span>
+                    ) : serviceOptions.length > 0 ? (
+                      <span className="pl-4 text-[10px] text-amber-700">N/A</span>
+                    ) : (
+                      <span className="pl-4 text-[10px] text-neutral-500">—</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <div className="rounded-md border border-neutral-200 p-2.5">
@@ -678,6 +752,11 @@ export default function AdminOrderShipmentPanel({
                 </label>
               )}
             </div>
+            <p className="mt-2 text-[11px] text-neutral-600">
+              Minimum shipping charge (Envia label): {selectedService?.quote ? `${formatPrice(deliveryPreview.baseShippingCharge)} estimated` : "Available after label creation"}
+              {" · "}COD fee (2.5% of {formatPrice(deliveryPreview.codBalance)}): {formatPrice(deliveryPreview.codFee)}
+              {selectedService?.quote ? ` · Estimated delivery: ${formatPrice(deliveryPreview.deliveryCharges)}` : ""}
+            </p>
             {paymentForm.isCod &&
             (order?.advancePaidAmount > 0 || order?.codAdvanceAmount > 0) ? (
               <p className="mt-1.5 text-[11px] text-neutral-500">
@@ -740,53 +819,6 @@ export default function AdminOrderShipmentPanel({
                   ) : null}
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <span className={compactFieldLabelClass}>Shipping partner</span>
-            <div className="grid grid-cols-2 gap-1.5 rounded-md border border-neutral-200 p-2 lg:grid-cols-5">
-              {(serviceOptions.length ? serviceOptions : SHIPPING_SERVICES).map((entry) => {
-                const quote = entry.quote;
-                const isSelected = selectedServiceId === entry.id;
-                return (
-                  <label
-                    key={entry.id}
-                    className={`flex h-full cursor-pointer flex-col gap-1 rounded-md border px-1.5 py-1.5 ${
-                      isSelected
-                        ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
-                        : "border-neutral-200 bg-white"
-                    }`}
-                  >
-                    <span className="flex items-start gap-1.5">
-                      <input
-                        type="radio"
-                        name="shipping-service"
-                        checked={isSelected}
-                        onChange={() => setSelectedServiceId(entry.id)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <span className="min-w-0 text-[11px] font-medium leading-snug text-neutral-900">
-                        {entry.label}
-                      </span>
-                    </span>
-                    {quote ? (
-                      <span className="pl-4 text-[10px] leading-snug text-neutral-600">
-                        <span className="block font-semibold text-neutral-800">
-                          {formatPrice(quote.totalPrice)}
-                        </span>
-                        {quote.deliveryEstimate ? (
-                          <span className="block truncate">{quote.deliveryEstimate}</span>
-                        ) : null}
-                      </span>
-                    ) : serviceOptions.length > 0 ? (
-                      <span className="pl-4 text-[10px] text-amber-700">N/A</span>
-                    ) : (
-                      <span className="pl-4 text-[10px] text-neutral-500">—</span>
-                    )}
-                  </label>
-                );
-              })}
             </div>
           </div>
 

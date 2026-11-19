@@ -1,3 +1,4 @@
+import { calculateDeliveryCharges } from "../../../shared/shipping/deliveryCharges.js";
 export const DEFAULT_STORE_SETTINGS = {
   minimumOrderValue: 3000,
   minimumShippingCharge: 280,
@@ -31,8 +32,7 @@ export function mergeStoreSettings(settings) {
     minimumOrderValue:
       Number(source.minimumOrderValue) || DEFAULT_STORE_SETTINGS.minimumOrderValue,
     minimumShippingCharge:
-      Number(source.minimumShippingCharge) ||
-      DEFAULT_STORE_SETTINGS.minimumShippingCharge,
+      Number(source.minimumShippingCharge ?? DEFAULT_STORE_SETTINGS.minimumShippingCharge),
     shippingSlabs: normalizeShippingSlabs(
       source.shippingSlabs?.length
         ? source.shippingSlabs
@@ -41,24 +41,13 @@ export function mergeStoreSettings(settings) {
   };
 }
 
-export function calculateShippingCharge(subtotal, settings) {
-  const amount = Number(subtotal) || 0;
-  const merged = mergeStoreSettings(settings);
-  const minShipping = merged.minimumShippingCharge;
-  const slabs = merged.shippingSlabs;
-
-  if (!slabs.length) {
-    return minShipping;
-  }
-
-  let charge = minShipping;
-  for (const slab of slabs) {
-    if (amount >= slab.orderAmount) {
-      charge = slab.shippingCharge;
-    }
-  }
-
-  return charge;
+export function calculateShippingCharge(subtotal, settings, options = {}) {
+  const configured = Number(settings?.minimumShippingCharge ?? DEFAULT_STORE_SETTINGS.minimumShippingCharge);
+  return calculateDeliveryCharges({
+    baseShippingCharge: Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_STORE_SETTINGS.minimumShippingCharge,
+    orderValue: subtotal,
+    ...options,
+  }).deliveryCharges;
 }
 
 export function meetsMinimumOrder(subtotal, settings) {

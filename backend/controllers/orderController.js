@@ -1,3 +1,4 @@
+import { calculateDeliveryCharges, getOrderProductBalance, getVolumetricWeight, roundMoney } from "../../shared/shipping/deliveryCharges.js";
 import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
@@ -446,6 +447,7 @@ export const createCheckoutAttempt = async (req, res) => {
       attemptedOrderId,
       useWalletPoints,
       walletPoints,
+      paymentMode: paymentMethod === "online" ? "online" : "cod_advance",
     });
 
     if (prepared.error) {
@@ -530,6 +532,7 @@ export const adminPlaceOrder = async (req, res) => {
     const result = await prepareOrderData(userId, addressId, {
       checkoutItems,
       checkoutMode: "buyNow",
+      paymentMode: normalizedPaymentStatus === PAYMENT_STATUS.PAID ? "online" : "cod_advance",
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -542,7 +545,7 @@ export const adminPlaceOrder = async (req, res) => {
 
     const codAdvanceAmount =
       normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
-        ? calculateAdvanceAmount(result.total)
+        ? calculateAdvanceAmount(Math.max(0, result.total - result.deliveryCharges))
         : 0;
 
     let order = await finalizeOrder({
@@ -1521,10 +1524,27 @@ export const createOrderShipment = async (req, res) => {
       });
     }
 
+    const productBalance = getOrderProductBalance(order);
+    const advanceAmount = Number(order.codAdvanceAmount) || 0;
     const shipment = await createEnviaShipment(order, overrides);
+    const charges = shipment.baseShippingCharge == null ? null : calculateDeliveryCharges({
+      baseShippingCharge: shipment.baseShippingCharge,
+      orderValue: productBalance,
+      advanceAmount,
+      isCod: overrides.isCod,
+    });
+    if (charges) {
+      order.deliveryCharges = charges.deliveryCharges;
+      order.total = roundMoney(Math.max(0, (Number(order.subtotal) || 0) - (Number(order.couponDiscount) || 0) - (Number(order.walletDiscount) || 0) + charges.deliveryCharges));
+    }
     const previousStatus = order.status;
 
     order.shipment = mergeOrderShipment(order, {
+      baseShippingCharge: shipment.baseShippingCharge,
+      codFee: charges?.codFee ?? null,
+      codBalance: charges?.codBalance ?? null,
+      codCollectAmount: overrides.isCod ? overrides.codAmount : 0,
+      volumetricWeight: getVolumetricWeight(overrides),
       provider: shipment.provider,
       carrier: shipment.carrier,
       service: shipment.service,

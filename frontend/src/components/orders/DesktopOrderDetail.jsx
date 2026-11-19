@@ -337,7 +337,7 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                   </div>
                 ) : null}
                 <div className="flex justify-between text-text-secondary">
-                  <span>Delivery fee</span>
+                  <span>Delivery fee{order.shipment?.baseShippingCharge == null ? " (estimated)" : ""}</span>
                   <div className="flex items-center gap-2">
                     {deliveryFree ? (
                       <span className="text-xs text-text-muted line-through">₹30</span>
@@ -347,6 +347,11 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                     </span>
                   </div>
                 </div>
+                {order.shipment?.baseShippingCharge != null ? (
+                  <p className="text-xs text-text-muted">
+                    Envia label: {formatOrderPrice(order.shipment.baseShippingCharge)} + COD fee (2.5%): {formatOrderPrice(order.shipment.codFee || 0)}
+                  </p>
+                ) : <p className="text-xs text-text-muted">Delivery is finalized after shipping label creation.</p>}
               </div>
               <div className="my-4 border-t border-border-light" />
               <div className="flex items-center justify-between">

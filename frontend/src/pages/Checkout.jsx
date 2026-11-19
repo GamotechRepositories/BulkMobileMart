@@ -217,8 +217,8 @@ function Checkout() {
   );
   const couponDiscount = appliedCoupon?.discountAmount || 0;
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const { total: orderTotalBeforeWallet } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+  const estimatedDelivery = calculateShippingCharge(discountedSubtotal, storeSettings, { isCod: paymentPlan === PAYMENT_PLAN.ADVANCE });
+  const { total: orderTotalBeforeWallet } = calculateOrderTotal(discountedSubtotal, estimatedDelivery);
 
   const isWalletFeatureEnabled = storeSettings?.walletSettings?.enabled !== false;
   const walletActive = wallet && wallet.status !== "suspended";
@@ -229,11 +229,12 @@ function Checkout() {
   const redemptionLimit = wallet?.rewardsConfig?.maxRedemptionPoints;
   const minimumWalletOrderValue = Math.max(0, Number(wallet?.rewardsConfig?.minRedemptionOrderValue ?? storeSettings?.walletSettings?.minRedemptionOrderValue) || 0);
   const meetsWalletOrderMinimum = orderTotalBeforeWallet >= minimumWalletOrderValue;
-  const maxRedeemablePoints = meetsWalletOrderMinimum ? Math.min(walletBalance, Math.floor(orderTotalBeforeWallet),
+  const maxRedeemablePoints = meetsWalletOrderMinimum ? Math.min(walletBalance, Math.floor(discountedSubtotal + calculateShippingCharge(0, storeSettings, { isCod: false })),
     redemptionLimit == null ? Infinity : Math.max(0, Math.floor(Number(redemptionLimit)) || 0)) : 0;
   const walletPointsRedeemed = useWalletPoints && meetsWalletOrderMinimum ? maxRedeemablePoints : 0;
   const walletDiscount = walletPointsRedeemed; // 1 point = ₹1
-  const orderTotal = Math.max(0, Math.round((orderTotalBeforeWallet - walletDiscount) * 100) / 100);
+  const deliveryCharges = calculateShippingCharge(Math.max(0, discountedSubtotal - walletDiscount), storeSettings, { isCod: paymentPlan === PAYMENT_PLAN.ADVANCE });
+  const orderTotal = Math.max(0, Math.round((discountedSubtotal + deliveryCharges - walletDiscount) * 100) / 100);
   const isFullyPaidByWallet = useWalletPoints && orderTotal === 0 && walletPointsRedeemed > 0;
 
   const checkoutAttemptKey = useMemo(
@@ -276,7 +277,7 @@ function Checkout() {
     appliedCouponRef.current = appliedCoupon;
   }, [appliedCoupon]);
 
-  const payableNow = isFullyPaidByWallet ? 0 : calculatePayableAmount(orderTotal, paymentPlan);
+  const payableNow = isFullyPaidByWallet ? 0 : calculatePayableAmount(orderTotal, paymentPlan, deliveryCharges);
   const balanceOnDelivery = isFullyPaidByWallet
     ? 0
     : Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
@@ -943,8 +944,8 @@ function Checkout() {
                             Pay 10% now · balance on delivery
                           </p>
                           <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                            Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via UPI ·{" "}
-                            {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
+                            Pay {formatPrice(calculateAdvanceAmount(Math.max(0, orderTotal - deliveryCharges)), 2)} now via UPI ·{" "}
+                            {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(Math.max(0, orderTotal - deliveryCharges))), 2)}{" "}
                             on delivery
                           </p>
                         </div>
@@ -1149,7 +1150,7 @@ function Checkout() {
                     </div>
                   ) : null}
                   <div className="flex justify-between text-text-secondary">
-                    <span>Delivery Charges</span>
+                    <span>Estimated delivery charges</span>
                     <span className="font-semibold text-text-primary">
                       {formatPrice(deliveryCharges)}
                     </span>

@@ -87,8 +87,8 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
   );
 
   const deliveryCharges = useMemo(
-    () => calculateShippingCharge(subtotal, storeSettings),
-    [subtotal, storeSettings]
+    () => calculateShippingCharge(subtotal, storeSettings, { isCod: paymentStatus !== PAYMENT_STATUS.PAID }),
+    [subtotal, storeSettings, paymentStatus]
   );
 
   const { total } = useMemo(
@@ -502,7 +502,7 @@ function CreateOrderCheckout({ userId, addressId, onSuccess, onError }) {
               <dd className="font-medium text-text-primary">{formatPrice(subtotal)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Delivery</dt>
+              <dt className="text-text-secondary">Estimated delivery</dt>
               <dd className="font-medium text-text-primary">{formatPrice(deliveryCharges)}</dd>
             </div>
             <div className="flex justify-between gap-4 border-t border-neutral-100 pt-2 text-sm">

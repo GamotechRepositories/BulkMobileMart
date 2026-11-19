@@ -711,7 +711,7 @@ function StoreSettingsSection() {
             </div>
 
             <div>
-              <label className={labelClass}>Minimum Shipping Charge (₹)</label>
+              <label className={labelClass}>Estimated Base Shipping Charge (₹)</label>
               <input
                 type="number"
                 min="0"
@@ -726,7 +726,7 @@ function StoreSettingsSection() {
                 }
               />
               <p className="mt-1 text-xs text-neutral-500">
-                Used when order value is below the first slab.
+                Used at checkout until the Envia label charge is available. COD adds 2.5% of the remaining product balance.
               </p>
             </div>
           </div>
@@ -1014,9 +1014,9 @@ function StoreSettingsSection() {
         >
           <div className={formHeaderClass}>
             <div>
-              <h3 className="font-semibold text-neutral-900">Shipping Charge Slabs</h3>
+              <h3 className="font-semibold text-neutral-900">Legacy Shipping Charge Slabs (inactive)</h3>
               <p className="mt-1 text-sm text-neutral-500">
-                Higher order values use the matching slab. Slabs are sorted by order amount.
+                These saved slabs are no longer used. Delivery is the Envia label charge plus 2.5% of the remaining COD balance.
               </p>
             </div>
             <button type="button" onClick={addSlab} className={btnPrimary}>

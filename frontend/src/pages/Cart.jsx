@@ -254,7 +254,7 @@ function OrderSummary({ items, storeSettings }) {
           <span className="font-medium text-text-primary">{formatPrice(subtotal)}</span>
         </div>
         <div className="flex items-center justify-between text-text-secondary">
-          <span>Shipping Charges</span>
+          <span>Estimated shipping charges</span>
           <span className="font-medium text-text-primary">{formatPrice(shipping)}</span>
         </div>
         {!canCheckout && hasItems ? (
