@@ -1,6 +1,63 @@
 import mongoose from "mongoose";
 import { addressSnapshotSchema } from "../address/Address.js";
 
+const shipmentSchema = new mongoose.Schema(
+  {
+    baseShippingCharge: { type: Number, default: null, min: 0 },
+    codFee: { type: Number, default: null, min: 0 },
+    codBalance: { type: Number, default: null, min: 0 },
+    codCollectAmount: { type: Number, default: null, min: 0 },
+    volumetricWeight: { type: Number, default: null, min: 0 },
+    provider: { type: String, default: "" },
+    carrier: { type: String, default: "" },
+    service: { type: String, default: "" },
+    shipmentId: { type: String, default: "" },
+    trackingNumber: { type: String, default: "" },
+    trackUrl: { type: String, default: "" },
+    labelUrl: { type: String, default: "" },
+    status: { type: String, default: "" },
+    statusMessage: { type: String, default: "" },
+    syncedAt: { type: Date, default: null },
+    events: {
+      type: [
+        new mongoose.Schema(
+          {
+            status: { type: String, default: "" },
+            date: { type: String, default: "" },
+            location: { type: String, default: "" },
+            description: { type: String, default: "" },
+          },
+          { _id: false }
+        ),
+      ],
+      default: () => [],
+    },
+    note: { type: String, default: "", trim: true, maxlength: 500 },
+    evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+    evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+    manualTracking: {
+      type: new mongoose.Schema(
+        {
+          enabled: { type: Boolean, default: false },
+          note: { type: String, default: "", trim: true, maxlength: 500 },
+          evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
+          evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
+          updatedAt: { type: Date, default: null },
+        },
+        { _id: false }
+      ),
+      default: () => ({
+        enabled: false,
+        note: "",
+        evidenceUrl: "",
+        evidenceName: "",
+        updatedAt: null,
+      }),
+    },
+  },
+  { _id: false }
+);
+
 const orderItemSchema = new mongoose.Schema(
   {
     product: {
@@ -124,64 +181,10 @@ const orderSchema = new mongoose.Schema(
       default: "website",
     },
     shipment: {
-      type: new mongoose.Schema(
-        {
-          baseShippingCharge: { type: Number, default: null, min: 0 },
-          codFee: { type: Number, default: null, min: 0 },
-          codBalance: { type: Number, default: null, min: 0 },
-          codCollectAmount: { type: Number, default: null, min: 0 },
-          volumetricWeight: { type: Number, default: null, min: 0 },
-          provider: { type: String, default: "" },
-          carrier: { type: String, default: "" },
-          service: { type: String, default: "" },
-          shipmentId: { type: String, default: "" },
-          trackingNumber: { type: String, default: "" },
-          trackUrl: { type: String, default: "" },
-          labelUrl: { type: String, default: "" },
-          status: { type: String, default: "" },
-          statusMessage: { type: String, default: "" },
-          syncedAt: { type: Date, default: null },
-          events: {
-            type: [
-              new mongoose.Schema(
-                {
-                  status: { type: String, default: "" },
-                  date: { type: String, default: "" },
-                  location: { type: String, default: "" },
-                  description: { type: String, default: "" },
-                },
-                { _id: false }
-              ),
-            ],
-            default: () => [],
-          },
-          note: { type: String, default: "", trim: true, maxlength: 500 },
-          evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
-          evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
-          manualTracking: {
-            type: new mongoose.Schema(
-              {
-                enabled: { type: Boolean, default: false },
-                note: { type: String, default: "", trim: true, maxlength: 500 },
-                evidenceUrl: { type: String, default: "", trim: true, maxlength: 500 },
-                evidenceName: { type: String, default: "", trim: true, maxlength: 200 },
-                updatedAt: { type: Date, default: null },
-              },
-              { _id: false }
-            ),
-            default: () => ({
-              enabled: false,
-              note: "",
-              evidenceUrl: "",
-              evidenceName: "",
-              updatedAt: null,
-            }),
-          },
-        },
-        { _id: false }
-      ),
+      type: shipmentSchema,
       default: () => ({}),
     },
+    additionalShipments: { type: [shipmentSchema], default: () => [] },
     giftHamper: {
       type: orderGiftHamperSchema,
       default: null,

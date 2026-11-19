@@ -12,8 +12,8 @@ test('₹10,000 order: ₹1,000 advance, ₹9,000 COD principal, label charge + 
   const charges = calculateDeliveryCharges({ baseShippingCharge: 300, orderValue: 10000 });
   assert.deepEqual(charges, { baseShippingCharge: 300, codBalance: 9000, codFee: 225, deliveryCharges: 525 });
   for (const payable of [backendPayable, storefrontPayable]) {
-    assert.equal(payable(10525, 'cod_advance', 525), 1000);
-    assert.equal(payable(10525, 'online', 525), 10525);
+    assert.equal(payable(10525, 'cod_advance'), 1052.5);
+    assert.equal(payable(10525, 'online'), 10525);
   }
 });
 
@@ -75,7 +75,7 @@ test('checkout pricing applies the lower COD fee after wallet redemption and cap
   assert.equal(partial.walletDiscount, 1000);
   assert.equal(partial.deliveryCharges, 482.5);
   assert.equal(partial.total, 9482.5);
-  assert.equal(backendPayable(partial.total, 'cod_advance', partial.deliveryCharges), 900);
+  assert.equal(backendPayable(partial.total, 'cod_advance'), 948.25);
   const full = await computeOrderPricing(10000, '', { userId: 'test', useWalletPoints: true, paymentMode: 'cod_advance' });
   assert.equal(full.walletPointsRedeemed, 10280);
   assert.equal(full.deliveryCharges, 280);
@@ -83,4 +83,16 @@ test('checkout pricing applies the lower COD fee after wallet redemption and cap
   const prepaid = await computeOrderPricing(10000, '', { paymentMode: 'online' });
   assert.equal(prepaid.deliveryCharges, 280);
   assert.equal(prepaid.total, 10280);
+});
+
+
+test('checkout COD advance is 10% of the full payable total, including delivery', () => {
+  for (const payable of [backendPayable, storefrontPayable]) {
+    for (const [total, advance] of [[3280, 328], [2948.88, 294.89], [0, 0], [280, 28]]) {
+      assert.equal(payable(total, 'cod_advance'), advance);
+      assert.equal(payable(total, 'online'), total);
+      const balance = Math.round((total - advance) * 100) / 100;
+      assert.equal(Math.round((advance + balance) * 100) / 100, total);
+    }
+  }
 });

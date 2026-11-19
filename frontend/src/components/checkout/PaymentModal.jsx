@@ -5,7 +5,6 @@ import { UPLOAD_FOLDERS } from "../../utils/uploadFolders";
 import {
   buildMerchantUpiConfig,
   downloadQrCodeImage,
-  getPayableAmount,
   getQrCodeImageUrl,
   getQrDownloadFilename,
   pickEnabledMerchantUpiAccounts,
@@ -28,6 +27,7 @@ function PaymentModal({
   onClose,
   paymentMethod,
   orderTotal,
+  payableAmount,
   merchantUpiId = "",
   merchantUpiName = "",
   merchantUpiAccounts = [],
@@ -44,7 +44,6 @@ function PaymentModal({
   const [qrDownloadHint, setQrDownloadHint] = useState("");
   const [selectedUpiIndex, setSelectedUpiIndex] = useState(0);
 
-  const payableAmount = getPayableAmount(orderTotal, paymentMethod);
   const isCod = paymentMethod === "cod";
   const paymentNote = isCod ? "COD Advance" : "Order Payment";
   const enabledUpiAccounts = useMemo(

@@ -143,3 +143,47 @@ export function isOutForDeliveryTracking({
   const haystack = buildTrackingHaystack({ status, statusMessage, events });
   return /out for delivery|out_for_delivery|\bofd\b/.test(haystack);
 }
+
+
+export function getOrderShipments(order) {
+  return [order.shipment, ...(order.additionalShipments || [])].filter((shipment) => shipment?.trackingNumber);
+}
+
+export function findOrderShipment(order, trackingNumber) {
+  if (!trackingNumber) return order.shipment;
+  const shipment = getOrderShipments(order).find((entry) => entry.trackingNumber === trackingNumber);
+  if (!shipment) throw new Error("Shipment not found on this order");
+  return shipment;
+}
+
+export function storeOrderShipment(order, shipment, { additional = false, trackingNumber } = {}) {
+  if (additional) {
+    if (getOrderShipments(order).some((entry) => entry.trackingNumber === shipment.trackingNumber)) {
+      throw new Error("This tracking number is already linked to the order");
+    }
+    order.additionalShipments ||= [];
+    order.additionalShipments.push(shipment);
+  } else if (trackingNumber && order.shipment?.trackingNumber !== trackingNumber) {
+    const index = (order.additionalShipments || []).findIndex((entry) => entry.trackingNumber === trackingNumber);
+    if (index < 0) throw new Error("Shipment not found on this order");
+    if (shipment.trackingNumber) order.additionalShipments[index] = shipment;
+    else order.additionalShipments.splice(index, 1);
+  } else {
+    order.shipment = !shipment.trackingNumber && order.additionalShipments?.length
+      ? order.additionalShipments.shift() : shipment;
+  }
+}
+
+export function getCombinedShipmentStatus(order) {
+  const shipments = getOrderShipments(order);
+  if (!shipments.length || order.status === "cancelled") return order.status;
+  if (shipments.length === 1) return mapShipmentTrackingToOrderStatus({
+    ...getShipmentPlain(shipments[0]), currentStatus: order.status,
+  });
+  const statuses = shipments.map((shipment) => mapShipmentTrackingToOrderStatus({
+    ...getShipmentPlain(shipment), currentStatus: "shipping",
+  }));
+  if (statuses.every((status) => status === "delivered")) return "delivered";
+  if (statuses.every((status) => status === "return")) return "return";
+  return "shipping";
+}

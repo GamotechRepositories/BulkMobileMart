@@ -401,6 +401,14 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 />
                 <DetailRow label="Order placed" value={formatOrderDateTime(order.createdAt)} />
                 <ShipmentExtraDetails shipment={shipment} />
+          {(order.additionalShipments || []).filter((entry) => entry.trackingNumber).map((entry, index) => (
+            <div key={entry.trackingNumber} className="mt-3 rounded-lg border border-border-light p-3 text-sm">
+              <p className="font-semibold">Additional shipment {index + 1}</p>
+              <p className="my-2 text-text-secondary">{entry.trackingNumber} · {entry.statusMessage || entry.status || "Created"}</p>
+              <ShipmentTrackingBanner shipment={entry} />
+              <ShipmentExtraDetails shipment={entry} />
+            </div>
+          ))}
               </div>
             </section>
 

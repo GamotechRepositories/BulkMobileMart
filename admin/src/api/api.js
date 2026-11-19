@@ -132,8 +132,8 @@ export const quoteAdminOrderShipmentRates = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/rates`, data);
 export const createAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia`, data);
-export const syncAdminOrderShipment = (id) =>
-  api.post(`/api/orders/admin/${id}/shipment/envia/sync`);
+export const syncAdminOrderShipment = (id, data) =>
+  api.post(`/api/orders/admin/${id}/shipment/envia/sync`, data);
 export const cancelAdminOrderShipment = (id, data) =>
   api.post(`/api/orders/admin/${id}/shipment/envia/cancel`, data);
 export const linkAdminOrderShipment = (id, data) =>

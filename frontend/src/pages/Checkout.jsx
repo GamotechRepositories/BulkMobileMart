@@ -277,7 +277,7 @@ function Checkout() {
     appliedCouponRef.current = appliedCoupon;
   }, [appliedCoupon]);
 
-  const payableNow = isFullyPaidByWallet ? 0 : calculatePayableAmount(orderTotal, paymentPlan, deliveryCharges);
+  const payableNow = isFullyPaidByWallet ? 0 : calculatePayableAmount(orderTotal, paymentPlan);
   const balanceOnDelivery = isFullyPaidByWallet
     ? 0
     : Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
@@ -944,8 +944,8 @@ function Checkout() {
                             Pay 10% now · balance on delivery
                           </p>
                           <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                            Pay {formatPrice(calculateAdvanceAmount(Math.max(0, orderTotal - deliveryCharges)), 2)} now via UPI ·{" "}
-                            {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(Math.max(0, orderTotal - deliveryCharges))), 2)}{" "}
+                            Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via UPI ·{" "}
+                            {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
                             on delivery
                           </p>
                         </div>
@@ -1241,6 +1241,7 @@ function Checkout() {
         }}
         paymentMethod={paymentMethod}
         orderTotal={orderTotal}
+        payableAmount={payableNow}
         merchantUpiId={storeSettings?.merchantUpiId || ""}
         merchantUpiName={storeSettings?.merchantUpiName || ""}
         merchantUpiAccounts={storeSettings?.merchantUpiAccounts || []}

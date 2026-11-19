@@ -240,6 +240,14 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
           <DetailField label="Delivery Address" value={formatAddressLine(addr)} />
           <DetailField label="Order placed at" value={formatOrderDateTime(order.createdAt)} />
           <ShipmentExtraDetails shipment={shipment} />
+          {(order.additionalShipments || []).filter((entry) => entry.trackingNumber).map((entry, index) => (
+            <div key={entry.trackingNumber} className="mt-3 rounded-lg border border-border-light p-3 text-sm">
+              <p className="font-semibold">Additional shipment {index + 1}</p>
+              <p className="my-2 text-text-secondary">{entry.trackingNumber} · {entry.statusMessage || entry.status || "Created"}</p>
+              <ShipmentTrackingBanner shipment={entry} />
+              <ShipmentExtraDetails shipment={entry} />
+            </div>
+          ))}
           {order.status === "delivered"
             ? shipments.map((_, index) => (
                 <DetailField

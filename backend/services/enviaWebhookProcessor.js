@@ -1,7 +1,9 @@
 import Order from "../models/order/Order.js";
 import {
   isOutForDeliveryTracking,
-  mapShipmentTrackingToOrderStatus,
+  findOrderShipment,
+  storeOrderShipment,
+  getCombinedShipmentStatus,
   mergeOrderShipment,
 } from "../utils/shipmentHelpers.js";
 import { notifyOrderStatusChange } from "./orderNotificationDispatcher.js";
@@ -79,7 +81,7 @@ export function extractEnviaWebhookPayload(body = {}) {
 async function findOrderForWebhook({ trackingNumber, orderReference }) {
   if (trackingNumber) {
     const byTracking = await Order.findOne({
-      "shipment.trackingNumber": trackingNumber,
+      $or: [{ "shipment.trackingNumber": trackingNumber }, { "additionalShipments.trackingNumber": trackingNumber }],
     });
     if (byTracking) return byTracking;
   }
@@ -108,31 +110,30 @@ export async function processEnviaWebhookEvent(body = {}) {
     return { ok: false, reason: "order_not_found" };
   }
 
-  const previousStatus = order.status;
-  const previousShipmentStatus = text(order.shipment?.status);
-  const previousShipmentMessage = text(order.shipment?.statusMessage);
-
-  order.shipment = mergeOrderShipment(order, {
-    provider: "envia",
-    carrier: payload.carrier || order.shipment?.carrier || "",
-    trackingNumber: payload.trackingNumber || order.shipment?.trackingNumber || "",
-    trackUrl: payload.trackUrl || order.shipment?.trackUrl || "",
-    status: payload.status || order.shipment?.status || "",
-    statusMessage: payload.statusMessage || order.shipment?.statusMessage || "",
-    syncedAt: new Date(),
-    events: payload.events.length ? payload.events : order.shipment?.events || [],
-  });
-
-  const nextStatus = mapShipmentTrackingToOrderStatus({
-    status: order.shipment.status,
-    statusMessage: order.shipment.statusMessage,
-    events: order.shipment.events,
-    currentStatus: order.status,
-  });
-
-  if (nextStatus !== order.status) {
-    order.status = nextStatus;
+  let target;
+  try {
+    target = findOrderShipment(order, payload.trackingNumber);
+  } catch {
+    // Never replace a different parcel when only the order reference matched.
+    return { ok: false, reason: "shipment_not_found" };
   }
+  const previousStatus = order.status;
+  const previousShipmentStatus = text(target?.status);
+  const previousShipmentMessage = text(target?.statusMessage);
+
+  const updated = mergeOrderShipment({ shipment: target }, {
+    provider: "envia",
+    carrier: payload.carrier || target?.carrier || "",
+    trackingNumber: payload.trackingNumber || target?.trackingNumber || "",
+    trackUrl: payload.trackUrl || target?.trackUrl || "",
+    status: payload.status || target?.status || "",
+    statusMessage: payload.statusMessage || target?.statusMessage || "",
+    syncedAt: new Date(),
+    events: payload.events.length ? payload.events : target?.events || [],
+  });
+
+  storeOrderShipment(order, updated, { trackingNumber: target?.trackingNumber });
+  order.status = getCombinedShipmentStatus(order);
 
   await order.save();
 
@@ -152,9 +153,9 @@ export async function processEnviaWebhookEvent(body = {}) {
   ) {
     if (order.user) {
       void sendShipmentStatusUpdate(order, {
-        status: payload.status || order.shipment.status,
-        statusDescription: payload.statusMessage || order.shipment.statusMessage,
-        trackUrl: payload.trackUrl || order.shipment.trackUrl,
+        status: payload.status || updated.status,
+        statusDescription: payload.statusMessage || updated.statusMessage,
+        trackUrl: payload.trackUrl || updated.trackUrl,
       });
     }
   }
@@ -164,6 +165,6 @@ export async function processEnviaWebhookEvent(body = {}) {
     orderId: order._id,
     orderNumber: order.orderNumber,
     status: order.status,
-    shipmentStatus: order.shipment?.status,
+    shipmentStatus: updated.status,
   };
 }

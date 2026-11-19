@@ -159,7 +159,7 @@ export const createRazorpayOrder = async (req, res) => {
       attemptedOrderId || null
     );
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode, result.deliveryCharges);
+    const payableAmount = calculatePayableAmount(result.total, paymentMode);
     const amountPaise = Math.round(payableAmount * 100);
 
     const razorpayOrder = await razorpay.orders.create({
@@ -277,7 +277,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
-    const payableAmount = calculatePayableAmount(result.total, paymentMode, result.deliveryCharges);
+    const payableAmount = calculatePayableAmount(result.total, paymentMode);
     const expectedAmount = Math.round(payableAmount * 100);
     if (Number(razorpayOrder.amount) !== expectedAmount) {
       return res.status(400).json({
@@ -409,9 +409,7 @@ export const submitUpiPaymentProof = async (req, res) => {
     }
 
     const isCodAdvance = paymentMode === "cod_advance";
-    const payableAmount = isCodAdvance
-      ? Math.round(Math.max(0, result.total - result.deliveryCharges) * 0.1 * 100) / 100
-      : result.total;
+    const payableAmount = calculatePayableAmount(result.total, paymentMode);
 
     const order = await finalizeOrder({
       userId: req.user._id,

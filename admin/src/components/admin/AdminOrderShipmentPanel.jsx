@@ -83,7 +83,7 @@ function buildShipmentPayload(packageForm, paymentForm, metadataForm = {}, optio
   if (paymentForm.isCod) {
     payload.isCod = true;
     if (paymentForm.codAmount) {
-      payload.codAmount = Number(paymentForm.codAmount);
+      payload.codAmount = Math.round(Number(paymentForm.codAmount));
     }
   } else if (paymentTouched) {
     payload.isCod = false;
@@ -111,7 +111,7 @@ function buildInitialPaymentForm(order) {
       ? Number(order.advancePaidAmount)
       : Number(order.codAdvanceAmount) || 0;
   const remaining = Math.max(0, total - advance);
-  const codAmount = remaining > 0 ? remaining : total;
+  const codAmount = Math.round(remaining > 0 ? remaining : total);
 
   return {
     isCod: true,
@@ -120,11 +120,17 @@ function buildInitialPaymentForm(order) {
 }
 
 export default function AdminOrderShipmentPanel({
-  order,
+  order: sourceOrder,
   onOrderUpdated,
   onError,
   onSuccess,
 }) {
+  const [shipmentSelection, setShipmentSelection] = useState("");
+  const shipments = [sourceOrder?.shipment, ...(sourceOrder?.additionalShipments || [])].filter((entry) => entry?.trackingNumber);
+  const addingShipment = shipmentSelection === "new";
+  const selectedShipment = addingShipment ? {} : shipments.find((entry) => entry.trackingNumber === shipmentSelection) || shipments[0] || sourceOrder?.shipment || {};
+  const order = { ...sourceOrder, shipment: selectedShipment };
+
   const [packageForm, setPackageForm] = useState(EMPTY_PACKAGE);
   const [paymentForm, setPaymentForm] = useState({ isCod: false, codAmount: "" });
   const [paymentTouched, setPaymentTouched] = useState(false);
@@ -152,14 +158,14 @@ export default function AdminOrderShipmentPanel({
   useEffect(() => {
     setPackageForm(EMPTY_PACKAGE);
     setMetadataForm({ shipmentNote: "", evidenceUrl: "", evidenceName: "" });
-    setPaymentTouched(false);
-    setPaymentForm(buildInitialPaymentForm(order));
+    setPaymentTouched(addingShipment);
+    setPaymentForm(addingShipment ? { isCod: false, codAmount: "" } : buildInitialPaymentForm(order));
     setQuotedPayment(null);
     setServiceOptions([]);
     setQuoteErrors([]);
     setTrackingInput("");
     setMode("create");
-  }, [order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, order?.advancePaidAmount]);
+  }, [shipmentSelection, order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, order?.advancePaidAmount]);
 
   useEffect(() => {
     setQuotedPayment(null);
@@ -176,16 +182,23 @@ export default function AdminOrderShipmentPanel({
   const isPrepaidOrder = isOrderPrepaidShipment(order);
   const deliveryPreview = calculateDeliveryCharges({
     baseShippingCharge: selectedService?.quote?.totalPrice ?? 0,
-    orderValue: getOrderProductBalance(order),
-    advanceAmount: order?.advancePaidAmount || order?.codAdvanceAmount || 0,
+    orderValue: addingShipment ? paymentForm.codAmount : getOrderProductBalance(order),
+    advanceAmount: addingShipment ? 0 : order?.advancePaidAmount || order?.codAdvanceAmount || 0,
     isCod: paymentForm.isCod,
   });
 
   useEffect(() => {
     if (!paymentTouched && paymentForm.isCod && selectedService?.quote) {
-      setPaymentForm((prev) => ({ ...prev, codAmount: String(Math.round((deliveryPreview.codBalance + deliveryPreview.deliveryCharges) * 100) / 100) }));
+      setPaymentForm((prev) => ({ ...prev, codAmount: String(Math.round(deliveryPreview.codBalance + deliveryPreview.deliveryCharges)) }));
     }
   }, [paymentTouched, paymentForm.isCod, selectedService, deliveryPreview.codBalance, deliveryPreview.deliveryCharges]);
+
+  const volumetricWeight = getVolumetricWeight(packageForm);
+  const physicalWeight = Number(packageForm.weight) / (packageForm.weightUnit === "G" ? 1000 : 1);
+  const chargeableWeight = physicalWeight > 0 && volumetricWeight != null
+    ? Math.max(physicalWeight, volumetricWeight) : null;
+  const hasShippingQuote = selectedService?.quote?.totalPrice != null;
+  const estimatedCollection = Math.round(deliveryPreview.codBalance + deliveryPreview.deliveryCharges);
 
   const updatePackageField = (field, value) => {
     setPackageForm((prev) => ({ ...prev, [field]: value }));
@@ -253,6 +266,7 @@ export default function AdminOrderShipmentPanel({
           order,
           paymentTouched,
         }),
+        additionalShipment: addingShipment,
         carriers,
       });
 
@@ -302,11 +316,13 @@ export default function AdminOrderShipmentPanel({
           order,
           paymentTouched,
         }),
+        additionalShipment: addingShipment,
         carrier: selectedService.quote.carrier,
         service: selectedService.quote.service,
       });
       onOrderUpdated(data.data);
       setMetadataForm({ shipmentNote: "", evidenceUrl: "", evidenceName: "" });
+      setShipmentSelection("");
       onSuccess("Shipping label created. Tracking is linked to the order.");
       setServiceOptions([]);
     } catch (err) {
@@ -325,9 +341,11 @@ export default function AdminOrderShipmentPanel({
     try {
       const { data } = await linkAdminOrderShipment(order._id, {
         trackingNumber: trackingInput.trim(),
+        additionalShipment: addingShipment,
       });
       onOrderUpdated(data.data);
       setTrackingInput("");
+      setShipmentSelection("");
       onSuccess("Tracking linked. Customer will get live updates.");
     } catch (err) {
       onError(err.response?.data?.message || "Failed to link tracking");
@@ -342,7 +360,7 @@ export default function AdminOrderShipmentPanel({
     onError("");
     onSuccess("");
     try {
-      const { data } = await syncAdminOrderShipment(order._id);
+      const { data } = await syncAdminOrderShipment(order._id, { trackingNumber: order.shipment.trackingNumber });
       onOrderUpdated(data.data);
       onSuccess("Tracking updated from Envia.");
     } catch (err) {
@@ -367,12 +385,13 @@ export default function AdminOrderShipmentPanel({
     onError("");
     onSuccess("");
     try {
-      const { data } = await cancelAdminOrderShipment(order._id, { clearOnly, forceClear });
+      const { data } = await cancelAdminOrderShipment(order._id, { clearOnly, forceClear, trackingNumber: order.shipment.trackingNumber });
       onOrderUpdated(data.data);
       setServiceOptions([]);
       setQuoteErrors([]);
       setQuotedPayment(null);
       setMode("create");
+      setShipmentSelection("");
       onSuccess(data.message || "Shipment cancelled. You can create a new label.");
     } catch (err) {
       const response = err.response?.data;
@@ -420,6 +439,27 @@ export default function AdminOrderShipmentPanel({
         ) : null}
       </div>
 
+      {shipments.length > 0 ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <label className="text-xs font-semibold text-neutral-600">
+            Shipment
+            <select value={addingShipment ? "new" : selectedShipment.trackingNumber || ""}
+              onChange={(event) => setShipmentSelection(event.target.value)}
+              disabled={creatingLabel || cancellingLabel || linkingTracking || syncingTracking}
+              className="ml-2 rounded-md border border-neutral-200 bg-white px-2 py-1.5 text-xs">
+              {shipments.map((entry, index) => <option key={entry.trackingNumber} value={entry.trackingNumber}>Shipment {index + 1} · {entry.trackingNumber}</option>)}
+              {addingShipment ? <option value="new">New shipment</option> : null}
+            </select>
+          </label>
+          <button type="button" onClick={() => setShipmentSelection("new")}
+            disabled={addingShipment || creatingLabel || cancellingLabel || linkingTracking || syncingTracking || ["cancelled", "delivered"].includes(order.status)}
+            className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-50">
+            + Create another shipment
+          </button>
+        </div>
+      ) : null}
+      {addingShipment ? <p className="mb-3 text-xs text-neutral-600">Create another parcel for this order. Existing labels stay active. COD is off by default; enter only the amount this parcel should collect if needed.</p> : null}
+
       {hasTracking ? (
         <div className="space-y-2 text-xs text-neutral-700">
           <div className="grid gap-1 sm:grid-cols-2">
@@ -444,10 +484,11 @@ export default function AdminOrderShipmentPanel({
             ) : null}
           </div>
           <div className="rounded-md border border-neutral-200 p-2.5 text-xs text-neutral-700">
+            {shipments.length > 1 ? <p>COD collection for this parcel: {formatPrice(order.shipment.codCollectAmount || 0)}</p> : null}
             <p>Minimum shipping charge (Envia label): {order.shipment.baseShippingCharge == null ? "Unavailable — delivery remains estimated" : formatPrice(order.shipment.baseShippingCharge)}</p>
             {order.shipment.codFee != null ? <p>COD fee (2.5% of {formatPrice(order.shipment.codBalance)}): {formatPrice(order.shipment.codFee)} · Delivery: {formatPrice(order.deliveryCharges)}</p> : null}
             {order.shipment.volumetricWeight != null ? <p>Volumetric weight: {order.shipment.volumetricWeight.toFixed(3)} KG</p> : null}
-            {order.shipment.codCollectAmount > 0 && Math.abs(order.total - (order.codAdvanceAmount || 0) - order.shipment.codCollectAmount) >= 0.01 ? (
+            {shipments.length === 1 && order.shipment.codCollectAmount > 0 && Math.abs(order.total - (order.codAdvanceAmount || 0) - order.shipment.codCollectAmount) >= 0.01 ? (
               <p className="mt-1 text-amber-800">Label COD collection: {formatPrice(order.shipment.codCollectAmount)}. Final balance: {formatPrice(Math.max(0, order.total - (order.codAdvanceAmount || 0)))}. Reconcile the difference before dispatch.</p>
             ) : null}
           </div>
@@ -663,6 +704,11 @@ export default function AdminOrderShipmentPanel({
             </label>
           </div>
 
+          <p className="rounded-md border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs" aria-live="polite">
+            <span className="font-semibold text-neutral-900">Chargeable weight: {chargeableWeight == null ? "—" : `${chargeableWeight.toFixed(3)} KG`}</span>
+            <span className="ml-1 text-neutral-500">(Max of physical &amp; volumetric)</span>
+          </p>
+
           <div>
             <span className={compactFieldLabelClass}>Shipping partner</span>
             <div className="grid grid-cols-2 gap-1.5 rounded-md border border-neutral-200 p-2 lg:grid-cols-5">
@@ -742,9 +788,14 @@ export default function AdminOrderShipmentPanel({
                     <input
                       type="number"
                       min="1"
-                      step="0.01"
+                      step="1"
                       value={paymentForm.codAmount}
                       onChange={(e) => updatePaymentField("codAmount", e.target.value)}
+                      onBlur={(e) => {
+                        if (e.target.value !== "") {
+                          updatePaymentField("codAmount", String(Math.round(Number(e.target.value))));
+                        }
+                      }}
                       className={`${compactInputClass} border-0 focus:ring-0`}
                       placeholder="Amount"
                     />
@@ -764,6 +815,39 @@ export default function AdminOrderShipmentPanel({
                 {formatPrice(order.advancePaidAmount || order.codAdvanceAmount)}
               </p>
             ) : null}
+          </div>
+
+          <div className="overflow-hidden rounded-md border border-neutral-200" aria-live="polite">
+            <dl className="grid grid-cols-2 gap-px bg-neutral-200 lg:grid-cols-4">
+              {[
+                ["COD amount", formatPrice(deliveryPreview.codBalance)],
+                ["COD charge (2.5%)", formatPrice(deliveryPreview.codFee)],
+                ["Selected shipping charge", hasShippingQuote ? formatPrice(deliveryPreview.baseShippingCharge) : "—"],
+                ["Total COD + shipping charges", hasShippingQuote ? formatPrice(deliveryPreview.deliveryCharges) : "—"],
+              ].map(([label, value]) => (
+                <div key={label} className="bg-white p-2.5">
+                  <dt className="text-[11px] font-semibold text-neutral-500">{label}</dt>
+                  <dd className="mt-1 text-sm font-bold text-neutral-900">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="border-t border-neutral-200 bg-neutral-50 px-2.5 py-2 text-[11px] text-neutral-600">
+              <strong>Note:</strong> Total charge is fee-only, not the amount collected from the customer.
+            </p>
+          </div>
+          <div className="rounded-md border border-neutral-200 p-2.5 text-xs" aria-live="polite">
+            <p className="font-semibold text-neutral-900">Summary</p>
+            <p className="mt-1 text-neutral-600">
+              Shipping: {hasShippingQuote ? formatPrice(deliveryPreview.baseShippingCharge) : "—"} + COD fee (2.5%): {formatPrice(deliveryPreview.codFee)}
+              <strong className="ml-1 text-neutral-900">= Total fees: {hasShippingQuote ? formatPrice(deliveryPreview.deliveryCharges) : "—"}</strong>
+            </p>
+            {paymentForm.isCod ? (
+              <p className="mt-1 text-neutral-600">
+                Estimated customer collection: <strong className="text-neutral-900">{hasShippingQuote ? formatPrice(estimatedCollection) : "—"}</strong>
+                <span className="ml-1">(COD balance + fees; label collects the amount entered above.)</span>
+              </p>
+            ) : null}
+            {!hasShippingQuote ? <p className="mt-1 text-neutral-500">Compare rates to see total fees.</p> : null}
           </div>
 
           <div className="rounded-md border border-neutral-200 p-2.5">

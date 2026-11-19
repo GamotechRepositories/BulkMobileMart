@@ -26,10 +26,10 @@ export function calculateAdvanceAmount(total) {
   return Math.round(amount * ADVANCE_PAYMENT_PERCENT * 100) / 100;
 }
 
-export function calculatePayableAmount(total, paymentMode, deliveryCharges = 0) {
+export function calculatePayableAmount(total, paymentMode) {
   const amount = Number(total) || 0;
   if (paymentMode === PAYMENT_PLAN.ADVANCE) {
-    return calculateAdvanceAmount(Math.max(0, amount - deliveryCharges));
+    return calculateAdvanceAmount(Math.max(0, amount));
   }
   return Math.round(amount * 100) / 100;
 }

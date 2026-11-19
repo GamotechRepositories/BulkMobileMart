@@ -17,7 +17,7 @@ import {
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
-import { getClearedShipment, mergeOrderShipment, mapShipmentTrackingToOrderStatus } from "../utils/shipmentHelpers.js";
+import { getOrderShipments, findOrderShipment, storeOrderShipment, getCombinedShipmentStatus, getClearedShipment, mergeOrderShipment } from "../utils/shipmentHelpers.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
 import {
   calculateAdvanceAmount,
@@ -248,28 +248,21 @@ function applyShipmentOnOrder(order, shipment, metadata = {}) {
 async function applyTrackingToOrder(order, tracking = {}, { notify = false } = {}) {
   const previousStatus = order.status;
 
-  order.shipment = mergeOrderShipment(order, {
+  const target = findOrderShipment(order, tracking.trackingNumber);
+  const updated = mergeOrderShipment({ shipment: target }, {
     provider: "envia",
-    status: tracking.status || order.shipment?.status || "",
-    statusMessage: tracking.statusMessage || order.shipment?.statusMessage || "",
-    trackingNumber: tracking.trackingNumber || order.shipment?.trackingNumber || "",
-    trackUrl: tracking.trackUrl || order.shipment?.trackUrl || "",
+    status: tracking.status || target?.status || "",
+    statusMessage: tracking.statusMessage || target?.statusMessage || "",
+    trackingNumber: tracking.trackingNumber || target?.trackingNumber || "",
+    trackUrl: tracking.trackUrl || target?.trackUrl || "",
     syncedAt: tracking.syncedAt || new Date(),
     events: Array.isArray(tracking.events) && tracking.events.length
       ? tracking.events
-      : order.shipment?.events || [],
+      : target?.events || [],
   });
 
-  const nextStatus = mapShipmentTrackingToOrderStatus({
-    status: order.shipment.status,
-    statusMessage: order.shipment.statusMessage,
-    events: order.shipment.events,
-    currentStatus: order.status,
-  });
-
-  if (nextStatus !== order.status) {
-    order.status = nextStatus;
-  }
+  storeOrderShipment(order, updated, { trackingNumber: target.trackingNumber });
+  order.status = getCombinedShipmentStatus(order);
 
   await order.save();
 
@@ -281,41 +274,26 @@ async function applyTrackingToOrder(order, tracking = {}, { notify = false } = {
 }
 
 async function autoSyncShipmentForOrder(order) {
-  if (!order?.shipment?.trackingNumber) {
-    return order;
-  }
-
-  // If shipment text already implies a newer order status (e.g. webhook updated
-  // shipment only, or weak older mapping), catch up without waiting for Envia.
-  const mappedFromStored = mapShipmentTrackingToOrderStatus({
-    status: order.shipment.status,
-    statusMessage: order.shipment.statusMessage,
-    events: order.shipment.events,
-    currentStatus: order.status,
-  });
-
+  const shipments = getOrderShipments(order);
+  if (!shipments.length) return order;
+  const mappedFromStored = getCombinedShipmentStatus(order);
   if (mappedFromStored !== order.status) {
     const previousStatus = order.status;
     order.status = mappedFromStored;
     await order.save();
     void notifyOrderStatusChange(order, previousStatus);
   }
-
-  const lastSync = order.shipment?.syncedAt ? new Date(order.shipment.syncedAt).getTime() : 0;
-  const isFresh = Date.now() - lastSync < AUTO_TRACK_SYNC_MS;
-  if (isFresh) {
-    return order;
+  for (const shipment of shipments) {
+    const lastSync = shipment.syncedAt ? new Date(shipment.syncedAt).getTime() : 0;
+    if (Date.now() - lastSync < AUTO_TRACK_SYNC_MS) continue;
+    try {
+      const tracking = await trackEnviaShipment(shipment.trackingNumber);
+      await applyTrackingToOrder(order, { ...tracking, trackingNumber: shipment.trackingNumber }, { notify: true });
+    } catch (error) {
+      console.warn(`Auto tracking sync skipped for order ${order._id}: ${error.message}`);
+    }
   }
-
-  try {
-    const tracking = await trackEnviaShipment(order.shipment.trackingNumber);
-    return applyTrackingToOrder(order, tracking, { notify: true });
-  } catch (error) {
-    console.warn(
-      `Auto tracking sync skipped for order ${order._id}: ${error.message}`
-    );
-    return order;
-  }
+  return order;
 }
 
 function buildDayOrderStats(orders) {
@@ -545,7 +523,7 @@ export const adminPlaceOrder = async (req, res) => {
 
     const codAdvanceAmount =
       normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
-        ? calculateAdvanceAmount(Math.max(0, result.total - result.deliveryCharges))
+        ? calculateAdvanceAmount(result.total)
         : 0;
 
     let order = await finalizeOrder({
@@ -1465,7 +1443,8 @@ export const quoteOrderShipmentRates = async (req, res) => {
       });
     }
 
-    const overrides = parseShipmentOverrides(req.body || {}, order);
+    const additional = req.body?.additionalShipment === true;
+    const overrides = parseShipmentOverrides(additional ? { ...req.body, isCod: req.body.isCod === true, allowPrepaidShipment: true } : req.body || {}, order);
     const { quotes, errors, carriers } = await quoteEnviaShipmentRates(order, overrides);
 
     res.status(200).json({
@@ -1509,14 +1488,16 @@ export const createOrderShipment = async (req, res) => {
       });
     }
 
-    if (order.shipment?.trackingNumber) {
+    if (["cancelled", "delivered"].includes(order.status)) throw new Error("Cannot add a shipment to a cancelled or delivered order");
+    const additional = req.body?.additionalShipment === true;
+    if (order.shipment?.trackingNumber && !additional) {
       return res.status(400).json({
         success: false,
         message: "Shipment already created for this order",
       });
     }
 
-    const overrides = parseShipmentOverrides(req.body || {}, order);
+    const overrides = parseShipmentOverrides(additional ? { ...req.body, isCod: req.body.isCod === true, allowPrepaidShipment: true } : req.body || {}, order);
     if (!overrides.carrier || !overrides.service) {
       return res.status(400).json({
         success: false,
@@ -1524,22 +1505,30 @@ export const createOrderShipment = async (req, res) => {
       });
     }
 
+    if (additional && overrides.isCod) {
+      const allocated = getOrderShipments(order).reduce((sum, entry) => sum + (Number(entry.codCollectAmount) || 0), 0);
+      const available = Math.max(0, Math.round((Number(order.total) || 0) - (Number(order.codAdvanceAmount) || 0)) - allocated);
+      if (!(Number(req.body.codAmount) > 0) || overrides.codAmount > available) {
+        throw new Error(`Enter this parcel's COD amount, up to ₹${available}. Existing labels already collect ₹${allocated}.`);
+      }
+    }
+
     const productBalance = getOrderProductBalance(order);
     const advanceAmount = Number(order.codAdvanceAmount) || 0;
     const shipment = await createEnviaShipment(order, overrides);
     const charges = shipment.baseShippingCharge == null ? null : calculateDeliveryCharges({
       baseShippingCharge: shipment.baseShippingCharge,
-      orderValue: productBalance,
-      advanceAmount,
+      orderValue: additional ? overrides.codAmount : productBalance,
+      advanceAmount: additional ? 0 : advanceAmount,
       isCod: overrides.isCod,
     });
     if (charges) {
-      order.deliveryCharges = charges.deliveryCharges;
-      order.total = roundMoney(Math.max(0, (Number(order.subtotal) || 0) - (Number(order.couponDiscount) || 0) - (Number(order.walletDiscount) || 0) + charges.deliveryCharges));
+      order.deliveryCharges = roundMoney((additional ? Number(order.deliveryCharges) || 0 : 0) + charges.deliveryCharges);
+      order.total = roundMoney(Math.max(0, (Number(order.subtotal) || 0) - (Number(order.couponDiscount) || 0) - (Number(order.walletDiscount) || 0) + order.deliveryCharges));
     }
     const previousStatus = order.status;
 
-    order.shipment = mergeOrderShipment(order, {
+    const newShipment = mergeOrderShipment({ shipment: {} }, {
       baseShippingCharge: shipment.baseShippingCharge,
       codFee: charges?.codFee ?? null,
       codBalance: charges?.codBalance ?? null,
@@ -1560,7 +1549,7 @@ export const createOrderShipment = async (req, res) => {
       evidenceUrl: overrides.evidenceUrl || "",
       evidenceName: overrides.evidenceName || "",
     });
-    order.markModified("shipment");
+    storeOrderShipment(order, newShipment, { additional });
 
     if (order.status === "confirm" || order.status === "processing") {
       order.status = "shipping";
@@ -1574,7 +1563,7 @@ export const createOrderShipment = async (req, res) => {
     if (previousStatus !== populated.status) {
       void notifyOrderStatusChange(populated, previousStatus);
     } else {
-      void notifyShipmentLabelCreated(populated);
+      void notifyShipmentLabelCreated(additional ? { ...populated.toObject(), shipment: newShipment } : populated);
     }
 
     res.status(200).json({
@@ -1605,49 +1594,47 @@ export const linkOrderShipmentTracking = async (req, res) => {
       });
     }
 
+    if (["cancelled", "delivered"].includes(order.status)) throw new Error("Cannot add a shipment to a cancelled or delivered order");
+    const additional = req.body?.additionalShipment === true;
+    if (getOrderShipments(order).some((entry) => entry.trackingNumber === trackingNumber)) {
+      throw new Error("This tracking number is already linked to the order");
+    }
+    if (order.shipment?.trackingNumber && !additional) throw new Error("Use another shipment to preserve existing tracking");
     const previousStatus = order.status;
+    const target = {};
 
-    order.shipment = mergeOrderShipment(order, {
+    const linkedShipment = mergeOrderShipment({ shipment: target }, {
       provider: "envia",
-      carrier: String(req.body?.carrier || order.shipment?.carrier || "").trim(),
-      service: String(req.body?.service || order.shipment?.service || "").trim(),
+      carrier: String(req.body?.carrier || target?.carrier || "").trim(),
+      service: String(req.body?.service || target?.service || "").trim(),
       trackingNumber,
-      trackUrl: String(req.body?.trackUrl || order.shipment?.trackUrl || "").trim(),
-      labelUrl: String(req.body?.labelUrl || order.shipment?.labelUrl || "").trim(),
-      status: String(req.body?.status || order.shipment?.status || "created").trim(),
+      trackUrl: String(req.body?.trackUrl || target?.trackUrl || "").trim(),
+      labelUrl: String(req.body?.labelUrl || target?.labelUrl || "").trim(),
+      status: String(req.body?.status || target?.status || "created").trim(),
       statusMessage:
-        String(req.body?.statusMessage || order.shipment?.statusMessage || "").trim() ||
+        String(req.body?.statusMessage || target?.statusMessage || "").trim() ||
         "Linked from Envia portal",
       syncedAt: new Date(),
-      events: order.shipment?.events || [],
+      events: target?.events || [],
     });
 
     try {
       const tracking = await trackEnviaShipment(trackingNumber);
-      order.shipment.status = tracking.status || order.shipment.status;
-      order.shipment.statusMessage =
-        tracking.statusMessage || order.shipment.statusMessage;
-      order.shipment.trackUrl = tracking.trackUrl || order.shipment.trackUrl;
-      order.shipment.events = tracking.events?.length
+      linkedShipment.status = tracking.status || linkedShipment.status;
+      linkedShipment.statusMessage =
+        tracking.statusMessage || linkedShipment.statusMessage;
+      linkedShipment.trackUrl = tracking.trackUrl || linkedShipment.trackUrl;
+      linkedShipment.events = tracking.events?.length
         ? tracking.events
-        : order.shipment.events;
-      order.shipment.syncedAt = tracking.syncedAt || order.shipment.syncedAt;
+        : linkedShipment.events;
+      linkedShipment.syncedAt = tracking.syncedAt || linkedShipment.syncedAt;
     } catch {
       // Tracking lookup is optional; webhooks will update status later.
     }
 
-    const nextStatus = mapShipmentTrackingToOrderStatus({
-      status: order.shipment.status,
-      statusMessage: order.shipment.statusMessage,
-      events: order.shipment.events,
-      currentStatus: order.status,
-    });
-
-    if (nextStatus !== order.status) {
-      order.status = nextStatus;
-    } else if (["confirm", "processing"].includes(order.status)) {
-      order.status = "shipping";
-    }
+    storeOrderShipment(order, linkedShipment, { additional });
+    order.status = getCombinedShipmentStatus(order);
+    if (["confirm", "processing"].includes(order.status)) order.status = "shipping";
 
     await order.save();
 
@@ -1679,7 +1666,7 @@ export const syncOrderShipmentTracking = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const trackingNumber = order.shipment?.trackingNumber;
+    const trackingNumber = findOrderShipment(order, req.body?.trackingNumber)?.trackingNumber;
     if (!trackingNumber) {
       return res.status(400).json({
         success: false,
@@ -1688,7 +1675,7 @@ export const syncOrderShipmentTracking = async (req, res) => {
     }
 
     const tracking = await trackEnviaShipment(trackingNumber);
-    await applyTrackingToOrder(order, tracking, { notify: true });
+    await applyTrackingToOrder(order, { ...tracking, trackingNumber }, { notify: true });
     const populated = await populateOrderItems(
       Order.findById(order._id).populate("user", "name email phone")
     );
@@ -1713,7 +1700,8 @@ export const cancelOrderShipment = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const trackingNumber = String(order.shipment?.trackingNumber || "").trim();
+    const target = findOrderShipment(order, req.body?.trackingNumber);
+    const trackingNumber = String(target?.trackingNumber || "").trim();
     if (!trackingNumber) {
       return res.status(400).json({
         success: false,
@@ -1730,7 +1718,7 @@ export const cancelOrderShipment = async (req, res) => {
 
     const clearOnly = Boolean(req.body?.clearOnly);
     const forceClear = Boolean(req.body?.forceClear);
-    const carrier = String(order.shipment?.carrier || "").trim();
+    const carrier = String(target?.carrier || "").trim();
     let enviaCancelled = false;
     let enviaWarning = "";
 
@@ -1748,7 +1736,7 @@ export const cancelOrderShipment = async (req, res) => {
         await cancelEnviaShipment({
           carrier,
           trackingNumber,
-          folio: order.shipment?.shipmentId || order.orderNumber || "",
+          folio: target?.shipmentId || order.orderNumber || "",
         });
         enviaCancelled = true;
       } catch (error) {
@@ -1766,10 +1754,9 @@ export const cancelOrderShipment = async (req, res) => {
     }
 
     const previousStatus = order.status;
-    order.shipment = getClearedShipment();
-    order.markModified("shipment");
+    storeOrderShipment(order, getClearedShipment(), { trackingNumber });
 
-    if (order.status === "shipping") {
+    if (order.status === "shipping" && !getOrderShipments(order).length) {
       order.status = "processing";
     }
 

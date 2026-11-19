@@ -1,13 +1,6 @@
 const ENV_UPI_ID = String(import.meta.env.VITE_MERCHANT_UPI_ID || "").trim();
 const ENV_UPI_NAME = (import.meta.env.VITE_MERCHANT_UPI_NAME || "").trim();
 
-export function getPayableAmount(orderTotal, paymentMethod) {
-  if (paymentMethod === "cod") {
-    return Math.round(orderTotal * 0.1 * 100) / 100;
-  }
-  return Math.round(orderTotal * 100) / 100;
-}
-
 function sanitizeNote(note) {
   return String(note || "Order")
     .replace(/%/g, "")
