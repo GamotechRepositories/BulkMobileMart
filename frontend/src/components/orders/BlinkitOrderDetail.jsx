@@ -205,11 +205,6 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 </span>
               </div>
             </div>
-                {order.shipment?.baseShippingCharge != null ? (
-                  <p className="text-xs text-text-muted">
-                    Envia label: {formatOrderPrice(order.shipment.baseShippingCharge)} + COD fee (2.5%): {formatOrderPrice(order.shipment.codFee || 0)}
-                  </p>
-                ) : <p className="text-xs text-text-muted">Delivery is finalized after shipping label creation.</p>}
           </div>
           <div className="my-3.5 border-t border-border-light" />
           <div className="flex items-center justify-between">
