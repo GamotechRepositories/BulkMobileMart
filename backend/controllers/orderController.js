@@ -1183,6 +1183,7 @@ export const updateOrder = async (req, res) => {
       paymentStatus,
       items,
       deliveryCharges,
+      codChargePercentage,
       couponCode,
       notificationStage,
       manualTracking,
@@ -1280,7 +1281,7 @@ export const updateOrder = async (req, res) => {
         });
       }
 
-      const rebuilt = await rebuildOrderFromItemsInput(items);
+      const rebuilt = await rebuildOrderFromItemsInput(items, { codChargePercentage: existingOrder.codChargePercentage ?? 2.5 });
       if (rebuilt.error) {
         return res.status(rebuilt.status || 400).json({
           success: false,
@@ -1317,6 +1318,28 @@ export const updateOrder = async (req, res) => {
       updates.deliveryCharges = charge;
       updates.total = nextTotal;
       updates.gstAmount = 0;
+    }
+
+    if (codChargePercentage !== undefined) {
+      if (typeof codChargePercentage !== "number" || !Number.isFinite(codChargePercentage) || codChargePercentage < 0 || codChargePercentage > 100) {
+        return res.status(400).json({ success: false, message: "COD charge percentage must be a number between 0 and 100" });
+      }
+      updates.codChargePercentage = codChargePercentage;
+      if (existingOrder.paymentMethod === "cod") {
+        const value = getOrderProductBalance({
+          subtotal: updates.subtotal ?? existingOrder.subtotal,
+          couponDiscount: updates.couponDiscount ?? existingOrder.couponDiscount,
+          walletDiscount: existingOrder.walletDiscount,
+        });
+        // Keep shipping costs and manual adjustments; replace only the COD fee.
+        const advanceAmount = existingOrder.shipment?.codBalance != null
+          ? Math.max(0, value - existingOrder.shipment.codBalance)
+          : Number(existingOrder.codAdvanceAmount) > 0 ? existingOrder.codAdvanceAmount : undefined;
+        const oldFee = calculateDeliveryCharges({ orderValue: value, advanceAmount, codChargePercentage: existingOrder.codChargePercentage ?? 2.5 }).codFee;
+        const newFee = calculateDeliveryCharges({ orderValue: value, advanceAmount, codChargePercentage }).codFee;
+        updates.deliveryCharges = roundMoney(Math.max(0, Number(updates.deliveryCharges ?? existingOrder.deliveryCharges ?? 0) - oldFee + newFee));
+        updates.total = roundMoney(value + updates.deliveryCharges);
+      }
     }
 
     if (status !== undefined) {
@@ -1521,6 +1544,7 @@ export const createOrderShipment = async (req, res) => {
       orderValue: additional ? overrides.codAmount : productBalance,
       advanceAmount: additional ? 0 : advanceAmount,
       isCod: overrides.isCod,
+      codChargePercentage: order.codChargePercentage ?? 2.5,
     });
     if (charges) {
       order.deliveryCharges = roundMoney((additional ? Number(order.deliveryCharges) || 0 : 0) + charges.deliveryCharges);
@@ -1530,6 +1554,7 @@ export const createOrderShipment = async (req, res) => {
 
     const newShipment = mergeOrderShipment({ shipment: {} }, {
       baseShippingCharge: shipment.baseShippingCharge,
+      codChargePercentage: order.codChargePercentage ?? 2.5,
       codFee: charges?.codFee ?? null,
       codBalance: charges?.codBalance ?? null,
       codCollectAmount: overrides.isCod ? overrides.codAmount : 0,

@@ -96,3 +96,14 @@ test('checkout COD advance is 10% of the full payable total, including delivery'
     }
   }
 });
+
+test('order COD percentage defaults to 2.5 and supports custom and waived fees', () => {
+  assert.equal(new Order().codChargePercentage, 2.5);
+  assert.equal(new Order({ codChargePercentage: 0 }).codChargePercentage, 0);
+  for (const percentage of [0, 1.75, 5]) {
+    const charges = calculateDeliveryCharges({ orderValue: 10000, advanceAmount: 1000, baseShippingCharge: 300, codChargePercentage: percentage });
+    assert.equal(charges.codFee, 9000 * percentage / 100);
+    assert.equal(charges.deliveryCharges, 300 + charges.codFee);
+    assert.equal(calculateDeliveryCharges({ orderValue: 10000, isCod: false, codChargePercentage: percentage }).codFee, 0);
+  }
+});

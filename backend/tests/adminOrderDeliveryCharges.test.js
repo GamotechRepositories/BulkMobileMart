@@ -45,3 +45,33 @@ for (const scenario of [
     assert.equal(save.mock.callCount(), scenario.charges.length);
   });
 }
+
+for (const percentage of [0, 1, 5, 100]) {
+  test(`per-order COD percentage ${percentage} preserves discounts and survives repeated saves`, async (t) => {
+    const order = { _id: 'cod-order', status: 'confirm', paymentStatus: 'paid_10', paymentMethod: 'cod',
+      items: [], subtotal: 11000, couponDiscount: 500, walletDiscount: 500,
+      codAdvanceAmount: 1000, deliveryCharges: 525, total: 10525 };
+    t.mock.method(Order, 'findById', () => ({ populate() { return this; }, then(resolve, reject) { return Promise.resolve({ ...order }).then(resolve, reject); } }));
+    t.mock.method(Order, 'findByIdAndUpdate', async (id, update) => { Object.assign(order, update.$set); return order; });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+      await updateOrder({ params: { id: order._id }, body: { codChargePercentage: percentage } }, res);
+      assert.equal(res.code, 200, res.body?.message);
+      assert.equal(order.codChargePercentage, percentage);
+      assert.equal(order.deliveryCharges, 300 + 9000 * percentage / 100);
+      assert.equal(order.total, 10000 + order.deliveryCharges);
+      assert.equal(order.walletDiscount, 500);
+    }
+  });
+}
+
+for (const percentage of [-1, 101, null, '', 'abc', Infinity]) {
+  test(`invalid COD percentage ${JSON.stringify(percentage)} is rejected`, async (t) => {
+    t.mock.method(Order, 'findById', async () => ({ status: 'confirm' }));
+    const save = t.mock.method(Order, 'findByIdAndUpdate', async () => assert.fail('must not save'));
+    const res = { status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+    await updateOrder({ params: { id: 'order' }, body: { codChargePercentage: percentage } }, res);
+    assert.equal(res.code, 400);
+    assert.equal(save.mock.callCount(), 0);
+  });
+}

@@ -506,7 +506,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   };
 }
 
-export async function rebuildOrderFromItemsInput(rawItems) {
+export async function rebuildOrderFromItemsInput(rawItems, shippingOptions = {}) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: "Order must have at least one item", status: 400 };
   }
@@ -522,7 +522,7 @@ export async function rebuildOrderFromItemsInput(rawItems) {
   }
 
   const storeSettings = await getStoreSettings();
-  const deliveryCharges = calculateShippingCharge(built.subtotal, storeSettings);
+  const deliveryCharges = calculateShippingCharge(built.subtotal, storeSettings, shippingOptions);
   const { gstAmount, total } = calculateOrderTotal(built.subtotal, deliveryCharges);
 
   return {

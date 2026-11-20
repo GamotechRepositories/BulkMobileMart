@@ -121,6 +121,7 @@ function buildInitialPaymentForm(order) {
 
 export default function AdminOrderShipmentPanel({
   order: sourceOrder,
+  codChargeControl,
   onOrderUpdated,
   onError,
   onSuccess,
@@ -165,7 +166,7 @@ export default function AdminOrderShipmentPanel({
     setQuoteErrors([]);
     setTrackingInput("");
     setMode("create");
-  }, [shipmentSelection, order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, order?.advancePaidAmount]);
+  }, [shipmentSelection, order?._id, order?.paymentMethod, order?.paymentStatus, order?.total, order?.codAdvanceAmount, order?.advancePaidAmount, order?.codChargePercentage]);
 
   useEffect(() => {
     setQuotedPayment(null);
@@ -185,6 +186,7 @@ export default function AdminOrderShipmentPanel({
     orderValue: addingShipment ? paymentForm.codAmount : getOrderProductBalance(order),
     advanceAmount: addingShipment ? 0 : order?.advancePaidAmount || order?.codAdvanceAmount || 0,
     isCod: paymentForm.isCod,
+    codChargePercentage: order?.codChargePercentage ?? 2.5,
   });
 
   useEffect(() => {
@@ -486,7 +488,7 @@ export default function AdminOrderShipmentPanel({
           <div className="rounded-md border border-neutral-200 p-2.5 text-xs text-neutral-700">
             {shipments.length > 1 ? <p>COD collection for this parcel: {formatPrice(order.shipment.codCollectAmount || 0)}</p> : null}
             <p>Minimum shipping charge (Envia label): {order.shipment.baseShippingCharge == null ? "Unavailable — delivery remains estimated" : formatPrice(order.shipment.baseShippingCharge)}</p>
-            {order.shipment.codFee != null ? <p>COD fee (2.5% of {formatPrice(order.shipment.codBalance)}): {formatPrice(order.shipment.codFee)} · Delivery: {formatPrice(order.deliveryCharges)}</p> : null}
+            {order.shipment.codFee != null ? <p>COD fee ({order.shipment.codChargePercentage ?? 2.5}% of {formatPrice(order.shipment.codBalance)}): {formatPrice(order.shipment.codFee)} · Delivery: {formatPrice(order.deliveryCharges)}</p> : null}
             {order.shipment.volumetricWeight != null ? <p>Volumetric weight: {order.shipment.volumetricWeight.toFixed(3)} KG</p> : null}
             {shipments.length === 1 && order.shipment.codCollectAmount > 0 && Math.abs(order.total - (order.codAdvanceAmount || 0) - order.shipment.codCollectAmount) >= 0.01 ? (
               <p className="mt-1 text-amber-800">Label COD collection: {formatPrice(order.shipment.codCollectAmount)}. Final balance: {formatPrice(Math.max(0, order.total - (order.codAdvanceAmount || 0)))}. Reconcile the difference before dispatch.</p>
@@ -805,7 +807,7 @@ export default function AdminOrderShipmentPanel({
             </div>
             <p className="mt-2 text-[11px] text-neutral-600">
               Minimum shipping charge (Envia label): {selectedService?.quote ? `${formatPrice(deliveryPreview.baseShippingCharge)} estimated` : "Available after label creation"}
-              {" · "}COD fee (2.5% of {formatPrice(deliveryPreview.codBalance)}): {formatPrice(deliveryPreview.codFee)}
+              {" · "}COD fee ({order.codChargePercentage ?? 2.5}% of {formatPrice(deliveryPreview.codBalance)}): {formatPrice(deliveryPreview.codFee)}
               {selectedService?.quote ? ` · Estimated delivery: ${formatPrice(deliveryPreview.deliveryCharges)}` : ""}
             </p>
             {paymentForm.isCod &&
@@ -821,12 +823,15 @@ export default function AdminOrderShipmentPanel({
             <dl className="grid grid-cols-2 gap-px bg-neutral-200 lg:grid-cols-4">
               {[
                 ["COD amount", formatPrice(deliveryPreview.codBalance)],
-                ["COD charge (2.5%)", formatPrice(deliveryPreview.codFee)],
+                [`COD charge (${order.codChargePercentage ?? 2.5}%)`, formatPrice(deliveryPreview.codFee), codChargeControl],
                 ["Selected shipping charge", hasShippingQuote ? formatPrice(deliveryPreview.baseShippingCharge) : "—"],
                 ["Total COD + shipping charges", hasShippingQuote ? formatPrice(deliveryPreview.deliveryCharges) : "—"],
-              ].map(([label, value]) => (
+              ].map(([label, value, control]) => (
                 <div key={label} className="bg-white p-2.5">
-                  <dt className="text-[11px] font-semibold text-neutral-500">{label}</dt>
+                  <dt className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-neutral-500">
+                    <span>{label}</span>
+                    {control}
+                  </dt>
                   <dd className="mt-1 text-sm font-bold text-neutral-900">{value}</dd>
                 </div>
               ))}
@@ -838,7 +843,7 @@ export default function AdminOrderShipmentPanel({
           <div className="rounded-md border border-neutral-200 p-2.5 text-xs" aria-live="polite">
             <p className="font-semibold text-neutral-900">Summary</p>
             <p className="mt-1 text-neutral-600">
-              Shipping: {hasShippingQuote ? formatPrice(deliveryPreview.baseShippingCharge) : "—"} + COD fee (2.5%): {formatPrice(deliveryPreview.codFee)}
+              Shipping: {hasShippingQuote ? formatPrice(deliveryPreview.baseShippingCharge) : "—"} + COD fee ({order.codChargePercentage ?? 2.5}%): {formatPrice(deliveryPreview.codFee)}
               <strong className="ml-1 text-neutral-900">= Total fees: {hasShippingQuote ? formatPrice(deliveryPreview.deliveryCharges) : "—"}</strong>
             </p>
             {paymentForm.isCod ? (

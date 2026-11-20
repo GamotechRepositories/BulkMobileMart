@@ -1,11 +1,11 @@
 export const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
 const nonNegative = (value) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
 
-export function calculateDeliveryCharges({ baseShippingCharge = 0, orderValue = 0, advanceAmount, isCod = true } = {}) {
+export function calculateDeliveryCharges({ baseShippingCharge = 0, orderValue = 0, advanceAmount, isCod = true, codChargePercentage = 2.5 } = {}) {
   const value = nonNegative(orderValue);
   const advance = advanceAmount == null ? roundMoney(value * 0.1) : nonNegative(advanceAmount);
   const codBalance = isCod ? roundMoney(Math.max(0, value - advance)) : 0;
-  const codFee = roundMoney(codBalance * 0.025);
+  const codFee = roundMoney(codBalance * (Number(codChargePercentage ?? 2.5) / 100));
   const base = roundMoney(nonNegative(baseShippingCharge));
   return { baseShippingCharge: base, codBalance, codFee,
     deliveryCharges: roundMoney(base + codFee) };

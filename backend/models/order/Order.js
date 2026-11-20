@@ -4,6 +4,7 @@ import { addressSnapshotSchema } from "../address/Address.js";
 const shipmentSchema = new mongoose.Schema(
   {
     baseShippingCharge: { type: Number, default: null, min: 0 },
+    codChargePercentage: { type: Number, default: 2.5, min: 0, max: 100 },
     codFee: { type: Number, default: null, min: 0 },
     codBalance: { type: Number, default: null, min: 0 },
     codCollectAmount: { type: Number, default: null, min: 0 },
@@ -149,6 +150,7 @@ const orderSchema = new mongoose.Schema(
     couponDiscount: { type: Number, default: 0, min: 0 },
     walletDiscount: { type: Number, default: 0, min: 0 },
     walletPointsRedeemed: { type: Number, default: 0, min: 0 },
+    codChargePercentage: { type: Number, default: 2.5, min: 0, max: 100 },
     deliveryCharges: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true },

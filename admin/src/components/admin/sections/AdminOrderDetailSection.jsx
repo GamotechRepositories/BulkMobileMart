@@ -136,6 +136,7 @@ function AdminOrderDetailSection() {
   const [success, setSuccess] = useState("");
   const [updating, setUpdating] = useState(false);
   const [editingDeliveryCharge, setEditingDeliveryCharge] = useState(false);
+  const [codPercentageInput, setCodPercentageInput] = useState(null);
   const [deliveryChargeInput, setDeliveryChargeInput] = useState("");
   const [editingAddress, setEditingAddress] = useState(false);
   const [manualTrackingEnabled, setManualTrackingEnabled] = useState(false);
@@ -298,6 +299,28 @@ function AdminOrderDetailSection() {
       setSuccess("Delivery charge updated");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update delivery charge");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveCodPercentage = async () => {
+    if (!order || updating) return;
+    const percentage = Number(codPercentageInput);
+    if (!String(codPercentageInput ?? "").trim() || !Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      setError("COD charge percentage must be between 0 and 100.");
+      return;
+    }
+    setUpdating(true);
+    setError("");
+    setSuccess("");
+    try {
+      const { data } = await updateAdminOrder(order._id, { codChargePercentage: percentage });
+      applyUpdatedOrder(data.data);
+      setCodPercentageInput(null);
+      setSuccess("COD charge percentage updated for this order");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update COD charge percentage");
     } finally {
       setUpdating(false);
     }
@@ -716,6 +739,27 @@ function AdminOrderDetailSection() {
         onOrderUpdated={applyUpdatedOrder}
         onError={setError}
         onSuccess={setSuccess}
+        codChargeControl={order.paymentMethod === "cod" && (
+          codPercentageInput !== null ? (
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <input aria-label="COD charge percentage" type="number" min="0" max="100" step="any"
+                value={codPercentageInput} onChange={(e) => setCodPercentageInput(e.target.value)}
+                disabled={updating}
+                className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-right text-xs" />
+              <span>%</span>
+              <button type="button" disabled={updating} onClick={handleSaveCodPercentage}
+                className="text-xs font-semibold text-primary hover:underline disabled:opacity-50">
+                {updating ? "Saving..." : "Save"}
+              </button>
+              <button type="button" disabled={updating} onClick={() => setCodPercentageInput(null)}
+                className="text-xs font-semibold text-neutral-600 hover:underline disabled:opacity-50">Cancel</button>
+            </span>
+          ) : (
+            <button type="button" disabled={updating} aria-label="Edit COD charge percentage"
+              className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              onClick={() => { setError(""); setSuccess(""); setCodPercentageInput(String(order.codChargePercentage ?? 2.5)); }}>Edit</button>
+          )
+        )}
       />
 
       <div className={cardClass}>
